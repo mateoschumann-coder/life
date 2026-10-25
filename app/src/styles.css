@@ -237,3 +237,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .mini-ai { font-size: 16px; line-height: 1.45; white-space: pre-wrap; }
 .mini .proposal { width: 100%; background: var(--card-2); }
 .mini textarea.mini-draft { font-size: 16px; min-height: 60px; resize: none; }
+
+.fab { touch-action: none; }
+.mini-head { position: relative; user-select: none; -webkit-user-select: none; }
+.grip { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 34px; height: 4px; border-radius: 2px; background: var(--chev); }
