@@ -31,6 +31,9 @@ const PATHS = {
   send: <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />,
   mic: <><rect x="9" y="3" width="6" height="11.5" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></>,
   stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
+  speaker: <><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></>,
+  speakerOff: <><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M16 9.5l5 5M21 9.5l-5 5" /></>,
+  expand: <path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" />,
 };
 
 export function Icon({ name, size = 20, color = 'currentColor', width = 2 }) {

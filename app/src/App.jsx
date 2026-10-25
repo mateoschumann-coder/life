@@ -14,6 +14,7 @@ import Unterbereich from './screens/Unterbereich';
 import Vorlagen from './screens/Vorlagen';
 import Assistent from './screens/Assistent';
 import Wuensche from './screens/Wuensche';
+import FloatingAssistant from './components/FloatingAssistant';
 
 export default function App() {
   const [page, a, b] = useRoute();
@@ -39,6 +40,7 @@ export default function App() {
   return (
     <div className="app">
       {screen}
+      {page !== 'assistent' && <FloatingAssistant />}
       <Toaster />
     </div>
   );

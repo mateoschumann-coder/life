@@ -101,14 +101,9 @@ export default function Heute() {
             <span className="eyebrow">{fmtLong(t)}</span>
             <h1 className="h1 sm">{greeting(s.profile?.name)}</h1>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <a href="#/assistent" className="icon-btn" aria-label="Assistent öffnen" style={{ background: 'var(--accent-bg)', color: 'var(--accent)' }}>
-              <Icon name="sparkle" size={20} width={1.8} />
-            </a>
-            <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen">
-              <Icon name="gear" size={20} width={1.8} />
-            </a>
-          </div>
+          <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen">
+            <Icon name="gear" size={20} width={1.8} />
+          </a>
         </div>
 
         {isNew && (

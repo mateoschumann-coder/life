@@ -164,7 +164,7 @@ export default function Einstellungen() {
           </button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.4 · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.5 · Web-App</span>
       </main>
       <TabBar />
     </>
