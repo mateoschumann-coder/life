@@ -9,6 +9,17 @@ Diese Datei ist das Gedächtnis des Projekts. Jeder neue Chat liest sie zuerst u
 - Änderungen an der App: Quellcode in `app/`, dann `cd app && node build.mjs --out ..` (schreibt die fertige App in die Repo-Wurzel), testen, committen, pushen. GitHub Pages veröffentlicht automatisch: https://mateoschumann-coder.github.io/life/
 - Nur Mateos iPhone ist wichtig (iPad-Synchronisation bewusst übersprungen, Stand Okt. 2026).
 
+## Neue Ausrichtung (Okt. 2026, von Mateo festgelegt)
+Die App soll **keine Dokumentations-App** sein, in die Mateo viel einträgt. Sie soll die **KI in jedem Lebensbereich so nutzen, dass sie ihn aktiv antreibt**: Sie sucht selbst (Internet, Schnittstellen), fasst zusammen, schlägt konkrete Optionen vor, und Mateo bestätigt mit einem Tipp (z.B. „auf die To-do-Liste für morgen“). Grundstruktur (Säulen/Bereiche) bleibt.
+Gewünschte Bausteine:
+- **Agent mit Internetzugriff**, auf Auftrag oder automatisch (z.B. jeden Morgen): Events in der Umgebung passend zu Interessen (Sport, Konzerte …), Newsletter/News zu eingetragenen Themen, Research zu neuen Themen; Ergebnisse als Optionen zum Übernehmen.
+- **Schnittstellen**: E-Mail, Garmin (Sport/Laufen, KI-Auswertung auf Knopfdruck), Finanzdaten (automatische Analyse), evtl. Open-Source-Datenquellen (Mateo erwähnte eine KI-gebaute Weltkarte mit gesammelten Informationen).
+- **Check-in mit Optionen**: Die KI schlägt nach dem Durchsehen konkrete Punkte vor, die man direkt als To-dos (z.B. für morgen) übernehmen kann.
+- **Projekte mit KI gestalten**: Projekte (nicht nur mit Fortschritt) im Gespräch mit der KI anlegen; die KI schlägt passende Kategorien, Inhalte und Graphen nur für dieses Projekt vor.
+- Sehr gute Übersicht und Steuerung von einer zentralen Stelle; viel per Gespräch mit der KI.
+- Native iOS-App (99 $/Jahr) ist für Mateo in Ordnung, wenn ein Bereich sie braucht (z.B. Apple Health/Garmin).
+- Vorgehen: **Kategorie für Kategorie durchdenken**, was integriert werden kann.
+
 ## Ziel der App
 Persönliche App, um Privates, Soziales und Professionelles zu organisieren, effizienter zu sein und nichts Wichtiges zu vernachlässigen (Geburtstage, Kontakte, Lernen, Chancensuche). Läuft unabhängig von Claude als Web-App (PWA) auf dem iPhone. Stil: hell, ruhig, minimalistisch, an iOS angelehnt; dunkler Modus automatisch.
 
