@@ -5,6 +5,7 @@ import { applyActions, describe } from '../lib/apply';
 import { Back, Icon, toast } from '../components/ui';
 
 const SUGGESTIONS = ['Was steht heute an?', 'Wem sollte ich mal wieder schreiben?', 'Plane meine Woche', 'Neues Projekt: '];
+const SR = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 export default function Assistent() {
@@ -15,6 +16,51 @@ export default function Assistent() {
   const endRef = useRef(null);
   const inputRef = useRef(null);
   const hasKey = !!getAi().apiKey;
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+
+  // Spracheingabe: antippen, sprechen, Text erscheint im Feld (vor dem Senden noch änderbar)
+  const toggleMic = () => {
+    if (listening) {
+      recRef.current?.stop();
+      return;
+    }
+    if (!SR) {
+      toast('Hier nicht verfügbar – nutze das Mikrofon der Tastatur');
+      inputRef.current?.focus();
+      return;
+    }
+    const rec = new SR();
+    rec.lang = 'de-DE';
+    rec.interimResults = true;
+    rec.continuous = false;
+    const base = text.trim() ? text.trim() + ' ' : '';
+    rec.onresult = (e) => {
+      let said = '';
+      for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript;
+      setText(base + said);
+    };
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Mikrofon nicht erlaubt – nutze das Mikrofon der Tastatur');
+      else if (e.error !== 'aborted' && e.error !== 'no-speech') toast('Spracheingabe fehlgeschlagen – nutze das Mikrofon der Tastatur');
+    };
+    rec.onend = () => setListening(false);
+    recRef.current = rec;
+    setListening(true);
+    try {
+      rec.start();
+    } catch {
+      setListening(false);
+    }
+  };
+  useEffect(() => () => recRef.current?.abort?.(), []);
+  // Textfeld wächst mit, auch wenn Text per Sprache eingefügt wird
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+  }, [text]);
 
   const update = (next) => {
     setItems(next);
@@ -143,14 +189,17 @@ export default function Assistent() {
             ))}
           </div>
         )}
-        <form className="composer-row" onSubmit={(e) => { e.preventDefault(); send(); }}>
+        <form className="composer-row" onSubmit={(e) => { e.preventDefault(); recRef.current?.stop(); send(); }}>
+          <button type="button" className={listening ? 'mic on' : 'mic'} onClick={toggleMic} disabled={!hasKey || busy} aria-label={listening ? 'Aufnahme beenden' : 'Sprechen'} aria-pressed={listening}>
+            <Icon name={listening ? 'stop' : 'mic'} size={19} color="currentColor" width={2} />
+          </button>
           <textarea
             ref={inputRef}
             className="input"
             rows={1}
             value={text}
-            placeholder="Nachricht …"
-            onChange={(e) => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px'; }}
+            placeholder={listening ? 'Ich höre zu …' : 'Nachricht …'}
+            onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); send(); } }}
             aria-label="Nachricht an den Assistenten"
             disabled={!hasKey}

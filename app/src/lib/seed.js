@@ -64,5 +64,6 @@ export function seed() {
     resources: [],
     events: [],
     radar: { topics: ['KI-Entwicklungen', 'Startups und VC', 'Portugiesisch'], items: [] },
+    wishes: [], // Wunschliste für Änderungen an der App selbst
   };
 }

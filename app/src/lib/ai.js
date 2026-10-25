@@ -52,7 +52,7 @@ export function saveChat(items) {
 // Das Werkzeug, mit dem die KI Änderungen VORSCHLÄGT (nichts wird ohne Bestätigung gespeichert)
 const ACTION_TYPES = [
   'aufgabe_anlegen', 'aufgabe_erledigen', 'aufgabe_aendern', 'projekt_anlegen', 'rhythmus_anlegen', 'rhythmus_abhaken',
-  'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag',
+  'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag', 'app_wunsch',
 ];
 export const TOOL = {
   name: 'aenderungen_vorschlagen',
@@ -67,7 +67,7 @@ export const TOOL = {
           type: 'object',
           properties: {
             typ: { type: 'string', enum: ACTION_TYPES },
-            titel: { type: 'string', description: 'Titel von Aufgabe, Ressource oder Radar-Eintrag' },
+            titel: { type: 'string', description: 'Titel von Aufgabe, Ressource, Radar-Eintrag oder App-Wunsch' },
             name: { type: 'string', description: 'Name von Projekt, Rhythmus, Person oder Event' },
             bereich_id: { type: 'string' },
             unterbereich_id: { type: 'string' },
@@ -143,6 +143,7 @@ So arbeitest du:
 - Relative Angaben wie "morgen" oder "Freitag" rechnest du in ein Datum JJJJ-MM-TT um.
 - Wenn etwas unklar ist, stelle EINE kurze Rückfrage statt zu raten.
 - Die Grundordnung (Säulen, Lebensbereiche) änderst du nie. Du kannst nichts im Internet buchen oder Nachrichten verschicken.
+- Wenn Mateo die App selbst verändern möchte (Design, neue Funktionen, Fehler), kannst du das nicht direkt. Schlage dann die Aktion "app_wunsch" mit einem klaren titel vor; die Wunschliste setzt Claude später im Code um.
 - Fragen zu seinen Daten (z.B. "Was steht heute an?", "Wem sollte ich schreiben?") beantwortest du direkt aus den Daten.
 
 Mateos aktuelle Daten (JSON):

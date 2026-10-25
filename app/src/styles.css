@@ -214,3 +214,8 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .composer-row textarea.input { border-radius: 20px; padding: 10px 14px; resize: none; min-height: 42px; max-height: 140px; line-height: 1.35; font-size: 17px; background: var(--card); }
 .send { width: 42px; height: 42px; border-radius: 21px; border: 0; background: var(--primary); color: var(--on-primary); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .send:disabled { opacity: 0.3; }
+
+.mic { width: 42px; height: 42px; border-radius: 21px; border: 0; background: var(--fill); color: var(--text); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mic.on { background: #CF5F4B; color: #fff; animation: pulse 1.4s ease-in-out infinite; }
+.mic:disabled { opacity: 0.35; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(207, 95, 75, 0.45); } 50% { box-shadow: 0 0 0 8px rgba(207, 95, 75, 0); } }

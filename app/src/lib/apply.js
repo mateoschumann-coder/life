@@ -2,7 +2,7 @@
 import { fmtShort, today } from './dates';
 import { areaOf, subOf } from './logic';
 import {
-  addEvent, addHabit, addProject, addRadarItem, addResource, addTask, logActivity, logContact, savePerson, toggleCheckin, updateTask,
+  addEvent, addHabit, addWish, addProject, addRadarItem, addResource, addTask, logActivity, logContact, savePerson, toggleCheckin, updateTask,
 } from './actions';
 import { store } from './store';
 
@@ -54,6 +54,8 @@ export function describe(s, a) {
       return { ok: !!a.name, label: join(`Event: ${a.name}`, a.datum && date(a.datum), a.ort, a.reise && 'Reise') };
     case 'radar_eintrag':
       return { ok: !!a.titel, label: join(`Radar: ${a.titel}`, a.thema) };
+    case 'app_wunsch':
+      return { ok: !!a.titel, label: `App-Wunsch: ${a.titel}` };
     default:
       return { ok: false, label: `Unbekannte Aktion (${a.typ})` };
   }
@@ -113,6 +115,8 @@ export function applyAction(s, a) {
       return addResource({ title: a.titel, url: a.url || '', areaId: area, subId: sub, projectId: proj, tags: a.tags || [] });
     case 'event_anlegen':
       return addEvent({ name: a.name, date: d(a.datum) || '', place: a.ort || '', travel: !!a.reise });
+    case 'app_wunsch':
+      return addWish(a.titel);
     case 'radar_eintrag':
       return addRadarItem({ title: a.titel, url: a.url || '', why: a.warum || '', topic: a.thema || '' });
     default:

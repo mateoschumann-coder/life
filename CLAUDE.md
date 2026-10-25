@@ -38,5 +38,6 @@ Aufgabe (auch Idee) · Rhythmus (x-mal pro Woche/Monat, Check-ins) · Person (Ka
 - v0.1: Grundfunktionen, Web-App live.
 - v0.2: iOS-Design, dunkler Modus, Bereichs-Symbole, Unterbereich-Seiten, Idee → Projekt, eigene Vorlagen.
 - v0.3: Farbwelt „Salbei und Sand“ (Persönlich #7A8F6A, Sozial #C4876B, Professionell #5F7C99, zart getönte Symbole, warmer Hintergrund), neues Icon (drei Säulen), **KI-Assistent**: Chat unter `#/assistent`, Claude-API direkt aus dem Browser (`lib/ai.js`), Schlüssel nur in `localStorage` (`life-app-ai`), Werkzeug `aenderungen_vorschlagen` → Vorschlagskarte → Bestätigen (`lib/apply.js`), Kostenanzeige in den Einstellungen. Keine Cloud (bewusst).
+- v0.4: Mikrofon-Knopf im Assistenten (Web Speech API, `de-DE`; Ausweichweg: Diktierfunktion der Tastatur), **App-Wünsche** (`s.wishes`, Bildschirm `#/wuensche`, Assistent-Aktion `app_wunsch`, „Liste für Claude kopieren“). Wenn Mateo eine Wunschliste in den Chat kopiert: alle Punkte umsetzen und ihn bitten, sie in der App als umgesetzt abzuhaken.
 - **Als Nächstes:** Rückmeldung zum Assistenten im Alltag einarbeiten; danach Ideen-Parkplatz.
 - Ideen-Parkplatz: E-Mail-Sekretär (Mails priorisieren), wöchentliche KI-Recherche für „Vorgeschlagene Themen“ (kurzer Prompt: max. 5 neue Themen, je 2 Sätze + warum relevant), Kalender schreiben, Sprachsteuerung, Event-Entdeckung, native App.

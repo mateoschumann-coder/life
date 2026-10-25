@@ -113,6 +113,10 @@ export default function Einstellungen() {
             <span className="row-main"><span className="row-title">Projekt-Vorlagen</span><span className="row-meta">{s.templates.length} Vorlagen</span></span>
             <Chevron />
           </a>
+          <a href="#/wuensche" className="row">
+            <span className="row-main"><span className="row-title">App-Wünsche</span><span className="row-meta">{s.wishes.filter((w) => !w.done).length} offen · Änderungen für Claude sammeln</span></span>
+            <Chevron />
+          </a>
         </section>
 
         <section className="card">
@@ -160,7 +164,7 @@ export default function Einstellungen() {
           </button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.3 · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.4 · Web-App</span>
       </main>
       <TabBar />
     </>

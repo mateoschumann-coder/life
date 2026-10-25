@@ -13,6 +13,7 @@ import Einstellungen from './screens/Einstellungen';
 import Unterbereich from './screens/Unterbereich';
 import Vorlagen from './screens/Vorlagen';
 import Assistent from './screens/Assistent';
+import Wuensche from './screens/Wuensche';
 
 export default function App() {
   const [page, a, b] = useRoute();
@@ -26,6 +27,7 @@ export default function App() {
     case 'unterbereich': screen = <Unterbereich key={a + b} areaId={a} subId={b} />; break;
     case 'vorlagen': screen = <Vorlagen />; break;
     case 'assistent': screen = <Assistent />; break;
+    case 'wuensche': screen = <Wuensche />; break;
     case 'projekt': screen = <Projekt key={a} id={a} />; break;
     case 'erfassen': screen = <Erfassen />; break;
     case 'menschen': screen = <Menschen />; break;

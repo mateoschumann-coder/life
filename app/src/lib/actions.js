@@ -238,3 +238,22 @@ export function deleteEvent(id) {
     s.events = s.events.filter((e) => e.id !== id);
   });
 }
+
+// Wunschliste für die App (Änderungen, die Claude später im Code umsetzt)
+export function addWish(text) {
+  if (!text.trim()) return;
+  store.update((s) => {
+    s.wishes.push({ id: uid(), text: text.trim(), done: false, createdAt: now() });
+  });
+}
+export function toggleWish(id) {
+  store.update((s) => {
+    const w = s.wishes.find((x) => x.id === id);
+    if (w) w.done = !w.done;
+  });
+}
+export function deleteWish(id) {
+  store.update((s) => {
+    s.wishes = s.wishes.filter((x) => x.id !== id);
+  });
+}
