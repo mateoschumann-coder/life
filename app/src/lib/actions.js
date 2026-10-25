@@ -5,10 +5,10 @@ import { today } from './dates';
 const now = () => new Date().toISOString();
 
 // Aufgaben
-export function addTask({ title, areaId = null, subId = null, projectId = null, due = null, idea = false }) {
+export function addTask({ title, areaId = null, subId = null, projectId = null, due = null, time = null, idea = false }) {
   if (!title.trim()) return;
   store.update((s) => {
-    s.tasks.push({ id: uid(), title: title.trim(), areaId, subId, projectId, due, idea, done: false, doneAt: null, createdAt: now() });
+    s.tasks.push({ id: uid(), title: title.trim(), areaId, subId, projectId, due, time, idea, done: false, doneAt: null, createdAt: now() });
   });
 }
 // Aus einer Idee ein Projekt machen
@@ -47,7 +47,7 @@ export function deleteTask(id) {
 export function addHabit({ name, areaId, subId = null, count, period }) {
   if (!name.trim()) return;
   store.update((s) => {
-    s.habits.push({ id: uid(), name: name.trim(), areaId, subId, count: Number(count) || 1, period, createdAt: now() });
+    s.habits.push({ id: uid(), name: name.trim(), areaId, subId, count: Number(count) || 0, period, createdAt: now() });
   });
 }
 export function toggleCheckin(habitId, date = today()) {

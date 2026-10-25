@@ -1,6 +1,6 @@
 import { addDays, startOfWeek } from '../lib/dates';
 
-export const heatColor = (n) => (n <= 0 ? 'var(--heat0)' : n === 1 ? '#CBD5BF' : n === 2 ? '#9EB08C' : '#6C8160');
+export const heatColor = (n) => (n <= 0 ? 'var(--heat0)' : n === 1 ? '#BFD3F8' : n === 2 ? '#7EA6EE' : '#2F5FD0');
 
 // Kalender-Heatmap: eine Spalte pro Woche, eine Zeile pro Wochentag (Mo–So)
 export function Heatmap({ counts, weeks, t }) {

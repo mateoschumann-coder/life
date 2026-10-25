@@ -1,7 +1,7 @@
 // Berechnungen: Ampeln, Rhythmen, Kontakte, Geburtstage.
 import { addDays, addMonths, daysUntilBirthday, diffDays, relDays, startOfMonth, startOfWeek } from './dates';
 
-export const LEVEL_COLOR = { gruen: '#6FA35E', gelb: '#E2A93B', rot: '#CF5F4B', grau: '#BDBAB1' };
+export const LEVEL_COLOR = { gruen: '#2FA36B', gelb: '#F5B225', rot: '#E5534B', grau: '#B8BEC8' };
 export const LEVEL_WORD = { gruen: 'läuft', gelb: 'achten', rot: 'vernachlässigt', grau: 'pausiert' };
 const LEVEL_RANK = { rot: 0, gelb: 1, grau: 2, gruen: 3 };
 export const byUrgency = (a, b) => LEVEL_RANK[a.status.level] - LEVEL_RANK[b.status.level];
@@ -81,10 +81,13 @@ export function habitProgress(s, h, t) {
   const mine = s.checkins.filter((c) => c.habitId === h.id);
   const done = mine.filter((c) => c.date >= start && c.date <= t).length;
   const today = mine.some((c) => c.date === t);
-  return { done, count: h.count, today, complete: done >= h.count };
+  const last = mine.length ? mine.reduce((a, b) => (a.date > b.date ? a : b)).date : null;
+  // count 0 = Fokus-Thema ohne feste Zahl: nie „fällig“, nur Verlauf
+  return { done, count: h.count, today, last, free: !h.count, complete: h.count > 0 && done >= h.count };
 }
 
 export function habitStreak(s, h, t) {
+  if (!h.count) return { streak: 0, unit: '' };
   const dates = s.checkins.filter((c) => c.habitId === h.id).map((c) => c.date);
   const inRange = (a, b) => dates.filter((d) => d >= a && d <= b).length;
   let streak = 0;
@@ -107,7 +110,7 @@ export function rhythmStats(s, weeks, t) {
   const start = addDays(startOfWeek(t), -(weeks - 1) * 7);
   let got = 0;
   let need = 0;
-  s.habits.forEach((h) => {
+  s.habits.filter((h) => h.count > 0).forEach((h) => {
     const dates = s.checkins.filter((c) => c.habitId === h.id && c.date >= start && c.date <= t).map((c) => c.date);
     if (h.period === 'monat') {
       for (let m = startOfMonth(start); m <= t; m = addMonths(m, 1)) {

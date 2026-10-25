@@ -29,11 +29,11 @@ export default function AreaContent({ s, area, subId = null }) {
     <>
       <section className="group">
         <div className="sec-h">
-          <h2 className="h2">Rhythmen</h2>
+          <h2 className="h2">Fokus und Rhythmen</h2>
           <button type="button" className="link-btn" onClick={() => setSheet('habit')}>Hinzufügen</button>
         </div>
         <div className="list">
-          {habits.length === 0 && <div className="empty">Wiederkehrendes, z.B. „Laufen 3× pro Woche“. Jedes Abhaken zählt für die Ampel.</div>}
+          {habits.length === 0 && <div className="empty">Themen, an denen du dranbleiben willst, z.B. Laufen oder Python – frei oder mit fester Zahl. Jedes Abhaken zählt für die Ampel.</div>}
           {habits.map((h) => {
             const p = habitProgress(s, h, t);
             const str = habitStreak(s, h, t);
@@ -42,7 +42,7 @@ export default function AreaContent({ s, area, subId = null }) {
                 <Check on={p.today} color={color} onClick={() => toggleCheckin(h.id)} label={`${h.name} heute abhaken`} />
                 <div className="row-main">
                   <span className="row-title">{h.name}</span>
-                  <span className="row-meta">{meta(`${h.count}× pro ${h.period === 'monat' ? 'Monat' : 'Woche'}`, `${p.done}/${p.count}`, str.streak > 0 && `Serie ${str.streak} ${str.unit}`, subTag(h))}</span>
+                  <span className="row-meta">{h.count ? meta(`${h.count}× pro ${h.period === 'monat' ? 'Monat' : 'Woche'}`, `${p.done}/${p.count}`, str.streak > 0 && `Serie ${str.streak} ${str.unit}`, subTag(h)) : meta('Fokus, ohne feste Zahl', p.last ? `zuletzt ${fmtShort(p.last)}` : 'noch nie', subTag(h))}</span>
                 </div>
                 <button type="button" className="x-btn" aria-label={`${h.name} löschen`} onClick={() => confirm(`Rhythmus „${h.name}“ mit allen Einträgen löschen?`) && deleteHabit(h.id)}>
                   <Icon name="x" size={14} color="var(--chev)" />
@@ -88,7 +88,7 @@ export default function AreaContent({ s, area, subId = null }) {
           {tasks.map((x) => (
             <div key={x.id} className="row">
               {x.idea ? (
-                <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center' }}><Icon name="sparkle" size={18} color="#C9973A" /></span>
+                <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center' }}><Icon name="sparkle" size={18} color="#F5B225" /></span>
               ) : (
                 <Check on={false} color={color} onClick={() => toggleTask(x.id)} label={`Erledigt: ${x.title}`} />
               )}

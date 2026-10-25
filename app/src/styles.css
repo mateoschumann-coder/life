@@ -1,47 +1,53 @@
 /* Farben: hell (Standard) und dunkel (automatisch nach iPhone-Einstellung) */
 :root {
-  --bg: #f4f2ee;
+  --bg: #f9fafb;
   --card: #ffffff;
-  --card-2: #f8f6f2;
-  --text: #22231f;
-  --muted: #73746c;
-  --soft: #4b4c45;
-  --line: rgba(70, 66, 56, 0.13);
-  --border: #e6e2da;
-  --chev: #c6c3ba;
-  --fill: rgba(120, 112, 96, 0.11);
-  --heat0: #ebe8e1;
-  --accent: #5e7350;
-  --accent-bg: #e9eee3;
-  --danger: #b5503f;
-  --primary: #2b2d27;
+  --card-2: #f3f4f6;
+  --text: #111827;
+  --muted: #6b7280;
+  --soft: #374151;
+  --line: rgba(17, 24, 39, 0.08);
+  --border: #e5e7eb;
+  --chev: #c4c8cf;
+  --fill: rgba(17, 24, 39, 0.06);
+  --heat0: #eceef2;
+  --accent: #2f5fd0;
+  --accent-bg: #e8effc;
+  --sun: #fbbf24;
+  --navy: #1e3a8a;
+  --danger: #c2413a;
+  --primary: #2f5fd0;
   --on-primary: #ffffff;
-  --bar: rgba(248, 246, 242, 0.86);
+  --bar: rgba(255, 255, 255, 0.88);
   --ink-mix: black;
-  --ink-amount: 22%;
+  --ink-amount: 18%;
+  --shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 4px 16px rgba(17, 24, 39, 0.05);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #11120f;
-    --card: #1d1e1a;
-    --card-2: #262722;
-    --text: #f2f0ea;
-    --muted: #a09f96;
-    --soft: #cfcdc4;
-    --line: rgba(120, 116, 104, 0.35);
-    --border: #3a3b34;
-    --chev: #5c5d55;
-    --fill: rgba(150, 144, 128, 0.18);
-    --heat0: #2b2c27;
-    --accent: #a9bd97;
-    --accent-bg: rgba(169, 189, 151, 0.15);
-    --danger: #e8836f;
-    --primary: #f2f0ea;
-    --on-primary: #1d1e1a;
-    --bar: rgba(29, 30, 26, 0.86);
+    --bg: #0b0d12;
+    --card: #161a22;
+    --card-2: #1e232d;
+    --text: #f3f4f6;
+    --muted: #9ca3af;
+    --soft: #d1d5db;
+    --line: rgba(255, 255, 255, 0.08);
+    --border: #2a303b;
+    --chev: #4b5260;
+    --fill: rgba(255, 255, 255, 0.07);
+    --heat0: #232834;
+    --accent: #6c9cf5;
+    --accent-bg: rgba(96, 165, 250, 0.14);
+    --sun: #fbbf24;
+    --navy: #93b4f5;
+    --danger: #f08a80;
+    --primary: #3b6fe0;
+    --on-primary: #ffffff;
+    --bar: rgba(16, 19, 26, 0.88);
     --ink-mix: white;
-    --ink-amount: 28%;
+    --ink-amount: 30%;
+    --shadow: none;
     color-scheme: dark;
   }
 }
@@ -84,8 +90,8 @@ a { color: inherit; text-decoration: none; }
 .title-row { display: flex; align-items: center; gap: 12px; }
 
 /* Gruppierte Listen und Karten */
-.card { background: var(--card); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.list { background: var(--card); border-radius: 14px; padding: 0 0 0 16px; display: flex; flex-direction: column; overflow: hidden; }
+.card { background: var(--card); box-shadow: var(--shadow); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.list { background: var(--card); box-shadow: var(--shadow); border-radius: 18px; padding: 0 0 0 16px; display: flex; flex-direction: column; overflow: hidden; }
 .row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 16px 10px 0; position: relative; }
 .row + .row::before, .row + form.inline-add::before, .empty + form.inline-add::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 0.5px; background: var(--line); }
 .row.icon-row + .row.icon-row::before { left: 44px; }
@@ -160,7 +166,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
   padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
 }
 .tab { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 64px; min-height: 46px; font-size: 10.5px; font-weight: 500; color: #8e8e93; }
-.tab.on { color: var(--text); }
+.tab.on { color: var(--accent); }
 .tab-plus { width: 52px; height: 52px; border-radius: 26px; background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center; margin-top: -2px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); }
 .tab-plus:active { transform: scale(0.95); }
 
@@ -185,7 +191,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .week-bars > div { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .week-bars .bar { width: 100%; height: 36px; border-radius: 9px; }
 
-.pillar-card { background: var(--card); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.pillar-card { background: var(--card); box-shadow: var(--shadow); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .mini-row { display: flex; align-items: center; gap: 10px; min-height: 40px; border-top: 0.5px solid var(--line); }
 .avatar { width: 40px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; flex-shrink: 0; }
 .notice { background: var(--card); border-radius: 14px; padding: 14px 16px; font-size: 15px; color: var(--muted); line-height: 1.45; }
@@ -223,9 +229,9 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 /* Schwebender Assistent */
 .fab { position: fixed; z-index: 15; right: max(16px, calc(50vw - 284px)); bottom: calc(80px + env(safe-area-inset-bottom));
   width: 54px; height: 54px; border-radius: 27px; border: 0; background: var(--accent); color: #fff;
-  display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(60, 70, 45, 0.32); transition: transform 0.15s, background 0.2s; }
+  display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(47, 95, 208, 0.38); transition: transform 0.15s, background 0.2s; }
 .fab:active { transform: scale(0.94); }
-.fab.on { background: #CF5F4B; animation: pulse 1.4s ease-in-out infinite; }
+.fab.on { background: #e5534b; animation: pulse 1.4s ease-in-out infinite; }
 .fab.ready { background: var(--primary); color: var(--on-primary); }
 .fab.busy { opacity: 0.75; }
 .mini { position: fixed; z-index: 14; left: 12px; right: 12px; bottom: calc(146px + env(safe-area-inset-bottom)); max-width: 576px; margin: 0 auto;
@@ -241,3 +247,22 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .fab { touch-action: none; }
 .mini-head { position: relative; user-select: none; -webkit-user-select: none; }
 .grip { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 34px; height: 4px; border-radius: 2px; background: var(--chev); }
+
+/* Heute: Wetter, Wochenleiste, Check-in */
+.weather { gap: 12px; background: linear-gradient(135deg, var(--card) 55%, var(--accent-bg)); }
+.wx-icon { width: 52px; height: 52px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--sun) 22%, transparent); color: #d48806; flex-shrink: 0; }
+.wx-tip { display: flex; gap: 8px; align-items: flex-start; font-size: 15px; line-height: 1.4; background: var(--card-2); border-radius: 12px; padding: 10px 12px; }
+.week-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wday { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; border: 0; background: none; border-radius: 14px; }
+.wday .wd { font-size: 12px; color: var(--muted); font-weight: 500; }
+.wday .wn { width: 34px; height: 34px; border-radius: 17px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; }
+.wday .wn.today { color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.wday.on .wn { background: var(--primary); color: var(--on-primary); }
+.wday .wdot { width: 5px; height: 5px; border-radius: 3px; background: var(--accent); }
+.checkin { background: linear-gradient(160deg, var(--card) 60%, color-mix(in srgb, var(--sun) 14%, var(--card))); }
+.spark { width: 28px; height: 28px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--sun) 30%, transparent); color: #b7791f; }
+.checkin-text { display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.45; }
+.checkin-text b { font-weight: 700; margin-top: 6px; }
+.checkin-text b:first-child { margin-top: 0; }
+.chip.focus { display: inline-flex; align-items: center; gap: 4px; box-shadow: var(--shadow); }
+.chip.focus.on { color: #fff; }

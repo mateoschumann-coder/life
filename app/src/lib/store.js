@@ -14,7 +14,8 @@ function migrate(s) {
     if (!a.icon) a.icon = AREA_ICONS[a.id] || 'circle';
   });
   // Version 0.3: Farbwelt „Salbei und Sand“ (alte Standardfarben ersetzen)
-  const OLD = { '#6E62D6': 0, '#D2642E': 1, '#13805F': 2 };
+  // Version 0.6: Kai-Farben (ersetzt alle bisherigen Standardfarben)
+  const OLD = { '#6E62D6': 0, '#D2642E': 1, '#13805F': 2, '#7A8F6A': 0, '#C4876B': 1, '#5F7C99': 2 };
   s.pillars.forEach((p) => {
     if (p.color in OLD) p.color = base.pillars[OLD[p.color]].color;
   });

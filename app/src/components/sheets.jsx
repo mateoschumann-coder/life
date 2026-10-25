@@ -56,17 +56,18 @@ export function NewProjectSheet({ s, open, onClose, areaId, subId = null, pillar
 export function NewHabitSheet({ s, open, onClose, areaId, subId = null }) {
   const [name, setName] = useState('');
   const [count, setCount] = useState(3);
+  const [fixed, setFixed] = useState(false);
   const [period, setPeriod] = useState('woche');
   const [area, setArea] = useState(areaId || 'koerper');
   const [sub, setSub] = useState(subId);
   const save = () => {
-    addHabit({ name, areaId: areaId || area, subId: subId || sub, count, period });
+    addHabit({ name, areaId: areaId || area, subId: subId || sub, count: fixed ? count : 0, period });
     setName('');
     onClose();
     toast('Rhythmus angelegt');
   };
   return (
-    <Sheet open={open} title="Neuer Rhythmus" onClose={onClose}>
+    <Sheet open={open} title="Fokus-Thema oder Rhythmus" onClose={onClose}>
       <Field label="Was?">
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="z.B. Laufen, 20 Min Portugiesisch" />
       </Field>
@@ -78,11 +79,13 @@ export function NewHabitSheet({ s, open, onClose, areaId, subId = null }) {
       {!subId && <SubSelect area={areaOf(s, areaId || area)} value={sub} onChange={setSub} />}
       <div className="field">
         <span>Wie oft?</span>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Segmented full options={[{ id: 'frei', label: 'Frei, ohne Zahl' }, { id: 'fest', label: 'Feste Zahl' }]} value={fixed ? 'fest' : 'frei'} onChange={(v) => setFixed(v === 'fest')} label="Art" />
+        {!fixed && <span className="tiny" style={{ paddingLeft: 4, lineHeight: 1.4 }}>Du hakst ab, wann immer du es machst. Der KI-Check schaut, ob es eingeschlafen ist, und erinnert dich sanft.</span>}
+        {fixed && <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input className="input" style={{ width: 76 }} type="number" min="1" max="31" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} aria-label="Anzahl" />
           <span className="sub">mal pro</span>
           <Segmented options={[{ id: 'woche', label: 'Woche' }, { id: 'monat', label: 'Monat' }]} value={period} onChange={setPeriod} label="Zeitraum" />
-        </div>
+        </div>}
       </div>
       <button type="button" className="btn" onClick={save} disabled={!name.trim()}>Anlegen</button>
     </Sheet>

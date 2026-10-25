@@ -1,9 +1,9 @@
 // Die feste Grundordnung: 3 Säulen, Lebensbereiche, Unterbereiche.
 // targetDays = wie oft du dich mindestens um den Bereich kümmern willst (für die Ampel).
 export const PILLARS = [
-  { id: 'persoenlich', name: 'Persönlich', color: '#7A8F6A' },
-  { id: 'sozial', name: 'Sozial', color: '#C4876B' },
-  { id: 'professionell', name: 'Professionell', color: '#5F7C99' },
+  { id: 'persoenlich', name: 'Persönlich', color: '#2FA36B' },
+  { id: 'sozial', name: 'Sozial', color: '#E8775A' },
+  { id: 'professionell', name: 'Professionell', color: '#3B6FE0' },
 ];
 
 // id, Säule, Name, Ziel in Tagen, Symbol, Unterbereiche, Personen-Kategorie
@@ -39,7 +39,7 @@ export const DEFAULT_TEMPLATES = [
 
 export function seed() {
   return {
-    version: 3,
+    version: 4,
     createdAt: new Date().toISOString(),
     profile: { name: 'Mateo' },
     pillars: PILLARS.map((p) => ({ ...p })),

@@ -7,10 +7,10 @@ import { Check, Icon, TabBar } from '../components/ui';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
 export const AVATAR = {
-  familie: ['#F3E6DE', '#8A5238'],
-  freunde: ['#F6EBE4', '#9A5E43'],
-  neu: ['#E7ECE1', '#56684A'],
-  beruflich: ['#E3E9EF', '#46637F'],
+  familie: ['#FDE8E1', '#B4472B'],
+  freunde: ['#FEF1DC', '#9A6206'],
+  neu: ['#E2F4EA', '#1F7A4D'],
+  beruflich: ['#E6EEFC', '#2A54B8'],
 };
 const FILTERS = [{ id: 'alle', label: 'Alle' }, ...PEOPLE_CATEGORIES];
 

@@ -1,32 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
-import { addDays, diffDays, dueText, fmtLong, relDays, startOfWeek, targetText, today } from '../lib/dates';
+import { addDays, diffDays, dueText, fmtLong, parseKey, relDays, startOfWeek, targetText, today } from '../lib/dates';
 import {
-  allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, habitStreak, lastContact,
-  peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink,
+  allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink,
 } from '../lib/logic';
-import { logContact, toggleCheckin, toggleTask } from '../lib/actions';
+import { addTask, logContact, toggleCheckin, toggleTask } from '../lib/actions';
+import { askReview, getAi, lastReview } from '../lib/ai';
+import { clothingTip, dayForecast, describeCode, loadWeather } from '../lib/weather';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
 
-// Fortschrittsring wie bei Apple Fitness
-function Ring({ pct }) {
-  const r = 22;
-  const c = 2 * Math.PI * r;
-  return (
-    <svg width="56" height="56" viewBox="0 0 56 56" role="img" aria-label={`${Math.round(pct * 100)} Prozent erledigt`}>
-      <circle cx="28" cy="28" r={r} fill="none" stroke="var(--fill)" strokeWidth="7" />
-      {pct > 0 && <circle cx="28" cy="28" r={r} fill="none" stroke="#7A8F6A" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * pct} ${c}`} transform="rotate(-90 28 28)" style={{ transition: "stroke-dasharray 0.4s ease" }} />}
-      <text x="28" y="32" textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--text)">{Math.round(pct * 100)}%</text>
-    </svg>
-  );
-}
-
-const RANGES = [
-  { id: 'woche', label: 'Woche', weeks: 1 },
-  { id: 'monat', label: 'Monat', weeks: 4 },
-  { id: 'quartal', label: '3 Mon.', weeks: 13 },
-];
+const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const monthFmt = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
+const dayFmt = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
 
 function greeting(name) {
   const h = new Date().getHours();
@@ -34,64 +20,176 @@ function greeting(name) {
   return name ? `${g}, ${name}` : g;
 }
 
+// ---------- Wetter ----------
+function WeatherCard({ day, t }) {
+  const [wx, setWx] = useState(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadWeather().then((w) => alive && setWx(w)).catch(() => alive && setErr(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (err) return null;
+  if (!wx) return <section className="card weather"><span className="sub">Wetter wird geladen …</span></section>;
+  const f = dayForecast(wx, day);
+  if (!f) return null;
+  const isToday = day === t;
+  const code = isToday && wx.current ? wx.current.weather_code : f.code;
+  const info = describeCode(code);
+  return (
+    <section className="card weather">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <span className="wx-icon"><Icon name={info.icon} size={30} color="currentColor" width={1.8} /></span>
+        <div className="row-main">
+          <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.1 }}>
+            {isToday && wx.current ? `${Math.round(wx.current.temperature_2m)}°` : `${f.tmax}°`}
+            <span className="sub" style={{ fontSize: 15, fontWeight: 500, marginLeft: 8 }}>{info.label}</span>
+          </span>
+          <span className="row-meta">
+            {f.tmin}° bis {f.tmax}° · Regen {f.rain}% · {wx.place}
+          </span>
+        </div>
+      </div>
+      <div className="wx-tip">
+        <Icon name="shirt" size={17} color="var(--accent)" />
+        <span>{clothingTip(f)}</span>
+      </div>
+    </section>
+  );
+}
+
+// ---------- KI-Check ----------
+function CheckIn({ s }) {
+  const [review, setReview] = useState(lastReview);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const hasKey = !!getAi().apiKey;
+  const run = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      setReview(await askReview(s));
+    } catch (e) {
+      setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Für den Check-in braucht es einen API-Schlüssel (Einstellungen).' : e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const lines = review?.text ? review.text.split('\n').filter((l) => l.trim()) : [];
+  return (
+    <section className="card checkin">
+      <div className="sec-h" style={{ padding: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
+          <span className="spark"><Icon name="sparkle" size={16} color="currentColor" /></span>
+          Dein Check-in
+        </span>
+        {hasKey && review && (
+          <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={run} disabled={busy} aria-label="Check-in aktualisieren">
+            <Icon name="refresh" size={15} />
+          </button>
+        )}
+      </div>
+      {busy && <span className="sub">Ich schaue mir deine letzten Tage an …</span>}
+      {!busy && lines.length > 0 && (
+        <div className="checkin-text">
+          {lines.map((l, i) => (/:\s*$/.test(l) ? <b key={i}>{l.replace(/:\s*$/, '')}</b> : <span key={i}>{l}</span>))}
+          <span className="tiny">Stand: {review.date === today() ? 'heute' : relDays(diffDays(review.date, today()))}</span>
+        </div>
+      )}
+      {!busy && !lines.length && <span className="sub" style={{ lineHeight: 1.45 }}>Wo kommst du voran, was ist eingeschlafen, und was wäre heute ein guter nächster Schritt? Die KI schaut sich deine Aktivität an.</span>}
+      {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
+      {hasKey && !review && !busy && <button type="button" className="btn small" onClick={run}>Check-in starten</button>}
+      {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
+    </section>
+  );
+}
+
 export default function Heute() {
   const s = useStore();
   const t = today();
+  const [day, setDay] = useState(t);
+  const [weekStart, setWeekStart] = useState(startOfWeek(t));
   const [range, setRange] = useState('woche');
+  const [newTask, setNewTask] = useState('');
+  const [newTime, setNewTime] = useState('');
+  const isToday = day === t;
+  const pillarColor = (areaId) => pillarOf(s, areaOf(s, areaId)?.pillarId)?.color || 'var(--accent)';
 
-  const attention = allAreaStatuses(s, t)
-    .filter((x) => x.status.level === 'rot' || x.status.level === 'gelb')
-    .sort(byUrgency)
-    .slice(0, 3);
+  // ---------- Einträge für den gewählten Tag ----------
+  const dayItems = (key) => {
+    const list = [];
+    s.tasks
+      .filter((x) => !x.idea && x.due === key && (!x.done || x.doneAt === t || key !== t))
+      .forEach((x) => {
+        const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
+        const areaId = proj ? proj.areaId : x.areaId;
+        list.push({
+          key: 't' + x.id, done: x.done, onCheck: () => toggleTask(x.id), title: x.title, time: x.time,
+          color: pillarColor(areaId), meta: proj ? proj.name : areaOf(s, areaId)?.name || 'Aufgabe',
+        });
+      });
+    s.events
+      .filter((e) => e.date === key && e.stage !== 'entdeckt')
+      .forEach((e) => list.push({ key: 'e' + e.id, event: true, title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
+    s.people
+      .filter((p) => p.birthday && p.birthday.slice(5) === key.slice(5))
+      .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
+    return list;
+  };
 
-  const pillarColor = (areaId) => pillarOf(s, areaOf(s, areaId)?.pillarId)?.color || '#C4C4BE';
-
-  const items = [];
-  s.habits.forEach((h) => {
-    const p = habitProgress(s, h, t);
-    if (p.complete && !p.today) return;
-    const st = habitStreak(s, h, t);
-    items.push({
-      key: 'h' + h.id, done: p.today, onCheck: () => toggleCheckin(h.id),
-      title: h.name, color: pillarColor(h.areaId),
-      meta: `${areaOf(s, h.areaId)?.name} · ${p.done} von ${p.count} ${h.period === 'monat' ? 'diesen Monat' : 'diese Woche'}${st.streak > 1 ? ` · Serie ${st.streak} ${st.unit}` : ''}`,
-    });
-  });
-  s.tasks
-    .filter((x) => !x.idea && x.due && x.due <= t && (!x.done || x.doneAt === t))
-    .forEach((x) => {
-      const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
-      const areaId = proj ? proj.areaId : x.areaId;
-      items.push({
-        key: 't' + x.id, done: x.done, onCheck: () => toggleTask(x.id), title: x.title,
-        color: pillarColor(areaId),
-        meta: `${proj ? proj.name : areaOf(s, areaId)?.name || 'Aufgabe'} · ${dueText(x.due, t)}`,
+  const items = dayItems(day);
+  const extra = [];
+  if (isToday) {
+    s.tasks
+      .filter((x) => !x.idea && !x.done && x.due && x.due < t)
+      .forEach((x) => {
+        const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
+        extra.push({ key: 't' + x.id, done: false, onCheck: () => toggleTask(x.id), title: x.title, color: pillarColor(proj ? proj.areaId : x.areaId), meta: `überfällig · ${dueText(x.due, t)}`, overdue: true });
+      });
+    s.habits
+      .filter((h) => h.count > 0)
+      .forEach((h) => {
+        const p = habitProgress(s, h, t);
+        if (p.complete && !p.today) return;
+        extra.push({ key: 'h' + h.id, done: p.today, onCheck: () => toggleCheckin(h.id), title: h.name, color: pillarColor(h.areaId), meta: `Rhythmus · ${p.done} von ${p.count} ${h.period === 'monat' ? 'diesen Monat' : 'diese Woche'}` });
+      });
+    const seen = new Set();
+    [...followUps(s, t).filter((p) => p.followUp <= t), ...peopleOverdue(s, t).slice(0, 3).map((x) => x.person)].forEach((p) => {
+      if (seen.has(p.id)) return;
+      seen.add(p.id);
+      const last = lastContact(p);
+      extra.push({
+        key: 'p' + p.id, done: false, onCheck: () => logContact(p.id), title: `${p.name} schreiben`, color: '#E8775A',
+        meta: p.followUp && p.followUp <= t ? 'Nachfassen fällig' : last ? `Letzter Kontakt ${relDays(diffDays(last, t))}` : 'Noch kein Kontakt notiert',
+        wa: waLink(p),
       });
     });
-  const contactedToday = (p) => (p.contacts || []).includes(t);
-  upcomingBirthdays(s, t, 2).forEach(({ person, inDays }) =>
-    items.push({
-      key: 'b' + person.id, done: contactedToday(person), onCheck: () => logContact(person.id),
-      title: `Geburtstag: ${person.name}`, color: '#C4876B',
-      meta: inDays === 0 ? 'heute' : inDays === 1 ? 'morgen' : `in ${inDays} Tagen`, wa: waLink(person),
-    })
-  );
-  const seen = new Set(items.map((i) => i.key.slice(1)));
-  [...followUps(s, t).filter((p) => p.followUp <= t), ...peopleOverdue(s, t).slice(0, 3).map((x) => x.person)].forEach((p) => {
-    if (seen.has(p.id)) return;
-    seen.add(p.id);
-    const last = lastContact(p);
-    items.push({
-      key: 'p' + p.id, done: false, onCheck: () => logContact(p.id), title: `${p.name} schreiben`, color: '#C4876B',
-      meta: p.followUp && p.followUp <= t ? 'Nachfassen fällig' : `${last ? `Letzter Kontakt ${relDays(diffDays(last, t))}` : 'Noch kein Kontakt notiert'} · Ziel ${targetText(p.contactEvery)}`,
-      wa: waLink(p),
-    });
-  });
+  }
+  const all = [...items.sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1), ...extra];
+  const checkable = all.filter((i) => i.onCheck);
+  const doneCount = checkable.filter((i) => i.done).length;
 
-  const doneCount = items.filter((i) => i.done).length;
-  const weeks = RANGES.find((r) => r.id === range).weeks;
+  const focus = s.habits.filter((h) => !h.count);
+  const attention = allAreaStatuses(s, t).filter((x) => x.status.level === 'rot').sort(byUrgency).slice(0, 3);
+  const weeks = { woche: 1, monat: 4, quartal: 13 }[range];
   const stats = rhythmStats(s, weeks, t);
+  const hasFixed = s.habits.some((h) => h.count > 0);
   const isNew = !s.habits.length && !s.tasks.length && !s.people.length && !s.projects.length;
+  const dayLabel = isToday ? 'Heute' : day === addDays(t, 1) ? 'Morgen' : day === addDays(t, -1) ? 'Gestern' : dayFmt.format(parseKey(day));
+
+  const Row = (i) => (
+    <div key={i.key} className="row">
+      {i.onCheck ? <Check on={i.done} color={i.color} onClick={i.onCheck} label={(i.done ? 'Offen: ' : 'Erledigt: ') + i.title} /> : <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center' }}><Icon name="today" size={18} color={i.color} /></span>}
+      <div className="row-main">
+        <span className={i.done ? 'row-title done' : 'row-title'}>{i.title}</span>
+        <span className="row-meta" style={{ color: i.overdue ? 'var(--danger)' : undefined }}><Dot small color={i.color} />{i.meta}</span>
+      </div>
+      {i.wa && !i.done && <a className="pill" href={i.wa} target="_blank" rel="noreferrer">WhatsApp</a>}
+      {i.time && <span className="row-side" style={{ fontSize: 14 }}>{i.time}</span>}
+    </div>
+  );
 
   return (
     <>
@@ -108,27 +206,81 @@ export default function Heute() {
 
         {isNew && (
           <section className="card">
-            <h2 className="h2">Willkommen in deiner App</h2>
-            <span className="sub" style={{ lineHeight: 1.5 }}>
-              So startest du: 1. Unter Bereiche → Lebensbereich einen Rhythmus anlegen (z.B. Laufen 3× pro Woche). 2. Unter Menschen wichtige Personen mit Geburtstag und Kontakt-Rhythmus eintragen. 3. Alles andere schnell mit + erfassen.
-            </span>
+            <h2 className="h2">Willkommen</h2>
+            <span className="sub" style={{ lineHeight: 1.5 }}>Trag Aufgaben für einen Tag ein, leg in den Bereichen Fokus-Themen an und unter Menschen wichtige Personen. Oder sag dem Assistenten unten rechts einfach, was ansteht.</span>
             <a href="#/einstellungen" className="btn tint small" style={{ alignSelf: 'flex-start' }}>Erst mit Beispieldaten ausprobieren</a>
           </section>
         )}
 
-        {items.length > 0 && (
-          <section className="card" style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            <Ring pct={items.length ? doneCount / items.length : 0} />
-            <div className="row-main">
-              <span className="row-title strong">{doneCount === items.length ? 'Alles erledigt' : `${items.length - doneCount} offen für heute`}</span>
-              <span className="row-meta">{doneCount} von {items.length} erledigt{stats.pct !== null ? ` · Rhythmen diese Woche ${rhythmStats(s, 1, t).pct} %` : ''}</span>
+        <WeatherCard day={day} t={t} />
+
+        {/* Wochenleiste */}
+        <section className="card" style={{ gap: 10, padding: '12px 12px 14px' }}>
+          <div className="sec-h" style={{ padding: '0 4px' }}>
+            <span style={{ fontWeight: 600, fontSize: 15 }}>{monthFmt.format(parseKey(addDays(weekStart, 3)))}</span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Vorherige Woche"><Icon name="chevLeft" size={15} /></button>
+              {(weekStart !== startOfWeek(t) || !isToday) && <button type="button" className="chip" style={{ minHeight: 30, padding: '0 10px', background: 'var(--accent-bg)', color: 'var(--accent)', fontSize: 13 }} onClick={() => { setWeekStart(startOfWeek(t)); setDay(t); }}>Heute</button>}
+              <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Nächste Woche"><Icon name="chev" size={15} /></button>
+            </div>
+          </div>
+          <div className="week-strip" role="group" aria-label="Tag wählen">
+            {WD.map((w, i) => {
+              const k = addDays(weekStart, i);
+              const n = dayItems(k).filter((x) => !x.done).length;
+              const sel = k === day;
+              return (
+                <button key={k} type="button" className={sel ? 'wday on' : 'wday'} onClick={() => setDay(k)} aria-pressed={sel} aria-label={`${dayFmt.format(parseKey(k))}${n ? `, ${n} Einträge` : ''}`}>
+                  <span className="wd">{w}</span>
+                  <span className={k === t && !sel ? 'wn today' : 'wn'}>{parseKey(k).getDate()}</span>
+                  <span className="wdot" style={{ opacity: n ? 1 : 0 }} />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Tagesliste */}
+        <section className="group">
+          <div className="sec-h">
+            <h2 className="h2">{dayLabel}</h2>
+            {checkable.length > 0 && <span className="sub">{doneCount}/{checkable.length} erledigt</span>}
+          </div>
+          {checkable.length > 0 && <div className="progress" style={{ margin: '0 4px' }}><div style={{ width: `${(doneCount / checkable.length) * 100}%` }} /></div>}
+          <div className="list">
+            {all.length === 0 && <div className="empty">{isToday ? 'Nichts geplant. Füg unten etwas hinzu oder sag es dem Assistenten.' : 'Für diesen Tag ist nichts eingetragen.'}</div>}
+            {all.map(Row)}
+            <form className="inline-add" onSubmit={(e) => { e.preventDefault(); addTask({ title: newTask, due: day, time: newTime || null }); setNewTask(''); setNewTime(''); }}>
+              <input className="input" value={newTask} onChange={(e) => setNewTask(e.target.value)} placeholder="Neue Aufgabe …" aria-label="Neue Aufgabe" />
+              <input className="input" type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} style={{ width: 92, flexShrink: 0 }} aria-label="Uhrzeit (optional)" />
+              <button type="submit" className="btn small" disabled={!newTask.trim()} aria-label="Hinzufügen">+</button>
+            </form>
+          </div>
+        </section>
+
+        {/* Fokus-Themen */}
+        {focus.length > 0 && isToday && (
+          <section className="group">
+            <div className="sec-h"><h2 className="label">Heute dran gewesen?</h2></div>
+            <div className="chips" style={{ gap: 8, padding: '0 2px' }}>
+              {focus.map((h) => {
+                const p = habitProgress(s, h, t);
+                return (
+                  <button key={h.id} type="button" className={p.today ? 'chip focus on' : 'chip focus'} style={p.today ? { background: pillarColor(h.areaId) } : undefined} onClick={() => toggleCheckin(h.id)} aria-pressed={p.today}>
+                    {p.today && <Icon name="check" size={14} color="#fff" width={3} />} {h.name}
+                    {!p.today && p.last && <span className="tiny" style={{ marginLeft: 6 }}>{relDays(diffDays(p.last, t))}</span>}
+                  </button>
+                );
+              })}
             </div>
           </section>
         )}
 
+        <CheckIn s={s} />
+
         {attention.length > 0 && (
           <section className="group">
-            <div className="sec-h"><h2 className="label">Braucht Aufmerksamkeit</h2></div>
+            <div className="sec-h"><h2 className="label">Länger nicht gekümmert</h2></div>
             <div className="list">
               {attention.map(({ area, status }) => (
                 <a key={area.id} href={`#/bereich/${area.id}`} className="row">
@@ -144,34 +296,15 @@ export default function Heute() {
           </section>
         )}
 
-        <section className="group">
-          <div className="sec-h">
-            <h2 className="h2">Heute</h2>
-          </div>
-          <div className="list">
-            {items.length === 0 && <div className="empty">Für heute ist nichts fällig. Rhythmen, Aufgaben mit Datum, Geburtstage und überfällige Kontakte erscheinen hier automatisch.</div>}
-            {items.map((i) => (
-              <div key={i.key} className="row">
-                <Check on={i.done} color={i.color} onClick={i.onCheck} label={(i.done ? 'Offen: ' : 'Erledigt: ') + i.title} />
-                <div className="row-main">
-                  <span className={i.done ? 'row-title plain done' : 'row-title plain'}>{i.title}</span>
-                  <span className="row-meta"><Dot small color={i.color} />{i.meta}</span>
-                </div>
-                {i.wa && !i.done && <a className="pill" href={i.wa} target="_blank" rel="noreferrer">WhatsApp</a>}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {s.habits.length > 0 && (
+        {hasFixed && (
           <section className="card">
             <div className="sec-h" style={{ padding: 0 }}>
-              <h2 className="label">Rhythmen ·<span style={{ color: 'var(--text)', fontWeight: 600 }}>{stats.pct ?? 0} %</span></h2>
-              <Segmented options={RANGES} value={range} onChange={setRange} label="Zeitraum" />
+              <h2 className="label">Rhythmen · <span style={{ color: 'var(--text)', fontWeight: 600 }}>{stats.pct ?? 0} %</span></h2>
+              <Segmented options={[{ id: 'woche', label: 'Woche' }, { id: 'monat', label: 'Monat' }, { id: 'quartal', label: '3 Mon.' }]} value={range} onChange={setRange} label="Zeitraum" />
             </div>
             {range === 'woche' ? (
               <div className="week-bars">
-                {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((l, i) => {
+                {WD.map((l, i) => {
                   const d = addDays(startOfWeek(t), i);
                   const future = d > t;
                   return (

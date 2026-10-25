@@ -26,7 +26,7 @@ export default function Saeule({ id }) {
         {areas.map((a) => {
           const st = areaStatus(s, a, t);
           return (
-            <section key={a.id} className="list">
+            <section key={a.id} className="list" style={{ background: `color-mix(in srgb, ${p.color} 7%, var(--card))` }}>
               <a href={`#/bereich/${a.id}`} className="row" style={{ minHeight: 60 }}>
                 <AreaIcon icon={a.icon} color={p.color} size={32} />
                 <span className="row-main">

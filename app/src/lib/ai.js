@@ -1,6 +1,6 @@
 // KI-Assistent: Verbindung zur Claude-API direkt vom iPhone aus.
 // Der API-Schlüssel liegt NUR im Speicher dieses Geräts (nie im Code, nie in Sicherungen).
-import { today, fmtLong } from './dates';
+import { addDays, today, fmtLong } from './dates';
 import { areaOf, habitProgress, lastContact } from './logic';
 
 const AI_KEY = 'life-app-ai';
@@ -77,10 +77,11 @@ export const TOOL = {
             person_id: { type: 'string' },
             vorlage_id: { type: 'string' },
             faellig: { type: 'string', description: 'Datum JJJJ-MM-TT' },
+            uhrzeit: { type: 'string', description: 'Uhrzeit HH:MM (optional, für Aufgaben)' },
             datum: { type: 'string', description: 'Datum JJJJ-MM-TT' },
             idee: { type: 'boolean' },
             aufgaben: { type: 'array', items: { type: 'string' }, description: 'Aufgaben für ein neues Projekt' },
-            anzahl: { type: 'integer' },
+            anzahl: { type: 'integer', description: 'Wie oft pro Zeitraum; 0 = freies Fokus-Thema ohne feste Zahl' },
             zeitraum: { type: 'string', enum: ['woche', 'monat'] },
             kategorie: { type: 'string', enum: ['familie', 'freunde', 'neu', 'beruflich'] },
             geburtstag: { type: 'string', description: 'JJJJ-MM-TT' },
@@ -112,11 +113,11 @@ export function buildSystem(s) {
   }));
   const projects = s.projects.filter((p) => p.status === 'aktiv').map((p) => ({ id: p.id, name: p.name, bereich: p.areaId, faellig: p.due }));
   const tasks = s.tasks.filter((x) => !x.done).slice(-80).map((x) => ({
-    id: x.id, titel: x.title, bereich: x.areaId, projekt: x.projectId, faellig: x.due, idee: x.idea || undefined,
+    id: x.id, titel: x.title, bereich: x.areaId, projekt: x.projectId, faellig: x.due, uhrzeit: x.time || undefined, idee: x.idea || undefined,
   }));
   const habits = s.habits.map((h) => {
     const p = habitProgress(s, h, t);
-    return { id: h.id, name: h.name, bereich: h.areaId, ziel: `${h.count}x/${h.period}`, stand: `${p.done}/${p.count}`, heute: p.today };
+    return { id: h.id, name: h.name, bereich: h.areaId, ziel: h.count ? `${h.count}x/${h.period}` : 'frei', stand: h.count ? `${p.done}/${p.count}` : undefined, zuletzt: p.last || undefined, heute: p.today };
   });
   const people = s.people.map((p) => ({
     id: p.id, name: p.name, kategorie: p.category, geburtstag: p.birthday || undefined, kontakt_alle_tage: p.contactEvery || undefined,
@@ -244,4 +245,88 @@ export async function testKey(apiKey, model) {
     throw new Error(explainError(res.status, msg));
   }
   return true;
+}
+
+// KI-Check: kurzer, strukturierter Rückblick mit konkreten Anstößen (ohne Werkzeuge)
+export async function askReview(s) {
+  const ai = getAi();
+  if (!ai.apiKey) throw new Error('KEIN_SCHLUESSEL');
+  const t = today();
+  const back = (n) => addDays(t, -n);
+  const d7 = back(7);
+  const d30 = back(30);
+  const areas = s.areas.filter((a) => !a.paused).map((a) => {
+    const habitIds = new Set(s.habits.filter((h) => h.areaId === a.id).map((h) => h.id));
+    const projIds = new Set(s.projects.filter((p) => p.areaId === a.id).map((p) => p.id));
+    const dates = [
+      ...s.checkins.filter((c) => habitIds.has(c.habitId)).map((c) => c.date),
+      ...s.tasks.filter((x) => x.done && x.doneAt && (x.areaId === a.id || projIds.has(x.projectId))).map((x) => x.doneAt),
+      ...s.activities.filter((x) => x.areaId === a.id).map((x) => x.date),
+    ];
+    return {
+      bereich: a.name,
+      letzte_aktivitaet: dates.length ? dates.sort().at(-1) : null,
+      aktivitaeten_7_tage: dates.filter((d) => d >= d7).length,
+      aktivitaeten_30_tage: dates.filter((d) => d >= d30).length,
+      offene_aufgaben: s.tasks.filter((x) => !x.done && x.areaId === a.id).length,
+      projekte: s.projects.filter((p) => p.areaId === a.id && p.status === 'aktiv').map((p) => {
+        const ts = s.tasks.filter((x) => x.projectId === p.id);
+        return { name: p.name, erledigt: ts.filter((x) => x.done).length, gesamt: ts.length, naechste: ts.find((x) => !x.done)?.title };
+      }),
+    };
+  });
+  const focus = s.habits.map((h) => {
+    const ds = s.checkins.filter((c) => c.habitId === h.id).map((c) => c.date);
+    return { thema: h.name, ziel: h.count ? `${h.count}x pro ${h.period}` : 'frei, ohne feste Zahl', letzte: ds.sort().at(-1) || null, tage_7: ds.filter((d) => d >= d7).length, tage_30: ds.filter((d) => d >= d30).length };
+  });
+  const overdue = s.tasks.filter((x) => !x.done && x.due && x.due < t).map((x) => x.title);
+  const system = `Du bist Mateos persönlicher Coach in seiner Life-App. Heute ist ${fmtLong(t)}.
+Mateo mag keine starren Zahlen und kein schlechtes Gewissen. Er will ehrlich sehen, wo er vorankommt, und konkret angestoßen werden.
+
+Schreib einen kurzen Check-in auf Deutsch in genau dieser Form (nur Text, keine Sternchen, kein Markdown):
+Gut gelaufen:
+– 1 bis 3 Punkte, konkret mit Bereich oder Projekt
+Eingeschlafen:
+– 1 bis 3 Punkte, freundlich, ohne Vorwurf
+Vorschlag für heute:
+– 2 bis 3 konkrete, kleine nächste Schritte (z.B. die nächste offene Aufgabe eines Projekts), die gut in einen normalen Tag passen
+
+Insgesamt höchstens 12 Zeilen. Nutze nur die Daten unten; erfinde nichts. Wenn kaum Daten vorhanden sind, sag das kurz und schlage vor, womit er anfangen könnte.`;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': ai.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: ai.model,
+      max_tokens: 700,
+      system,
+      messages: [{ role: 'user', content: `Meine Daten (JSON): ${JSON.stringify({ bereiche: areas, fokus_themen: focus, ueberfaellige_aufgaben: overdue })}\n\nWie stehe ich gerade da?` }],
+    }),
+  });
+  if (!res.ok) {
+    let msg = '';
+    try {
+      msg = (await res.json())?.error?.message || '';
+    } catch {}
+    throw new Error(explainError(res.status, msg));
+  }
+  const data = await res.json();
+  trackUsage(ai.model, data.usage);
+  const text = data.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+  const review = { date: t, text };
+  try {
+    localStorage.setItem('life-app-review', JSON.stringify(review));
+  } catch {}
+  return review;
+}
+export function lastReview() {
+  try {
+    return JSON.parse(localStorage.getItem('life-app-review') || 'null');
+  } catch {
+    return null;
+  }
 }

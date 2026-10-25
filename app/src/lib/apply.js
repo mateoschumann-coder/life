@@ -26,7 +26,7 @@ export function describe(s, a) {
   const person = a.person_id && s.people.find((x) => x.id === a.person_id);
   switch (a.typ) {
     case 'aufgabe_anlegen':
-      return { ok: !!a.titel, label: join(`${a.idee ? 'Idee' : 'Aufgabe'}: ${a.titel}`, where(s, a), a.faellig && `fällig ${date(a.faellig)}`) };
+      return { ok: !!a.titel, label: join(`${a.idee ? 'Idee' : 'Aufgabe'}: ${a.titel}`, where(s, a), a.faellig && `fällig ${date(a.faellig)}${/^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? `, ${a.uhrzeit} Uhr` : ''}`) };
     case 'aufgabe_erledigen':
       return { ok: !!task, label: `Erledigt: ${task?.title || 'unbekannte Aufgabe'}` };
     case 'aufgabe_aendern':
@@ -37,7 +37,7 @@ export function describe(s, a) {
       return { ok: !!a.name && !!areaOf(s, a.bereich_id), label: join(`Projekt: ${a.name}`, where(s, a), tpl && `Vorlage ${tpl.name}`, n && `${n} Aufgaben`, a.faellig && `bis ${date(a.faellig)}`) };
     }
     case 'rhythmus_anlegen':
-      return { ok: !!a.name && !!areaOf(s, a.bereich_id), label: join(`Rhythmus: ${a.name}`, `${a.anzahl || 1}× pro ${a.zeitraum === 'monat' ? 'Monat' : 'Woche'}`, where(s, a)) };
+      return { ok: !!a.name && !!areaOf(s, a.bereich_id), label: join(`${a.anzahl ? 'Rhythmus' : 'Fokus-Thema'}: ${a.name}`, a.anzahl ? `${a.anzahl}× pro ${a.zeitraum === 'monat' ? 'Monat' : 'Woche'}` : 'ohne feste Zahl', where(s, a)) };
     case 'rhythmus_abhaken':
       return { ok: !!habit, label: join(`Abhaken: ${habit?.name || 'unbekannter Rhythmus'}`, isDate(a.datum) && a.datum !== today() ? date(a.datum) : 'heute') };
     case 'person_anlegen':
@@ -68,7 +68,7 @@ export function applyAction(s, a) {
   const d = (x) => (isDate(x) ? x : null);
   switch (a.typ) {
     case 'aufgabe_anlegen':
-      return addTask({ title: a.titel, areaId: proj ? null : area, subId: proj ? null : sub, projectId: proj, due: d(a.faellig), idea: !!a.idee });
+      return addTask({ title: a.titel, areaId: proj ? null : area, subId: proj ? null : sub, projectId: proj, due: d(a.faellig), time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : null, idea: !!a.idee });
     case 'aufgabe_erledigen':
       return updateTask(a.aufgabe_id, { done: true, doneAt: today() });
     case 'aufgabe_aendern': {
@@ -83,7 +83,7 @@ export function applyAction(s, a) {
       return id;
     }
     case 'rhythmus_anlegen':
-      return addHabit({ name: a.name, areaId: area, subId: sub, count: a.anzahl || 1, period: a.zeitraum === 'monat' ? 'monat' : 'woche' });
+      return addHabit({ name: a.name, areaId: area, subId: sub, count: a.anzahl || 0, period: a.zeitraum === 'monat' ? 'monat' : 'woche' });
     case 'rhythmus_abhaken': {
       const dt = d(a.datum) || today();
       const done = s.checkins.some((c) => c.habitId === a.rhythmus_id && c.date === dt);
