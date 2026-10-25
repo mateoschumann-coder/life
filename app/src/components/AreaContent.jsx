@@ -67,9 +67,9 @@ export default function AreaContent({ s, area, subId = null }) {
                 <div className="row-main" style={{ gap: 8 }}>
                   <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <span className="row-title">{p.name}</span>
-                    <span className="sub">{pr.done}/{pr.total}</span>
+                    <span className="sub">{pr.total ? `${pr.done}/${pr.total}` : (p.blocks || []).length ? `${p.blocks.length} Bausteine` : ''}</span>
                   </span>
-                  <span className="progress"><span style={{ width: `${pr.pct}%`, background: color }} /></span>
+                  {pr.total > 0 && <span className="progress"><span style={{ width: `${pr.pct}%`, background: color }} /></span>}
                   {(p.due || subTag(p)) && <span className="row-meta">{meta(p.due && `bis ${fmtShort(p.due)}`, subTag(p))}</span>}
                 </div>
                 <Chevron />

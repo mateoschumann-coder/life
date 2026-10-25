@@ -59,8 +59,8 @@ export default function Saeule({ id }) {
               return (
                 <a key={x.id} href={`#/projekt/${x.id}`} className="card" style={{ padding: 14, gap: 10 }}>
                   <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25 }}>{x.name}</span>
-                  <span className="progress" style={{ height: 4 }}><span style={{ width: `${pr.pct}%`, background: p.color }} /></span>
-                  <span className="tiny">{area?.name} · {pr.pct} %</span>
+                  {pr.total > 0 && <span className="progress" style={{ height: 4 }}><span style={{ width: `${pr.pct}%`, background: p.color }} /></span>}
+                  <span className="tiny">{area?.name}{pr.total ? ` · ${pr.pct} %` : (x.blocks || []).length ? ` · ${x.blocks.length} Bausteine` : ''}</span>
                 </a>
               );
             })}

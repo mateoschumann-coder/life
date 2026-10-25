@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { dueText, fmtShort, today } from '../lib/dates';
 import { areaColor, areaOf, projectProgress, subOf } from '../lib/logic';
 import { addTask, deleteProject, deleteResource, deleteTask, projectToTemplate, toggleTask, updateProject } from '../lib/actions';
-import { Back, Check, Icon, TabBar, toast } from '../components/ui';
+import { Back, Check, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
+import Blocks from '../components/Blocks';
+import ProjectDesigner from '../components/ProjectDesigner';
+import { addBlocks, BLOCK_TYPES, makeBlock } from '../lib/blocks';
 import { ResourceSheet } from '../components/sheets';
 import { go } from '../lib/router';
 import { Missing } from './Saeule';
@@ -14,6 +17,17 @@ export default function Projekt({ id }) {
   const [taskText, setTaskText] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const [resOpen, setResOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [designOpen, setDesignOpen] = useState(false);
+  useEffect(() => {
+    // Nach „Neues Projekt → mit KI gestalten“ öffnet sich der Gestalter direkt
+    try {
+      if (sessionStorage.getItem('life-open-designer') === id) {
+        sessionStorage.removeItem('life-open-designer');
+        setDesignOpen(true);
+      }
+    } catch {}
+  }, [id]);
   const p = s.projects.find((x) => x.id === id);
   if (!p) return <Missing />;
   const area = areaOf(s, p.areaId);
@@ -33,17 +47,27 @@ export default function Projekt({ id }) {
           {p.status === 'archiviert' && <span className="tag" style={{ alignSelf: 'flex-start' }}>Archiviert</span>}
         </div>
 
-        <section className="card">
-          <div className="sec-h" style={{ padding: 0 }}>
-            <span className="row-title strong">{pr.pct} % erledigt</span>
-            <span className="sub">{pr.done} von {pr.total}{p.due ? ` · bis ${fmtShort(p.due)}` : ''}</span>
-          </div>
-          <div className="progress"><div style={{ width: `${pr.pct}%`, background: color }} /></div>
-          <label className="field">
-            <span>Fertig bis</span>
-            <input className="input" type="date" value={p.due || ''} onChange={(e) => updateProject(id, { due: e.target.value || null })} />
-          </label>
-        </section>
+        {pr.total > 0 && (
+          <section className="card">
+            <div className="sec-h" style={{ padding: 0 }}>
+              <span className="row-title strong">{pr.pct} % der Aufgaben erledigt</span>
+              <span className="sub">{pr.done} von {pr.total}{p.due ? ` · bis ${fmtShort(p.due)}` : ''}</span>
+            </div>
+            <div className="progress"><div style={{ width: `${pr.pct}%`, background: color }} /></div>
+          </section>
+        )}
+
+        <button type="button" className="card design-cta" onClick={() => setDesignOpen(true)}>
+          <span className="spark"><Icon name="sparkle" size={16} color="currentColor" /></span>
+          <span className="row-main">
+            <span className="row-title strong">Mit KI gestalten</span>
+            <span className="row-meta">{(p.blocks || []).length ? 'Weitere Bausteine, Graphen oder Aufgaben vorschlagen lassen' : 'Die KI schlägt passende Inhalte, Graphen und erste Aufgaben vor'}</span>
+          </span>
+          <Chevron />
+        </button>
+
+        <Blocks p={p} color={color} />
+        <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', padding: '0 4px' }} onClick={() => setBlockOpen(true)}>+ Baustein selbst hinzufügen</button>
 
         <section className="group">
           <div className="sec-h"><h2 className="h2">Aufgaben</h2></div>
@@ -74,6 +98,10 @@ export default function Projekt({ id }) {
         </section>
 
         <section className="card">
+          <label className="field" style={{ margin: 0 }}>
+            <span>Fertig bis (optional)</span>
+            <input className="input" type="date" value={p.due || ''} onChange={(e) => updateProject(id, { due: e.target.value || null })} />
+          </label>
           <h2 className="label">Notizen</h2>
           <textarea
             className="input"
@@ -116,8 +144,51 @@ export default function Projekt({ id }) {
           </button>
         </div>
       </main>
+      <AddBlockSheet open={blockOpen} onClose={() => setBlockOpen(false)} projectId={id} />
+      <ProjectDesigner s={s} project={p} open={designOpen} onClose={() => setDesignOpen(false)} />
       <ResourceSheet s={s} open={resOpen} onClose={() => setResOpen(false)} projectId={id} areaId={p.areaId} />
       <TabBar active="bereiche" />
     </>
+  );
+}
+
+function AddBlockSheet({ open, onClose, projectId }) {
+  const [typ, setTyp] = useState('kennzahl');
+  const [titel, setTitel] = useState('');
+  const [einheit, setEinheit] = useState('');
+  const [ziel, setZiel] = useState('');
+  const needsUnit = typ === 'kennzahl' || typ === 'budget';
+  const needsGoal = typ === 'kennzahl' || typ === 'zaehler' || typ === 'budget';
+  const save = () => {
+    addBlocks(projectId, [makeBlock({ typ, titel: titel || BLOCK_TYPES[typ].label, einheit, ziel })]);
+    setTitel(''); setEinheit(''); setZiel('');
+    onClose();
+    toast('Baustein hinzugefügt');
+  };
+  return (
+    <Sheet open={open} title="Baustein hinzufügen" onClose={onClose}>
+      <div className="list">
+        {Object.entries(BLOCK_TYPES).map(([k, v]) => (
+          <button key={k} type="button" className="row" style={{ width: '100%', background: 'none', border: 0, textAlign: 'left' }} onClick={() => setTyp(k)} aria-pressed={typ === k}>
+            <span className="block-icon"><Icon name={v.icon} size={16} /></span>
+            <span className="row-main">
+              <span className="row-title plain">{v.label}</span>
+              <span className="row-meta">{v.desc}</span>
+            </span>
+            {typ === k && <Icon name="check" size={18} color="var(--accent)" />}
+          </button>
+        ))}
+      </div>
+      <Field label="Titel">
+        <input className="input" value={titel} onChange={(e) => setTitel(e.target.value)} placeholder={BLOCK_TYPES[typ].label} />
+      </Field>
+      {(needsUnit || needsGoal) && (
+        <div style={{ display: 'flex', gap: 10 }}>
+          {needsUnit && <Field label="Einheit"><input className="input" value={einheit} onChange={(e) => setEinheit(e.target.value)} placeholder={typ === 'budget' ? '$' : 'z.B. km'} /></Field>}
+          {needsGoal && <Field label={typ === 'budget' ? 'Limit' : 'Ziel (optional)'}><input className="input" type="number" inputMode="decimal" value={ziel} onChange={(e) => setZiel(e.target.value)} /></Field>}
+        </div>
+      )}
+      <button type="button" className="btn" onClick={save}>Hinzufügen</button>
+    </Sheet>
   );
 }

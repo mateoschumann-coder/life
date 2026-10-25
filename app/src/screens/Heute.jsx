@@ -5,9 +5,9 @@ import {
   allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink,
 } from '../lib/logic';
 import { addTask, logContact, toggleCheckin, toggleTask } from '../lib/actions';
-import { askReview, getAi, lastReview } from '../lib/ai';
+import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { clothingTip, dayForecast, describeCode, loadWeather } from '../lib/weather';
-import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar } from '../components/ui';
+import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
 
 const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -78,6 +78,26 @@ function CheckIn({ s }) {
     }
   };
   const lines = review?.text ? review.text.split('\n').filter((l) => l.trim()) : [];
+  const options = review?.options || [];
+  const open = options.filter((o) => o.status === 'offen');
+  const [picked, setPicked] = useState({});
+  const [when, setWhen] = useState('morgen');
+  const isPicked = (o) => picked[o.id] ?? true;
+  const update = (fn) => {
+    const next = { ...review, options: review.options.map((o) => ({ ...o })) };
+    fn(next.options);
+    saveReview(next);
+    setReview(next);
+  };
+  const adopt = () => {
+    const due = when === 'heute' ? today() : addDays(today(), 1);
+    const chosen = open.filter(isPicked);
+    chosen.forEach((o) => addTask({ title: o.title, areaId: o.areaId, projectId: o.projectId, due }));
+    update((opts) => opts.forEach((o) => { if (o.status === 'offen') o.status = isPicked(o) ? 'uebernommen' : 'verworfen'; }));
+    setPicked({});
+    toast(`${chosen.length} ${chosen.length === 1 ? 'To-do' : 'To-dos'} für ${when} eingeplant`);
+  };
+  const adoptedCount = options.filter((o) => o.status === 'uebernommen').length;
   return (
     <section className="card checkin">
       <div className="sec-h" style={{ padding: 0 }}>
@@ -97,6 +117,27 @@ function CheckIn({ s }) {
           {lines.map((l, i) => (/:\s*$/.test(l) ? <b key={i}>{l.replace(/:\s*$/, '')}</b> : <span key={i}>{l}</span>))}
           <span className="tiny">Stand: {review.date === today() ? 'heute' : relDays(diffDays(review.date, today()))}</span>
         </div>
+      )}
+      {!busy && open.length > 0 && (
+        <div className="options">
+          <b style={{ fontSize: 15 }}>Vorschläge zum Übernehmen</b>
+          {open.map((o) => (
+            <label key={o.id} className="option">
+              <input type="checkbox" checked={isPicked(o)} onChange={(e) => setPicked({ ...picked, [o.id]: e.target.checked })} />
+              <span className="row-main">
+                <span style={{ fontSize: 15, fontWeight: 500 }}>{o.title}</span>
+                {(o.why || o.areaId) && <span className="tiny">{[areaOf(s, o.areaId)?.name, o.why].filter(Boolean).join(' · ')}</span>}
+              </span>
+            </label>
+          ))}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Segmented options={[{ id: 'heute', label: 'Für heute' }, { id: 'morgen', label: 'Für morgen' }]} value={when} onChange={setWhen} label="Wann einplanen" />
+            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!open.some(isPicked)} onClick={adopt}>Übernehmen</button>
+          </div>
+        </div>
+      )}
+      {!busy && options.length > 0 && open.length === 0 && (
+        <span className="tiny">{adoptedCount ? `${adoptedCount} Vorschläge als To-do übernommen.` : 'Vorschläge verworfen.'} Neue gibt es mit dem Pfeil oben.</span>
       )}
       {!busy && !lines.length && <span className="sub" style={{ lineHeight: 1.45 }}>Wo kommst du voran, was ist eingeschlafen, und was wäre heute ein guter nächster Schritt? Die KI schaut sich deine Aktivität an.</span>}
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}

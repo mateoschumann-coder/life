@@ -12,6 +12,7 @@ export function NewProjectSheet({ s, open, onClose, areaId, subId = null, pillar
   const [sub, setSub] = useState(subId);
   const [due, setDue] = useState('');
   const [tpl, setTpl] = useState(null);
+  const [withAi, setWithAi] = useState(true);
   const chosenArea = areaOf(s, areaId || area);
   const template = s.templates.find((t) => t.id === tpl);
   const save = () => {
@@ -21,6 +22,9 @@ export function NewProjectSheet({ s, open, onClose, areaId, subId = null, pillar
     setDue('');
     onClose();
     toast('Projekt angelegt');
+    if (withAi) {
+      try { sessionStorage.setItem('life-open-designer', id); } catch {}
+    }
     go(`/projekt/${id}`);
   };
   return (
@@ -48,6 +52,13 @@ export function NewProjectSheet({ s, open, onClose, areaId, subId = null, pillar
         {template && template.tasks.length > 0 && <span className="tiny" style={{ paddingLeft: 4 }}>Legt an: {template.tasks.join(' · ')}</span>}
         <a href="#/vorlagen" className="tiny" style={{ paddingLeft: 4, color: 'var(--accent)' }} onClick={onClose}>Vorlagen bearbeiten</a>
       </div>
+      <label className="option" style={{ alignItems: 'center' }}>
+        <input type="checkbox" checked={withAi} onChange={(e) => setWithAi(e.target.checked)} />
+        <span className="row-main">
+          <span style={{ fontSize: 15, fontWeight: 600 }}>Danach mit KI gestalten</span>
+          <span className="tiny">Die KI schlägt passende Inhalte, Graphen und erste Aufgaben vor</span>
+        </span>
+      </label>
       <button type="button" className="btn" onClick={save} disabled={!name.trim()}>Projekt anlegen</button>
     </Sheet>
   );

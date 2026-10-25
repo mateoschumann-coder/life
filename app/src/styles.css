@@ -266,3 +266,27 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .checkin-text b:first-child { margin-top: 0; }
 .chip.focus { display: inline-flex; align-items: center; gap: 4px; box-shadow: var(--shadow); }
 .chip.focus.on { color: #fff; }
+
+/* Projekt-Bausteine */
+.block { gap: 12px; }
+.block-head { display: flex; align-items: center; gap: 10px; position: relative; }
+.block-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--accent-bg); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.block-title { font-size: 17px; font-weight: 700; flex: 1; }
+.block-menu { position: absolute; right: 0; top: 36px; z-index: 6; background: var(--card); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.18), 0 0 0 0.5px var(--line); display: flex; flex-direction: column; min-width: 150px; overflow: hidden; }
+.block-menu button { border: 0; background: none; text-align: left; padding: 12px 14px; font-size: 15px; color: var(--text); }
+.block-menu button + button { border-top: 0.5px solid var(--line); }
+.block-add { display: flex; gap: 8px; }
+.block-add .input { padding: 10px 12px; font-size: 16px; }
+.block-list, .timeline { display: flex; flex-direction: column; }
+.block-item, .tl-item { display: flex; align-items: center; gap: 10px; min-height: 42px; border-top: 0.5px solid var(--line); }
+.block-item:first-child, .tl-item:first-child { border-top: 0; }
+.timeline { position: relative; }
+
+/* Check-in Vorschläge */
+.options { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 0.5px solid var(--line); }
+.option { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, var(--card) 70%, transparent); box-shadow: 0 0 0 0.5px var(--line); }
+.option input { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--primary); flex-shrink: 0; }
+
+.design-cta { flex-direction: row; align-items: center; gap: 12px; border: 0; text-align: left; width: 100%; color: inherit; font: inherit; background: linear-gradient(160deg, var(--card) 55%, color-mix(in srgb, var(--sun) 16%, var(--card))); }
+.designer { display: flex; flex-direction: column; gap: 10px; }
+.designer .bubble.ai { max-width: 100%; white-space: normal; display: flex; flex-direction: column; gap: 10px; }

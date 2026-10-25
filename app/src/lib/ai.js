@@ -225,6 +225,33 @@ function explainError(status, msg) {
 
 export const areaName = (s, id) => areaOf(s, id)?.name;
 
+// Gemeinsamer Aufruf der Claude-API (für Check-in und Projekt-Gestalter)
+async function callApi(body) {
+  const ai = getAi();
+  if (!ai.apiKey) throw new Error('KEIN_SCHLUESSEL');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': ai.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({ model: ai.model, ...body }),
+  });
+  if (!res.ok) {
+    let msg = '';
+    try {
+      msg = (await res.json())?.error?.message || '';
+    } catch {}
+    throw new Error(explainError(res.status, msg));
+  }
+  const data = await res.json();
+  trackUsage(ai.model, data.usage);
+  const text = data.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+  return { text, tools: data.content.filter((c) => c.type === 'tool_use') };
+}
+
 // Kurzer Verbindungstest (kostet weniger als 0,01 Cent)
 export async function testKey(apiKey, model) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -280,48 +307,71 @@ export async function askReview(s) {
     return { thema: h.name, ziel: h.count ? `${h.count}x pro ${h.period}` : 'frei, ohne feste Zahl', letzte: ds.sort().at(-1) || null, tage_7: ds.filter((d) => d >= d7).length, tage_30: ds.filter((d) => d >= d30).length };
   });
   const overdue = s.tasks.filter((x) => !x.done && x.due && x.due < t).map((x) => x.title);
+  const ids = {
+    bereiche: s.areas.map((a) => ({ id: a.id, name: a.name })),
+    projekte: s.projects.filter((p) => p.status === 'aktiv').map((p) => ({ id: p.id, name: p.name, bereich_id: p.areaId })),
+  };
   const system = `Du bist Mateos persönlicher Coach in seiner Life-App. Heute ist ${fmtLong(t)}.
 Mateo mag keine starren Zahlen und kein schlechtes Gewissen. Er will ehrlich sehen, wo er vorankommt, und konkret angestoßen werden.
 
-Schreib einen kurzen Check-in auf Deutsch in genau dieser Form (nur Text, keine Sternchen, kein Markdown):
+1. Schreib einen kurzen Check-in auf Deutsch in genau dieser Form (nur Text, keine Sternchen, kein Markdown):
 Gut gelaufen:
 – 1 bis 3 Punkte, konkret mit Bereich oder Projekt
 Eingeschlafen:
 – 1 bis 3 Punkte, freundlich, ohne Vorwurf
-Vorschlag für heute:
-– 2 bis 3 konkrete, kleine nächste Schritte (z.B. die nächste offene Aufgabe eines Projekts), die gut in einen normalen Tag passen
+Höchstens 8 Zeilen.
 
-Insgesamt höchstens 12 Zeilen. Nutze nur die Daten unten; erfinde nichts. Wenn kaum Daten vorhanden sind, sag das kurz und schlage vor, womit er anfangen könnte.`;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': ai.apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: ai.model,
-      max_tokens: 700,
-      system,
-      messages: [{ role: 'user', content: `Meine Daten (JSON): ${JSON.stringify({ bereiche: areas, fokus_themen: focus, ueberfaellige_aufgaben: overdue })}\n\nWie stehe ich gerade da?` }],
-    }),
+2. Rufe danach IMMER das Werkzeug "optionen_vorschlagen" auf: 3 bis 5 konkrete, kleine nächste Schritte, die Mateo mit einem Tipp als To-do übernehmen kann (z.B. die nächste offene Aufgabe eines Projekts, „20 Min Portugiesisch-Podcast“, „Lukas wegen Kaffee schreiben“). Jeder Schritt in höchstens 10 Minuten bis 1 Stunde machbar, als klarer Auftrag formuliert. Wähle bereich_id und, falls passend, projekt_id aus den IDs. Bevorzuge Eingeschlafenes.
+
+Nutze nur die Daten unten; erfinde keine Fakten. Wenn kaum Daten vorhanden sind, sag das kurz und schlage Einstiegsschritte vor.`;
+  const { text, tools } = await callApi({
+    max_tokens: 1000,
+    system,
+    tools: [OPTIONS_TOOL],
+    messages: [{ role: 'user', content: `Meine Daten (JSON): ${JSON.stringify({ bereiche: areas, fokus_themen: focus, ueberfaellige_aufgaben: overdue, ids })}\n\nWie stehe ich gerade da, und was sind gute nächste Schritte?` }],
   });
-  if (!res.ok) {
-    let msg = '';
-    try {
-      msg = (await res.json())?.error?.message || '';
-    } catch {}
-    throw new Error(explainError(res.status, msg));
-  }
-  const data = await res.json();
-  trackUsage(ai.model, data.usage);
-  const text = data.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
-  const review = { date: t, text };
+  const tool = tools.find((c) => c.name === OPTIONS_TOOL.name);
+  const options = (tool?.input?.optionen || [])
+    .filter((o) => o && o.titel)
+    .map((o, i) => ({
+      id: 'o' + i,
+      title: String(o.titel),
+      why: o.warum || '',
+      areaId: s.areas.some((a) => a.id === o.bereich_id) ? o.bereich_id : null,
+      projectId: s.projects.some((p) => p.id === o.projekt_id) ? o.projekt_id : null,
+      status: 'offen',
+    }));
+  const review = { date: t, text, options };
+  saveReview(review);
+  return review;
+}
+const OPTIONS_TOOL = {
+  name: 'optionen_vorschlagen',
+  description: 'Konkrete nächste Schritte, die Mateo mit einem Tipp als To-do für heute oder morgen übernehmen kann.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      optionen: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            titel: { type: 'string', description: 'Kurzer, klarer Auftrag, z.B. „Kapitel 3 Python-Kurs (30 Min)“' },
+            warum: { type: 'string', description: 'Ein kurzer Halbsatz, warum gerade jetzt' },
+            bereich_id: { type: 'string' },
+            projekt_id: { type: 'string' },
+          },
+          required: ['titel'],
+        },
+      },
+    },
+    required: ['optionen'],
+  },
+};
+export function saveReview(review) {
   try {
     localStorage.setItem('life-app-review', JSON.stringify(review));
   } catch {}
-  return review;
 }
 export function lastReview() {
   try {
@@ -329,4 +379,89 @@ export function lastReview() {
   } catch {
     return null;
   }
+}
+
+
+// ---------- Projekte mit der KI gestalten ----------
+export const DESIGN_TOOL = {
+  name: 'projekt_gestalten',
+  description: 'Schlägt Bausteine (Inhalte, Graphen) und Aufgaben NUR für dieses eine Projekt vor. Mateo wählt per Häkchen aus, was übernommen wird.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      bausteine: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            typ: { type: 'string', enum: ['kennzahl', 'liste', 'zaehler', 'meilensteine', 'budget', 'notiz'] },
+            titel: { type: 'string' },
+            einheit: { type: 'string', description: 'Für kennzahl/budget, z.B. km, kg, Min, $' },
+            ziel: { type: 'number', description: 'Zielwert (kennzahl/zaehler) oder Limit (budget)' },
+            punkte: { type: 'array', items: { type: 'string' }, description: 'Startpunkte für liste/meilensteine' },
+            text: { type: 'string', description: 'Inhalt für notiz' },
+            warum: { type: 'string', description: 'Ein Halbsatz, wofür der Baustein hilft' },
+          },
+          required: ['typ', 'titel'],
+        },
+      },
+      aufgaben: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { titel: { type: 'string' }, faellig: { type: 'string', description: 'JJJJ-MM-TT, optional' } },
+          required: ['titel'],
+        },
+      },
+    },
+  },
+};
+
+export async function askDesigner(s, project, items) {
+  const t = today();
+  const area = areaOf(s, project.areaId);
+  const existing = {
+    name: project.name,
+    bereich: area?.name,
+    unterbereich: area?.subs.find((x) => x.id === project.subId)?.name,
+    faellig: project.due,
+    bausteine: (project.blocks || []).map((b) => ({ typ: b.type, titel: b.title })),
+    aufgaben: s.tasks.filter((x) => x.projectId === project.id).map((x) => x.title),
+    notizen: project.notes || undefined,
+  };
+  const system = `Du hilfst Mateo, ein Projekt in seiner Life-App zu gestalten. Heute ist ${fmtLong(t)} (${t}). Mateo lebt in Buenos Aires.
+Ein Projekt besteht aus frei kombinierbaren Bausteinen:
+– kennzahl: eine Zahl mit Verlauf als Graph (z.B. Wochenkilometer, Lernminuten, Gewicht), mit einheit und optional ziel
+– liste: Punkte zum Abhaken (z.B. Ideen, Packliste, Bücher)
+– zaehler: zählt etwas hoch, optional mit ziel (z.B. Bewerbungen, Treffen)
+– meilensteine: wichtige Etappen
+– budget: Ausgaben gegen ein Limit (ziel = Limit, einheit z.B. $ oder ARS)
+– notiz: freier Text, z.B. Ziel oder Plan
+Projekte müssen nicht in Prozent messbar sein. Wähle nur, was für DIESES Projekt wirklich hilft: meist 2 bis 4 Bausteine, keine Doppelungen mit vorhandenen.
+
+So gehst du vor:
+– Ist das Projekt noch unklar, stelle zuerst höchstens 2 kurze Fragen (Ziel? bis wann? was soll man sehen können?).
+– Sonst rufe das Werkzeug "projekt_gestalten" auf: Bausteine mit kurzem warum, plus 3 bis 6 erste konkrete Aufgaben (bei Zeitbezug mit Datum).
+– Text auf Deutsch, kurz und klar, ohne Markdown. Behaupte nie, etwas sei schon angelegt: Mateo wählt aus und bestätigt.
+– Wenn Mateo Änderungen wünscht, schlage die angepasste Auswahl erneut vor.
+
+Das Projekt bisher (JSON): ${JSON.stringify(existing)}`;
+  const messages = [];
+  items.forEach((it, i) => {
+    if (it.role === 'user') {
+      const prev = items[i - 1];
+      const content = [];
+      if (prev?.toolUseId) content.push({ type: 'tool_result', tool_use_id: prev.toolUseId, content: prev.status === 'applied' ? 'Mateo hat seine Auswahl übernommen.' : 'Mateo hat noch nichts übernommen.' });
+      content.push({ type: 'text', text: it.text });
+      messages.push({ role: 'user', content });
+    } else {
+      const content = [];
+      if (it.text) content.push({ type: 'text', text: it.text });
+      if (it.toolUseId) content.push({ type: 'tool_use', id: it.toolUseId, name: DESIGN_TOOL.name, input: it.input || {} });
+      if (content.length) messages.push({ role: 'assistant', content });
+    }
+  });
+  const { text, tools } = await callApi({ max_tokens: 1600, system, tools: [DESIGN_TOOL], messages });
+  const tool = tools.find((c) => c.name === DESIGN_TOOL.name);
+  return { text, toolUseId: tool?.id || null, input: tool?.input || null };
 }
