@@ -20,6 +20,13 @@ Gewünschte Bausteine:
 - Native iOS-App (99 $/Jahr) ist für Mateo in Ordnung, wenn ein Bereich sie braucht (z.B. Apple Health/Garmin).
 - Vorgehen: **Kategorie für Kategorie durchdenken**, was integriert werden kann.
 
+## Leitprinzipien für die Bereiche (Okt. 2026, mit Mateo besprochen)
+- Ziel: **möglichst wenig Zeit in der App**, maximal schnell vorankommen. Jede Interaktion endet in einer Entscheidung oder einem To-do.
+- Drei Kontaktmomente statt Dauer-Pflege: **Morgen-Briefing** (KI hat schon gesucht/ausgewertet, Optionen antippen) · **Fragen jederzeit** („Was soll ich jetzt machen?“, „Welche Events gibt es?“) · **Abend-Check-in per Sprachnachricht** (KI füllt alles aus, fragt nur nach, was fehlt).
+- Daten möglichst **automatisch holen** (GitHub, Garmin, Kalender, Web) statt eintragen; lückenhafte Daten sind okay, die KI arbeitet mit dem, was da ist.
+- Vorgehen: Bereich für Bereich mit einem „Steckbrief“ (Was will ich erreichen? Welche Daten gibt es automatisch? Was fragt die KI? Was schlägt sie vor? Wie sieht der Bildschirm aus?).
+- Technik-Hinweis: Die Claude-API hat eine eingebaute Websuche; „auf Knopfdruck suchen“ (Events, News) geht ohne Cloud, nur das automatische Suchen jeden Morgen braucht die Cloud. GitHub-Daten (öffentliche Repos) kann die App direkt lesen.
+
 ## Ziel der App
 Persönliche App, um Privates, Soziales und Professionelles zu organisieren, effizienter zu sein und nichts Wichtiges zu vernachlässigen (Geburtstage, Kontakte, Lernen, Chancensuche). Läuft unabhängig von Claude als Web-App (PWA) auf dem iPhone. Stil: hell, ruhig, minimalistisch, an iOS angelehnt; dunkler Modus automatisch.
 
