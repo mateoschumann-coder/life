@@ -27,6 +27,16 @@ Gewünschte Bausteine:
 - Vorgehen: Bereich für Bereich mit einem „Steckbrief“ (Was will ich erreichen? Welche Daten gibt es automatisch? Was fragt die KI? Was schlägt sie vor? Wie sieht der Bildschirm aus?).
 - Technik-Hinweis: Die Claude-API hat eine eingebaute Websuche; „auf Knopfdruck suchen“ (Events, News) geht ohne Cloud, nur das automatische Suchen jeden Morgen braucht die Cloud. GitHub-Daten (öffentliche Repos) kann die App direkt lesen.
 
+## Vision pro Bereich (Mateo, 25.10.2026; Maßstab: „Ich muss echten Mehrwert spüren, sonst nutze ich die App nicht“)
+Kern: **ein Coach/Koordinator**, der aktiv auf Mateo zukommt („Da kannst du vorankommen“, „Ich habe eine Idee für dich, starte doch Projekt X“), aus Sprach-Erzählungen lernt (täglich/wöchentlich frei erzählen → KI trägt ein und merkt sich Ziele/Vorlieben) und pro Bereich zugeschnitten ist. Vorankommen > perfekt organisieren.
+- **Zuhause/Ernährung:** per Sprache sagen, was er kaufen/kochen will → Einkaufslisten, Erinnerung einzukaufen, Rezepte (v.a. Airfryer) suchen und mit der Liste verbinden.
+- **Events/Ausgehen:** KI sucht automatisch Events (z.B. Google-Events-Ergebnisse) und fragt ein paar Tage vorher „Interessiert dich das?“; **Orte-Listen mit Karte** (Bars, Cafés … mit eigener Notiz/Bewertung).
+- **Informiert bleiben:** Themen eintragen → KI liefert Zusammenfassung + Links, fragt „interessiert dich das?“.
+- **Menschen:** Kontakt-Rhythmen (z.B. Großeltern x/Woche, Kumpel 1x/Monat), Geburtstage, aktive Erinnerungen.
+- **Sport:** Leistungsdaten + Marathon-Projekt → Einschätzung und Verbesserungen; Anstöße wie „Knie-Übungen gemacht? Hier ein 15-Min-Dehnvideo“.
+- **Finanzen:** Monatszusammenfassung aufgegliedert, Sparziel, Entwicklung der Investments, Empfehlungen.
+- **Weiterentwicklung:** Python-Projekte noch nicht auf GitHub → erster Anstoß „GitHub aufbauen“; Python-Übungen, ML lernen; **Code-Bibliothek** (Dokumente mit wiederverwendbarem Code, Speicherung auf GitHub).
+
 ## Ziel der App
 Persönliche App, um Privates, Soziales und Professionelles zu organisieren, effizienter zu sein und nichts Wichtiges zu vernachlässigen (Geburtstage, Kontakte, Lernen, Chancensuche). Läuft unabhängig von Claude als Web-App (PWA) auf dem iPhone. Stil: hell, ruhig, minimalistisch, an iOS angelehnt; dunkler Modus automatisch.
 
