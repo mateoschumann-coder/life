@@ -1,0 +1,196 @@
+import { useEffect, useState } from 'react';
+import { LEVEL_COLOR } from '../lib/logic';
+
+const PATHS = {
+  today: <><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
+  grid: <><rect x="4" y="4" width="7" height="7" rx="2" /><rect x="13" y="4" width="7" height="7" rx="2" /><rect x="4" y="13" width="7" height="7" rx="2" /><rect x="13" y="13" width="7" height="7" rx="2" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  radar: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.8" /></>,
+  person: <><circle cx="12" cy="8" r="4" /><path d="M4.5 20c1.2-3.8 4-5.5 7.5-5.5s6.3 1.7 7.5 5.5" /></>,
+  back: <path d="M15 5l-7 7 7 7" />,
+  chev: <path d="M9 5l7 7-7 7" />,
+  check: <path d="M5 12l5 5 9-10" />,
+  x: <path d="M6 6l12 12M18 6L6 18" />,
+  gear: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>,
+  link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
+  edit: <path d="M4 20h4l10-10-4-4L4 16v4zM13.5 6.5l4 4" />,
+  // Symbole der Lebensbereiche
+  heart: <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />,
+  leaf: <><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14" /><path d="M5 19l7-7" /></>,
+  home: <><path d="M4 11l8-7 8 7" /><path d="M6 9.5V20h12V9.5" /><path d="M10 20v-5h4v5" /></>,
+  wallet: <><rect x="3.5" y="6.5" width="17" height="12" rx="2.5" /><path d="M3.5 10h17" /><circle cx="16" cy="14.5" r="1" /></>,
+  plane: <path d="M10.5 13.5L4 11l1.5-1.5 7 1L16.8 6.2a1.8 1.8 0 0 1 2.6 2.6L15 13.2l1 7-1.5 1.5-2.5-6.5L9 18.2V21l-1.3 1L6.5 18 2.6 16.7 3.6 15.5h2.6z" />,
+  family: <><circle cx="8" cy="8" r="3" /><circle cx="16.5" cy="9.5" r="2.3" /><path d="M2.5 19c.7-3.4 2.9-5 5.5-5s4.8 1.6 5.5 5M13.5 15.5c.8-1 1.9-1.5 3-1.5 2.1 0 3.7 1.4 4.3 4" /></>,
+  users: <><circle cx="9" cy="8.5" r="3.2" /><path d="M3 19.5c.8-3.5 3.2-5.3 6-5.3s5.2 1.8 6 5.3" /><path d="M15 5.5a3 3 0 0 1 0 6M17.5 14.5c1.9.6 3.1 2.3 3.5 5" /></>,
+  userPlus: <><circle cx="10" cy="8.5" r="3.5" /><path d="M3.5 20c.8-3.8 3.4-5.7 6.5-5.7 1.4 0 2.6.4 3.6 1.1" /><path d="M18 14v6M15 17h6" /></>,
+  sparkle: <><path d="M11 3.5l1.9 5.1 5.1 1.9-5.1 1.9L11 17.5l-1.9-5.1L4 10.5l5.1-1.9z" /><path d="M18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></>,
+  briefcase: <><rect x="3.5" y="7" width="17" height="12.5" rx="2.5" /><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3.5 12.5h17" /></>,
+  book: <><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z" /><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z" /></>,
+  news: <><rect x="4" y="4.5" width="13" height="15" rx="2" /><path d="M17 8h2.5v9.5a2 2 0 0 1-2 2H6M7.5 8.5h6M7.5 12h6M7.5 15.5h4" /></>,
+  circle: <circle cx="12" cy="12" r="7" />,
+};
+
+export function Icon({ name, size = 20, color = 'currentColor', width = 2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ stroke: color }} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {PATHS[name] || PATHS.circle}
+    </svg>
+  );
+}
+
+// Farbiges Quadrat mit Symbol, wie in den iOS-Einstellungen
+export function AreaIcon({ icon, color, size = 30 }) {
+  return (
+    <span className="area-icon" style={{ width: size, height: size, background: color, borderRadius: size * 0.26 }}>
+      <Icon name={icon} size={size * 0.62} color="#fff" width={2} />
+    </span>
+  );
+}
+
+export function Dot({ level, color, small }) {
+  return <span className={small ? 'dot sm' : 'dot'} style={{ background: color || LEVEL_COLOR[level] }} />;
+}
+
+export function Chevron() {
+  return <Icon name="chev" size={15} color="var(--chev)" width={2.4} />;
+}
+
+export function TabBar({ active }) {
+  const tab = (id, href, label, icon) => (
+    <a href={href} className={active === id ? 'tab on' : 'tab'} aria-current={active === id ? 'page' : undefined}>
+      <Icon name={icon} size={25} width={active === id ? 2.2 : 1.8} />
+      <span>{label}</span>
+    </a>
+  );
+  return (
+    <nav className="tabbar" aria-label="Hauptnavigation">
+      {tab('heute', '#/heute', 'Heute', 'today')}
+      {tab('bereiche', '#/bereiche', 'Bereiche', 'grid')}
+      <a href="#/erfassen" className="tab-plus" aria-label="Erfassen">
+        <Icon name="plus" size={24} color="currentColor" width={2.4} />
+      </a>
+      {tab('radar', '#/radar', 'Radar', 'radar')}
+      {tab('menschen', '#/menschen', 'Menschen', 'person')}
+    </nav>
+  );
+}
+
+export function Back({ href, label }) {
+  return (
+    <a href={href} className="back">
+      <Icon name="back" size={22} width={2.4} />
+      {label}
+    </a>
+  );
+}
+
+export function Segmented({ options, value, onChange, full, label = 'Auswahl' }) {
+  return (
+    <div className={full ? 'seg full' : 'seg'} role="group" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.id} type="button" className={value === o.id ? 'on' : ''} aria-pressed={value === o.id} onClick={() => onChange(o.id)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Abhak-Kreis, füllt sich in der Farbe der Säule (wie in Apple Erinnerungen)
+export function Check({ on, onClick, label, color = 'var(--primary)' }) {
+  return (
+    <button type="button" className={on ? 'check on' : 'check'} style={on ? { background: color } : undefined} onClick={onClick} aria-label={label} aria-pressed={on}>
+      {on && <Icon name="check" size={14} color="#fff" width={3} />}
+    </button>
+  );
+}
+
+export function Sheet({ open, title, onClose, children }) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+  if (!open) return null;
+  return (
+    <div className="sheet-bg" onClick={onClose}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-h">
+          <h2 className="h2">{title}</h2>
+          <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={onClose} aria-label="Schließen">
+            <Icon name="x" size={14} color="var(--muted)" width={2.6} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function Field({ label, children }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+// Auswahl eines Lebensbereichs, gruppiert nach Säulen
+export function AreaSelect({ s, value, onChange, allowEmpty }) {
+  return (
+    <select className="input" value={value || ''} onChange={(e) => onChange(e.target.value || null)}>
+      {allowEmpty && <option value="">– keiner –</option>}
+      {s.pillars.map((p) => (
+        <optgroup key={p.id} label={p.name}>
+          {s.areas.filter((a) => a.pillarId === p.id).map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
+// Auswahl eines Unterbereichs (optional)
+export function SubSelect({ area, value, onChange }) {
+  if (!area || !area.subs.length) return null;
+  return (
+    <Field label="Unterbereich (optional)">
+      <select className="input" value={value || ''} onChange={(e) => onChange(e.target.value || null)}>
+        <option value="">– allgemein –</option>
+        {area.subs.map((sub) => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
+      </select>
+    </Field>
+  );
+}
+
+let toastTimer;
+export function toast(msg) {
+  window.dispatchEvent(new CustomEvent('app-toast', { detail: msg }));
+}
+export function Toaster() {
+  const [msg, setMsg] = useState(null);
+  useEffect(() => {
+    const f = (e) => {
+      setMsg(e.detail);
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => setMsg(null), 2200);
+    };
+    window.addEventListener('app-toast', f);
+    return () => window.removeEventListener('app-toast', f);
+  }, []);
+  return msg ? <div className="toast" role="status">{msg}</div> : null;
+}
+
+export function SectionHead({ title, right }) {
+  return (
+    <div className="sec-h">
+      <h2 className="h2">{title}</h2>
+      {right}
+    </div>
+  );
+}

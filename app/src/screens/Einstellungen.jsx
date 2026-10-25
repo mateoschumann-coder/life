@@ -1,0 +1,126 @@
+import { useRef } from 'react';
+import { store, useStore } from '../lib/store';
+import { today } from '../lib/dates';
+import { buildIcs } from '../lib/ics';
+import { loadDemo } from '../lib/demo';
+import { seed } from '../lib/seed';
+import { Back, Chevron, Field, TabBar, toast } from '../components/ui';
+
+// Datei teilen (iPhone: „In Dateien sichern“, AirDrop …) oder herunterladen
+async function shareFile(name, content, type) {
+  const file = new File([content], name, { type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: name });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+export default function Einstellungen() {
+  const s = useStore();
+  const fileRef = useRef(null);
+  const counts = `${s.habits.length} Rhythmen · ${s.tasks.length} Aufgaben · ${s.projects.length} Projekte · ${s.people.length} Personen`;
+
+  const exportJson = () => shareFile(`life-backup-${today()}.json`, JSON.stringify(s, null, 2), 'application/json');
+  const exportIcs = () => shareFile('life-kalender.ics', buildIcs(s), 'text/calendar');
+  const importJson = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data.areas || !data.pillars) throw new Error('Keine Life-Sicherung');
+        if (confirm('Sicherung laden? Die aktuellen Daten auf diesem Gerät werden ersetzt.')) {
+          store.replace(data);
+          toast('Sicherung geladen');
+        }
+      } catch {
+        alert('Diese Datei ist keine gültige Sicherung.');
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(f);
+  };
+
+  return (
+    <>
+      <main className="screen">
+        <Back href="#/heute" label="Heute" />
+        <h1 className="h1">Einstellungen</h1>
+
+        <section className="card">
+          <Field label="Dein Name (für die Begrüßung)">
+            <input className="input" value={s.profile?.name || ''} onChange={(e) => store.update((d) => { d.profile = { ...d.profile, name: e.target.value }; })} />
+          </Field>
+        </section>
+
+        <section className="list">
+          <a href="#/vorlagen" className="row">
+            <span className="row-main"><span className="row-title">Projekt-Vorlagen</span><span className="row-meta">{s.templates.length} Vorlagen</span></span>
+            <Chevron />
+          </a>
+        </section>
+
+        <section className="card">
+          <h2 className="h2">Sicherung</h2>
+          <span className="sub" style={{ lineHeight: 1.5 }}>
+            Deine Daten liegen im Moment nur auf diesem Gerät ({counts}). Bis die Cloud-Synchronisation kommt: bitte ab und zu eine Sicherung in „Dateien“ oder iCloud Drive speichern.
+          </span>
+          <div className="btn-row">
+            <button type="button" className="btn" onClick={exportJson}>Sicherung speichern</button>
+            <button type="button" className="btn tint" onClick={() => fileRef.current?.click()}>Sicherung laden</button>
+          </div>
+          <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={importJson} />
+        </section>
+
+        <section className="card">
+          <h2 className="h2">Apple-Kalender</h2>
+          <span className="sub" style={{ lineHeight: 1.5 }}>
+            Erstellt eine Kalender-Datei mit Geburtstagen (jährlich, mit Erinnerung), Aufgaben mit Datum und zugesagten Events. Auf dem iPhone öffnen → „Alle hinzufügen“.
+          </span>
+          <button type="button" className="btn tint" onClick={exportIcs}>Kalender-Datei erstellen</button>
+        </section>
+
+        <section className="card">
+          <h2 className="h2">Ausprobieren</h2>
+          <span className="sub">Fügt Beispiel-Rhythmen, ein Projekt, Personen und ein Event hinzu (mit „Beispiel“ markiert).</span>
+          <button type="button" className="btn tint" onClick={() => { loadDemo(); toast('Beispieldaten hinzugefügt'); }}>Beispieldaten hinzufügen</button>
+        </section>
+
+        <section className="card">
+          <h2 className="h2">Neu anfangen</h2>
+          <span className="sub">Löscht alle Einträge auf diesem Gerät. Die Grundordnung bleibt.</span>
+          <button
+            type="button"
+            className="btn danger"
+            onClick={() => {
+              if (confirm('Wirklich alle Daten löschen?') && confirm('Sicher? Das lässt sich nicht rückgängig machen.')) {
+                const fresh = seed();
+                fresh.profile = s.profile;
+                store.replace(fresh);
+                toast('Alles gelöscht');
+              }
+            }}
+          >
+            Alle Daten löschen
+          </button>
+        </section>
+
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.2 · Web-App</span>
+      </main>
+      <TabBar />
+    </>
+  );
+}
