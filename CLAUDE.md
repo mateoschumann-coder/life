@@ -37,5 +37,6 @@ Aufgabe (auch Idee) · Rhythmus (x-mal pro Woche/Monat, Check-ins) · Person (Ka
 ## Stand und Fahrplan
 - v0.1: Grundfunktionen, Web-App live.
 - v0.2: iOS-Design, dunkler Modus, Bereichs-Symbole, Unterbereich-Seiten, Idee → Projekt, eigene Vorlagen.
-- **Als Nächstes:** Farben/Icons überarbeiten (Mateo mag die aktuellen Säulenfarben nicht), dann KI-Assistent (v0.3).
+- v0.3: Farbwelt „Salbei und Sand“ (Persönlich #7A8F6A, Sozial #C4876B, Professionell #5F7C99, zart getönte Symbole, warmer Hintergrund), neues Icon (drei Säulen), **KI-Assistent**: Chat unter `#/assistent`, Claude-API direkt aus dem Browser (`lib/ai.js`), Schlüssel nur in `localStorage` (`life-app-ai`), Werkzeug `aenderungen_vorschlagen` → Vorschlagskarte → Bestätigen (`lib/apply.js`), Kostenanzeige in den Einstellungen. Keine Cloud (bewusst).
+- **Als Nächstes:** Rückmeldung zum Assistenten im Alltag einarbeiten; danach Ideen-Parkplatz.
 - Ideen-Parkplatz: E-Mail-Sekretär (Mails priorisieren), wöchentliche KI-Recherche für „Vorgeschlagene Themen“ (kurzer Prompt: max. 5 neue Themen, je 2 Sätze + warum relevant), Kalender schreiben, Sprachsteuerung, Event-Entdeckung, native App.

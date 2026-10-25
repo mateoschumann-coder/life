@@ -1,43 +1,47 @@
 /* Farben: hell (Standard) und dunkel (automatisch nach iPhone-Einstellung) */
 :root {
-  --bg: #f2f2f7;
+  --bg: #f4f2ee;
   --card: #ffffff;
-  --card-2: #f7f7f9;
-  --text: #1c1c1e;
-  --muted: #6c6c72;
-  --soft: #48484a;
-  --line: rgba(60, 60, 67, 0.14);
-  --border: #e3e3e8;
-  --chev: #c4c4c7;
-  --fill: rgba(118, 118, 128, 0.12);
-  --heat0: #ebebef;
-  --accent: #0e6b4f;
-  --accent-bg: #e6f4ee;
-  --danger: #c4302b;
-  --primary: #1c1c1e;
+  --card-2: #f8f6f2;
+  --text: #22231f;
+  --muted: #73746c;
+  --soft: #4b4c45;
+  --line: rgba(70, 66, 56, 0.13);
+  --border: #e6e2da;
+  --chev: #c6c3ba;
+  --fill: rgba(120, 112, 96, 0.11);
+  --heat0: #ebe8e1;
+  --accent: #5e7350;
+  --accent-bg: #e9eee3;
+  --danger: #b5503f;
+  --primary: #2b2d27;
   --on-primary: #ffffff;
-  --bar: rgba(249, 249, 251, 0.86);
+  --bar: rgba(248, 246, 242, 0.86);
+  --ink-mix: black;
+  --ink-amount: 22%;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000000;
-    --card: #1c1c1e;
-    --card-2: #232325;
-    --text: #f5f5f7;
-    --muted: #98989f;
-    --soft: #c7c7cc;
-    --line: rgba(84, 84, 88, 0.55);
-    --border: #38383a;
-    --chev: #5a5a5e;
-    --fill: rgba(118, 118, 128, 0.24);
-    --heat0: #2c2c2e;
-    --accent: #4cd39b;
-    --accent-bg: rgba(76, 211, 155, 0.14);
-    --danger: #ff6961;
-    --primary: #f5f5f7;
-    --on-primary: #000000;
-    --bar: rgba(22, 22, 24, 0.86);
+    --bg: #11120f;
+    --card: #1d1e1a;
+    --card-2: #262722;
+    --text: #f2f0ea;
+    --muted: #a09f96;
+    --soft: #cfcdc4;
+    --line: rgba(120, 116, 104, 0.35);
+    --border: #3a3b34;
+    --chev: #5c5d55;
+    --fill: rgba(150, 144, 128, 0.18);
+    --heat0: #2b2c27;
+    --accent: #a9bd97;
+    --accent-bg: rgba(169, 189, 151, 0.15);
+    --danger: #e8836f;
+    --primary: #f2f0ea;
+    --on-primary: #1d1e1a;
+    --bar: rgba(29, 30, 26, 0.86);
+    --ink-mix: white;
+    --ink-amount: 28%;
     color-scheme: dark;
   }
 }
@@ -102,7 +106,8 @@ a.tag:active { opacity: 0.6; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* Symbole der Lebensbereiche (wie in den iOS-Einstellungen) */
-.area-icon { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; flex-shrink: 0; }
+.area-icon { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--c) 18%, transparent); color: color-mix(in srgb, var(--c), var(--ink-mix) var(--ink-amount)); }
 
 /* Knöpfe */
 .btn { min-height: 50px; border-radius: 14px; border: 0; background: var(--primary); color: var(--on-primary); font-weight: 600; padding: 0 18px; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
@@ -186,3 +191,26 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .notice { background: var(--card); border-radius: 14px; padding: 14px 16px; font-size: 15px; color: var(--muted); line-height: 1.45; }
 .stat { display: flex; flex-direction: column; gap: 2px; }
 .stat b { font-size: 22px; font-weight: 700; }
+
+/* Assistent */
+.chat { display: flex; flex-direction: column; min-height: 100dvh; }
+.chat-head { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 6px) 12px 8px; background: var(--bar); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 0.5px solid var(--line); }
+.chat-body { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 24px; }
+.bubble { max-width: 84%; padding: 10px 14px; border-radius: 20px; font-size: 16px; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble.me { align-self: flex-end; background: var(--primary); color: var(--on-primary); border-bottom-right-radius: 6px; }
+.bubble.ai { align-self: flex-start; background: var(--card); border-bottom-left-radius: 6px; }
+.bot { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.proposal { width: 92%; background: var(--card); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; box-shadow: inset 0 0 0 1.5px var(--accent-bg); }
+.prop-row { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.4; }
+.prop-row input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); flex-shrink: 0; }
+.typing { display: inline-flex; gap: 5px; padding: 14px 16px; }
+.typing span { width: 7px; height: 7px; border-radius: 4px; background: var(--muted); animation: blink 1.2s infinite ease-in-out; }
+.typing span:nth-child(2) { animation-delay: 0.15s; } .typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+.composer { position: sticky; bottom: 0; background: var(--bar); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid var(--line); padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; }
+.composer-row { display: flex; gap: 8px; align-items: flex-end; }
+.composer-row textarea.input { border-radius: 20px; padding: 10px 14px; resize: none; min-height: 42px; max-height: 140px; line-height: 1.35; font-size: 17px; background: var(--card); }
+.send { width: 42px; height: 42px; border-radius: 21px; border: 0; background: var(--primary); color: var(--on-primary); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.send:disabled { opacity: 0.3; }

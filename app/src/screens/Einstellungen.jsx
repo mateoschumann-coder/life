@@ -1,10 +1,11 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { today } from '../lib/dates';
 import { buildIcs } from '../lib/ics';
 import { loadDemo } from '../lib/demo';
 import { seed } from '../lib/seed';
-import { Back, Chevron, Field, TabBar, toast } from '../components/ui';
+import { Back, Chevron, Field, Segmented, TabBar, toast } from '../components/ui';
+import { getAi, MODELS, monthUsage, saveAi, testKey } from '../lib/ai';
 
 // Datei teilen (iPhone: „In Dateien sichern“, AirDrop …) oder herunterladen
 async function shareFile(name, content, type) {
@@ -30,6 +31,25 @@ async function shareFile(name, content, type) {
 export default function Einstellungen() {
   const s = useStore();
   const fileRef = useRef(null);
+  const [ai, setAi] = useState(getAi);
+  const [keyInput, setKeyInput] = useState('');
+  const [testing, setTesting] = useState(false);
+  const usage = monthUsage();
+  const saveKey = async () => {
+    const key = keyInput.trim();
+    if (!key) return;
+    setTesting(true);
+    try {
+      await testKey(key, ai.model);
+      setAi(saveAi({ apiKey: key }));
+      setKeyInput('');
+      toast('Schlüssel funktioniert und ist gespeichert');
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setTesting(false);
+    }
+  };
   const counts = `${s.habits.length} Rhythmen · ${s.tasks.length} Aufgaben · ${s.projects.length} Projekte · ${s.people.length} Personen`;
 
   const exportJson = () => shareFile(`life-backup-${today()}.json`, JSON.stringify(s, null, 2), 'application/json');
@@ -64,6 +84,28 @@ export default function Einstellungen() {
           <Field label="Dein Name (für die Begrüßung)">
             <input className="input" value={s.profile?.name || ''} onChange={(e) => store.update((d) => { d.profile = { ...d.profile, name: e.target.value }; })} />
           </Field>
+        </section>
+
+        <section className="card">
+          <h2 className="h2">KI-Assistent</h2>
+          {ai.apiKey ? (
+            <>
+              <span className="sub">Schlüssel hinterlegt (…{ai.apiKey.slice(-4)}). Er liegt nur auf diesem iPhone.</span>
+              <div className="field">
+                <span>Modell</span>
+                <Segmented full options={MODELS.map((m) => ({ id: m.id, label: m.label }))} value={ai.model} onChange={(v) => setAi(saveAi({ model: v }))} label="Modell" />
+                <span className="tiny" style={{ paddingLeft: 4 }}>{MODELS.find((m) => m.id === ai.model)?.sub}{ai.model === MODELS[0].id ? ' – ideal für Alltagsbefehle' : ' – besser für größere Planungen, etwa 20× teurer'}</span>
+              </div>
+              <span className="sub">Diesen Monat: {usage.requests} Anfragen · ca. {usage.cost < 0.01 ? 'unter 0,01' : usage.cost.toFixed(2).replace('.', ',')} $</span>
+              <button type="button" className="btn danger small" onClick={() => confirm('Schlüssel von diesem iPhone entfernen?') && setAi(saveAi({ apiKey: '' }))}>Schlüssel entfernen</button>
+            </>
+          ) : (
+            <>
+              <span className="sub" style={{ lineHeight: 1.5 }}>Füge hier deinen API-Schlüssel von console.anthropic.com ein. Er wird nur auf diesem iPhone gespeichert, nicht in Sicherungen und nicht im Code.</span>
+              <input className="input" type="password" autoComplete="off" autoCapitalize="off" spellCheck={false} value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder="sk-ant-…" aria-label="API-Schlüssel" />
+              <button type="button" className="btn" onClick={saveKey} disabled={!keyInput.trim() || testing}>{testing ? 'Prüfe …' : 'Prüfen und speichern'}</button>
+            </>
+          )}
         </section>
 
         <section className="list">
@@ -118,7 +160,7 @@ export default function Einstellungen() {
           </button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.2 · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.3 · Web-App</span>
       </main>
       <TabBar />
     </>

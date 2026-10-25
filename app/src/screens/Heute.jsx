@@ -16,7 +16,7 @@ function Ring({ pct }) {
   return (
     <svg width="56" height="56" viewBox="0 0 56 56" role="img" aria-label={`${Math.round(pct * 100)} Prozent erledigt`}>
       <circle cx="28" cy="28" r={r} fill="none" stroke="var(--fill)" strokeWidth="7" />
-      {pct > 0 && <circle cx="28" cy="28" r={r} fill="none" stroke="#2E9B6A" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * pct} ${c}`} transform="rotate(-90 28 28)" style={{ transition: "stroke-dasharray 0.4s ease" }} />}
+      {pct > 0 && <circle cx="28" cy="28" r={r} fill="none" stroke="#7A8F6A" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * pct} ${c}`} transform="rotate(-90 28 28)" style={{ transition: "stroke-dasharray 0.4s ease" }} />}
       <text x="28" y="32" textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--text)">{Math.round(pct * 100)}%</text>
     </svg>
   );
@@ -72,7 +72,7 @@ export default function Heute() {
   upcomingBirthdays(s, t, 2).forEach(({ person, inDays }) =>
     items.push({
       key: 'b' + person.id, done: contactedToday(person), onCheck: () => logContact(person.id),
-      title: `Geburtstag: ${person.name}`, color: '#D2642E',
+      title: `Geburtstag: ${person.name}`, color: '#C4876B',
       meta: inDays === 0 ? 'heute' : inDays === 1 ? 'morgen' : `in ${inDays} Tagen`, wa: waLink(person),
     })
   );
@@ -82,7 +82,7 @@ export default function Heute() {
     seen.add(p.id);
     const last = lastContact(p);
     items.push({
-      key: 'p' + p.id, done: false, onCheck: () => logContact(p.id), title: `${p.name} schreiben`, color: '#D2642E',
+      key: 'p' + p.id, done: false, onCheck: () => logContact(p.id), title: `${p.name} schreiben`, color: '#C4876B',
       meta: p.followUp && p.followUp <= t ? 'Nachfassen fällig' : `${last ? `Letzter Kontakt ${relDays(diffDays(last, t))}` : 'Noch kein Kontakt notiert'} · Ziel ${targetText(p.contactEvery)}`,
       wa: waLink(p),
     });
@@ -101,9 +101,14 @@ export default function Heute() {
             <span className="eyebrow">{fmtLong(t)}</span>
             <h1 className="h1 sm">{greeting(s.profile?.name)}</h1>
           </div>
-          <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen">
-            <Icon name="gear" size={20} width={1.8} />
-          </a>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a href="#/assistent" className="icon-btn" aria-label="Assistent öffnen" style={{ background: 'var(--accent-bg)', color: 'var(--accent)' }}>
+              <Icon name="sparkle" size={20} width={1.8} />
+            </a>
+            <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen">
+              <Icon name="gear" size={20} width={1.8} />
+            </a>
+          </div>
         </div>
 
         {isNew && (

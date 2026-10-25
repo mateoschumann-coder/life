@@ -1,7 +1,7 @@
 // Berechnungen: Ampeln, Rhythmen, Kontakte, Geburtstage.
 import { addDays, addMonths, daysUntilBirthday, diffDays, relDays, startOfMonth, startOfWeek } from './dates';
 
-export const LEVEL_COLOR = { gruen: '#2E9B6A', gelb: '#E0A21B', rot: '#D14343', grau: '#C4C4BE' };
+export const LEVEL_COLOR = { gruen: '#6FA35E', gelb: '#E2A93B', rot: '#CF5F4B', grau: '#BDBAB1' };
 export const LEVEL_WORD = { gruen: 'läuft', gelb: 'achten', rot: 'vernachlässigt', grau: 'pausiert' };
 const LEVEL_RANK = { rot: 0, gelb: 1, grau: 2, gruen: 3 };
 export const byUrgency = (a, b) => LEVEL_RANK[a.status.level] - LEVEL_RANK[b.status.level];

@@ -88,7 +88,7 @@ export default function AreaContent({ s, area, subId = null }) {
           {tasks.map((x) => (
             <div key={x.id} className="row">
               {x.idea ? (
-                <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center' }}><Icon name="sparkle" size={18} color="#E0A21B" /></span>
+                <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center' }}><Icon name="sparkle" size={18} color="#C9973A" /></span>
               ) : (
                 <Check on={false} color={color} onClick={() => toggleTask(x.id)} label={`Erledigt: ${x.title}`} />
               )}

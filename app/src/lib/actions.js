@@ -31,6 +31,12 @@ export function toggleTask(id) {
     t.doneAt = t.done ? today() : null;
   });
 }
+export function updateTask(id, patch) {
+  store.update((s) => {
+    const t = s.tasks.find((x) => x.id === id);
+    if (t) Object.assign(t, patch);
+  });
+}
 export function deleteTask(id) {
   store.update((s) => {
     s.tasks = s.tasks.filter((t) => t.id !== id);

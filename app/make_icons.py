@@ -1,20 +1,23 @@
-"""Erzeugt die App-Icons (dunkler Hintergrund, drei Punkte für die drei Säulen)."""
+"""Erzeugt die App-Icons: drei Säulen (Persönlich, Sozial, Professionell) auf Sandgrund."""
 from PIL import Image, ImageDraw
 
-COLORS = ["#6E62D6", "#D2642E", "#13805F"]
+BG = "#F1EDE4"
+BARS = [("#7A8F6A", 0.44), ("#C4876B", 0.62), ("#5F7C99", 0.52)]  # Farbe, Höhe relativ
 
 
 def icon(size, path):
     scale = 4
     s = size * scale
-    img = Image.new("RGB", (s, s), "#1C1C1E")
+    img = Image.new("RGB", (s, s), BG)
     d = ImageDraw.Draw(img)
-    r = s * 0.11
-    gap = s * 0.27
-    cy = s / 2
-    for i, c in enumerate(COLORS):
-        cx = s / 2 + (i - 1) * gap
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=c)
+    w = s * 0.15
+    gap = s * 0.055
+    total = 3 * w + 2 * gap
+    x0 = (s - total) / 2
+    base = s * 0.76
+    for i, (color, h) in enumerate(BARS):
+        x = x0 + i * (w + gap)
+        d.rounded_rectangle([x, base - s * h, x + w, base], radius=w / 2, fill=color)
     img = img.resize((size, size), Image.LANCZOS)
     img.save(path)
 

@@ -1,7 +1,7 @@
 import { useStore } from '../lib/store';
 import { today } from '../lib/dates';
 import { allAreaStatuses, byUrgency, LEVEL_COLOR, LEVEL_WORD } from '../lib/logic';
-import { AreaIcon, Chevron, Dot, TabBar } from '../components/ui';
+import { AreaIcon, Chevron, Dot, Icon, TabBar } from '../components/ui';
 
 export default function Bereiche() {
   const s = useStore();
@@ -13,6 +13,9 @@ export default function Bereiche() {
       <main className="screen">
         <div className="top">
           <h1 className="h1">Bereiche</h1>
+          <a href="#/assistent" className="icon-btn" aria-label="Assistent öffnen" style={{ background: 'var(--accent-bg)', color: 'var(--accent)' }}>
+            <Icon name="sparkle" size={20} width={1.8} />
+          </a>
         </div>
         {s.pillars.map((p) => {
           const mine = statuses.filter((x) => x.area.pillarId === p.id);

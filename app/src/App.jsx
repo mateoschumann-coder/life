@@ -12,6 +12,7 @@ import Radar from './screens/Radar';
 import Einstellungen from './screens/Einstellungen';
 import Unterbereich from './screens/Unterbereich';
 import Vorlagen from './screens/Vorlagen';
+import Assistent from './screens/Assistent';
 
 export default function App() {
   const [page, a, b] = useRoute();
@@ -24,6 +25,7 @@ export default function App() {
     case 'bereich': screen = <Bereich key={a} id={a} />; break;
     case 'unterbereich': screen = <Unterbereich key={a + b} areaId={a} subId={b} />; break;
     case 'vorlagen': screen = <Vorlagen />; break;
+    case 'assistent': screen = <Assistent />; break;
     case 'projekt': screen = <Projekt key={a} id={a} />; break;
     case 'erfassen': screen = <Erfassen />; break;
     case 'menschen': screen = <Menschen />; break;

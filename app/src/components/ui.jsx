@@ -28,6 +28,7 @@ const PATHS = {
   book: <><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z" /><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z" /></>,
   news: <><rect x="4" y="4.5" width="13" height="15" rx="2" /><path d="M17 8h2.5v9.5a2 2 0 0 1-2 2H6M7.5 8.5h6M7.5 12h6M7.5 15.5h4" /></>,
   circle: <circle cx="12" cy="12" r="7" />,
+  send: <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />,
 };
 
 export function Icon({ name, size = 20, color = 'currentColor', width = 2 }) {
@@ -41,8 +42,8 @@ export function Icon({ name, size = 20, color = 'currentColor', width = 2 }) {
 // Farbiges Quadrat mit Symbol, wie in den iOS-Einstellungen
 export function AreaIcon({ icon, color, size = 30 }) {
   return (
-    <span className="area-icon" style={{ width: size, height: size, background: color, borderRadius: size * 0.26 }}>
-      <Icon name={icon} size={size * 0.62} color="#fff" width={2} />
+    <span className="area-icon" style={{ width: size, height: size, '--c': color, borderRadius: size * 0.28 }}>
+      <Icon name={icon} size={size * 0.6} color="currentColor" width={2} />
     </span>
   );
 }
