@@ -23,6 +23,9 @@ export function topicLinks(q) {
     { id: 'de', label: 'Google News', title: 'Deutsch', url: `https://news.google.com/search?q=${enc(q)}&hl=de&gl=DE&ceid=DE:de` },
     { id: 'en', label: 'Google News', title: 'Englisch', url: `https://news.google.com/search?q=${enc(q)}&hl=en-US&gl=US&ceid=US:en` },
     { id: 'es', label: 'Google News', title: 'Spanisch (Argentinien)', url: `https://news.google.com/search?q=${enc(q)}&hl=es-419&gl=AR&ceid=AR:es-419` },
+    { id: 'int', label: 'Weltweit', title: 'Internationale Agenturen (Reuters, AP, BBC …)', url: `https://www.google.com/search?q=${enc(`${q} (site:reuters.com OR site:apnews.com OR site:bbc.com OR site:aljazeera.com OR site:dw.com OR site:france24.com)`)}&tbm=nws&tbs=qdr:w` },
+    { id: 'asia', label: 'Asien & Nahost', title: 'Sicht aus Asien und Nahost', url: `https://www.google.com/search?q=${enc(`${q} (site:scmp.com OR site:asia.nikkei.com OR site:thediplomat.com OR site:aljazeera.com OR site:thehindu.com OR site:straitstimes.com)`)}&tbm=nws&tbs=qdr:w` },
+    { id: 'uk', label: 'Google News', title: 'Großbritannien / international', url: `https://news.google.com/search?q=${enc(q)}&hl=en-GB&gl=GB&ceid=GB:en` },
     { id: 'a', label: 'Hintergrund', title: 'Analysen & Erklärstücke (Monat)', url: `https://www.google.com/search?q=${enc(`${q} (Analyse OR analysis OR explainer)`)}&tbm=nws&tbs=qdr:m` },
     { id: 'yt', label: 'YouTube', title: 'Neueste Videos', url: `https://www.youtube.com/results?search_query=${enc(q)}&sp=CAI%253D` },
   ];
@@ -41,7 +44,7 @@ export async function topicAngles(s, topic) {
   const r = await aiLinks({
     s,
     system: `Du hilfst Mateo, zum Thema „${topic}“ informiert zu bleiben. Heute ist ${fmtLong(today())}.
-Ziel: Nachrichten, die für IHN relevant sind – passend zu seinem Hintergrund, seinen Zielen (z.B. Jobsuche, Projekte, Lernen) und seinem Wohnort. Formuliere eine zugeschnittene Hauptsuche (wird für die festen Links Heute/Woche/Google News benutzt) und 5–7 Blickwinkel/Unterthemen (Schlüsselfirmen, Regionen, laufende Entwicklungen, was für seine Ziele zählt) als Nachrichten-Suchen – jeweils in der Sprache mit den besten Quellen.`,
+Ziel: Er will Nachrichten aus der GANZEN WELT, nicht nur aus Lateinamerika. Sein Profil hilft beim Gewichten, soll das Thema aber nicht einengen. Formuliere eine Hauptsuche (wird für die festen Links Heute/Woche/Google News benutzt; global, nicht auf eine Region beschränkt) und 6–8 Blickwinkel als Nachrichten-Suchen, die zusammen die Welt abdecken: USA, Europa, China/Asien, Nahost, Afrika, Lateinamerika – je nachdem, wo beim Thema gerade etwas passiert – plus 1–2, die zu seinen Zielen passen. Jeweils in der Sprache mit den besten Quellen (meist Englisch).`,
     user: `Thema: ${topic}`,
     platforms: ['google_news', 'google_news_en', 'google_news_es', 'news_woche', 'youtube'],
     label: 'News: Blickwinkel',
@@ -53,3 +56,12 @@ Ziel: Nachrichten, die für IHN relevant sind – passend zu seinem Hintergrund,
   } catch {}
   return all[topic];
 }
+
+// Weltgeschehen: direkte Links zu internationalen Nachrichtenseiten, nach Regionen (kostenlos)
+export const WORLD = [
+  { region: 'Weltweit', links: [['Reuters', 'https://www.reuters.com/world/'], ['AP News', 'https://apnews.com/world-news'], ['BBC World', 'https://www.bbc.com/news/world'], ['Google News Welt', 'https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en']] },
+  { region: 'Europa', links: [['Tagesschau Ausland', 'https://www.tagesschau.de/ausland'], ['DW', 'https://www.dw.com/en/top-stories/world/s-1429'], ['Le Monde (EN)', 'https://www.lemonde.fr/en/international/'], ['Politico Europe', 'https://www.politico.eu/']] },
+  { region: 'Amerika', links: [['NPR World', 'https://www.npr.org/sections/world/'], ['El País América', 'https://elpais.com/america/'], ['La Nación', 'https://www.lanacion.com.ar/mundo/'], ['Infobae', 'https://www.infobae.com/america/mundo/']] },
+  { region: 'Asien & Pazifik', links: [['SCMP', 'https://www.scmp.com/news/asia'], ['Nikkei Asia', 'https://asia.nikkei.com/'], ['The Diplomat', 'https://thediplomat.com/'], ['The Hindu World', 'https://www.thehindu.com/news/international/']] },
+  { region: 'Nahost & Afrika', links: [['Al Jazeera', 'https://www.aljazeera.com/news/'], ['Middle East Eye', 'https://www.middleeasteye.net/'], ['Africa News', 'https://www.africanews.com/'], ['BBC Africa', 'https://www.bbc.com/news/world/africa']] },
+];

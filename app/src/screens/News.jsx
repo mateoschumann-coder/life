@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
-import { addTopic, loadAngles, removeTopic, topicAngles, topicLinks, topicsOf } from '../lib/news';
+import { addTopic, WORLD, loadAngles, removeTopic, topicAngles, topicLinks, topicsOf } from '../lib/news';
 import { getAi } from '../lib/ai';
 import LinkList from '../components/LinkList';
 import { Back, Icon, TabBar } from '../components/ui';
@@ -120,6 +120,15 @@ export default function News() {
         {!query && !sel && (
           <>
             {topics.length === 0 && <div className="notice">Füg Themenbereiche hinzu (Stift), z.B. KI, Startups & VC, Geopolitik, Wirtschaft Argentinien. Für jedes Thema bekommst du sortierte Nachrichten-Links: heute, diese Woche, auf Deutsch, Englisch und Spanisch.</div>}
+            <section className="card" style={{ gap: 10 }}>
+              <span style={{ fontWeight: 700, fontSize: 17 }}>🌍 Weltgeschehen</span>
+              {WORLD.map((r) => (
+                <div key={r.region} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span className="label" style={{ padding: 0 }}>{r.region}</span>
+                  <div className="chips">{r.links.map(([n, u]) => <a key={n} href={u} target="_blank" rel="noreferrer" className="chip soft" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', color: 'var(--text)' }}>{n}</a>)}</div>
+                </div>
+              ))}
+            </section>
             <TailorAll s={s} topics={topics} />
             {topics.map((t) => <TopicCard key={t + tick} s={s} topic={t} compact />)}
             {topics.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>Tippe oben auf ein Thema für mehr Quellen und KI-Blickwinkel.</span>}
