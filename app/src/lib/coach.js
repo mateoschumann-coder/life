@@ -14,11 +14,12 @@ export const BOXES = [
   { id: 'lernen', title: 'Weiterbildung', icon: 'book', areas: ['entwicklung'], hint: 'Kleine, leichte Lern-Anstöße (Portugiesisch, Italienisch, Python/ML, KI anwenden, eigene Projekte), gern mit konkretem Material: Video, Podcast, Übung, Artikel, Mini-Projekt für heute. Nicht kompliziert.' },
   { id: 'karriere', title: 'Karriere & Jobsuche', icon: 'briefcase', areas: ['karriere'], hint: 'Fragen, wie es bei der Jobsuche läuft; ein konkreter nächster Schritt (Bewerbung, Kontakt anschreiben, Unterlagen); gern eine passende Chance oder ein Event aus der Suche (Startups/VC, KI-nahe Rollen).' },
   { id: 'menschen', title: 'Menschen', icon: 'users', areas: ['familie', 'freunde', 'neue'], hint: 'Wem er sich mal wieder melden sollte, Geburtstage, Ideen für ein Treffen.' },
-  { id: 'ausgehen', title: 'Ausgehen & Events', icon: 'pin', areas: ['erlebnisse', 'freizeit'], hint: '1–2 Events in Buenos Aires in den nächsten Tagen aus der Websuche, passend zu seinen Interessen, oder ein Ort von seiner Will-hin-Liste.' },
+  { id: 'ausgehen', title: 'Ausgehen & Treffen', icon: 'pin', areas: ['erlebnisse'], hint: '1–2 Events in Buenos Aires aus der Websuche, passend zu seinen Vorlieben (gern auch ein Geheimtipp), ein Ort von seiner Will-hin-Liste, oder ein Anstoß für sein eigenes geplantes Treffen (Einladungen raus? Einkauf?) bzw. die Idee, mal wieder selbst etwas zu organisieren.' },
+  { id: 'freizeit', title: 'Hobbys & Reisen', icon: 'plane', areas: ['freizeit'], hint: 'Zu einem seiner Hobbys ein konkreter Anstoß mit Material (z.B. ein neuer Song zum Lernen, ein Schach-Video), offene To-dos einer anstehenden Reise.' },
   { id: 'news', title: 'Informiert bleiben', icon: 'news', areas: ['informiert'], hint: '1–2 aktuelle, wirklich interessante Neuigkeiten zu seinen Themen, mit 1–2 Sätzen Zusammenfassung im text und Link.' },
   { id: 'wissen', title: 'Lernen & Wissen', icon: 'bulb', areas: ['mental'], hint: 'Neugier-Themen (Geschichte, Physik, Geopolitik …): ans aktuelle Buch erinnern („20 Min lesen?“), passend zu seinen Themen ein konkretes neues Buch/Video/Artikel vorschlagen (art link mit url).' },
   { id: 'gesundheit', title: 'Gesundheit & Sport', icon: 'heart', areas: ['koerper'], hint: 'Training (seine Sportarten, Einheiten, nächste Rennen), aktive Verletzungen ernst nehmen (z.B. passendes Übungsvideo, Pause), fällige Vorsorge-Termine, Erholung.' },
-  { id: 'alltag', title: 'Zuhause & Finanzen', icon: 'home', areas: ['zuhause', 'finanzen'], hint: 'Rezeptidee (gern Airfryer) passend zu seinen Rezepten/Einkaufsliste, Erinnerung an die Einkaufsliste, Finanzen – nur wenn sinnvoll.' },
+  { id: 'alltag', title: 'Zuhause', icon: 'home', areas: ['zuhause'], hint: 'Fällige Erinnerungen (Miete, WLAN …), 1 Punkt aus der Haushaltsliste, Rezeptidee (gern Airfryer), Erinnerung an die Einkaufsliste – nur wenn sinnvoll.' },
 ];
 export const boxOfArea = (areaId) => BOXES.find((b) => b.areas.includes(areaId));
 
@@ -127,6 +128,12 @@ function coachData(s) {
     vorsorge_faellig: (s.healthItems || []).filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date <= addDays(t, 14)).map((h) => ({ titel: h.title, datum: h.date })),
     einkaufsliste_offen: (s.shopping?.items || []).filter((x) => !x.done).length,
     rezepte: (s.recipes || []).map((r) => r.title).slice(0, 15),
+    erinnerungen_bald: (s.reminders || []).filter((r) => r.next <= addDays(t, 5)).map((r) => ({ titel: r.title, datum: r.next })),
+    zuhause_offen: Object.fromEntries(Object.entries(s.home || {}).map(([k, l]) => [k, (l.items || []).filter((x) => !x.done).map((x) => `${x.cat}: ${x.text}`).slice(0, 8)])),
+    hobbys: (s.hobbies || []).map((h) => ({ hobby: h.name, niveau: h.level || undefined, geschmack: h.goal || undefined, offen: h.items.filter((x) => x.status !== 'geschafft').map((x) => x.title).slice(0, 5), geschafft: h.items.filter((x) => x.status === 'geschafft').map((x) => x.title).slice(-5) })),
+    reisen_bald: (s.trips || []).filter((tr) => !tr.to || tr.to >= t).map((tr) => ({ reise: tr.name, von: tr.from, offen: tr.todo.filter((x) => !x.done).map((x) => x.text) })),
+    eigene_treffen: (s.gatherings || []).filter((g) => !g.date || g.date >= t).map((g) => ({ name: g.name, datum: g.date, gaeste: g.guests.length, zugesagt: g.guests.filter((x) => x.status === 'zugesagt').length, nicht_eingeladen: g.guests.filter((x) => x.status === 'offen').length, einkauf_offen: g.shopping.filter((x) => !x.done).length })),
+    event_vorlieben: s.profile?.eventPrefs || [],
     bibliothek_gerade: (s.library || []).filter((m) => m.status === 'aktiv').map((m) => m.title),
     bibliothek_will: (s.library || []).filter((m) => m.status === 'will').map((m) => m.title).slice(0, 10),
     wissensthemen: (s.areas.find((a) => a.id === 'mental')?.subs || []).map((x) => x.name),
@@ -184,8 +191,9 @@ export async function askCoach(s, { search = true } = {}) {
   let tool;
   try {
     for (let round = 0; round < 4; round++) {
-      data = await post({ max_tokens: 4096, system: systemPrompt(), tools, messages });
+      data = await post({ max_tokens: 8000, system: systemPrompt(), tools, messages });
       tool = data.content.find((c) => c.type === 'tool_use' && c.name === COACH_TOOL.name);
+      if (tool && data.stop_reason === 'max_tokens') tool = null;
       if (tool || data.stop_reason !== 'pause_turn') break;
       messages.push({ role: 'assistant', content: data.content });
     }
@@ -194,13 +202,13 @@ export async function askCoach(s, { search = true } = {}) {
     throw e;
   }
   if (!tool) {
-    const text = data.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n');
-    data = await post({
-      max_tokens: 4096, system: systemPrompt(), tools: [COACH_TOOL], tool_choice: { type: 'tool', name: COACH_TOOL.name },
-      messages: [{ role: 'user', content: `${messages[0].content}\n\nDeine Rechercheergebnisse:\n${text || '(keine)'}\n\nGib jetzt das Briefing mit dem Werkzeug.` }],
-    });
+    // Gespräch mit den bisherigen Suchergebnissen fortsetzen und das Briefing verlangen
+    const prev = data.content.filter((c) => c.type !== 'tool_use');
+    const cont = prev.length ? [...messages, { role: 'assistant', content: prev }, { role: 'user', content: 'Gib jetzt das Briefing mit briefing_geben – kompakt, ohne weitere Suche.' }] : messages;
+    data = await post({ max_tokens: 8000, system: systemPrompt(), tools, tool_choice: { type: 'tool', name: COACH_TOOL.name }, messages: cont });
     tool = data.content.find((c) => c.type === 'tool_use' && c.name === COACH_TOOL.name);
   }
+  if (!tool) throw new Error('Das Briefing ist nicht angekommen. Bitte noch einmal auf den Pfeil tippen.');
   const input = tool?.input || {};
   const validUrl = (u) => (/^https?:\/\//.test(u || '') ? u : null);
   const host = (u) => {

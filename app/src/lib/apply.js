@@ -9,6 +9,8 @@ import {
 import { store } from './store';
 import { locate } from './outings';
 import { addMaterial, ensureTopic, KINDS } from './library';
+import { addHomeItem, addReminder, EVERY, LISTS } from './home';
+import { addGathering, addHobby, addHobbyItem, addTrip } from './leisure';
 import { addHealthItem, addRecipe, addSession, addShopping, addSport, findSport, parseDuration } from './health';
 
 const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
@@ -115,6 +117,16 @@ export function describe(s, raw) {
       return { ok: !!a.fakt, label: `Merken: ${a.fakt}` };
     case 'training_eintragen':
       return { ok: !!(a.sportart || s.sports.length), label: join(`Training: ${findSport(s, a.sportart || 'Laufen')?.name || a.sportart || 'Laufen'}`, a.distanz_km && `${String(a.distanz_km).replace('.', ',')} km`, a.dauer && `${a.dauer}${/^\d+$/.test(String(a.dauer)) ? ' Min' : ''}`, isDate(a.datum) && a.datum !== today() ? date(a.datum) : 'heute', a.notiz) };
+    case 'erinnerung_anlegen':
+      return { ok: !!a.titel, label: join(`Erinnerung: ${a.titel}`, EVERY[a.wie_oft || 'monat'], isDate(a.datum) && `ab ${date(a.datum)}`) };
+    case 'zuhause_eintrag':
+      return { ok: !!a.titel && !!LISTS[a.liste || 'haushalt'], label: join(`${LISTS[a.liste || 'haushalt']?.title || 'Zuhause'}: ${a.titel}`, a.zuhause_kategorie, a.weggeben && 'weggeben') };
+    case 'hobby_eintrag':
+      return { ok: !!a.titel && !!a.hobby, label: join(`${a.hobby}: ${a.titel}`, a.hobby_art) };
+    case 'reise_anlegen':
+      return { ok: !!a.name, label: join(`Reise: ${a.name}`, isDate(a.datum) && date(a.datum), isDate(a.bis_datum) && `bis ${date(a.bis_datum)}`) };
+    case 'treffen_anlegen':
+      return { ok: !!a.name, label: join(`Treffen: ${a.name}`, isDate(a.datum) && date(a.datum), a.uhrzeit, a.ort) };
     case 'material_anlegen':
       if (a.titel && (s.library || []).some((m) => norm(m.title) === norm(a.titel))) return { ok: false, reason: 'schon in der Bibliothek', label: `Bibliothek: ${a.titel}` };
       return { ok: !!a.titel, label: join(`${KINDS[a.material_art]?.label || 'Material'}: ${a.titel}`, a.autor, a.thema && `Thema ${a.thema}`) };
@@ -219,6 +231,16 @@ export function applyAction(s, raw) {
     }
     case 'einkauf_hinzufuegen':
       return addShopping(a.artikel || []);
+    case 'erinnerung_anlegen':
+      return addReminder({ title: a.titel, every: a.wie_oft || 'monat', next: d(a.datum) || today(), note: a.notiz || '' });
+    case 'zuhause_eintrag':
+      return addHomeItem(a.liste || 'haushalt', { text: a.titel, cat: a.zuhause_kategorie, kind: a.weggeben ? 'weggeben' : 'brauche', url: a.url || '', note: a.notiz || '' });
+    case 'hobby_eintrag':
+      return addHobbyItem(addHobby(a.hobby), { title: a.titel, kind: a.hobby_art || 'idee', url: a.url || '', why: a.notiz || '' });
+    case 'reise_anlegen':
+      return addTrip({ name: a.name, dest: a.ort || a.name, from: d(a.datum) || '', to: d(a.bis_datum) || '' });
+    case 'treffen_anlegen':
+      return addGathering({ name: a.name, date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', desc: a.notiz || '' });
     case 'material_anlegen':
       return addMaterial({ title: a.titel, kind: a.material_art || 'buch', subId: ensureTopic(a.thema || 'Allgemein'), author: a.autor || '', url: a.url || '', note: a.notiz || '' });
     case 'rezept_anlegen':

@@ -20,6 +20,10 @@ import Sport from './screens/Sport';
 import Kueche from './screens/Kueche';
 import Vorsorge from './screens/Vorsorge';
 import Wissen from './screens/Wissen';
+import Zuhause from './screens/Zuhause';
+import Hobbys from './screens/Hobbys';
+import Reisen from './screens/Reisen';
+import Treffen from './screens/Treffen';
 import FloatingAssistant from './components/FloatingAssistant';
 
 export default function App() {
@@ -41,6 +45,10 @@ export default function App() {
     case 'kueche': screen = <Kueche />; break;
     case 'vorsorge': screen = <Vorsorge />; break;
     case 'wissen': screen = <Wissen />; break;
+    case 'zuhause': screen = <Zuhause tab={a} />; break;
+    case 'hobbys': screen = <Hobbys key={a || 'liste'} id={a} />; break;
+    case 'reisen': screen = <Reisen key={a || 'liste'} id={a} />; break;
+    case 'treffen': screen = <Treffen key={a || 'liste'} id={a} />; break;
     case 'projekt': screen = <Projekt key={a} id={a} />; break;
     case 'erfassen': screen = <Erfassen />; break;
     case 'menschen': screen = <Menschen />; break;

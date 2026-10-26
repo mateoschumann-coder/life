@@ -73,6 +73,11 @@ export function seed() {
     shopping: { items: [], history: {} }, // Einkaufsliste + was schon mal gekauft wurde
     healthItems: [], // Vorsorge: Termine, Routinen, Verletzungen
     memory: [],
-    library: [], // Bücher, Artikel, Videos … pro Thema (Thema = Unterbereich von „Lernen & Wissen“) // Was Life über Mateo weiß (aus Erzählungen gelernt, jederzeit änderbar)
+    library: [],
+    home: {}, // Zuhause-Listen: haushalt, einrichtung, kleidung → { cats, items }
+    reminders: [], // Regelmäßige Erinnerungen (Miete, WLAN …)
+    hobbies: [], // Hobbys mit Ideen
+    trips: [], // Reisen mit eigenem Dashboard
+    gatherings: [], // Eigene Treffen/Events // Bücher, Artikel, Videos … pro Thema (Thema = Unterbereich von „Lernen & Wissen“) // Was Life über Mateo weiß (aus Erzählungen gelernt, jederzeit änderbar)
   };
 }

@@ -6,7 +6,7 @@ const SEARCH_KEY = 'life-app-eventsearch';
 const PLACE_KEY = 'life-app-placesearch';
 const BA = { type: 'approximate', city: 'Buenos Aires', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' };
 
-export const EVENT_CHIPS = ['Dieses Wochenende', 'Konzerte', 'Sport zum Mitmachen', 'Tech & Startups', 'Kostenlos', 'Neue Leute kennenlernen'];
+export const EVENT_CHIPS = ['Für mich diese Woche', 'Geheimtipps', 'Dieses Wochenende', 'Konzerte', 'Sport zum Mitmachen', 'Tech & Startups', 'Kostenlos', 'Neue Leute kennenlernen'];
 export const PLACE_CHIPS = ['Cafés zum Arbeiten', 'Rooftop-Bars', 'Guter Brunch', 'Parrilla', 'Versteckte Bars', 'Laufstrecken'];
 
 const load = (k) => {
@@ -58,25 +58,25 @@ export async function searchWithTool({ system, user, tool, maxUses }) {
   const messages = [{ role: 'user', content: user }];
   let data;
   let found;
+  const complete = (d) => {
+    const f = d.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
+    return f && d.stop_reason !== 'max_tokens' ? f : null; // abgeschnittene Antwort zählt nicht
+  };
   for (let round = 0; round < 4; round++) {
-    data = await post({ max_tokens: 3000, system, tools, messages });
-    found = data.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
+    data = await post({ max_tokens: 8000, system, tools, messages });
+    found = complete(data);
     if (found || data.stop_reason !== 'pause_turn') break;
     messages.push({ role: 'assistant', content: data.content });
   }
   if (!found) {
-    // Ergebnisse noch einmal ausdrücklich als Liste anfordern (ohne weitere Suche)
-    const text = data.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n');
-    data = await post({
-      max_tokens: 3000,
-      system,
-      tools: [tool],
-      tool_choice: { type: 'tool', name: tool.name },
-      messages: [{ role: 'user', content: `${user}\n\nDeine Rechercheergebnisse:\n${text || '(keine)'}\n\nGib sie jetzt mit dem Werkzeug zurück.` }],
-    });
+    // Die Suchergebnisse stecken in der bisherigen Antwort: Gespräch fortsetzen und das Werkzeug verlangen
+    const prev = data.stop_reason === 'max_tokens' ? data.content.filter((c) => c.type !== 'tool_use') : data.content;
+    const cont = prev.length ? [...messages, { role: 'assistant', content: prev }, { role: 'user', content: `Gib jetzt deine Ergebnisse mit "${tool.name}" zurück – kompakt, ohne weitere Suche.` }] : messages;
+    data = await post({ max_tokens: 8000, system, tools, tool_choice: { type: 'tool', name: tool.name }, messages: cont });
     found = data.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
   }
-  return found?.input || {};
+  if (!found) throw new Error('Die Suche hat keine Ergebnisse geliefert. Bitte noch einmal versuchen.');
+  return found.input || {};
 }
 
 const okUrl = (u) => (/^https?:\/\//.test(u || '') ? u : '');
@@ -118,14 +118,26 @@ const EVENT_TOOL = {
   },
 };
 
+export const EVENT_PREF_PRESETS = ['Rock', 'Latino', 'Techno', 'Jazz', 'Indie', 'Stand-up', 'Tech & Startups', 'Laufen & Sport', 'Kunst & Ausstellungen', 'Food-Märkte', 'Theater', 'Kino', 'Workshops'];
+
 export async function searchEvents(s, query) {
   const t = today();
-  const system = `Du findest für Mateo Events in Buenos Aires. Heute ist ${fmtLong(t)} (${t}). Zeitraum: die nächsten 14 Tage (bis ${addDays(t, 14)}), außer die Anfrage sagt etwas anderes („dieses Wochenende“ = der kommende Freitag bis Sonntag).
-Was du über Mateo weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
+  const prefs = s.profile?.eventPrefs || [];
+  const system = `Du bist Mateos persönlicher Event-Scout in Buenos Aires. Heute ist ${fmtLong(t)} (${t}). Zeitraum: die nächsten 14 Tage (bis ${addDays(t, 14)}), außer die Anfrage sagt etwas anderes („dieses Wochenende“ = der kommende Freitag bis Sonntag).
+Seine Vorlieben: ${prefs.length ? prefs.join(', ') : '(noch keine angegeben)'}
+Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Events, die er schon kennt (nicht wiederholen): ${JSON.stringify(s.events.map((e) => e.name))}
 
-Vorgehen: Suche gezielt (z.B. auf Spanisch: „eventos Buenos Aires este fin de semana“, Passline, Eventbrite, Ticketek, Meetup, Agenda Cultural BA, Timeout Buenos Aires). Höchstens 4 Suchen. Danach rufe "events_zeigen" auf: 5 bis 10 konkrete Events mit Datum, sortiert nach Datum, die am besten zur Anfrage und zu Mateo passen. Nur echte Events aus den Suchergebnissen, keine erfundenen Daten oder Links. Texte auf Deutsch, kurz.`;
-  const input = await searchWithTool({ system, user: `Anfrage: ${query}`, tool: EVENT_TOOL, maxUses: 4 });
+Ziel: Mateo will NICHT das, was er selbst in 2 Minuten bei Google findet, sondern eine kuratierte, abwechslungsreiche Auswahl, die wirklich zu ihm passt – inklusive Geheimtipps.
+So suchst du (höchstens 5 Suchen, jede mit einem anderen Blickwinkel, meist auf Spanisch):
+1. Je eine Suche zu 2–3 seiner konkreten Vorlieben (z.B. „recital rock Buenos Aires noviembre“, „fiesta latina Palermo sábado“), nicht nur allgemein „eventos“.
+2. Mindestens eine Suche nach Ungewöhnlichem: kleine Clubs und Bars mit Live-Musik, Ciclos, Ferias, Talleres, Open-Air, Kulturzentren (Centro Cultural Kirchner, Konex, Recoleta), Milongas, Meetups/Luma (Tech), Blogs/Medien wie „qué hacer este finde“, Resident Advisor, Alternativa Teatral, Agenda Cultural der Stadt, Time Out.
+3. Verschiedene Quellen: höchstens 2 Events aus derselben Website; insgesamt mindestens 4 verschiedene Quellen, wenn möglich.
+Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bekannt + Geheimtipp), sortiert nach Datum. Markiere Geheimtipps mit geheimtipp=true. Im Feld warum: konkret, warum es zu SEINEN Vorlieben passt. Nur echte Events aus den Suchergebnissen, keine erfundenen Daten oder Links. Texte auf Deutsch, kurz.`;
+  const tool = { ...EVENT_TOOL, input_schema: JSON.parse(JSON.stringify(EVENT_TOOL.input_schema)) };
+  tool.input_schema.properties.events.items.properties.geheimtipp = { type: 'boolean', description: 'true = eher unbekannt/ungewöhnlich' };
+  const input = await searchWithTool({ system, user: `Anfrage: ${query}`, tool, maxUses: 5 });
+  const perHost = {};
   const results = (input.events || []).filter((e) => e && e.name).map((e, i) => ({
     id: 'e' + i + Date.now().toString(36),
     name: String(e.name),
@@ -137,8 +149,16 @@ Vorgehen: Suche gezielt (z.B. auf Spanisch: „eventos Buenos Aires este fin de 
     why: e.warum || '',
     url: okUrl(e.url),
     source: host(e.url),
+    tip: !!e.geheimtipp,
     status: 'neu',
-  })).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+  }))
+    // Vielfalt sicherstellen: höchstens 3 Events pro Quelle
+    .filter((r) => {
+      const k = r.source || r.name;
+      perHost[k] = (perHost[k] || 0) + 1;
+      return !r.source || perHost[k] <= 3;
+    })
+    .sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
   const v = { query, at: new Date().toISOString(), note: input.hinweis || '', results };
   saveEventSearch(v);
   return v;

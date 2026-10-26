@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, setEventStage, updatePlace } from '../lib/actions';
 import {
-  discoverPlaces, EVENT_CHIPS, geocode, lastEventSearch, lastPlaceSearch, locate, PLACE_CHIPS, saveEventSearch, savePlaceSearch, searchEvents,
+  discoverPlaces, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, lastEventSearch, lastPlaceSearch, locate, PLACE_CHIPS, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
@@ -55,6 +55,35 @@ function DateBadge({ date }) {
 }
 const errText = (e) => (e.message === 'KEIN_SCHLUESSEL' ? 'Für die Suche braucht es einen API-Schlüssel (Einstellungen).' : e.message);
 
+// Vorlieben für die Event-Suche (Musikstile, Themen …)
+function Prefs({ s }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const prefs = s.profile?.eventPrefs || [];
+  const save = (list) => store.update((d) => {
+    d.profile = { ...d.profile, eventPrefs: list };
+  });
+  const toggle = (p) => save(prefs.includes(p) ? prefs.filter((x) => x !== p) : [...prefs, p]);
+  const all = [...new Set([...EVENT_PREF_PRESETS, ...prefs])];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setOpen(!open)}>
+        Meine Vorlieben{prefs.length ? `: ${prefs.slice(0, 4).join(', ')}${prefs.length > 4 ? ' …' : ''}` : ' festlegen'} {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <>
+          <span className="tiny">Danach sucht die KI gezielt – und auch nach Geheimtipps, die dazu passen.</span>
+          <div className="chips">{all.map((p) => <button key={p} type="button" className={prefs.includes(p) ? 'chip on' : 'chip soft'} onClick={() => toggle(p)}>{p}</button>)}</div>
+          <form className="block-add" onSubmit={(e) => { e.preventDefault(); const t = text.trim(); if (t && !prefs.includes(t)) save([...prefs, t]); setText(''); }}>
+            <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Eigene, z.B. Cumbia, Elektro-Swing, Schach" aria-label="Eigene Vorliebe" />
+            <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ---------- Events ----------
 function Events({ s }) {
   const t = today();
@@ -103,6 +132,7 @@ function Events({ s }) {
           <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>
         </form>
         <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={busy || !hasKey} onPick={run} />
+        <Prefs s={s} />
         {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
         {busy && (
           <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche auf Passline, Eventbrite, Meetup & Co. … (ca. 20–30 Sek.)</span></div>
@@ -125,7 +155,7 @@ function Events({ s }) {
                 <div className="row-main" style={{ gap: 3 }}>
                   <span style={{ fontSize: 16, fontWeight: 650, lineHeight: 1.3 }}>{r.name}</span>
                   <span className="tiny">{[r.time, r.place, r.price, r.source].filter(Boolean).join(' · ')}</span>
-                  {r.why && <span style={{ fontSize: 14.5, lineHeight: 1.4, color: 'var(--muted)' }}>{r.why}</span>}
+                  {r.why && <span style={{ fontSize: 14.5, lineHeight: 1.4, color: 'var(--muted)' }}>{r.tip && <b className="tip-badge">Geheimtipp</b>}{r.why}</span>}
                 </div>
                 <button type="button" className="x-btn" aria-label={`${r.name} ausblenden`} onClick={() => mark(r.id, 'weg')}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>

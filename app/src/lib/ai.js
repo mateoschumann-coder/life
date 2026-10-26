@@ -56,6 +56,7 @@ const ACTION_TYPES = [
   'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag', 'app_wunsch', 'merken', 'ort_anlegen',
   'projekt_aendern', 'bausteine_hinzufuegen', 'unterbereich_anlegen', 'aufgabe_loeschen', 'thema_anlegen',
   'training_eintragen', 'einkauf_hinzufuegen', 'rezept_anlegen', 'vorsorge_anlegen', 'material_anlegen',
+  'erinnerung_anlegen', 'zuhause_eintrag', 'hobby_eintrag', 'reise_anlegen', 'treffen_anlegen',
 ];
 export const TOOL = {
   name: 'aenderungen_vorschlagen',
@@ -129,6 +130,13 @@ export const TOOL = {
             rezept_kategorie: { type: 'string', description: 'Für rezept_anlegen, z.B. Airfryer' },
             vorsorge_art: { type: 'string', enum: ['termin', 'routine', 'verletzung'], description: 'Für vorsorge_anlegen' },
             alle_monate: { type: 'integer', description: 'Für vorsorge_anlegen bei routine' },
+            wie_oft: { type: 'string', enum: ['woche', 'monat', 'quartal', 'jahr'], description: 'Für erinnerung_anlegen (regelmäßig, z.B. Miete monatlich)' },
+            liste: { type: 'string', enum: ['haushalt', 'einrichtung', 'kleidung'], description: 'Für zuhause_eintrag' },
+            zuhause_kategorie: { type: 'string', description: 'Für zuhause_eintrag: Raum/Kategorie, z.B. Bad, Wohnzimmer, Schuhe' },
+            weggeben: { type: 'boolean', description: 'Für zuhause_eintrag bei kleidung: true = weggeben statt brauchen' },
+            hobby: { type: 'string', description: 'Für hobby_eintrag: Name des Hobbys, z.B. Gitarre' },
+            hobby_art: { type: 'string', enum: ['idee', 'song', 'video', 'buch', 'uebung', 'link'], description: 'Für hobby_eintrag' },
+            bis_datum: { type: 'string', description: 'Für reise_anlegen: Enddatum JJJJ-MM-TT (datum = Start)' },
             material_art: { type: 'string', enum: ['buch', 'artikel', 'video', 'podcast', 'kurs'], description: 'Für material_anlegen (Bibliothek in „Lernen & Wissen“)' },
             autor: { type: 'string', description: 'Für material_anlegen' },
             archivieren: { type: 'boolean', description: 'Für projekt_aendern: true = Projekt abschließen/archivieren' },
@@ -175,6 +183,11 @@ export function buildSystem(s) {
     letzte_trainings: (s.sessions || []).slice(-8).map((x) => ({ sport: s.sports.find((y) => y.id === x.sportId)?.name, datum: x.date, km: x.distance, min: x.duration ? Math.round(x.duration) : undefined })),
     einkaufsliste: (s.shopping?.items || []).filter((x) => !x.done).map((x) => x.name),
     rezepte: (s.recipes || []).map((r) => r.title),
+    erinnerungen: (s.reminders || []).map((r) => ({ titel: r.title, naechstes: r.next, wie_oft: r.every })),
+    zuhause_offen: Object.fromEntries(Object.entries(s.home || {}).map(([k, l]) => [k, (l.items || []).filter((x) => !x.done).map((x) => `${x.cat}: ${x.text}`).slice(0, 15)])),
+    hobbys: (s.hobbies || []).map((h) => h.name),
+    reisen: (s.trips || []).map((t) => ({ name: t.name, von: t.from, bis: t.to })),
+    treffen: (s.gatherings || []).map((g) => ({ name: g.name, datum: g.date })),
     bibliothek: (s.library || []).map((m) => ({ titel: m.title, status: m.status })).slice(-30),
     wissensthemen: (s.areas.find((a) => a.id === 'mental')?.subs || []).map((x) => x.name),
     vorsorge: (s.healthItems || []).filter((h) => h.status !== 'erledigt' && h.status !== 'ausgeheilt').map((h) => ({ titel: h.title, art: h.type, datum: h.date })),
@@ -186,7 +199,7 @@ export function buildSystem(s) {
 So arbeitest du:
 - Antworte auf Deutsch, strukturiert und auf den Punkt: so ausführlich wie nötig, so kurz wie möglich. Meist 3–6 Sätze oder eine gegliederte Liste mit bis zu 7 Punkten; bei Analysen, Rückblicken oder Planungen darf es länger sein, aber immer klar gegliedert. Keine Floskeln („Gern!“, „Natürlich“), keine Wiederholung seiner Frage.
 - Deine Antworten werden oft vorgelesen: schreibe natürliche Sätze; für Listen einfache Zeilen mit „–“, keine Tabellen, kein Fettdruck, keine Überschriften mit #.
-- Du kannst in der App direkt handeln. Mit dem Werkzeug "aenderungen_vorschlagen" kannst du: Aufgaben anlegen/ändern/erledigen/löschen, Projekte anlegen (auch gleich mit Aufgaben und Bausteinen wie Graphen, Listen, Meilensteinen, Budget), Projekte umbenennen/Termin setzen/archivieren, Bausteine zu bestehenden Projekten hinzufügen, Unterbereiche anlegen, Fokus-Themen und Rhythmen anlegen und abhaken, Personen anlegen/ändern und Kontakte notieren, Aktivitäten, Ressourcen, Events, Radar-Einträge und Orte anlegen, Trainingseinheiten eintragen (training_eintragen, z.B. „heute 12 km in 58 Min gelaufen“), Dinge auf die Einkaufsliste setzen (einkauf_hinzufuegen), Rezepte speichern (rezept_anlegen), Arzttermine, Vorsorge-Routinen und Verletzungen eintragen (vorsorge_anlegen), Bücher/Artikel/Videos/Podcasts/Kurse in die Bibliothek legen (material_anlegen mit titel, material_art, thema = Wissensthema wie Geschichte, autor, url), dir Dinge merken und App-Wünsche notieren. Sag NIE, dass du etwas nicht kannst, wenn eine dieser Aktionen passt – schlag sie einfach vor. Mateo tippt dann nur noch auf „Übernehmen“ (oder es wird automatisch ausgeführt).
+- Du kannst in der App direkt handeln. Mit dem Werkzeug "aenderungen_vorschlagen" kannst du: Aufgaben anlegen/ändern/erledigen/löschen, Projekte anlegen (auch gleich mit Aufgaben und Bausteinen wie Graphen, Listen, Meilensteinen, Budget), Projekte umbenennen/Termin setzen/archivieren, Bausteine zu bestehenden Projekten hinzufügen, Unterbereiche anlegen, Fokus-Themen und Rhythmen anlegen und abhaken, Personen anlegen/ändern und Kontakte notieren, Aktivitäten, Ressourcen, Events, Radar-Einträge und Orte anlegen, Trainingseinheiten eintragen (training_eintragen, z.B. „heute 12 km in 58 Min gelaufen“), Dinge auf die Einkaufsliste setzen (einkauf_hinzufuegen), Rezepte speichern (rezept_anlegen), Arzttermine, Vorsorge-Routinen und Verletzungen eintragen (vorsorge_anlegen), Bücher/Artikel/Videos/Podcasts/Kurse in die Bibliothek legen (material_anlegen mit titel, material_art, thema = Wissensthema wie Geschichte, autor, url), regelmäßige Erinnerungen wie Miete/WLAN anlegen (erinnerung_anlegen mit titel, wie_oft, datum = nächstes Mal), Einträge in Zuhause-Listen setzen (zuhause_eintrag mit liste haushalt/einrichtung/kleidung, zuhause_kategorie, titel), Hobby-Ideen speichern (hobby_eintrag), Reisen anlegen (reise_anlegen mit name, datum, bis_datum), eigene Treffen anlegen (treffen_anlegen mit name, datum, uhrzeit, ort), dir Dinge merken und App-Wünsche notieren. Sag NIE, dass du etwas nicht kannst, wenn eine dieser Aktionen passt – schlag sie einfach vor. Mateo tippt dann nur noch auf „Übernehmen“ (oder es wird automatisch ausgeführt).
 - Wenn Mateo etwas eintragen, ändern oder planen will, rufe das Werkzeug "aenderungen_vorschlagen" auf. Sag in deinem Text kurz, was du vorschlägst. Behaupte nie, etwas sei schon gespeichert: Mateo muss erst bestätigen.
 - Fasse zusammengehörige Änderungen in EINEM Vorschlag zusammen.
 - Nutze nur IDs aus den Daten unten. Wähle für neue Einträge immer den passendsten Lebensbereich und, wenn klar, den Unterbereich.

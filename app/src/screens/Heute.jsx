@@ -6,11 +6,11 @@ import {
 } from '../lib/logic';
 import { addTask, logContact, toggleCheckin, toggleTask } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
-import { clothingTip, dayForecast, describeCode, loadWeather } from '../lib/weather';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
 import Coach from '../components/Coach';
 import { doneHealthItem } from '../lib/health';
+import { doneReminder, EVERY } from '../lib/home';
 const fmtShortDays = (d, t) => { const n = diffDays(d, t); return `${n} ${n === 1 ? 'Tag' : 'Tagen'}`; };
 
 const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -24,44 +24,6 @@ function greeting(name) {
 }
 
 // ---------- Wetter ----------
-function WeatherCard({ day, t }) {
-  const [wx, setWx] = useState(null);
-  const [err, setErr] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    loadWeather().then((w) => alive && setWx(w)).catch(() => alive && setErr(true));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  if (err) return null;
-  if (!wx) return <section className="card weather"><span className="sub">Wetter wird geladen …</span></section>;
-  const f = dayForecast(wx, day);
-  if (!f) return null;
-  const isToday = day === t;
-  const code = isToday && wx.current ? wx.current.weather_code : f.code;
-  const info = describeCode(code);
-  return (
-    <section className="card weather">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <span className="wx-icon"><Icon name={info.icon} size={30} color="currentColor" width={1.8} /></span>
-        <div className="row-main">
-          <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.1 }}>
-            {isToday && wx.current ? `${Math.round(wx.current.temperature_2m)}°` : `${f.tmax}°`}
-            <span className="sub" style={{ fontSize: 15, fontWeight: 500, marginLeft: 8 }}>{info.label}</span>
-          </span>
-          <span className="row-meta">
-            {f.tmin}° bis {f.tmax}° · Regen {f.rain}% · {wx.place}
-          </span>
-        </div>
-      </div>
-      <div className="wx-tip">
-        <Icon name="shirt" size={17} color="var(--accent)" />
-        <span>{clothingTip(f)}</span>
-      </div>
-    </section>
-  );
-}
 
 // ---------- KI-Check ----------
 function CheckIn({ s }) {
@@ -177,6 +139,12 @@ export default function Heute() {
     s.events
       .filter((e) => e.date === key && e.stage !== 'entdeckt')
       .forEach((e) => list.push({ key: 'e' + e.id, event: true, title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
+    (s.reminders || [])
+      .filter((r) => r.next === key)
+      .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
+    (s.gatherings || [])
+      .filter((g) => g.date === key)
+      .forEach((g) => list.push({ key: 'g' + g.id, event: true, title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date === key)
       .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
@@ -195,6 +163,9 @@ export default function Heute() {
         const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
         extra.push({ key: 't' + x.id, done: false, onCheck: () => toggleTask(x.id), title: x.title, color: pillarColor(proj ? proj.areaId : x.areaId), meta: `überfällig · ${dueText(x.due, t)}`, overdue: true });
       });
+    (s.reminders || [])
+      .filter((r) => r.next < t)
+      .forEach((r) => extra.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), title: r.title, color: '#2FA36B', meta: `Erinnerung · überfällig seit ${fmtShortDays(r.next, t)}`, overdue: true }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date < t)
       .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
@@ -264,7 +235,6 @@ export default function Heute() {
         )}
 
         <Coach s={s} />
-        <WeatherCard day={day} t={t} />
 
         {/* Wochenleiste */}
         <section className="card" style={{ gap: 10, padding: '12px 12px 14px' }}>

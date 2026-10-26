@@ -354,3 +354,8 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .analysis-list b { margin-bottom: 2px; }
 .recipe-steps { white-space: pre-wrap; margin: 0; font-size: 15.5px; line-height: 1.5; background: var(--card); border-radius: 14px; padding: 12px 14px; }
 .lib-active { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 6px 0; font: inherit; color: inherit; width: 100%; }
+.tip-badge { display: inline-block; font-size: 11.5px; font-weight: 700; color: #8A5A00; background: color-mix(in srgb, var(--sun) 30%, transparent); border-radius: 6px; padding: 1px 6px; margin-right: 6px; }
+.title-input { font-size: 26px; font-weight: 700; background: transparent; padding: 4px 2px; letter-spacing: -0.02em; }
+.title-input:focus { background: var(--card); }
+.seg button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-row ~ div > .input, .card > div > input[type=date], .card > div > input[type=time] { min-width: 0; flex: 1 1 0; }

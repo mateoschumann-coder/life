@@ -30,6 +30,12 @@ function migrate(s) {
       if (!mental.subs.some((x) => x.name === n)) mental.subs.push({ id: 'w' + i + Date.now().toString(36), name: n });
     });
   }
+  // Version 0.16: Finanzen vorerst pausiert (Mateo, 26.10.2026) – nur einmal, danach frei änderbar
+  if (!s.profile?.mig016) {
+    const fin = s.areas.find((a) => a.id === 'finanzen');
+    if (fin) fin.paused = true;
+    s.profile = { ...(s.profile || {}), mig016: true };
+  }
   s.version = base.version;
   return s;
 }
