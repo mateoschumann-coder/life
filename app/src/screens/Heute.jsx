@@ -197,7 +197,6 @@ export default function Heute() {
   const weeks = { woche: 1, monat: 4, quartal: 13 }[range];
   const stats = rhythmStats(s, weeks, t);
   const hasFixed = s.habits.some((h) => h.count > 0);
-  const isNew = !s.habits.length && !s.tasks.length && !s.people.length && !s.projects.length;
   const dayLabel = isToday ? 'Heute' : day === addDays(t, 1) ? 'Morgen' : day === addDays(t, -1) ? 'Gestern' : dayFmt.format(parseKey(day));
 
   const Row = (i) => (
@@ -225,14 +224,6 @@ export default function Heute() {
             <Icon name="gear" size={20} width={1.8} />
           </a>
         </div>
-
-        {isNew && (
-          <section className="card">
-            <h2 className="h2">Willkommen</h2>
-            <span className="sub" style={{ lineHeight: 1.5 }}>Trag Aufgaben für einen Tag ein, leg in den Bereichen Fokus-Themen an und unter Menschen wichtige Personen. Oder sag dem Assistenten unten rechts einfach, was ansteht.</span>
-            <a href="#/einstellungen" className="btn tint small" style={{ alignSelf: 'flex-start' }}>Erst mit Beispieldaten ausprobieren</a>
-          </section>
-        )}
 
         <Overview s={s} />
 
