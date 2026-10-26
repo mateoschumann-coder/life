@@ -99,6 +99,7 @@ const searchText = (x) => `Suche „${x.name}“${x.goal ? ` – Ziel: ${x.goal}
 // Günstig: gezielte Such-Links (LinkedIn letzte 7 Tage, Google Jobs, Get on Board, Wellfound …)
 export async function jobLinks(s, search) {
   const r = await aiLinks({
+    s,
     system: `Du hilfst Mateo bei der Jobsuche. Heute ist ${fmtLong(today())}. Was du über ihn weißt: ${profile(s)}
 ${searchText(search)}
 Wähle Suchbegriffe, die echte Stellentitel treffen (auf Englisch und Spanisch, z.B. „VC Analyst“, „Founder Associate“, „Chief of Staff AI startup“), und Google-Suchen nach Karriereseiten/Job-Boards von VCs und Startups (z.B. „site:jobs.ashbyhq.com …“, „site:boards.greenhouse.io …“).`,

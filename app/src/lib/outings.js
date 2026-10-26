@@ -251,6 +251,7 @@ export const lastEventLinks = () => load(LINKS_KEY);
 export async function eventLinks(s, query) {
   const prefs = s.profile?.eventPrefs || [];
   const r = await aiLinks({
+    s,
     system: `Du bist Mateos Event-Scout in Buenos Aires. Heute ist ${fmtLong(today())}. Seine Vorlieben: ${prefs.join(', ') || '(keine angegeben)'}. Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Mische: Google Events (Suchbegriff mit Zeitraum, z.B. „recitales rock buenos aires este fin de semana“), Instagram-Hashtags/Konten von Locations, Kollektiven und Kultur-Medien (z.B. Agenda-Accounts), Eventbrite und Meetup für Workshops/Tech/Sport.`,
     user: `Anfrage: ${query}`,

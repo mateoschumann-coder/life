@@ -16,6 +16,7 @@ export const removeTopic = (name) => store.update((s) => { s.radar.topics = s.ra
 
 // Feste Links pro Thema (kostenlos)
 export function topicLinks(q) {
+  // q = zugeschnittene Hauptsuche (falls vorhanden) oder das Thema selbst
   return [
     { id: 'd', label: 'Heute', title: 'Letzte 24 Stunden', url: `https://www.google.com/search?q=${enc(q)}&tbm=nws&tbs=qdr:d` },
     { id: 'w', label: 'Woche', title: 'Diese Woche', url: `https://www.google.com/search?q=${enc(q)}&tbm=nws&tbs=qdr:w` },
@@ -38,8 +39,9 @@ export function loadAngles() {
 }
 export async function topicAngles(s, topic) {
   const r = await aiLinks({
-    system: `Du hilfst Mateo, zum Thema „${topic}“ informiert zu bleiben. Heute ist ${fmtLong(today())}. Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
-Wähle die 5–7 wichtigsten aktuellen Blickwinkel/Unterthemen (z.B. Schlüsselfirmen, Regionen, laufende Entwicklungen) und formuliere dafür Nachrichten-Suchbegriffe – in der Sprache, in der es die besten Quellen gibt.`,
+    s,
+    system: `Du hilfst Mateo, zum Thema „${topic}“ informiert zu bleiben. Heute ist ${fmtLong(today())}.
+Ziel: Nachrichten, die für IHN relevant sind – passend zu seinem Hintergrund, seinen Zielen (z.B. Jobsuche, Projekte, Lernen) und seinem Wohnort. Formuliere eine zugeschnittene Hauptsuche (wird für die festen Links Heute/Woche/Google News benutzt) und 5–7 Blickwinkel/Unterthemen (Schlüsselfirmen, Regionen, laufende Entwicklungen, was für seine Ziele zählt) als Nachrichten-Suchen – jeweils in der Sprache mit den besten Quellen.`,
     user: `Thema: ${topic}`,
     platforms: ['google_news', 'google_news_en', 'google_news_es', 'news_woche', 'youtube'],
     label: 'News: Blickwinkel',
