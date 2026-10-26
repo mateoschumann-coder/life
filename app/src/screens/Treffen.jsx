@@ -9,7 +9,8 @@ import SimpleList from '../components/SimpleList';
 import GroupedChecklist from '../components/GroupedChecklist';
 import PlanChat from '../components/PlanChat';
 import { DateRangeField } from '../components/DateRange';
-import { Back, Check, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } from '../lib/invites';
 import { Missing } from './Saeule';
 
 const COLOR = '#E8775A';
@@ -18,6 +19,84 @@ const STATUS_COLOR = { offen: 'var(--muted)', eingeladen: 'var(--accent)', zuges
 const VENUE_NEXT = { idee: 'angefragt', angefragt: 'reserviert', reserviert: 'abgelehnt', abgelehnt: 'idee' };
 const EMPTY = { name: '', date: '', time: '', place: '', kind: 'zuhause', expected: '' };
 
+// ---------- Events von anderen (v0.42): Einladungen eintragen ----------
+const INV_EMPTY = { name: '', host: '', date: '', time: '', place: '', bring: '', note: '', status: 'eingeladen', url: '' };
+const INV_NEXT = { eingeladen: 'zugesagt', zugesagt: 'vielleicht', vielleicht: 'abgesagt', abgesagt: 'eingeladen' };
+function InviteSheet({ open, invite, onClose }) {
+  const [f, setF] = useState(INV_EMPTY);
+  const [key, setKey] = useState(null);
+  const k = open ? (invite?.id || 'neu') : null;
+  if (k !== key) { setKey(k); if (open) setF(invite ? { ...INV_EMPTY, ...invite } : INV_EMPTY); }
+  const set = (patch) => setF((x) => ({ ...x, ...patch }));
+  const save = () => {
+    if (invite) updateInvite(invite.id, { ...f, name: f.name.trim() || invite.name });
+    else addInvite(f);
+    toast(invite ? 'Gespeichert' : 'Einladung eingetragen');
+    onClose();
+  };
+  return (
+    <Sheet open={open} title={invite ? 'Einladung' : 'Neue Einladung'} onClose={onClose}>
+      <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Geburtstag von Juan, Hochzeit, Asado" /></Field>
+      <Field label="Wer lädt ein?"><input className="input" value={f.host} onChange={(e) => set({ host: e.target.value })} placeholder="z.B. Juan" /></Field>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <Field label="Datum"><DateRangeField single from={f.date} to="" onChange={(v) => set({ date: v.from })} placeholder="Offen" title="Datum" /></Field>
+        <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} /></Field>
+      </div>
+      <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => set({ place: e.target.value })} placeholder="Adresse oder Lokal" /></Field>
+      <div className="field">
+        <span>Status</span>
+        <div className="chips">{Object.entries(INVITE_STATUS).map(([s, l]) => <button key={s} type="button" className={f.status === s ? 'chip on' : 'chip soft'} onClick={() => set({ status: s })}>{l}</button>)}</div>
+      </div>
+      <Field label="Ich bringe mit"><input className="input" value={f.bring} onChange={(e) => set({ bring: e.target.value })} placeholder="z.B. Geschenk, Wein, Salat" /></Field>
+      <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} placeholder="z.B. Dresscode, Geschenk-Idee, wer noch kommt" /></Field>
+      <Field label="Link (optional)"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Einladung, Instagram, Karte …" /></Field>
+      <button type="button" className="btn" onClick={save} disabled={!f.name.trim()}>Speichern</button>
+      {invite && <button type="button" className="btn danger" onClick={() => { if (confirm(`„${invite.name}“ löschen?`)) { removeInvite(invite.id); onClose(); } }}>Löschen</button>}
+    </Sheet>
+  );
+}
+function Invites({ s, sheet, setSheet }) {
+  const t = today();
+  const [showDone, setShowDone] = useState(false);
+  const list = [...(s.invites || [])].sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+  const upcoming = list.filter((x) => !x.done && (!x.date || x.date >= t));
+  const past = list.filter((x) => !x.done && x.date && x.date < t);
+  const done = list.filter((x) => x.done).reverse();
+  const Row = ({ x }) => (
+    <div className="row" style={{ minHeight: 62 }}>
+      <Check on={!!x.done} color={COLOR} onClick={() => updateInvite(x.id, { done: !x.done })} label={`${x.name} ${x.done ? 'wieder öffnen' : 'abhaken'}`} />
+      <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => setSheet(x)}>
+        <span className={x.done ? 'row-title strong done' : 'row-title strong'}>{x.name}</span>
+        <span className="row-meta">{[x.host && `von ${x.host}`, x.date ? `${fmtShort(x.date)}${x.time ? `, ${x.time}` : ''}` : 'Datum offen', x.date && x.date >= t && `in ${diffDays(t, x.date)} Tagen`, x.place, x.bring && `🎁 ${x.bring}`].filter(Boolean).join(' · ')}</span>
+      </button>
+      {!x.done && <button type="button" className="pill" style={{ color: INVITE_COLOR[x.status], whiteSpace: 'nowrap' }} onClick={() => updateInvite(x.id, { status: INV_NEXT[x.status] || 'eingeladen' })} aria-label={`Status ${INVITE_STATUS[x.status]}, antippen zum Ändern`}>{INVITE_STATUS[x.status]}</button>}
+    </div>
+  );
+  return (
+    <>
+      <span className="sub" style={{ marginTop: -6 }}>Events, zu denen dich andere einladen – Geburtstage, Asados, Hochzeiten … Status antippen wechselt Eingeladen → Zugesagt → Vielleicht → Abgesagt.</span>
+      <div className="list">
+        {upcoming.length === 0 && <div className="empty">Noch keine Einladungen. Tipp oben auf „+ Einladung“ oder sag dem Assistenten z.B. „Juan hat mich am Samstag zum Asado eingeladen“.</div>}
+        {upcoming.map((x) => <Row key={x.id} x={x} />)}
+      </div>
+      {past.length > 0 && (
+        <section className="group">
+          <h2 className="label" style={{ padding: '0 4px' }}>Vorbei – abhaken?</h2>
+          <div className="list">{[...past].reverse().map((x) => <Row key={x.id} x={x} />)}</div>
+        </section>
+      )}
+      {done.length > 0 && (
+        <>
+          <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setShowDone(!showDone)}>{showDone ? 'Erledigte ausblenden' : `${done.length} erledigte Einladungen`}</button>
+          {showDone && <div className="list">{done.map((x) => <Row key={x.id} x={x} />)}</div>}
+        </>
+      )}
+      <InviteSheet open={!!sheet} invite={sheet && sheet !== 'neu' ? (s.invites || []).find((x) => x.id === sheet.id) : null} onClose={() => setSheet(null)} />
+    </>
+  );
+}
+
+const TAB_KEY = 'life-app-sozial-tab';
 export function EventsList({ s }) {
   const t = today();
   const [open, setOpen] = useState(false);
@@ -27,6 +106,9 @@ export function EventsList({ s }) {
   const upcoming = list.filter((g) => !g.done && (!g.date || g.date >= t));
   const past = list.filter((g) => !g.done && g.date && g.date < t); // vorbei, aber noch nicht abgehakt
   const done = list.filter((g) => g.done).reverse();
+  const [tab, setTabState] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'eigene'; } catch { return 'eigene'; } });
+  const setTab = (v) => { setTabState(v); try { localStorage.setItem(TAB_KEY, v); } catch {} };
+  const [invSheet, setInvSheet] = useState(null);
   const save = () => {
     const id = addGathering(f);
     setOpen(false);
@@ -53,9 +135,11 @@ export function EventsList({ s }) {
           <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Sozial</h1>
-            <button type="button" className="btn small" onClick={() => setOpen(true)}>+ Event</button>
+            {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => setOpen(true)}>+ Event</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
           </div>
         </div>
+        <Segmented full options={[{ id: 'eigene', label: 'Eigene Events' }, { id: 'andere', label: `Von anderen${(s.invites || []).filter((x) => !x.done).length ? ` · ${(s.invites || []).filter((x) => !x.done).length}` : ''}` }]} value={tab} onChange={setTab} label="Art der Events" />
+        {tab === 'andere' ? <Invites s={s} sheet={invSheet} setSheet={setInvSheet} /> : (<>
         <span className="sub" style={{ marginTop: -6 }}>Deine eigenen Events – Asado, Spieleabend, Geburtstag … Menschen findest du unten unter „Menschen“.</span>
         <div className="list">
           {upcoming.length === 0 && <div className="empty">Organisier dein eigenes Event – Asado, Spieleabend, Lauftreff … mit Einladung, Gästeliste, Einkaufsliste und To-dos.</div>}
@@ -73,6 +157,7 @@ export function EventsList({ s }) {
             {showDone && <div className="list">{done.map((g) => <Row key={g.id} g={g} />)}</div>}
           </>
         )}
+        </>)}
       </main>
       <Sheet open={open} title="Neues Event" onClose={() => setOpen(false)}>
         <div className="seg-mini">

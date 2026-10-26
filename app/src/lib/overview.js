@@ -76,6 +76,7 @@ export function collectItems(s) {
     const notInvited = g.guests.filter((x) => x.status === 'offen').length;
     add('events', { ref: `gathering:${g.id}`, kind: 'gathering', text: g.name, area: 'Eigenes Event', date: g.date || '', info: [g.date ? when(g.date, t) : 'Datum offen', open && `${open} To-dos offen`, shop && `${shop} Einkäufe`, notInvited && `${notInvited} noch nicht eingeladen`].filter(Boolean).join(' · '), link: `#/treffen/${g.id}` });
   }
+  for (const x of (s.invites || []).filter((x) => !x.done && x.status !== 'abgesagt' && x.date && x.date >= t && x.date <= soon)) add('events', { ref: `invite:${x.id}`, kind: 'link', text: x.name, area: x.host ? `Einladung von ${x.host}` : 'Einladung', date: x.date, info: [when(x.date, t), x.status === 'eingeladen' ? 'noch nicht zugesagt' : x.status, x.bring && `mitbringen: ${x.bring}`].filter(Boolean).join(' · '), link: '#/saeule/sozial' });
   for (const e of s.events.filter((e) => e.date && e.date >= t && e.date <= soon && e.stage !== 'besucht' && e.stage !== 'entdeckt')) add('events', { ref: `event:${e.id}`, kind: 'event', text: e.name, area: 'Ausgehen', date: e.date, info: `${when(e.date, t)} · ${e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'}`, link: '#/ausgehen' });
   for (const j of (s.jobs || []).filter((j) => ['beworben', 'rueckmeldung', 'gespraech', 'angebot'].includes(j.status))) {
     const days = diffDays(j.updatedAt || j.createdAt || t, t);
@@ -103,7 +104,7 @@ function facts(s) {
     freizeit: { hobbys: hobbies, reise_ideen: (s.trips || []).filter((x) => x.status === 'idee').map((x) => x.name), geplante_reisen: (s.trips || []).filter((x) => x.status !== 'idee' && (!x.to || x.to >= t)).map((x) => `${x.name} ${x.from || ''}`) },
     finanzen: { eingerichtet: !!(b && (b.incomes || []).length), fixkosten_posten: (b?.costs || []).length },
     menschen: { personen: s.people.length, mit_rhythmus: s.people.filter((p) => p.contactEvery).length },
-    events: { eigene_events: (s.gatherings || []).filter((g) => !g.done).length, vorgemerkt: s.events.filter((e) => e.stage === 'interessiert' || e.stage === 'zugesagt').length, ausgeh_vorlieben: s.profile?.eventPrefs || [] },
+    events: { eigene_events: (s.gatherings || []).filter((g) => !g.done).length, einladungen: (s.invites || []).filter((x) => !x.done && x.status !== 'abgesagt').length, vorgemerkt: s.events.filter((e) => e.stage === 'interessiert' || e.stage === 'zugesagt').length, ausgeh_vorlieben: s.profile?.eventPrefs || [] },
     karriere: { jobsuchen: (s.jobSearches || []).map((x) => x.name), bewerbungen: (s.jobs || []).map((j) => `${j.title} @ ${j.company} (${j.status})`).slice(0, 12), eigene_projekte: (s.sideProjects || []).map((p) => `${p.name} (${p.status})`) },
     entwicklung: { skills: (s.skills || []).map((k) => `${k.name}: ${(k.todos || []).filter((x) => x.done).length}/${(k.todos || []).length} Ziele`) },
     informiert: { eigene_quellen: (s.newsSources || []).map((x) => x.name) },

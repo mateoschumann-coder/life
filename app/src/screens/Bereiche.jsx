@@ -4,7 +4,7 @@ import { AreaIcon, Chevron, Dot, TabBar } from '../components/ui';
 import { DIRECT } from './Bereich';
 
 const SOZIAL = [
-  { id: 'events', name: 'Eigene Events', icon: 'sparkle', href: '#/saeule/sozial' },
+  { id: 'events', name: 'Events (eigene & Einladungen)', icon: 'sparkle', href: '#/saeule/sozial' },
   { id: 'menschen', name: 'Menschen', icon: 'users', href: '#/menschen' },
   { id: 'ausgehen', name: 'Ausgehen', icon: 'calendar', href: '#/ausgehen' },
 ];

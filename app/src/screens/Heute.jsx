@@ -145,6 +145,9 @@ export default function Heute() {
     (s.gatherings || [])
       .filter((g) => g.date === key)
       .forEach((g) => list.push({ key: 'g' + g.id, event: true, title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
+    (s.invites || [])
+      .filter((x) => x.date === key && x.status !== 'abgesagt')
+      .forEach((x) => list.push({ key: 'i' + x.id, event: true, title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date === key)
       .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));

@@ -8,6 +8,7 @@ import {
 } from './actions';
 import { store } from './store';
 import { locate } from './outings';
+import { addInvite } from './invites';
 import { addMaterial, ensureTopic, KINDS } from './library';
 import { addHomeItem, addReminder, EVERY, LISTS } from './home';
 import { addGathering, addHobby, addHobbyItem, addTrip } from './leisure';
@@ -129,6 +130,8 @@ export function describe(s, raw) {
       return { ok: !!a.titel && !!a.hobby, label: join(`${a.hobby}: ${a.titel}`, a.hobby_art) };
     case 'reise_anlegen':
       return { ok: !!a.name, label: join(`Reise: ${a.name}`, isDate(a.datum) && date(a.datum), isDate(a.bis_datum) && `bis ${date(a.bis_datum)}`) };
+    case 'einladung_eintragen':
+      return { ok: !!a.name, label: join(`Einladung: ${a.name}`, a.gastgeber && `von ${a.gastgeber}`, isDate(a.datum) && date(a.datum), a.uhrzeit, a.ort, a.einladung_status === 'zugesagt' ? 'zugesagt' : a.einladung_status === 'abgesagt' ? 'abgesagt' : null) };
     case 'treffen_anlegen':
       return { ok: !!a.name, label: join(`Treffen: ${a.name}`, isDate(a.datum) && date(a.datum), a.uhrzeit, a.ort) };
     case 'material_anlegen':
@@ -253,6 +256,8 @@ export function applyAction(s, raw) {
       return addHobbyItem(addHobby(a.hobby), { title: a.titel, kind: a.hobby_art || 'idee', url: a.url || '', why: a.notiz || '' });
     case 'reise_anlegen':
       return addTrip({ name: a.name, dest: a.ort || a.name, from: d(a.datum) || '', to: d(a.bis_datum) || '' });
+    case 'einladung_eintragen':
+      return addInvite({ name: a.name, host: a.gastgeber || '', date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', note: a.notiz || '', bring: a.mitbringen || '', status: a.einladung_status || 'eingeladen', url: a.url || '' });
     case 'treffen_anlegen':
       return addGathering({ name: a.name, date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', desc: a.notiz || '' });
     case 'material_anlegen':

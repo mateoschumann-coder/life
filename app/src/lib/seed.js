@@ -93,6 +93,7 @@ export function seed() {
       { id: 'podcasts', name: 'Podcasts', kind: 'podcast', icon: 'mic' },
     ],
     chats: {}, // Gesprächsverläufe der Bereichs-Chats (Sport-Coach, Küche, Hobbys, Lernen)
+    invites: [], // Events von anderen (Einladungen)
     gatherings: [], // Eigene Treffen/Events // Bücher, Artikel, Videos … pro Thema (Thema = Unterbereich von „Lernen & Wissen“) // Was Life über Mateo weiß (aus Erzählungen gelernt, jederzeit änderbar)
   };
 }
