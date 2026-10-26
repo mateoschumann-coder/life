@@ -122,6 +122,7 @@ export const TOOL = {
             thema: { type: 'string' },
             adresse: { type: 'string', description: 'Für ort_anlegen: Adresse oder Viertel' },
             ort_art: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'], description: 'Für ort_anlegen' },
+            ort_unterart: { type: 'string', description: 'Für ort_anlegen: genauer, z.B. Rooftop / Sky Bar, Pub, Cocktailbar, Parrilla, Specialty Coffee' },
             war_da: { type: 'boolean', description: 'Für ort_anlegen: true = war schon da, false = will hin' },
             bewertung: { type: 'integer', description: 'Für ort_anlegen: 1–5 Sterne, wenn war_da' },
             bausteine: {

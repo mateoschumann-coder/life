@@ -83,7 +83,8 @@ export function seed() {
     jobSearches: [], // Karriere: Jobsuchen (z.B. „VC Analyst“)
     jobs: [], // Karriere: Bewerbungs-Funnel
     careerDocs: CAREER_DOCS.map((text, i) => ({ id: 'doc' + i, text, done: false })), // Unterlagen-Checkliste
-    skills: [], // Weiterentwicklung: Skills mit täglichen Impulsen
+    skills: [],
+    sideProjects: [], // Karriere: eigene Projekte mit Meilensteinen und Arbeitszeit // Weiterentwicklung: Skills mit täglichen Impulsen
     sportEvents: [], // Events pro Sportart (Rennen, Turniere, Lauftreffs …)
     libCats: [ // Kategorien in „Lernen & Wissen“ (z.B. Bibliothek, Podcasts) – frei erweiterbar
       { id: 'bibliothek', name: 'Bibliothek', kind: '', icon: 'book' },

@@ -248,7 +248,7 @@ export function applyAction(s, raw) {
     case 'vorsorge_anlegen':
       return addHealthItem({ title: a.titel, type: a.vorsorge_art || 'termin', date: d(a.datum), everyMonths: a.alle_monate || null, notes: a.notiz || '' });
     case 'ort_anlegen': {
-      const id = addPlace({ name: a.name, category: a.ort_art || 'Sonstiges', note: a.notiz || '', address: a.adresse || '', status: a.war_da ? 'war' : 'will', rating: a.war_da ? Math.min(5, a.bewertung || 0) : 0 });
+      const id = addPlace({ name: a.name, category: a.ort_art || 'Sonstiges', subcat: a.ort_unterart || '', note: a.notiz || '', address: a.adresse || '', status: a.war_da ? 'war' : 'will', rating: a.war_da ? Math.min(5, a.bewertung || 0) : 0 });
       // Kartenpunkt im Hintergrund suchen
       locate(a.name, a.adresse).then((pos) => pos && updatePlace(id, { lat: pos.lat, lon: pos.lon }));
       return id;

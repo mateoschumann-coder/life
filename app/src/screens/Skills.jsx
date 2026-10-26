@@ -3,7 +3,7 @@ import { useStore } from '../lib/store';
 import { addDays, today } from '../lib/dates';
 import { addTask } from '../lib/actions';
 import {
-  addSkill, ARTEN, lastDays, loadImpulses, makeImpulses, markImpulse, practicedToday, removeSkill, saveImpulses, SKILL_PRESETS, skillChat, streak, togglePractice, updateSkill,
+  addSkill, ARTEN, ideaChat, lastDays, loadImpulses, makeImpulses, markImpulse, practicedToday, removeSkill, saveImpulses, SKILL_PRESETS, skillChat, streak, togglePractice, updateSkill,
 } from '../lib/skills';
 import { chatOf, saveChatOf } from '../lib/chats';
 import { getAi } from '../lib/ai';
@@ -85,9 +85,9 @@ function SkillList({ s }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/entwicklung" label="Weiterentwicklung" />
+          <Back href="#/saeule/professionell" label="Professionell" />
           <div className="sec-h" style={{ padding: 0 }}>
-            <h1 className="h1">Täglich dranbleiben</h1>
+            <h1 className="h1">Weiterentwicklung</h1>
             {skills.length > 0 && <button type="button" className="link-btn" onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
           </div>
         </div>
@@ -124,6 +124,21 @@ function SkillList({ s }) {
             <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
           </form>
         </section>
+        <PlanChat
+          title="Was könnte ich noch machen?"
+          intro="Ich schaue, woran du schon arbeitest, und schlage vor, was gut dazu passt – neue Skills oder kleine Schritte. Ohne Internet, sehr günstig."
+          history={chatOf(s, 'lernideen')}
+          onSave={(h) => saveChatOf('lernideen', h)}
+          onAsk={(hist, o) => ideaChat(s, hist, o)}
+          prefKey="lernideen"
+          hideToggles
+          groups={[{ key: 'skills', label: 'Als Skill hinzufügen', title: (x) => x }, { key: 'aufgaben', label: 'Als Aufgabe', title: (x) => x.text }]}
+          onApply={(sel) => {
+            for (const x of sel.skills || []) addSkill(x);
+            for (const x of sel.aufgaben || []) addTask({ title: x.text, areaId: 'entwicklung', due: addDays(today(), Math.max(0, x.tage_ab_heute || 0)) });
+          }}
+          chips={['Was passt zu dem, was ich schon mache?', 'Etwas Neues für 10 Min am Tag', 'Wie verbinde ich Sprachen mit Hobbys?']}
+        />
       </main>
       <TabBar active="bereiche" />
     </>

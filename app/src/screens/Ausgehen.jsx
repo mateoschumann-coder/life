@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
-import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, setEventStage, updatePlace } from '../lib/actions';
+import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, setEventStage, updatePlace } from '../lib/actions';
 import {
   discoverPlaces, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, lastEventSearch, lastPlaceSearch, locate, PLACE_CHIPS, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
@@ -228,8 +228,8 @@ function Stars({ value, onChange, size = 18 }) {
   );
 }
 
-function PlaceSheet({ open, onClose, place }) {
-  const blank = { name: '', category: 'Café', note: '', rating: 0, status: 'will', lat: null, lon: null, address: '', url: '' };
+function PlaceSheet({ open, onClose, place, s }) {
+  const blank = { name: '', category: 'Café', subcat: '', note: '', rating: 0, status: 'will', lat: null, lon: null, address: '', url: '' };
   const [f, setF] = useState(blank);
   const [hits, setHits] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -282,8 +282,15 @@ function PlaceSheet({ open, onClose, place }) {
       <div className="field">
         <span>Art</span>
         <div className="chips">
-          {PLACE_CATS.map((c) => <button key={c} type="button" className={f.category === c ? 'chip on' : 'chip'} onClick={() => set({ category: c })}>{c}</button>)}
+          {PLACE_CATS.map((c) => <button key={c} type="button" className={f.category === c ? 'chip on' : 'chip'} onClick={() => set({ category: c, subcat: f.category === c ? f.subcat : '' })}>{c}</button>)}
         </div>
+      </div>
+      <div className="field">
+        <span>Genauer (optional)</span>
+        <div className="chips">
+          {[...new Set([...(PLACE_SUBCATS[f.category] || []), ...(s?.places || []).filter((p) => p.category === f.category && p.subcat).map((p) => p.subcat)])].map((c) => <button key={c} type="button" className={f.subcat === c ? 'chip on' : 'chip soft'} onClick={() => set({ subcat: f.subcat === c ? '' : c })}>{c}</button>)}
+        </div>
+        <input className="input" value={f.subcat} onChange={(e) => set({ subcat: e.target.value })} placeholder="Eigene Unterart, z.B. Bar mit Terrasse" />
       </div>
       <Segmented full options={[{ id: 'will', label: 'Will ich hin' }, { id: 'war', label: 'War schon da' }]} value={f.status} onChange={(v) => set({ status: v })} label="Status" />
       {f.status === 'war' && <div className="field"><span>Wie fandest du es?</span><Stars value={f.rating} onChange={(v) => set({ rating: v })} size={26} /></div>}
@@ -299,6 +306,7 @@ function Orte({ s }) {
   const [sel, setSel] = useState(null);
   const [status, setStatus] = useState('alle');
   const [cat, setCat] = useState(null);
+  const [sub, setSub] = useState(null);
   const [sheet, setSheet] = useState(null); // null | 'neu' | place
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(lastPlaceSearch);
@@ -306,7 +314,9 @@ function Orte({ s }) {
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
 
-  const list = s.places.filter((p) => (status === 'alle' || p.status === status) && (!cat || p.category === cat));
+  const list = s.places.filter((p) => (status === 'alle' || p.status === status) && (!cat || p.category === cat) && (!sub || p.subcat === sub));
+  const subs = cat ? [...new Set(s.places.filter((p) => p.category === cat && p.subcat).map((p) => p.subcat))] : [];
+  const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => p.category === c).sort((a, b) => (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
   const cats = [...new Set(s.places.map((p) => p.category))];
   const selected = s.places.find((p) => p.id === sel);
 
@@ -328,7 +338,7 @@ function Orte({ s }) {
     setSearch(next);
     savePlaceSearch(next);
     const pos = await locate(r.name, r.address);
-    const id = addPlace({ name: r.name, category: r.category, note: r.why, address: r.address, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null });
+    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null });
     toast(pos ? 'Gemerkt und auf der Karte' : 'Gemerkt (ohne Kartenpunkt)');
     if (pos) setSel(id);
   };
@@ -343,7 +353,7 @@ function Orte({ s }) {
             <span className="cat-dot" style={{ background: CAT_COLOR[selected.category] }} />
             <div className="row-main" style={{ gap: 3 }}>
               <span style={{ fontSize: 17, fontWeight: 650 }}>{selected.name}</span>
-              <span className="tiny">{[selected.category, selected.status === 'war' ? 'War schon da' : 'Will ich hin', selected.address].filter(Boolean).join(' · ')}</span>
+              <span className="tiny">{[selected.category, selected.subcat, selected.status === 'war' ? 'War schon da' : 'Will ich hin', selected.address].filter(Boolean).join(' · ')}</span>
               {selected.rating > 0 && <Stars value={selected.rating} />}
               {selected.note && <span style={{ fontSize: 14.5, lineHeight: 1.4 }}>{selected.note}</span>}
             </div>
@@ -362,24 +372,35 @@ function Orte({ s }) {
         <Segmented options={[{ id: 'alle', label: 'Alle' }, { id: 'will', label: 'Will hin' }, { id: 'war', label: 'War da' }]} value={status} onChange={setStatus} label="Filter" />
         <button type="button" className="btn small" style={{ marginLeft: 'auto' }} onClick={() => setSheet('neu')}>+ Ort</button>
       </div>
-      {cats.length > 1 && (
-        <div className="chips">
-          <button type="button" className={!cat ? 'chip on' : 'chip'} onClick={() => setCat(null)}>Alle Arten</button>
-          {cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip'} onClick={() => setCat(cat === c ? null : c)}>{c}</button>)}
+      {cats.length > 0 && (
+        <div className="box-tabs">
+          <button type="button" className={!cat ? 'chip on' : 'chip soft'} onClick={() => { setCat(null); setSub(null); }}>Alle Arten</button>
+          {PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setCat(cat === c ? null : c); setSub(null); }}>{c} {s.places.filter((p) => p.category === c).length}</button>)}
         </div>
       )}
-      <div className="list">
-        {list.length === 0 && <div className="empty">Noch keine Orte. Füg deine Lieblingsorte hinzu, sag dem Assistenten „Merk dir die Bar … in Palermo“ oder lass dir unten neue vorschlagen.</div>}
-        {list.map((p) => (
-          <button key={p.id} type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => { setSel(p.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-            <span className="cat-dot" style={{ background: CAT_COLOR[p.category] }} />
-            <span className="row-main">
-              <span className="row-title plain">{p.name}</span>
-              <span className="row-meta">{[p.category, p.status === 'war' ? (p.rating ? '★'.repeat(p.rating) : 'War da') : 'Will hin', p.lat == null && 'ohne Karte'].filter(Boolean).join(' · ')}</span>
-            </span>
-          </button>
-        ))}
-      </div>
+      {subs.length > 0 && (
+        <div className="chips">
+          <button type="button" className={!sub ? 'chip on' : 'chip soft'} onClick={() => setSub(null)}>Alle {cat}s</button>
+          {subs.map((c) => <button key={c} type="button" className={sub === c ? 'chip on' : 'chip soft'} onClick={() => setSub(sub === c ? null : c)}>{c}</button>)}
+        </div>
+      )}
+      {list.length === 0 && <div className="list"><div className="empty">Noch keine Orte{cat ? ` in „${cat}“` : ''}. Füg deine Lieblingsorte hinzu, sag dem Assistenten „Merk dir die Bar … in Palermo“ oder lass dir unten neue vorschlagen.</div></div>}
+      {groups.map((g) => (
+        <section key={g.c} className="group">
+          {!cat && <h2 className="label" style={{ padding: '0 4px' }}>{g.c} · {g.items.length}</h2>}
+          <div className="list">
+            {g.items.map((p) => (
+              <button key={p.id} type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => { setSel(p.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                <span className="cat-dot" style={{ background: CAT_COLOR[p.category] }} />
+                <span className="row-main">
+                  <span className="row-title plain">{p.name}</span>
+                  <span className="row-meta">{[p.subcat || p.category, p.status === 'war' ? (p.rating ? '★'.repeat(p.rating) : 'War da') : 'Will hin', p.lat == null && 'ohne Karte'].filter(Boolean).join(' · ')}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
 
       <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Orte entdecken</span>
@@ -395,7 +416,7 @@ function Orte({ s }) {
             <span className="cat-dot" style={{ background: CAT_COLOR[r.category] || CAT_COLOR.Sonstiges }} />
             <span className="row-main">
               <span style={{ fontSize: 15, fontWeight: 600 }}>{r.name}</span>
-              <span className="tiny">{[r.category, r.address].filter(Boolean).join(' · ')}</span>
+              <span className="tiny">{[r.subcat || r.category, r.address].filter(Boolean).join(' · ')}</span>
               {r.why && <span className="tiny" style={{ color: 'var(--text)' }}>{r.why}</span>}
             </span>
             {r.url && <a className="x-btn" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} öffnen`}><Icon name="link" size={15} color="var(--accent)" /></a>}
@@ -403,7 +424,7 @@ function Orte({ s }) {
           </div>
         ))}
       </section>
-      <PlaceSheet open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
+      <PlaceSheet s={s} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
     </>
   );
 }

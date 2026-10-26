@@ -146,3 +146,26 @@ Erkläre klar mit kleinen Beispielen (Code knapp, als Text), stelle kleine Übun
 ${web ? 'Du darfst höchstens 1-mal im Internet suchen.' : 'Ohne Internet, keine URLs.'} Antworte immer mit "antwort_geben". Deutsch, kein Markdown.`;
   return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: CHAT_TOOL, maxUses: web && sk.kind !== 'sprache' ? 1 : 0, label: `Üben: ${sk.name}`, smart });
 }
+
+// Ideen-Chat: Was könnte ich auf Basis dessen, was ich schon mache, noch lernen/tun? (ohne Internet)
+const IDEA_TOOL = {
+  name: 'antwort_geben',
+  description: 'Antwort plus Vorschläge.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      antwort: { type: 'string', description: 'Antwort (2–8 Sätze), konkret und motivierend' },
+      skills: { type: 'array', items: { type: 'string' }, description: 'Neue Skills, die er hinzufügen könnte (kurzer Name, z.B. „SQL“)' },
+      aufgaben: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, tage_ab_heute: { type: 'integer' } }, required: ['text'] }, description: 'Konkrete kleine Schritte' },
+    },
+    required: ['antwort'],
+  },
+};
+export async function ideaChat(s, history, { smart = false } = {}) {
+  const info = (s.skills || []).map((x) => `${x.name} (${x.level || 'Niveau offen'}, ${lastDays(x).filter((d) => d.on).length}×/Woche)`);
+  const system = `Du bist Mateos Lern-Berater in der App „Life“. Heute ist ${fmtLong(today())}.
+Was er gerade übt: ${JSON.stringify(info)}
+Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
+Gib Ideen, was er auf Basis dessen, was er schon macht, noch lernen oder ausprobieren könnte – und wie man Dinge clever verbindet (z.B. Sprache + Hobby, Python + eigenes Interesse). Konkret, klein anfangen. Neue Skills unter "skills", erste Schritte unter "aufgaben". Ohne Internet, keine URLs. Antworte immer mit "antwort_geben". Deutsch, kein Markdown.`;
+  return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: IDEA_TOOL, maxUses: 0, label: 'Lern-Ideen', smart });
+}

@@ -236,11 +236,23 @@ export function setEventStage(id, stage) {
 
 // Orte (Bars, Cafés, Restaurants …) mit Karte
 export const PLACE_CATS = ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'];
-export function addPlace({ name, category = 'Sonstiges', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '' }) {
+// Unterarten pro Art (Vorschläge; eigene sind jederzeit möglich)
+export const PLACE_SUBCATS = {
+  Café: ['Specialty Coffee', 'Zum Arbeiten', 'Brunch', 'Konditorei'],
+  Bar: ['Rooftop / Sky Bar', 'Pub', 'Cocktailbar', 'Weinbar', 'Craft Beer', 'Speakeasy', 'Live-Musik'],
+  Restaurant: ['Parrilla', 'Bodegón', 'Italienisch', 'Pizza', 'Sushi / Japanisch', 'Peruanisch', 'Vegetarisch', 'Burger', 'Fine Dining'],
+  Club: ['Techno', 'Latino / Cumbia', 'Rock / Indie'],
+  Kultur: ['Museum', 'Theater', 'Kino', 'Galerie', 'Kulturzentrum'],
+  Natur: ['Park', 'Laufstrecke', 'Aussicht', 'Am Wasser'],
+  Sport: ['Gym', 'Lauftreff', 'Kletterhalle', 'Padel / Tennis'],
+  Laden: ['Kleidung', 'Buchladen', 'Markt', 'Feinkost'],
+  Sonstiges: [],
+};
+export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '' }) {
   if (!name || !name.trim()) return;
   const id = uid();
   store.update((s) => {
-    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) ? category : 'Sonstiges', note, rating, status, lat, lon, address, url, createdAt: now() });
+    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, createdAt: now() });
   });
   return id;
 }

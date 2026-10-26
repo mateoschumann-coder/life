@@ -206,13 +206,17 @@ const CHAT_TOOL = {
     required: ['antwort'],
   },
 };
-export async function careerChat(s, search, history, { web = false, smart = false } = {}) {
-  const jobs = (s.jobs || []).filter((j) => j.searchId === search.id).map((j) => `${j.title} @ ${j.company} (${stageOf(j.status).label})`);
+// Allgemeiner Karriere-Coach (über alle Suchen, Bewerbungen und eigenen Projekte)
+export async function careerChat(s, history, { web = false, smart = false } = {}) {
+  const jobs = (s.jobs || []).map((j) => `${j.title} @ ${j.company} (${stageOf(j.status).label})`);
+  const searches = (s.jobSearches || []).map(searchText);
+  const projects = (s.sideProjects || []).map((p) => `${p.name} (${p.status})`);
   const docs = (s.careerDocs || []).map((d) => `${d.text}${d.done ? ' ✓' : ''}`);
   const system = `Du bist Mateos Karriere-Coach in der App „Life“. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${profile(s)}
-${searchText(search)}
-Seine Bewerbungen in dieser Suche: ${JSON.stringify(jobs)}
+Seine Jobsuchen: ${JSON.stringify(searches)}
+Seine Bewerbungen: ${JSON.stringify(jobs)}
+Eigene Projekte: ${JSON.stringify(projects)}
 Unterlagen: ${JSON.stringify(docs)}
 Hilf beim ganzen Funnel: Zielrollen schärfen, Firmen/Fonds finden, Unterlagen, Netzwerk/Ansprache, Nachfassen, Interviews. Konkrete nächste Schritte unter "todos", Firmen/Stellen unter "angebote", fehlende Unterlagen unter "unterlagen".
 ${web ? 'Du darfst höchstens 2-mal im Internet suchen; Links nur aus Suchergebnissen.' : 'Ohne Internet: aus deinem Wissen, keine URLs erfinden.'}

@@ -13,6 +13,7 @@ import PlanChat from '../components/PlanChat';
 import LinkList from '../components/LinkList';
 import { Back, Check, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
 import { Missing } from './Saeule';
+import { ProjectsList, ProjectPage } from './EigeneProjekte';
 
 const BLUE = '#3B6FE0';
 const errText = (e) => (e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
@@ -123,6 +124,21 @@ function Overview({ s }) {
           </section>
         )}
         <Docs s={s} />
+        <PlanChat
+          title="Karriere-Coach"
+          intro="Lass uns deine Karriere planen: Welche Rollen und Firmen passen, wie gehst du an Kontakte heran, was fehlt an Unterlagen, welches eigene Projekt hilft dir? Vorschläge kannst du direkt übernehmen."
+          history={chatOf(s, 'karriere')}
+          onSave={(h) => saveChatOf('karriere', h)}
+          onAsk={(hist, o) => careerChat(s, hist, o)}
+          prefKey="karriere"
+          groups={CHAT_GROUPS}
+          onApply={(sel) => {
+            for (const x of sel.angebote || []) addJob({ searchId: s.jobSearches[0]?.id || null, title: x.titel, company: x.firma || '', url: x.url || '', note: x.warum || '' });
+            for (const x of sel.todos || []) addTask({ title: x.text, areaId: 'karriere', due: addDays(today(), Math.max(0, x.tage_ab_heute || 0)) });
+            for (const x of sel.unterlagen || []) addDoc(x);
+          }}
+          chips={['Welche Firmen passen zu mir?', 'Plan für diese Woche', 'Wie spreche ich Leute an?', 'Was fehlt mir noch?']}
+        />
       </main>
       <Sheet open={open} title="Neue Jobsuche" onClose={() => setOpen(false)}>
         <Field label="Wonach suchst du?"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="z.B. VC Analyst / Associate" /></Field>
@@ -223,21 +239,6 @@ function SearchPage({ s, search }) {
           </div>
         </section>
 
-        <PlanChat
-          title="Karriere-Coach"
-          intro="Lass uns die Suche planen: Welche Rollen und Firmen passen, wie gehst du an Kontakte heran, was fehlt noch an Unterlagen? Vorschläge kannst du direkt übernehmen."
-          history={chatOf(s, `job:${search.id}`)}
-          onSave={(h) => saveChatOf(`job:${search.id}`, h)}
-          onAsk={(hist, o) => careerChat(s, search, hist, o)}
-          prefKey="karriere"
-          groups={CHAT_GROUPS}
-          onApply={(sel) => {
-            for (const x of sel.angebote || []) addJob({ searchId: search.id, title: x.titel, company: x.firma || '', url: x.url || '', note: x.warum || '' });
-            for (const x of sel.todos || []) addTask({ title: x.text, areaId: 'karriere', due: addDays(today(), Math.max(0, x.tage_ab_heute || 0)) });
-            for (const x of sel.unterlagen || []) addDoc(x);
-          }}
-          chips={['Welche Firmen passen zu mir?', 'Plan für diese Woche', 'Wie spreche ich Leute an?', 'Was fehlt mir noch?']}
-        />
         <button type="button" className="btn danger" onClick={() => { if (confirm(`Suche „${search.name}“ löschen? Gemerkte Stellen ohne Bewerbung werden mitgelöscht.`)) { removeSearch(search.id); go('/karriere'); } }}>Suche löschen</button>
       </main>
       <TabBar active="bereiche" />
@@ -358,6 +359,11 @@ export default function Karriere({ view, id }) {
   if (view === 'suche') {
     const x = s.jobSearches.find((y) => y.id === id);
     return x ? <SearchPage s={s} search={x} /> : <Missing />;
+  }
+  if (view === 'projekte') return <ProjectsList s={s} />;
+  if (view === 'projekt') {
+    const p = (s.sideProjects || []).find((y) => y.id === id);
+    return p ? <ProjectPage s={s} p={p} /> : <Missing />;
   }
   if (view === 'job') {
     const j = s.jobs.find((y) => y.id === id);

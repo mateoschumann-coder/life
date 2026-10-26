@@ -190,6 +190,7 @@ const PLACE_TOOL = {
           properties: {
             name: { type: 'string' },
             kategorie: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'] },
+            unterart: { type: 'string', description: 'Genauer, z.B. „Rooftop / Sky Bar“, „Pub“, „Cocktailbar“, „Parrilla“, „Specialty Coffee“' },
             adresse: { type: 'string', description: 'Straße und Hausnummer, Viertel' },
             warum: { type: 'string', description: '1 Satz: was ist besonders' },
             url: { type: 'string', description: 'Link aus den Suchergebnissen (Website, Instagram, Artikel), nie erfinden' },
@@ -212,6 +213,7 @@ Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern auch auf Spani
     id: 'p' + i + Date.now().toString(36),
     name: String(o.name),
     category: o.kategorie || 'Sonstiges',
+    subcat: o.unterart || '',
     address: o.adresse || '',
     why: o.warum || '',
     url: okUrl(o.url),

@@ -20,9 +20,12 @@ export const AREA_TOOLS = {
   erlebnisse: [
     { sub: 'Treffen planen', href: '#/treffen', icon: 'users', title: 'Eigene Events', text: 'Selbst organisieren: Einladung, Gäste, Zu-/Absagen, Einkauf, To-dos – danach abhaken' },
   ],
-  karriere: [{ href: '#/karriere', icon: 'briefcase', title: 'Jobsuche', text: 'Mehrere Suchen, neue Angebote, Bewerbungs-Trichter, Analyse der Anzeige und Unterlagen' }],
+  karriere: [
+    { href: '#/karriere', icon: 'briefcase', title: 'Jobsuche', text: 'Suchen, neue Angebote, Bewerbungs-Trichter, Unterlagen und Karriere-Coach' },
+    { href: '#/karriere/projekte', icon: 'flag', title: 'Eigene Projekte', text: 'Deine Projekte messbar voranbringen: Meilensteine, Arbeitszeit, KI-Mentor' },
+  ],
   entwicklung: [{ href: '#/skills', icon: 'bulb', title: 'Täglich dranbleiben', text: 'Sprachen, Python & Co.: kleine Impulse jeden Tag, Sprechen mit der KI' }],
-  informiert: [{ href: '#/radar', icon: 'radar', title: 'Radar', text: 'Deine Themen, Leseliste und Fundstücke' }],
+  informiert: [{ href: '#/news', icon: 'news', title: 'Informiert bleiben', text: 'Deine Themen mit sortierten Nachrichten-Links' }],
 };
 const LIB_TEXT = { bibliothek: 'Bücher, Artikel, Videos und Kurse zu deinen Themen', podcasts: 'Podcasts zu deinen Themen – entdecken, hören, merken' };
 export const toolsFor = (areaId, subName, s) => {

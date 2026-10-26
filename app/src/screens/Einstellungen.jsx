@@ -132,7 +132,7 @@ export default function Einstellungen() {
                   ))}
                 </div>
               )}
-              <span className="tiny">Internet-Suchen kosten je 1 Cent plus den gefundenen Text. Gesucht wird nur noch bei Events, Orten, Rezepten, Reisezielen und wenn du „Im Internet suchen“ bzw. die Lupe antippst. Aufschlüsselung ab Version 0.24.</span>
+              <span className="tiny">Internet-Suchen kosten je 1 Cent plus den gefundenen Text. Gesucht wird nur noch bei Events, Orten, Rezepten, Reisezielen und wenn du „Im Internet suchen“ bzw. die Lupe antippst. Aufschlüsselung ab Version 0.25.</span>
               <button type="button" className="btn danger small" onClick={() => confirm('Schlüssel von diesem iPhone entfernen?') && setAi(saveAi({ apiKey: '' }))}>Schlüssel entfernen</button>
             </>
           ) : (
@@ -210,7 +210,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.24 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.25 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>

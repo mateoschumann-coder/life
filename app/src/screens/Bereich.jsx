@@ -14,6 +14,8 @@ import { TOOL_AREAS } from '../lib/tools';
 import { addLibCat, KINDS, removeLibCat } from '../lib/library';
 import { Missing } from './Saeule';
 
+export const DIRECT = { entwicklung: '#/skills', informiert: '#/news' };
+
 const RANGES = [
   { id: 4, label: '4 Wo.' },
   { id: 12, label: '12 Wo.' },
@@ -44,6 +46,11 @@ export default function Bereich({ id }) {
     );
   const close = () => setSheet(null);
 
+  // Weiterentwicklung und Informiert bleiben haben je nur ein Werkzeug: direkt dorthin
+  if (DIRECT[id]) {
+    location.replace(DIRECT[id]);
+    return null;
+  }
   // Körperliche Gesundheit und Lernen & Wissen: nur Kategorien (Werkzeuge), Projekte, Aufgaben und Ideen
   if (['koerper', 'mental', 'karriere', 'entwicklung'].includes(id)) {
     return (
@@ -63,7 +70,7 @@ export default function Bereich({ id }) {
             </div>
           )}
           <ToolCards areaId={id} s={s} />
-          <AreaContent s={s} area={area} only={['projekte', 'aufgaben']} />
+          {id !== 'karriere' && <AreaContent s={s} area={area} only={['projekte', 'aufgaben']} />}
         </main>
         <LibCatsSheet s={s} open={sheet === 'cats'} onClose={close} />
         <TabBar active="bereiche" />

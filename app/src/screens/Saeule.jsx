@@ -6,6 +6,7 @@ import { AreaIcon, Back, Chevron, Dot, TabBar } from '../components/ui';
 import { NewProjectSheet } from '../components/sheets';
 import { TOOL_AREAS, toolsFor } from '../lib/tools';
 import { EventsList } from './Treffen';
+import { DIRECT } from './Bereich';
 
 export default function Saeule({ id }) {
   const s = useStore();
@@ -30,7 +31,7 @@ export default function Saeule({ id }) {
           const st = areaStatus(s, a, t);
           return (
             <section key={a.id} className="list" style={{ background: `color-mix(in srgb, ${p.color} 7%, var(--card))` }}>
-              <a href={`#/bereich/${a.id}`} className="row" style={{ minHeight: 60 }}>
+              <a href={DIRECT[a.id] || `#/bereich/${a.id}`} className="row" style={{ minHeight: 60 }}>
                 <AreaIcon icon={a.icon} color={p.color} size={32} />
                 <span className="row-main">
                   <span className="row-title strong">{a.name}</span>
