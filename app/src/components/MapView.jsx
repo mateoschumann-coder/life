@@ -14,8 +14,8 @@ export const CAT_COLOR = {
   Natur: '#2FA36B', Sport: '#0E9F9A', Laden: '#DB2777', Sonstiges: '#6B7280', Unterkunft: '#1E3A8A', Station: '#111827',
 };
 
-function fit(points, w, h, center) {
-  if (!points.length) { const c = center || BA; return { z: center ? 9 : 12, ...world(c.lat, c.lon, center ? 9 : 12) }; }
+function fit(points, w, h, center, zoom) {
+  if (!points.length) { const c = center || BA; const z = zoom || (center ? 9 : 12); return { z, ...world(c.lat, c.lon, z) }; }
   for (let z = 16; z >= 3; z--) {
     const ps = points.map((p) => world(p.lat, p.lon, z));
     const xs = ps.map((p) => p.x);
@@ -29,7 +29,7 @@ function fit(points, w, h, center) {
   return { z: 3, ...world(BA.lat, BA.lon, 3) };
 }
 
-export default function MapView({ places, selectedId, onSelect, height = 300, center = null }) {
+export default function MapView({ places, selectedId, onSelect, height = 300, center = null, zoom: startZoom = 0 }) {
   const ref = useRef(null);
   const [w, setW] = useState(360);
   const pts = useMemo(() => places.filter((p) => p.lat != null && p.lon != null), [places]);
@@ -51,7 +51,7 @@ export default function MapView({ places, selectedId, onSelect, height = 300, ce
   // Neu ausrichten, wenn Orte dazukommen oder wegfallen
   const key = pts.map((p) => `${p.id}:${p.lat.toFixed(3)},${p.lon.toFixed(3)}`).join(',') + (center ? `|${center.lat},${center.lon}` : '');
   useEffect(() => {
-    setView(fit(pts, w, height, center));
+    setView(fit(pts, w, height, center, startZoom));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, w]);
   // Ausgewählten Ort in die Mitte holen

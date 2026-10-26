@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, setEventStage, updatePlace } from '../lib/actions';
 import {
-  discoverPlaces, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, lastEventSearch, lastPlaceSearch, locate, PLACE_CHIPS, saveEventSearch, savePlaceSearch, searchEvents,
+  citiesOf, cityOf, cityPos, discoverPlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import { getAi } from '../lib/ai';
@@ -41,6 +41,51 @@ function SearchChips({ s, kind, defaults, disabled, onPick }) {
       )}
       {edit && <span className="tiny">Antippen entfernt eine Kategorie. Eigene Knöpfe suchen genau danach.</span>}
     </>
+  );
+}
+
+// Städte (v0.40): zwischen Buenos Aires, Frankfurt … wechseln – gilt für Events und Orte, bearbeitbar
+function CityChips({ s }) {
+  const [edit, setEdit] = useState(false);
+  const [text, setText] = useState('');
+  const list = citiesOf(s);
+  const cur = cityOf(s);
+  const pick = (c) => store.update((d) => { d.profile = { ...d.profile, city: c }; });
+  const save = (l) => store.update((d) => { d.profile = { ...d.profile, cities: l }; });
+  const remove = (c) => {
+    if (list.length <= 1) return toast('Mindestens eine Stadt bleibt');
+    const n = s.places.filter((p) => placeCity(p) === c).length;
+    if (n && !confirm(`„${c}“ entfernen? Deine ${n} Orte dort bleiben gespeichert und tauchen wieder auf, wenn du die Stadt neu hinzufügst.`)) return;
+    save(list.filter((x) => x !== c));
+  };
+  const add = (e) => {
+    e.preventDefault();
+    const c = text.trim();
+    if (c && !list.some((x) => x.toLowerCase() === c.toLowerCase())) {
+      save([...list, c]);
+      pick(c);
+      locateCity(store, c);
+    }
+    setText('');
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="box-tabs">
+        {list.map((c) => (
+          <button key={c} type="button" className={edit ? 'chip soft editing' : c === cur ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => (edit ? remove(c) : pick(c))} aria-label={edit ? `${c} entfernen` : c} aria-pressed={!edit && c === cur}>
+            📍 {c}{edit && <Icon name="x" size={11} />}
+          </button>
+        ))}
+        <button type="button" className="chip soft" onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Städte bearbeiten'}>{edit ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+      </div>
+      {edit && (
+        <form className="block-add" onSubmit={add}>
+          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Frankfurt, Montevideo, Lissabon" aria-label="Neue Stadt" />
+          <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
+        </form>
+      )}
+      {edit && <span className="tiny">Antippen entfernt eine Stadt. Events-Suche, Orte-Liste, Karte und „Neue Orte entdecken“ richten sich nach der gewählten Stadt.</span>}
+    </div>
   );
 }
 
@@ -86,7 +131,7 @@ function Prefs({ s }) {
 }
 
 // ---------- Events ----------
-function Events({ s }) {
+function Events({ s, city }) {
   const t = today();
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(lastEventSearch);
@@ -102,7 +147,7 @@ function Events({ s }) {
     setBusy(web ? 'web' : 'links');
     setErr(null);
     try {
-      if (web) setSearch(await searchEvents(s, query.trim()));
+      if (web) setSearch(await searchEvents(s, query.trim(), city));
       else setLinks(await eventLinks(s, query.trim()));
       setQ('');
     } catch (e) {
@@ -117,21 +162,22 @@ function Events({ s }) {
     setSearch(next);
   };
   const take = (r, stage) => {
-    addEvent({ name: r.name, date: r.date, place: r.place, stage, url: r.url, time: r.time, price: r.price, note: r.why });
+    addEvent({ name: r.name, date: r.date, place: r.place, stage, url: r.url, time: r.time, price: r.price, note: r.why, city: city === HOME_CITY ? '' : city });
     if (r.date) addTask({ title: `${stage === 'zugesagt' ? '' : 'Vielleicht: '}${r.name}`, areaId: 'erlebnisse', due: r.date, time: r.time || null, url: r.url || null });
     mark(r.id, stage);
     toast(stage === 'zugesagt' ? 'Zugesagt und im Kalender' : 'Gemerkt' + (r.date ? ' und am Tag eingetragen' : ''));
   };
 
-  const mine = s.events.filter((e) => e.stage !== 'besucht' && !e.travel);
+  const mine = s.events.filter((e) => e.stage !== 'besucht' && !e.travel && eventCity(e) === city);
+  const shown = search && (search.city || HOME_CITY) === city ? search : null;
   const upcoming = mine.filter((e) => !e.date || e.date >= t).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
   const past = mine.filter((e) => e.date && e.date < t);
-  const fresh = (search?.results || []).filter((r) => r.status === 'neu');
+  const fresh = (shown?.results || []).filter((r) => r.status === 'neu');
 
   return (
     <>
       <section className="card" style={{ gap: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: 17 }}>Was ist los in Buenos Aires?</span>
+        <span style={{ fontWeight: 700, fontSize: 17 }}>Was ist los in {city}?</span>
         <form onSubmit={(e) => { e.preventDefault(); run(q); }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Techno am Samstag, Laufevents …" aria-label="Wonach suchen" />
           <div className="search-row">
@@ -155,14 +201,14 @@ function Events({ s }) {
         </section>
       )}
 
-      {!busy && mode === 'web' && search && (
+      {!busy && mode === 'web' && shown && (
         <section className="group">
           <div className="sec-h">
-            <h2 className="h2" style={{ fontSize: 19 }}>„{search.query}“</h2>
+            <h2 className="h2" style={{ fontSize: 19 }}>„{shown.query}“</h2>
             <span className="tiny">{fresh.length} neu</span>
           </div>
-          {search.note && <span className="sub" style={{ padding: '0 4px' }}>{search.note}</span>}
-          {search.results.length === 0 && <div className="notice">Nichts Passendes gefunden. Probier eine andere Formulierung.</div>}
+          {shown.note && <span className="sub" style={{ padding: '0 4px' }}>{shown.note}</span>}
+          {shown.results.length === 0 && <div className="notice">Nichts Passendes gefunden. Probier eine andere Formulierung.</div>}
           {fresh.map((r) => (
             <article key={r.id} className="nudge">
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -181,12 +227,12 @@ function Events({ s }) {
               </div>
             </article>
           ))}
-          {search.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alle Ergebnisse durchgesehen.</span>}
+          {shown.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alle Ergebnisse durchgesehen.</span>}
         </section>
       )}
 
       <section className="group">
-        <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Meine Events</h2></div>
+        <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Meine Events{city !== HOME_CITY ? ` in ${city}` : ''}</h2></div>
         <div className="list">
           {upcoming.length === 0 && past.length === 0 && <div className="empty">Noch nichts vorgemerkt. Such oben oder tippe beim Coach auf „Interessiert“.</div>}
           {past.map((e) => (
@@ -228,8 +274,8 @@ function Stars({ value, onChange, size = 18 }) {
   );
 }
 
-function PlaceSheet({ open, onClose, place, s }) {
-  const blank = { name: '', category: 'Café', subcat: '', note: '', rating: 0, status: 'will', lat: null, lon: null, address: '', url: '' };
+function PlaceSheet({ open, onClose, place, s, city }) {
+  const blank = { name: '', category: 'Café', subcat: '', note: '', rating: 0, status: 'will', lat: null, lon: null, address: '', url: '', city };
   const [f, setF] = useState(blank);
   const [hits, setHits] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -244,7 +290,8 @@ function PlaceSheet({ open, onClose, place, s }) {
   const find = async () => {
     setBusy(true);
     try {
-      const r = await geocode(`${f.address || f.name}, Buenos Aires`);
+      const c = f.city || city || HOME_CITY;
+      const r = await geocode(`${f.address || f.name}, ${c}`, c);
       setHits(r);
       if (!r.length) toast('Nichts gefunden – Adresse genauer eingeben');
     } catch (e) {
@@ -262,6 +309,12 @@ function PlaceSheet({ open, onClose, place, s }) {
   return (
     <Sheet open={open} title={place ? 'Ort bearbeiten' : 'Neuer Ort'} onClose={onClose}>
       <Field label="Name"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Café Crisol" /></Field>
+      {citiesOf(s).length > 1 && (
+        <div className="field">
+          <span>Stadt</span>
+          <div className="chips">{citiesOf(s).map((c) => <button key={c} type="button" className={(f.city || HOME_CITY) === c ? 'chip on' : 'chip soft'} onClick={() => set({ city: c, lat: null, lon: null })}>{c}</button>)}</div>
+        </div>
+      )}
       <div className="field">
         <span>Adresse oder Viertel</span>
         <div className="block-add">
@@ -302,7 +355,7 @@ function PlaceSheet({ open, onClose, place, s }) {
   );
 }
 
-function Orte({ s }) {
+function Orte({ s, city }) {
   const [sel, setSel] = useState(null);
   const [status, setStatus] = useState('alle');
   const [cat, setCat] = useState(null);
@@ -314,18 +367,21 @@ function Orte({ s }) {
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
 
-  const list = s.places.filter((p) => (status === 'alle' || p.status === status) && (!cat || p.category === cat) && (!sub || p.subcat === sub));
-  const subs = cat ? [...new Set(s.places.filter((p) => p.category === cat && p.subcat).map((p) => p.subcat))] : [];
+  const here = s.places.filter((p) => placeCity(p) === city);
+  const list = here.filter((p) => (status === 'alle' || p.status === status) && (!cat || p.category === cat) && (!sub || p.subcat === sub));
+  const subs = cat ? [...new Set(here.filter((p) => p.category === cat && p.subcat).map((p) => p.subcat))] : [];
   const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => p.category === c).sort((a, b) => (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
-  const cats = [...new Set(s.places.map((p) => p.category))];
-  const selected = s.places.find((p) => p.id === sel);
+  const cats = [...new Set(here.map((p) => p.category))];
+  const selected = here.find((p) => p.id === sel);
+  const shown = search && (search.city || HOME_CITY) === city ? search : null;
+  useEffect(() => { locateCity(store, city); setCat(null); setSub(null); setSel(null); }, [city]);
 
   const run = async (query) => {
     if (!query.trim() || busy) return;
     setBusy(true);
     setErr(null);
     try {
-      setSearch(await discoverPlaces(s, query.trim()));
+      setSearch(await discoverPlaces(s, query.trim(), city));
       setQ('');
     } catch (e) {
       setErr(errText(e));
@@ -337,16 +393,16 @@ function Orte({ s }) {
     const next = { ...search, results: search.results.map((x) => (x.id === r.id ? { ...x, status: 'gemerkt' } : x)) };
     setSearch(next);
     savePlaceSearch(next);
-    const pos = await locate(r.name, r.address);
-    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null });
+    const pos = await locate(r.name, r.address, city);
+    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null, city });
     toast(pos ? 'Gemerkt und auf der Karte' : 'Gemerkt (ohne Kartenpunkt)');
     if (pos) setSel(id);
   };
-  const routeUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat != null ? `${p.lat},${p.lon}` : `${p.name} ${p.address} Buenos Aires`)}`;
+  const routeUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat != null ? `${p.lat},${p.lon}` : `${p.name} ${p.address} ${placeCity(p)}`)}`;
 
   return (
     <>
-      <MapView places={list} selectedId={sel} onSelect={setSel} />
+      <MapView places={list} selectedId={sel} onSelect={setSel} center={cityPos(s, city)} zoom={12} />
       {selected && (
         <article className="nudge">
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -375,7 +431,7 @@ function Orte({ s }) {
       {cats.length > 0 && (
         <div className="box-tabs">
           <button type="button" className={!cat ? 'chip on' : 'chip soft'} onClick={() => { setCat(null); setSub(null); }}>Alle Arten</button>
-          {PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setCat(cat === c ? null : c); setSub(null); }}>{c} {s.places.filter((p) => p.category === c).length}</button>)}
+          {PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setCat(cat === c ? null : c); setSub(null); }}>{c} {here.filter((p) => p.category === c).length}</button>)}
         </div>
       )}
       {subs.length > 0 && (
@@ -384,7 +440,7 @@ function Orte({ s }) {
           {subs.map((c) => <button key={c} type="button" className={sub === c ? 'chip on' : 'chip soft'} onClick={() => setSub(sub === c ? null : c)}>{c}</button>)}
         </div>
       )}
-      {list.length === 0 && <div className="list"><div className="empty">Noch keine Orte{cat ? ` in „${cat}“` : ''}. Füg deine Lieblingsorte hinzu, sag dem Assistenten „Merk dir die Bar … in Palermo“ oder lass dir unten neue vorschlagen.</div></div>}
+      {list.length === 0 && <div className="list"><div className="empty">Noch keine Orte{cat ? ` in „${cat}“` : ''} in {city}. Füg deine Lieblingsorte hinzu, sag dem Assistenten „Merk dir die Bar … in Palermo“ oder lass dir unten neue vorschlagen.</div></div>}
       {groups.map((g) => (
         <section key={g.c} className="group">
           {!cat && <h2 className="label" style={{ padding: '0 4px' }}>{g.c} · {g.items.length}</h2>}
@@ -403,7 +459,7 @@ function Orte({ s }) {
       ))}
 
       <section className="card" style={{ gap: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Orte entdecken</span>
+        <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Orte in {city} entdecken</span>
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); run(q); }}>
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Specialty Coffee in Palermo" aria-label="Orte suchen" />
           <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>
@@ -411,7 +467,7 @@ function Orte({ s }) {
         <SearchChips s={s} kind="places" defaults={PLACE_CHIPS} disabled={busy || !hasKey} onPick={run} />
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Empfehlungen … (ca. 20 Sek.)</span></div>}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-        {!busy && search && search.results.filter((r) => r.status === 'neu').map((r) => (
+        {!busy && shown && shown.results.filter((r) => r.status === 'neu').map((r) => (
           <div key={r.id} className="option" style={{ alignItems: 'center' }}>
             <span className="cat-dot" style={{ background: CAT_COLOR[r.category] || CAT_COLOR.Sonstiges }} />
             <span className="row-main">
@@ -424,7 +480,7 @@ function Orte({ s }) {
           </div>
         ))}
       </section>
-      <PlaceSheet s={s} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
+      <PlaceSheet s={s} city={city} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
     </>
   );
 }
@@ -453,7 +509,8 @@ export default function Ausgehen() {
           <h1 className="h1">Ausgehen</h1>
         </div>
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
-        {tab === 'events' ? <Events s={s} /> : <Orte s={s} />}
+        <CityChips s={s} />
+        {tab === 'events' ? <Events s={s} city={cityOf(s)} /> : <Orte s={s} city={cityOf(s)} />}
       </main>
       <TabBar active="ausgehen" />
     </>

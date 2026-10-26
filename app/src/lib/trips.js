@@ -160,6 +160,11 @@ export function chooseVariant(tripId, id) {
     const t = s.trips.find((x) => x.id === tripId);
     const v = t?.variants.find((x) => x.id === id);
     if (!v) return;
+    // Bisherige Route nicht verlieren: wenn sie in keiner Variante steckt, als eigene Variante sichern
+    const sig = (list) => list.map((x) => norm(x.name)).join('|');
+    if (t.stops.length && !t.variants.some((x) => sig(x.stops) === sig(t.stops))) {
+      t.variants.unshift({ id: uid(), name: 'Bisherige Route', summary: 'automatisch gesichert', stops: t.stops.map((x) => ({ name: x.name, nights: null, note: x.note || '' })), chosen: false });
+    }
     t.variants.forEach((x) => { x.chosen = x.id === id; });
     t.stops = v.stops.map((x) => {
       const old = t.stops.find((y) => norm(y.name) === norm(x.name));
@@ -173,41 +178,71 @@ export function chooseVariant(tripId, id) {
 }
 
 // ---------- KI: Wohin könnte ich? ----------
-const INSPIRE_TOOL = {
-  name: 'ziele_zeigen',
-  description: 'Gibt Reiseziel-Ideen zurück.',
+// ---------- KI: Reiseführer „Wohin könnte ich?“ (v0.40: Gespräch, kurze Vorschläge, mehrere als einzelne Ideen übernehmen) ----------
+const GUIDE_TOOL = {
+  name: 'reiseziele',
+  description: 'Antwort an Mateo plus Reiseziel-Vorschläge, die er einzeln als Idee übernehmen kann.',
   input_schema: {
     type: 'object',
     properties: {
+      antwort: { type: 'string', description: 'Kurze Antwort wie ein Reiseführer, gern eine Rückfrage' },
       ziele: {
         type: 'array',
+        description: '0–5 Ziele. Die Liste zeigt nur Ziel, Land und "kurz" – die anderen Felder landen ausführlich in der gespeicherten Idee.',
         items: {
           type: 'object',
           properties: {
             ziel: { type: 'string', description: 'Ort/Region, z.B. „Florianópolis“' },
             land: { type: 'string' },
-            warum: { type: 'string', description: '1–2 Sätze, warum es zu Mateo und dem Wunsch passt' },
+            kurz: { type: 'string', description: 'Höchstens 6 Wörter, z.B. „Strände, Surfen, Inselflair“' },
+            warum: { type: 'string', description: '2–3 Sätze: was dort besonders ist und warum es zu Mateo passt' },
+            highlights: { type: 'array', items: { type: 'string' }, description: '3–5 Dinge, die man dort sehen/erleben kann, je ein paar Wörter' },
             dauer: { type: 'string', description: 'Empfohlene Dauer, z.B. „4–5 Tage“' },
-            anreise: { type: 'string', description: 'Wie kommt man von Buenos Aires hin, ca. Dauer und Preis' },
+            anreise: { type: 'string', description: 'Von Buenos Aires: Verkehrsmittel, ca. Dauer und Preis' },
             beste_zeit: { type: 'string' },
             budget: { type: 'string', description: 'grobe Kosten pro Person' },
-            url: { type: 'string', description: 'Link aus den Suchergebnissen, nie erfinden' },
+            url: { type: 'string', description: 'Link nur aus Suchergebnissen, nie erfinden' },
           },
-          required: ['ziel', 'warum'],
+          required: ['ziel', 'kurz'],
         },
       },
     },
-    required: ['ziele'],
+    required: ['antwort'],
   },
 };
-export async function tripInspiration(s, wish) {
-  const known = s.trips.map((x) => x.name);
-  const system = `Du bist Mateos Reise-Scout. Er lebt in Buenos Aires. Heute ist ${fmtLong(today())}.
+export async function tripGuide(s, history, { web = false, smart = false } = {}) {
+  const system = `Du bist Mateos persönlicher Reiseführer in der App „Life“. Er lebt in Buenos Aires. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
-Schon auf seiner Liste (nicht wiederholen): ${JSON.stringify(known)}
-Suche höchstens 2-mal (gezielt, jede Suche kostet Geld) und schlage 4–6 abwechslungsreiche Ziele vor (gern ein überraschendes dabei), passend zu seinem Wunsch, Reisezeit und Anreise ab Buenos Aires. Gib sie mit "ziele_zeigen" zurück. Deutsch, konkret, kurz.`;
-  const r = await searchWithTool({ system, user: wish || 'Wohin könnte ich als Nächstes reisen?', tool: INSPIRE_TOOL, maxUses: 2, label: 'Reiseziele finden' });
-  return (r.ziele || []).map((z) => ({ ...z, id: uid(), url: okUrl(z.url) }));
+Schon auf seiner Liste (geplant oder Idee, nicht wiederholen): ${JSON.stringify(s.trips.map((x) => x.name))}
+Arbeitsweise:
+- Wie ein guter Reiseführer im Gespräch: Wenn der Wunsch noch vage ist, darfst du kurz nachfragen (Zeitraum/Dauer, Strand/Stadt/Natur, Budget, allein/zu zweit) – musst aber nicht; meist direkt 3–5 abwechslungsreiche Ziele vorschlagen (gern ein überraschendes) und höchstens eine Frage stellen.
+- Auf Nachfragen eingehen: vergleichen, Alternativen, „mehr wie X“, „günstiger“ – dann neue Ziele unter "ziele".
+- Mateo will zwischen Zielen entscheiden: jedes Ziel eigenständig, nicht mehrere Orte in einem Eintrag zusammenfassen.
+- Pro Ziel: "kurz" (höchstens 6 Wörter, das sieht er in der Liste) und dafür ausführlich warum, highlights, dauer, anreise ab Buenos Aires, beste_zeit, budget – das wird beim Übernehmen in die Idee geschrieben.
+- ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Verbindungen, Preise). Links nur aus Suchergebnissen.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, ohne URLs; Preise als grobe Schätzung kennzeichnen.'}
+Antworte immer mit "reiseziele". Deutsch.`;
+  const messages = history.map((m) => ({ role: m.role, content: m.text }));
+  return searchWithTool({ system, messages, tool: GUIDE_TOOL, maxUses: web ? 2 : 0, label: 'Reiseziele finden', smart });
+}
+export const ideaText = (z) => [
+  z.kurz,
+  z.warum,
+  z.highlights?.length ? `Highlights: ${z.highlights.join(', ')}` : '',
+  z.dauer && `Dauer: ${z.dauer}`,
+  z.anreise && `Anreise: ${z.anreise}`,
+  z.beste_zeit && `Beste Zeit: ${z.beste_zeit}`,
+  z.budget && `Kosten: ${z.budget}`,
+  okUrl(z.url) && `Mehr: ${okUrl(z.url)}`,
+].filter(Boolean).join('\n');
+// Jedes gewählte Ziel wird eine eigene Idee (nicht zusammengeschoben)
+export function applyGuide(sel) {
+  const ids = [];
+  for (const z of sel.ziele || []) {
+    if (!z?.ziel) continue;
+    if (store.get().trips.some((x) => norm(x.name) === norm(z.ziel))) continue;
+    ids.push(addTrip({ name: z.ziel, dest: [z.ziel, z.land].filter(Boolean).join(', '), status: 'idee', idea: ideaText(z) }));
+  }
+  return ids.filter(Boolean);
 }
 
 // ---------- KI: Reise-Planer (Gespräch mit Vorschlägen) ----------
@@ -258,7 +293,7 @@ Arbeitsweise:
   1) Erst verstehen: Was will Mateo sehen/erleben, wie lange, welcher Reisestil? Frag gezielt nach (1–2 Fragen), statt gleich viel vorzuschlagen.
   2) Dann ORTE: schlage wenige (2–4) passende Orte/Regionen vor, je mit kurzem „was es dort gibt“ (unter "orte", art sehenswuerdigkeit/aktivitaet, notiz = 3–6 Wörter), damit er versteht, was ihn erwartet. Gemerkte Orte im Stand sind gesetzt.
   3) Erst wenn Orte klar sind: ROUTEN-VARIANTEN unter "varianten" (1–2 pro Antwort, je mit Abschnitten in Reihenfolge und Nächten), gern unterschiedlich (z.B. „entspannt“ vs. „viel sehen“). Vorhandene Varianten kennst du aus dem Stand – baue darauf auf, ändere/vergleiche sie auf Wunsch, wiederhole sie nicht.
-  4) Transport zwischen den Abschnitten erst, wenn eine Variante interessant ist. Keine "stationen" vorschlagen – die entstehen, wenn Mateo eine Variante wählt.` : 'Die Reise steht: hilf konkret zu planen (Stationen, Transport, Unterkunft, Restaurants, Sehenswürdigkeiten) und die Listen anzupassen. Alternative Routen nur auf Wunsch unter "varianten".'}
+  4) Transport zwischen den Abschnitten erst, wenn eine Variante interessant ist. Keine "stationen" vorschlagen – die entstehen, wenn Mateo eine Variante wählt.` : 'Die Reise steht: hilf konkret zu planen (Stationen, Transport, Unterkunft, Restaurants, Sehenswürdigkeiten) und die Listen anzupassen. Will Mateo die Route überdenken, vergleichen oder Alternativen sehen, skizziere 1–2 Routen-Varianten unter "varianten" (aufbauend auf vorhandenen, nicht wiederholen) – die aktuelle Route bleibt, bis er eine Variante wählt; dann keine "stationen" vorschlagen.'}
 - ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Verbindungen, Preise, konkrete Unterkünfte/Restaurants). Links nur aus Suchergebnissen.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, gib keine URLs an. Wenn für eine gute Antwort aktuelle Infos nötig wären (Preise, Verfügbarkeit), sag kurz, dass Mateo „Im Internet suchen“ einschalten kann.'}
 - ${tr.status === 'idee' ? 'Packliste und To-dos kommen erst beim Festlegen dazu: schlage dafür noch nichts vor (kein "packen", "todo", "entfernen").' : 'Die Packliste und To-dos haben eine Standard-Vorlage. Passe sie an Ziel, Jahreszeit, Dauer und Aktivitäten an: Fehlendes unter "packen"/"todo", Unpassendes (z.B. Badekleidung bei Winterreise) unter "entfernen".'}
 - Nichts vorschlagen, was schon im Stand steht. Bei Orten wenn möglich lat/lon angeben.

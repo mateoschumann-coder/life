@@ -3,9 +3,10 @@ import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
-  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripInspiration, updateEntry, updateTrip,
+  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
+import { chatOf, saveChatOf } from '../lib/chats';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
 import GroupedChecklist from '../components/GroupedChecklist';
@@ -16,80 +17,33 @@ import { Back, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/
 import { Missing } from './Saeule';
 
 const COLOR = '#2FA36B';
-const INSPO_KEY = 'life-app-tripinspo';
 const INSPO_CHIPS = ['Langes Wochenende', 'Strand & Sonne', 'Berge & Wandern', 'Städtetrip', 'Mit dem Bus erreichbar', 'Günstig', 'Überrasch mich'];
 const fmtMoney = (n, c) => `${Math.round(n).toLocaleString('de-DE')} ${c}`;
 const tint = { background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: COLOR };
-const loadInspo = () => {
-  try {
-    return JSON.parse(localStorage.getItem(INSPO_KEY) || 'null');
-  } catch {
-    return null;
-  }
-};
 
 // ---------- Übersicht: geplante Reisen, Ideen, „Wohin könnte ich?“ ----------
+// v0.40 (Mateo): Reiseführer im Gespräch, kurze Vorschläge; mehrere ankreuzen → jede wird eine eigene Idee mit ausführlichem Text
+const GUIDE_GROUPS = [
+  { key: 'ziele', label: 'Als eigene Idee übernehmen', title: (x) => `${x.ziel}${x.land ? `, ${x.land}` : ''}`, meta: (x) => [x.kurz, x.dauer].filter(Boolean).join(' · ') },
+];
 function Inspiration({ s }) {
-  const [wish, setWish] = useState('');
-  const [res, setRes] = useState(loadInspo);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-  const ask = async (q) => {
-    setBusy(true);
-    setErr(null);
-    try {
-      const ziele = await tripInspiration(s, q);
-      const v = { query: q, ziele };
-      setRes(v);
-      try {
-        localStorage.setItem(INSPO_KEY, JSON.stringify(v));
-      } catch {}
-      setWish('');
-    } catch (e) {
-      setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const keep = (z) => {
-    addTrip({ name: z.ziel, dest: [z.ziel, z.land].filter(Boolean).join(', '), status: 'idee', idea: [z.warum, z.dauer && `Dauer: ${z.dauer}`, z.anreise && `Anreise: ${z.anreise}`, z.beste_zeit && `Beste Zeit: ${z.beste_zeit}`, z.budget && `Kosten: ${z.budget}`].filter(Boolean).join('\n') });
-    const v = { ...res, ziele: res.ziele.filter((x) => x.id !== z.id) };
-    setRes(v);
-    try {
-      localStorage.setItem(INSPO_KEY, JSON.stringify(v));
-    } catch {}
-    toast(`„${z.ziel}“ bei den Ideen gemerkt`);
-  };
   return (
-    <section className="card checkin" style={{ gap: 12 }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
-        <span className="spark"><Icon name="sparkle" size={15} color="currentColor" /></span> Wohin könnte ich?
-      </span>
-      <form className="block-add" onSubmit={(e) => { e.preventDefault(); ask(wish.trim()); }}>
-        <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder="z.B. „5 Tage im Dezember, Natur, max. 300 USD“" aria-label="Reisewunsch" />
-        <button type="submit" className="btn small" disabled={busy || !wish.trim() || !getAi().apiKey}>{busy ? '…' : 'Los'}</button>
-      </form>
-      {!busy && <div className="box-tabs">{INSPO_CHIPS.map((c) => <button key={c} type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} disabled={!getAi().apiKey} onClick={() => ask(c)}>{c}</button>)}</div>}
-      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche passende Ziele ab Buenos Aires … (ca. 30 Sek.)</span></div>}
-      {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-      {!busy && res?.ziele?.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span className="tiny">Vorschläge zu „{res.query}“</span>
-          {res.ziele.map((z) => (
-            <div key={z.id} className="option" style={{ flexDirection: 'column', gap: 6 }}>
-              <span style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
-                <Icon name="plane" size={16} color={COLOR} />
-                <b style={{ flex: 1, fontSize: 16 }}>{z.ziel}{z.land ? `, ${z.land}` : ''}</b>
-                {z.url && <a className="x-btn" href={z.url} target="_blank" rel="noreferrer" aria-label="Mehr lesen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-              </span>
-              <span className="sub" style={{ fontSize: 14 }}>{z.warum}</span>
-              <span className="tiny">{[z.dauer, z.anreise, z.beste_zeit && `Beste Zeit: ${z.beste_zeit}`, z.budget].filter(Boolean).join(' · ')}</span>
-              <button type="button" className="pill on" style={{ alignSelf: 'flex-start' }} onClick={() => keep(z)}>Als Idee merken</button>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
+    <PlanChat
+      title="Wohin könnte ich?"
+      intro="Ich bin dein Reiseführer: Sag, worauf du Lust hast – oder tipp unten einen Vorschlag an. Kreuz danach die Ziele an, die dich reizen; jedes landet als eigene Idee unten."
+      history={chatOf(s, 'reiseziele')}
+      prefKey="reiseziele"
+      onSave={(h) => saveChatOf('reiseziele', h)}
+      onAsk={(hist, o) => tripGuide(s, hist, o)}
+      groups={GUIDE_GROUPS}
+      onApply={(sel) => {
+        const ids = applyGuide(sel);
+        toast(ids.length ? `${ids.length} ${ids.length === 1 ? 'Idee' : 'Ideen'} unten gemerkt` : 'Schon bei den Ideen');
+      }}
+      chips={INSPO_CHIPS}
+      webChips={['Was kostet die Anreise gerade?']}
+      placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD"
+    />
   );
 }
 
@@ -377,7 +331,7 @@ function Budget({ tr }) {
 }
 
 // ---------- Routen-Varianten: Skizzen vergleichen, eine wählen ----------
-function Variants({ tr, onChosen }) {
+function Variants({ tr, onChosen, onCommit }) {
   const [text, setText] = useState('');
   const [name, setName] = useState('');
   const vs = tr.variants || [];
@@ -385,10 +339,12 @@ function Variants({ tr, onChosen }) {
     <>
       <div className="list">
         {vs.length === 0 && <div className="empty">Noch keine Varianten. Lass dir unten von der KI zwei Routen skizzieren (z.B. „entspannt“ und „viel sehen“) oder trag selbst eine ein.</div>}
-        {vs.map((v) => {
+        {vs.length > 1 && <span className="tiny" style={{ padding: '0 4px' }}>Vergleiche die Varianten, entwickle sie unten mit der KI weiter („Variante 2 mit einem Tag mehr in …“) und wähle am Ende eine.</span>}
+        {vs.map((v, vi) => {
           const nights = v.stops.reduce((n, x) => n + (x.nights || 0), 0);
           return (
             <div key={v.id} className="variant">
+              <span className="eyebrow" style={{ fontSize: 11 }}>Variante {vi + 1}</span>
               <div className="sec-h" style={{ padding: 0 }}>
                 <span style={{ fontWeight: 700, fontSize: 16 }}>{v.chosen ? '✓ ' : ''}{v.name}</span>
                 <span className="tiny">{v.stops.length} Abschnitte{nights ? ` · ${nights} Nächte` : ''}</span>
@@ -404,6 +360,7 @@ function Variants({ tr, onChosen }) {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className={v.chosen ? 'pill on' : 'pill'} onClick={() => { chooseVariant(tr.id, v.id); toast(`„${v.name}“ ist jetzt deine Route`); onChosen?.(); }}>{v.chosen ? 'Gewählt' : 'Diese Route wählen'}</button>
+                {onCommit && <button type="button" className="pill on" onClick={() => { chooseVariant(tr.id, v.id); onCommit(); }}>Zur Reise machen</button>}
                 <span style={{ flex: 1 }} />
                 <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Variante „${v.name}“ löschen?`) && removeVariant(tr.id, v.id)}>Löschen</button>
               </div>
@@ -436,7 +393,7 @@ function TripDetail({ s, tr }) {
   const isIdea = tr.status === 'idee';
   const tabs = isIdea
     ? [['orte', 'Orte'], ['varianten', 'Routen'], ['route', 'Gewählte Route'], ['notizen', 'Notizen']]
-    : [['route', 'Route'], ['orte', 'Orte'], ['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen'], ...((tr.variants || []).length ? [['varianten', 'Varianten']] : [])];
+    : [['route', 'Route'], ['varianten', 'Varianten'], ['orte', 'Orte'], ['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen']];
   const [tab, setTab] = useState(isIdea ? 'orte' : 'route');
   const [commit, setCommit] = useState(false);
   const [range, setRange] = useState({ from: tr.from, to: tr.to });
@@ -474,7 +431,7 @@ function TripDetail({ s, tr }) {
         <div className="box-tabs main-tabs">
           {tabs.map(([k, l]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{count[k] ? ` ${count[k]}` : ''}</button>)}
         </div>
-        {cur === 'varianten' && <Variants tr={tr} onChosen={() => setTab('route')} />}
+        {cur === 'varianten' && <Variants tr={tr} onChosen={() => setTab('route')} onCommit={isIdea ? () => setCommit(true) : null} />}
         {cur === 'route' && <Route tr={tr} />}
         {cur === 'orte' && <Places tr={tr} />}
         {cur === 'todo' && <GroupedChecklist items={tr.todo} cats={Object.keys(TODO_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'todo', text, cat)} onToggle={(id) => updateEntry(tr.id, 'todo', id, { done: !tr.todo.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'todo', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Neues To-do" />}
@@ -496,7 +453,7 @@ function TripDetail({ s, tr }) {
           webChips={['Wie komme ich hin?', 'Beste Reisezeit und Kosten?', 'Unterkunft finden', 'Restaurant-Tipps', 'Transport zwischen den Stationen']}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyTripProposal(tr.id, sel)}
-          chips={isIdea ? ['Was gibt es dort zu sehen?', 'Schlag mir 2 Routen vor', 'Vergleich meine Routen', 'Wie komme ich hin?'] : ['Packliste anpassen', 'Unterkunft finden', 'Restaurant-Tipps', 'Sehenswürdigkeiten', 'Transport zwischen den Stationen', 'Was fehlt noch?']}
+          chips={isIdea ? ['Was gibt es dort zu sehen?', 'Schlag mir 2 Routen vor', 'Vergleich meine Routen', 'Wie komme ich hin?'] : ['Alternative Route als Variante', 'Packliste anpassen', 'Unterkunft finden', 'Restaurant-Tipps', 'Sehenswürdigkeiten', 'Transport zwischen den Stationen', 'Was fehlt noch?']}
         />
         <button type="button" className="btn danger" onClick={() => { if (confirm(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
       </main>

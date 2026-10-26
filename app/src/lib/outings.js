@@ -7,6 +7,28 @@ import { aiLinks } from './links';
 const SEARCH_KEY = 'life-app-eventsearch';
 const PLACE_KEY = 'life-app-placesearch';
 const BA = { type: 'approximate', city: 'Buenos Aires', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' };
+const locOf = (city) => (!city || city === 'Buenos Aires' ? BA : { type: 'approximate', city });
+
+// Städte für Ausgehen (v0.40, Mateo): Knöpfe „Buenos Aires“, „Frankfurt“ … – bearbeitbar, gilt für Events und Orte
+export const HOME_CITY = 'Buenos Aires';
+export const citiesOf = (s) => (s.profile?.cities?.length ? s.profile.cities : [HOME_CITY]);
+export const cityOf = (s) => {
+  const c = s.profile?.city;
+  const list = citiesOf(s);
+  return list.includes(c) ? c : list[0];
+};
+export const placeCity = (p) => p.city || HOME_CITY;
+export const eventCity = (e) => e.city || HOME_CITY;
+export const BA_POS = { lat: -34.6037, lon: -58.3816 };
+// Mittelpunkt einer Stadt für die Karte (einmal über OpenStreetMap gesucht, dann gemerkt)
+export async function locateCity(store, city) {
+  if (!city || city === HOME_CITY || store.get().profile?.cityPos?.[city]) return;
+  try {
+    const r = await geocode(city, city);
+    if (r[0]) store.update((d) => { d.profile = { ...d.profile, cityPos: { ...(d.profile?.cityPos || {}), [city]: { lat: r[0].lat, lon: r[0].lon } } }; });
+  } catch {}
+}
+export const cityPos = (s, city) => (city === HOME_CITY ? BA_POS : s.profile?.cityPos?.[city] || null);
 
 export const EVENT_CHIPS = ['Für mich diese Woche', 'Geheimtipps', 'Dieses Wochenende', 'Konzerte', 'Sport zum Mitmachen', 'Tech & Startups', 'Kostenlos', 'Neue Leute kennenlernen'];
 export const PLACE_CHIPS = ['Cafés zum Arbeiten', 'Rooftop-Bars', 'Guter Brunch', 'Parrilla', 'Versteckte Bars', 'Laufstrecken'];
@@ -57,7 +79,7 @@ async function post(body) {
 // Websuche + ein Werkzeug, das die Ergebnisse strukturiert zurückgibt
 // maxUses = 0: ohne Websuche (viel günstiger) – die KI antwortet aus ihrem eigenen Wissen
 // smart = true: gründlicheres Modell (Sonnet) statt des eingestellten
-export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false }) {
+export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false, city }) {
   if (label) setCostLabel(label);
   // Chats mit Vorschlägen (Mateo, v0.35): kurze Antwort, die Vorschläge erscheinen als Häkchen-Liste darunter
   if (history && tool?.input_schema?.properties?.antwort) {
@@ -73,7 +95,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     if (!f) throw new Error('Keine Antwort erhalten. Bitte noch einmal versuchen.');
     return f.input || {};
   }
-  const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: BA }, tool];
+  const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: locOf(city) }, tool];
   let data;
   let found;
   const complete = (d) => {
@@ -138,24 +160,28 @@ const EVENT_TOOL = {
 
 export const EVENT_PREF_PRESETS = ['Rock', 'Latino', 'Techno', 'Jazz', 'Indie', 'Stand-up', 'Tech & Startups', 'Laufen & Sport', 'Kunst & Ausstellungen', 'Food-Märkte', 'Theater', 'Kino', 'Workshops'];
 
-export async function searchEvents(s, query) {
+export async function searchEvents(s, query, city = HOME_CITY) {
   const t = today();
+  const ba = city === HOME_CITY;
   const prefs = s.profile?.eventPrefs || [];
-  const system = `Du bist Mateos persönlicher Event-Scout in Buenos Aires. Heute ist ${fmtLong(t)} (${t}). Zeitraum: die nächsten 14 Tage (bis ${addDays(t, 14)}), außer die Anfrage sagt etwas anderes („dieses Wochenende“ = der kommende Freitag bis Sonntag).
+  const system = `Du bist Mateos persönlicher Event-Scout in ${city}. Heute ist ${fmtLong(t)} (${t}). Zeitraum: die nächsten 14 Tage (bis ${addDays(t, 14)}), außer die Anfrage sagt etwas anderes („dieses Wochenende“ = der kommende Freitag bis Sonntag).
 Seine Vorlieben: ${prefs.length ? prefs.join(', ') : '(noch keine angegeben)'}
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Events, die er schon kennt (nicht wiederholen): ${JSON.stringify(s.events.map((e) => e.name))}
 
 Ziel: Mateo will NICHT das, was er selbst in 2 Minuten bei Google findet, sondern eine kuratierte, abwechslungsreiche Auswahl, die wirklich zu ihm passt – inklusive Geheimtipps.
-So suchst du (höchstens 3 Suchen – jede kostet Geld, also gezielt und jede mit einem anderen Blickwinkel, meist auf Spanisch):
+${ba ? `So suchst du (höchstens 3 Suchen – jede kostet Geld, also gezielt und jede mit einem anderen Blickwinkel, meist auf Spanisch):
 1. Eine Suche, die 2 seiner konkreten Vorlieben kombiniert (z.B. „recital rock o fiesta latina Buenos Aires noviembre“), nicht nur allgemein „eventos“.
 2. Eine Suche nach einer guten Sammel-Seite (Agenda/„qué hacer este finde“), die viele Events auf einmal listet.
-3. Eine Suche nach Ungewöhnlichem: kleine Clubs und Bars mit Live-Musik, Ciclos, Ferias, Talleres, Open-Air, Kulturzentren (Centro Cultural Kirchner, Konex, Recoleta), Milongas, Meetups/Luma (Tech), Blogs/Medien wie „qué hacer este finde“, Resident Advisor, Alternativa Teatral, Agenda Cultural der Stadt, Time Out.
+3. Eine Suche nach Ungewöhnlichem: kleine Clubs und Bars mit Live-Musik, Ciclos, Ferias, Talleres, Open-Air, Kulturzentren (Centro Cultural Kirchner, Konex, Recoleta), Milongas, Meetups/Luma (Tech), Blogs/Medien wie „qué hacer este finde“, Resident Advisor, Alternativa Teatral, Agenda Cultural der Stadt, Time Out.` : `So suchst du (höchstens 3 Suchen – jede kostet Geld, also gezielt und jede mit einem anderen Blickwinkel, in der Landessprache von ${city}):
+1. Eine Suche, die 2 seiner konkreten Vorlieben mit ${city} und dem Monat kombiniert, nicht nur allgemein „Events“.
+2. Eine Suche nach einer guten lokalen Sammel-Seite (Stadtmagazin, Veranstaltungskalender, „was ist los“), die viele Events auf einmal listet.
+3. Eine Suche nach Ungewöhnlichem: kleine Clubs und Bars mit Live-Musik, Kulturzentren, Märkte, Workshops, Open-Air, Meetups/Luma (Tech), Resident Advisor, Time Out, lokale Blogs.`}
 Verschiedene Quellen: höchstens 2 Events aus derselben Website; insgesamt mindestens 4 verschiedene Quellen, wenn möglich.
 Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bekannt + Geheimtipp), sortiert nach Datum. Markiere Geheimtipps mit geheimtipp=true. Im Feld warum: konkret, warum es zu SEINEN Vorlieben passt. Nur echte Events aus den Suchergebnissen, keine erfundenen Daten oder Links. Texte auf Deutsch, kurz.`;
   const tool = { ...EVENT_TOOL, input_schema: JSON.parse(JSON.stringify(EVENT_TOOL.input_schema)) };
   tool.input_schema.properties.events.items.properties.geheimtipp = { type: 'boolean', description: 'true = eher unbekannt/ungewöhnlich' };
-  const input = await searchWithTool({ system, user: `Anfrage: ${query}`, tool, maxUses: 3, label: 'Events suchen' });
+  const input = await searchWithTool({ system, user: `Anfrage: ${query} (Stadt: ${city})`, tool, maxUses: 3, label: 'Events suchen', city });
   const perHost = {};
   const results = (input.events || []).filter((e) => e && e.name).map((e, i) => ({
     id: 'e' + i + Date.now().toString(36),
@@ -178,7 +204,7 @@ Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bek
       return !r.source || perHost[k] <= 3;
     })
     .sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
-  const v = { query, at: new Date().toISOString(), note: input.hinweis || '', results };
+  const v = { query, city, at: new Date().toISOString(), note: input.hinweis || '', results };
   saveEventSearch(v);
   return v;
 }
@@ -209,12 +235,12 @@ const PLACE_TOOL = {
   },
 };
 
-export async function discoverPlaces(s, query) {
-  const system = `Du findest für Mateo besondere Orte in Buenos Aires (Cafés, Bars, Restaurants, Kultur …).
+export async function discoverPlaces(s, query, city = HOME_CITY) {
+  const system = `Du findest für Mateo besondere Orte in ${city} (Cafés, Bars, Restaurants, Kultur …).
 Was du über Mateo weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
-Orte, die er schon gespeichert hat (nicht wiederholen): ${JSON.stringify(s.places.map((p) => p.name))}
-Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern auch auf Spanisch und in aktuellen Listen/Artikeln). Danach rufe "orte_zeigen" mit 5 bis 8 Orten auf, mit möglichst genauer Adresse. Nur echte Orte aus den Suchergebnissen. Texte auf Deutsch, kurz.`;
-  const input = await searchWithTool({ system, user: `Suche: ${query}`, tool: PLACE_TOOL, maxUses: 2, label: 'Orte entdecken' });
+Orte, die er dort schon gespeichert hat (nicht wiederholen): ${JSON.stringify(s.places.filter((p) => placeCity(p) === city).map((p) => p.name))}
+Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern in der Landessprache und in aktuellen Listen/Artikeln). Danach rufe "orte_zeigen" mit 5 bis 8 Orten auf, mit möglichst genauer Adresse. Nur echte Orte aus den Suchergebnissen. Texte auf Deutsch, kurz.`;
+  const input = await searchWithTool({ system, user: `Suche: ${query} (Stadt: ${city})`, tool: PLACE_TOOL, maxUses: 2, label: 'Orte entdecken', city });
   const results = (input.orte || []).filter((o) => o && o.name).map((o, i) => ({
     id: 'p' + i + Date.now().toString(36),
     name: String(o.name),
@@ -225,14 +251,15 @@ Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern auch auf Spani
     url: okUrl(o.url),
     status: 'neu',
   }));
-  const v = { query, at: new Date().toISOString(), results };
+  const v = { query, city, at: new Date().toISOString(), results };
   savePlaceSearch(v);
   return v;
 }
 
 // Adresse → Koordinaten (OpenStreetMap Nominatim, kostenlos; sparsam benutzen)
-export async function geocode(q) {
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=ar&accept-language=de&viewbox=-58.65,-34.45,-58.25,-34.75&q=${encodeURIComponent(q)}`;
+export async function geocode(q, city = HOME_CITY) {
+  const ba = city === HOME_CITY ? '&countrycodes=ar&viewbox=-58.65,-34.45,-58.25,-34.75' : '';
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=de${ba}&q=${encodeURIComponent(q)}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error('Adresssuche nicht erreichbar');
   const list = await res.json();
@@ -240,11 +267,11 @@ export async function geocode(q) {
 }
 
 // Erst mit Adresse, dann nur mit Namen versuchen
-export async function locate(name, address) {
-  const tries = [address && `${address}, Buenos Aires`, `${name}, Buenos Aires`].filter(Boolean);
+export async function locate(name, address, city = HOME_CITY) {
+  const tries = [address && `${address}, ${city}`, `${name}, ${city}`].filter(Boolean);
   for (const q of tries) {
     try {
-      const r = await geocode(q);
+      const r = await geocode(q, city);
       if (r.length) return r[0];
     } catch {}
   }

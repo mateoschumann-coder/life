@@ -219,11 +219,11 @@ export function deleteRadarItem(id) {
 // Events
 export const STAGES = ['entdeckt', 'interessiert', 'zugesagt', 'besucht'];
 export const STAGE_LABEL = { entdeckt: 'Entdeckt', interessiert: 'Interessiert', zugesagt: 'Zugesagt', besucht: 'Besucht' };
-export function addEvent({ name, date = '', place = '', travel = false, stage = 'entdeckt', url = '', time = '', price = '', note = '' }) {
+export function addEvent({ name, date = '', place = '', travel = false, stage = 'entdeckt', url = '', time = '', price = '', note = '', city = '' }) {
   if (!name.trim()) return;
   const id = uid();
   store.update((s) => {
-    s.events.push({ id, name: name.trim(), date, place: (place || '').trim(), travel, stage, url, time, price, note, createdAt: now() });
+    s.events.push({ id, name: name.trim(), date, place: (place || '').trim(), travel, stage, url, time, price, note, ...(city ? { city } : {}), createdAt: now() });
   });
   return id;
 }
@@ -248,11 +248,11 @@ export const PLACE_SUBCATS = {
   Laden: ['Kleidung', 'Buchladen', 'Markt', 'Feinkost'],
   Sonstiges: [],
 };
-export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '' }) {
+export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '', city = '' }) {
   if (!name || !name.trim()) return;
   const id = uid();
   store.update((s) => {
-    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, createdAt: now() });
+    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, city: String(city || '').trim() || 'Buenos Aires', createdAt: now() });
   });
   return id;
 }

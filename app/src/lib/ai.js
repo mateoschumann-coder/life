@@ -124,6 +124,7 @@ export const TOOL = {
             adresse: { type: 'string', description: 'Für ort_anlegen: Adresse oder Viertel' },
             ort_art: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'], description: 'Für ort_anlegen' },
             ort_unterart: { type: 'string', description: 'Für ort_anlegen: genauer, z.B. Rooftop / Sky Bar, Pub, Cocktailbar, Parrilla, Specialty Coffee' },
+            stadt: { type: 'string', description: 'Für ort_anlegen: Stadt des Ortes (Standard Buenos Aires), z.B. Frankfurt' },
             war_da: { type: 'boolean', description: 'Für ort_anlegen: true = war schon da, false = will hin' },
             bewertung: { type: 'integer', description: 'Für ort_anlegen: 1–5 Sterne, wenn war_da' },
             bausteine: {
@@ -246,7 +247,7 @@ So arbeitest du:
 - Fragen zu seinen Daten (z.B. "Was steht heute an?", "Wem sollte ich schreiben?") beantwortest du direkt aus den Daten.
 - Wenn Mateo frei von seinem Tag oder seiner Woche erzählt (z.B. „War laufen, Python nicht geschafft, mit Lukas telefoniert“): Trage in EINEM Vorschlag alles ein, was passt (aufgabe_erledigen, rhythmus_abhaken, kontakt_notieren, aktivitaet_eintragen, neue Aufgaben). Dauerhafte Infos über ihn (Ziele, Vorlieben, Interessen, Probleme wie „Knie zwickt beim Laufen“, Pläne) speicherst du mit "merken". Antworte kurz und motivierend, gib einen konkreten Anstoß und stelle höchstens EINE Rückfrage, wenn etwas Wichtiges fehlt.
 - Berücksichtige immer, was du über Mateo weißt (was_ich_ueber_mateo_weiss).
-- Wenn Mateo einen Ort (Bar, Café, Restaurant …) erwähnt, den er mag oder ausprobieren will, schlage "ort_anlegen" vor (name, ort_art, adresse, war_da, bewertung, notiz). Er sieht ihn dann auf seiner Karte unter „Ausgehen“.
+- Wenn Mateo einen Ort (Bar, Café, Restaurant …) erwähnt, den er mag oder ausprobieren will, schlage "ort_anlegen" vor (name, ort_art, adresse, stadt wenn nicht Buenos Aires, war_da, bewertung, notiz). Er sieht ihn dann auf seiner Karte unter „Ausgehen“.
 
 Mateos aktuelle Daten (JSON):
 ${JSON.stringify(data)}`;
