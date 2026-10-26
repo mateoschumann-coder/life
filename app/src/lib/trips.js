@@ -198,11 +198,12 @@ const VERGLEICH = {
     required: ['ziel'],
   },
 };
-export const airportsOf = (s) => s.profile?.airports || 'Buenos Aires (EZE oder AEP)';
+// Abflughafen: pro Reise einstellbar (tr.airport), sonst Standard aus dem Profil (v0.44)
+export const airportsOf = (s, tr) => tr?.airport || s.profile?.airports || 'Buenos Aires (EZE oder AEP)';
 export const airbnbUrl = (ziel, from, to) => `https://www.airbnb.com/s/${encodeURIComponent(ziel)}/homes${from && to ? `?checkin=${from}&checkout=${to}` : ''}`;
 // fehlende Links ergänzen, damit man die echten Preise mit einem Tipp sieht
 export function fixVergleich(rows, s, tr) {
-  const from = airportsOf(s);
+  const from = airportsOf(s, tr);
   return (rows || []).filter((x) => x && x.ziel).map((x) => ({
     ...x,
     url_flug: okUrl(x.url_flug) || flightUrl(x.ab || from, x.ziel, tr?.from),
@@ -314,6 +315,20 @@ export function chooseOption(tripId, id) {
   });
   locateTrip(tripId);
 }
+// Mehrere Ideen zu einer Idee mit Optionen zusammenfassen (v0.44); die einzelnen Ideen werden dabei zu Optionen
+export function groupIdeas(ids, name) {
+  const st = store.get();
+  const picked = st.trips.filter((x) => ids.includes(x.id) && x.status === 'idee');
+  if (picked.length < 2) return null;
+  const list = picked.flatMap((x) => ((x.options || []).length ? x.options.map((o) => ({ ...o, ziel: o.ziel, land: o.land })) : [{ ziel: x.dest || x.name, kurz: (x.idea || '').split('\n')[0], info: (x.idea || '').split('\n').slice(1).join('\n') }]));
+  const id = addTrip({ name: String(name || '').trim() || picked.map((x) => x.name).join(' / '), dest: '', status: 'idee' });
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === id);
+    for (const o of list) if (o.ziel && !t.options.some((y) => norm(y.ziel) === norm(o.ziel))) t.options.push({ ...o, id: uid() });
+    s.trips = s.trips.filter((x) => !picked.some((p) => p.id === x.id));
+  });
+  return id;
+}
 // Aus dem Reiseführer-Chat: gewählte Ziele (und Preisvergleiche) als Optionen in eine Reise-Idee – neu oder bestehend
 export function applyGuide(sel, { tripId, name } = {}) {
   const list = [...(sel.ziele || []), ...(sel.vergleich || [])];
@@ -356,7 +371,7 @@ const PLAN_TOOL = {
   },
 };
 export const tripSnapshot = (tr) => ({
-  name: tr.name, ziel: tr.dest, status: tr.status === 'idee' ? 'Idee (noch nicht festgelegt)' : 'festgelegt', von: tr.from, bis: tr.to, idee: tr.idea || undefined, budget: tr.budget ? `${tr.budget} ${tr.currency}` : undefined,
+  name: tr.name, ziel: tr.dest, abflug: tr.airport || undefined, status: tr.status === 'idee' ? 'Idee (noch nicht festgelegt)' : 'festgelegt', von: tr.from, bis: tr.to, idee: tr.idea || undefined, budget: tr.budget ? `${tr.budget} ${tr.currency}` : undefined,
   stationen: tr.stops.map((x) => ({ name: x.name, von: x.from, bis: x.to })),
   transport: tr.transport.map((x) => `${x.from} → ${x.to} (${MODES[x.mode] || x.mode}${x.status === 'gebucht' ? ', gebucht' : ''})`),
   orte: tr.places.map((x) => `${x.name} (${PLACE_KINDS[x.kind]}${x.status === 'fest' ? ', gemerkt' : ''})`),
@@ -387,7 +402,7 @@ Arbeitsweise:
   · Sehenswürdigkeiten/Restaurants kennst du meist selbst – dafür nur suchen, wenn nach etwas Aktuellem gefragt ist (Öffnungszeiten, neue Orte).
   Preise immer als „ca. … (Stand Suche)“. Links nur aus Suchergebnissen, nie erfinden.` : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen (Sehenswürdigkeiten, Restaurants, Routen gehen gut), gib keine URLs an. Preise nur als grobe Schätzung kennzeichnen; für aktuelle Flug-/Unterkunftspreise sag kurz, dass Mateo „🔍 Nochmal mit Internet suchen“ tippen kann.'}
 - ${tr.status === 'idee' ? 'Packliste und To-dos kommen erst beim Festlegen dazu: schlage dafür noch nichts vor (kein "packen", "todo", "entfernen").' : 'Die Packliste und To-dos haben eine Standard-Vorlage. Passe sie an Ziel, Jahreszeit, Dauer und Aktivitäten an: Fehlendes unter "packen"/"todo", Unpassendes (z.B. Badekleidung bei Winterreise) unter "entfernen".'}
-- ${(tr.options || []).length ? `Mateo vergleicht noch mehrere Ziel-Optionen (ziel_optionen). Hilf beim Entscheiden. Will er Preise vergleichen, fülle "vergleich" mit einer Zeile pro Option (Flug hin & zurück ab ${airportsOf(s)}, Unterkunft/Nacht, grobe Summe) – nur mit Internet aktuell, sonst als Schätzung kennzeichnen.` : `Preisvergleiche mehrerer Ziele (Flug ab ${airportsOf(s)}, Unterkunft) gehören in "vergleich".`}
+- ${(tr.options || []).length ? `Mateo vergleicht noch mehrere Ziel-Optionen (ziel_optionen). Hilf beim Entscheiden. Will er Preise vergleichen, fülle "vergleich" mit einer Zeile pro Option (Flug hin & zurück ab ${airportsOf(s, tr)}, Unterkunft/Nacht, grobe Summe) – nur mit Internet aktuell, sonst als Schätzung kennzeichnen.` : `Abflug ab ${airportsOf(s, tr)}. Preisvergleiche mehrerer Ziele (Flug ab ${airportsOf(s, tr)}, Unterkunft) gehören in "vergleich".`}
 - Nichts vorschlagen, was schon im Stand steht. Bei Orten wenn möglich lat/lon angeben.
 - Fehlt Wichtiges (Zeitraum, Budget, Reisestil, wer kommt mit), frag kurz nach – mach trotzdem schon erste Vorschläge.
 Antworte immer mit "reise_planen". Deutsch, konkret, kurz.`;

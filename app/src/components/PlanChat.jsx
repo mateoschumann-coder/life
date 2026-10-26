@@ -103,7 +103,10 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
     toast('Übernommen');
   };
 
-  const visible = showAll ? history : history.slice(-4);
+  // Nur der letzte Austausch (letzte eigene Nachricht + Antwort) – der Rest über „Ganzen Chat anzeigen“ (v0.44)
+  const lastUser = history.map((m) => m.role).lastIndexOf('user');
+  const cut = lastUser > 0 ? lastUser : 0;
+  const visible = showAll ? history : history.slice(cut);
   return (
     <section className="card checkin" style={{ gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -112,7 +115,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
         {history.length > 0 && <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={() => confirm('Gespräch löschen? Übernommene Einträge bleiben.') && onSave([])}>Neu beginnen</button>}
       </div>
       {history.length === 0 && intro && <span className="sub">{intro}</span>}
-      {history.length > 4 && !showAll && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setShowAll(true)}>Ältere Nachrichten zeigen</button>}
+      {cut > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setShowAll(!showAll)}>{showAll ? 'Nur die letzte Antwort zeigen' : `Ganzen Chat anzeigen (${history.length} Nachrichten)`}</button>}
       {visible.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {visible.map((m, vi) => (m.role === 'user' ? (

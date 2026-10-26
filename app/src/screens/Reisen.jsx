@@ -6,6 +6,7 @@ import {
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, removeOption, chooseOption,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
+import { groupIdeas } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
@@ -35,16 +36,21 @@ const GUIDE_GROUPS = [
   VERGLEICH_GROUP,
 ];
 // Abflughafen für Preisvergleiche (gemerkt im Profil)
-function Airport({ s }) {
+// mit tr: Abflughafen nur für diese Reise (leer = Standard)
+function Airport({ s, tr }) {
   const [edit, setEdit] = useState(false);
-  const [v, setV] = useState(airportsOf(s));
-  const save = () => { store.update((d) => { d.profile = { ...d.profile, airports: v.trim() || 'Buenos Aires (EZE oder AEP)' }; }); setEdit(false); };
+  const [v, setV] = useState(tr ? tr.airport || '' : airportsOf(s));
+  const save = () => {
+    if (tr) updateTrip(tr.id, { airport: v.trim() });
+    else store.update((d) => { d.profile = { ...d.profile, airports: v.trim() || 'Buenos Aires (EZE oder AEP)' }; });
+    setEdit(false);
+  };
   return edit ? (
     <form className="block-add" onSubmit={(e) => { e.preventDefault(); save(); }}>
-      <input className="input" autoFocus value={v} onChange={(e) => setV(e.target.value)} placeholder="z.B. Buenos Aires (EZE) oder Montevideo" aria-label="Abflughafen" />
+      <input className="input" autoFocus value={v} onChange={(e) => setV(e.target.value)} placeholder={tr ? `Leer = Standard (${airportsOf(s)})` : 'z.B. Buenos Aires (EZE) oder Montevideo'} aria-label="Abflughafen" />
       <button type="submit" className="btn small">OK</button>
     </form>
-  ) : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setEdit(true)}>✈️ Abflug ab: {airportsOf(s)} ✎</button>;
+  ) : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => { setV(tr ? tr.airport || '' : airportsOf(s)); setEdit(true); }}>✈️ Abflug ab: {airportsOf(s, tr)}{tr && !tr.airport ? ' (Standard)' : ''} ✎</button>;
 }
 // Wohin mit den gewählten Zielen? In eine Reise-Idee (neu oder vorhanden) – dort als Optionen zum Vergleichen
 function TargetSheet({ s, sel, onClose }) {
@@ -149,8 +155,24 @@ function TripList({ s }) {
     setF({ dest: '', from: '', to: '', budget: '', status: 'geplant' });
     go(`/reisen/${id}`);
   };
-  const Row = ({ tr }) => (
-    <a href={`#/reisen/${tr.id}`} className="row" style={{ minHeight: 62 }}>
+  const [grouping, setGrouping] = useState(false);
+  const [picked, setPicked] = useState([]);
+  const [gname, setGname] = useState('');
+  const doGroup = () => {
+    const lost = ideas.filter((x) => picked.includes(x.id) && (x.stops.length || x.places.length || (x.variants || []).length));
+    if (lost.length && !confirm(`${lost.map((x) => x.name).join(', ')} hat schon Orte/Routen – die gehen beim Zusammenfassen verloren (nur Ziel und Infos bleiben). Trotzdem?`)) return;
+    const id = groupIdeas(picked, gname);
+    setGrouping(false); setPicked([]); setGname('');
+    if (id) { toast('Zu einer Idee mit Optionen zusammengefasst'); go(`/reisen/${id}`); }
+  };
+  const Row = ({ tr, idea }) => grouping && idea ? (
+    <label className="row" style={{ minHeight: 62 }}>
+      <input type="checkbox" style={{ width: 22, height: 22, accentColor: COLOR }} checked={picked.includes(tr.id)} onChange={() => setPicked(picked.includes(tr.id) ? picked.filter((x) => x !== tr.id) : [...picked, tr.id])} />
+      <span className="row-main"><span className="row-title strong">{tr.name}</span><span className="row-meta">{(tr.options || []).length ? `${tr.options.length} Optionen` : tr.dest || ''}</span></span>
+    </label>
+  ) : (
+    <div className="row" style={{ minHeight: 62, gap: 0 }}>
+    <a href={`#/reisen/${tr.id}`} className="row" style={{ minHeight: 62, flex: 1, padding: 0, border: 0 }}>
       <span className="block-icon" style={tint}><Icon name={tr.status === 'idee' ? 'bulb' : 'plane'} size={16} /></span>
       <span className="row-main">
         <span className="row-title strong">{tr.name}</span>
@@ -160,8 +182,10 @@ function TripList({ s }) {
             : [tr.from && rangeText(tr.from, tr.to), tr.from && tr.from > t && `in ${diffDays(t, tr.from)} Tagen`, `${tr.todo.filter((x) => !x.done).length} offen`].filter(Boolean).join(' · ')}
         </span>
       </span>
-      <Chevron />
+      {!idea && <Chevron />}
     </a>
+    {idea && <button type="button" className="x-btn" aria-label={`${tr.name} entfernen`} onClick={() => confirm(`Idee „${tr.name}“ entfernen?`) && removeTrip(tr.id)}><Icon name="x" size={13} color="var(--chev)" /></button>}
+    </div>
   );
   return (
     <>
@@ -182,11 +206,21 @@ function TripList({ s }) {
         </section>
         <Inspiration s={s} />
         <section className="group">
-          <h2 className="label" style={{ padding: '0 4px' }}>Ideen – noch nicht festgelegt</h2>
+          <div className="sec-h" style={{ padding: '0 4px' }}>
+            <h2 className="label" style={{ padding: 0 }}>Ideen – noch nicht festgelegt</h2>
+            {ideas.length > 1 && <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={() => { setGrouping(!grouping); setPicked([]); }}>{grouping ? 'Abbrechen' : 'Gruppieren'}</button>}
+          </div>
+          {grouping && <span className="tiny" style={{ padding: '0 4px' }}>Wähle Ideen für dieselbe Reise – sie werden zu Optionen einer Idee, die du vergleichen und dann festlegen kannst.</span>}
           <div className="list">
             {ideas.length === 0 && <div className="empty">Hier landen mögliche Reisen. Darin kannst du mit der KI Route, Transport und Aktivitäten recherchieren – und sie dann festlegen.</div>}
-            {ideas.map((tr) => <Row key={tr.id} tr={tr} />)}
+            {ideas.map((tr) => <Row key={tr.id} tr={tr} idea />)}
           </div>
+          {grouping && (
+            <form className="block-add" onSubmit={(e) => { e.preventDefault(); doGroup(); }}>
+              <input className="input" value={gname} onChange={(e) => setGname(e.target.value)} placeholder="Name, z.B. Strandurlaub Januar" aria-label="Name der gruppierten Idee" />
+              <button type="submit" className="btn small" disabled={picked.length < 2}>Zusammen ({picked.length})</button>
+            </form>
+          )}
         </section>
         {past.length > 0 && (
           <section className="group">
@@ -497,6 +531,7 @@ function TripDetail({ s, tr }) {
           <Back href="#/reisen" label="Reisen" />
           <input className="input title-input" defaultValue={tr.name} key={tr.id + 'n'} onBlur={(e) => e.target.value.trim() && e.target.value !== tr.name && updateTrip(tr.id, { name: e.target.value.trim() })} aria-label="Name" />
           <span className="tiny">{isIdea ? '💡 Idee – noch nicht festgelegt' : '✈️ Festgelegt'}{tr.dest && tr.dest !== tr.name ? ` · ${tr.dest}` : ''}</span>
+          <Airport s={s} tr={tr} key={tr.id + 'ap'} />
         </div>
 
         {isIdea ? (
