@@ -84,11 +84,11 @@ export function addSub(areaId, name) {
 }
 
 // Projekte
-export function addProject({ name, areaId, subId = null, due = null, templateId = null }) {
+export function addProject({ name, areaId, subId = null, due = null, templateId = null, extra = {} }) {
   if (!name.trim()) return null;
   const id = uid();
   store.update((s) => {
-    s.projects.push({ id, name: name.trim(), areaId, subId, due, status: 'aktiv', notes: '', createdAt: now() });
+    s.projects.push({ id, name: name.trim(), areaId, subId, due, status: 'aktiv', notes: '', createdAt: now(), ...extra });
     const tpl = (s.templates || []).find((t) => t.id === templateId);
     (tpl ? tpl.tasks : []).forEach((title) =>
       s.tasks.push({ id: uid(), title, areaId: null, subId: null, projectId: id, due: null, idea: false, done: false, doneAt: null, createdAt: now() })

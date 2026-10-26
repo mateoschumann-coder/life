@@ -16,8 +16,8 @@ export const BOXES = [
   { id: 'menschen', title: 'Menschen', icon: 'users', areas: ['familie', 'freunde', 'neue'], hint: 'Wem er sich mal wieder melden sollte, Geburtstage, Ideen für ein Treffen.' },
   { id: 'ausgehen', title: 'Ausgehen & Events', icon: 'pin', areas: ['erlebnisse', 'freizeit'], hint: '1–2 Events in Buenos Aires in den nächsten Tagen aus der Websuche, passend zu seinen Interessen, oder ein Ort von seiner Will-hin-Liste.' },
   { id: 'news', title: 'Informiert bleiben', icon: 'news', areas: ['informiert'], hint: '1–2 aktuelle, wirklich interessante Neuigkeiten zu seinen Themen, mit 1–2 Sätzen Zusammenfassung im text und Link.' },
-  { id: 'gesundheit', title: 'Gesundheit & Sport', icon: 'heart', areas: ['koerper', 'mental'], hint: 'Training/Marathon, Erholung, Beschwerden, die er erwähnt hat (z.B. Übungsvideo), Schlaf, Ausgleich.' },
-  { id: 'alltag', title: 'Zuhause & Finanzen', icon: 'home', areas: ['zuhause', 'finanzen'], hint: 'Nur wenn es etwas Sinnvolles gibt: Einkauf, Rezeptidee, Ordnung, Finanzen.' },
+  { id: 'gesundheit', title: 'Gesundheit & Sport', icon: 'heart', areas: ['koerper', 'mental'], hint: 'Training (seine Sportarten, Einheiten, nächste Rennen), aktive Verletzungen ernst nehmen (z.B. passendes Übungsvideo, Pause), fällige Vorsorge-Termine, Erholung.' },
+  { id: 'alltag', title: 'Zuhause & Finanzen', icon: 'home', areas: ['zuhause', 'finanzen'], hint: 'Rezeptidee (gern Airfryer) passend zu seinen Rezepten/Einkaufsliste, Erinnerung an die Einkaufsliste, Finanzen – nur wenn sinnvoll.' },
 ];
 export const boxOfArea = (areaId) => BOXES.find((b) => b.areas.includes(areaId));
 
@@ -118,6 +118,14 @@ function coachData(s) {
     news_themen: s.radar.topics,
     events_gemerkt: s.events.filter((e) => e.stage !== 'besucht').map((e) => ({ name: e.name, datum: e.date })),
     orte_will_hin: (s.places || []).filter((p) => p.status === 'will').map((p) => p.name).slice(0, 10),
+    sport: (s.sports || []).map((sp) => {
+      const ss = s.sessions.filter((x) => x.sportId === sp.id);
+      return { sportart: sp.name, ziel: sp.goal || undefined, einheiten_7_tage: ss.filter((x) => x.date >= d7).length, km_7_tage: Math.round(ss.filter((x) => x.date >= d7).reduce((n, x) => n + (x.distance || 0), 0)), letzte: ss.map((x) => x.date).sort().at(-1) || null, rennen: s.projects.filter((p) => p.sportId === sp.id && p.status === 'aktiv').map((p) => ({ name: p.name, datum: p.due, zielzeit: p.goalTime })) };
+    }),
+    verletzungen_aktiv: (s.healthItems || []).filter((h) => h.type === 'verletzung' && h.status !== 'ausgeheilt').map((h) => h.title),
+    vorsorge_faellig: (s.healthItems || []).filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date <= addDays(t, 14)).map((h) => ({ titel: h.title, datum: h.date })),
+    einkaufsliste_offen: (s.shopping?.items || []).filter((x) => !x.done).length,
+    rezepte: (s.recipes || []).map((r) => r.title).slice(0, 15),
   };
 }
 

@@ -5,15 +5,10 @@ import { areaDates, areaOf, areaStatus, countByDay, pillarOf } from '../lib/logi
 import { addSub, logActivity, updateArea } from '../lib/actions';
 import { AreaIcon, Back, Chevron, Dot, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
-// Bereiche mit eigenem Werkzeug
-const TOOLS = {
-  erlebnisse: { href: '#/ausgehen', icon: 'pin', title: 'Ausgehen', text: 'Events finden und deine Lieblingsorte auf der Karte' },
-  freizeit: { href: '#/ausgehen', icon: 'pin', title: 'Ausgehen', text: 'Events finden und deine Lieblingsorte auf der Karte' },
-  informiert: { href: '#/radar', icon: 'radar', title: 'Radar', text: 'Deine Themen, Leseliste und Fundstücke' },
-};
 import { Heatmap, HeatLegend } from '../components/Heatmap';
 import AreaContent from '../components/AreaContent';
 import { CoachBox } from '../components/Coach';
+import ToolCards from '../components/ToolCards';
 import { Missing } from './Saeule';
 
 const RANGES = [
@@ -59,16 +54,7 @@ export default function Bereich({ id }) {
 
         <CoachBox s={s} areaId={id} />
 
-        {TOOLS[id] && (
-          <a href={TOOLS[id].href} className="card design-cta">
-            <span className="spark"><Icon name={TOOLS[id].icon} size={16} color="currentColor" /></span>
-            <span className="row-main">
-              <span className="row-title strong">{TOOLS[id].title}</span>
-              <span className="row-meta">{TOOLS[id].text}</span>
-            </span>
-            <Chevron />
-          </a>
-        )}
+        <ToolCards areaId={id} />
 
         <section className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

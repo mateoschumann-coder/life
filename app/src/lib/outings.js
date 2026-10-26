@@ -53,7 +53,7 @@ async function post(body) {
 }
 
 // Websuche + ein Werkzeug, das die Ergebnisse strukturiert zurückgibt
-async function searchWithTool({ system, user, tool, maxUses }) {
+export async function searchWithTool({ system, user, tool, maxUses }) {
   const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: BA }, tool];
   const messages = [{ role: 'user', content: user }];
   let data;

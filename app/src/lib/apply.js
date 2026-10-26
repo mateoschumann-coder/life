@@ -8,6 +8,7 @@ import {
 } from './actions';
 import { store } from './store';
 import { locate } from './outings';
+import { addHealthItem, addRecipe, addSession, addShopping, addSport, findSport, parseDuration } from './health';
 
 const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 const date = (d) => (isDate(d) ? fmtShort(d) : null);
@@ -111,6 +112,14 @@ export function describe(s, raw) {
     case 'merken':
       if (a.fakt && (s.memory || []).some((m) => norm(m.text) === norm(a.fakt))) return { ok: false, reason: 'schon gemerkt', label: `Merken: ${a.fakt}` };
       return { ok: !!a.fakt, label: `Merken: ${a.fakt}` };
+    case 'training_eintragen':
+      return { ok: !!(a.sportart || s.sports.length), label: join(`Training: ${findSport(s, a.sportart || 'Laufen')?.name || a.sportart || 'Laufen'}`, a.distanz_km && `${String(a.distanz_km).replace('.', ',')} km`, a.dauer && `${a.dauer}${/^\d+$/.test(String(a.dauer)) ? ' Min' : ''}`, isDate(a.datum) && a.datum !== today() ? date(a.datum) : 'heute', a.notiz) };
+    case 'einkauf_hinzufuegen':
+      return { ok: (a.artikel || []).length > 0, label: `Einkaufsliste: ${(a.artikel || []).join(', ')}` };
+    case 'rezept_anlegen':
+      return { ok: !!a.titel, label: join(`Rezept: ${a.titel}`, a.rezept_kategorie, (a.zutaten || []).length && `${a.zutaten.length} Zutaten`) };
+    case 'vorsorge_anlegen':
+      return { ok: !!a.titel, label: join(`${a.vorsorge_art === 'verletzung' ? 'Verletzung' : a.vorsorge_art === 'routine' ? 'Vorsorge (regelmäßig)' : 'Termin'}: ${a.titel}`, isDate(a.datum) && date(a.datum), a.alle_monate && `alle ${a.alle_monate} Monate`) };
     case 'thema_anlegen':
       if (a.thema && s.radar.topics.some((t) => norm(t) === norm(a.thema))) return { ok: false, reason: 'schon vorhanden', label: `News-Thema: ${a.thema}` };
       return { ok: !!a.thema, label: `News-Thema: ${a.thema}` };
@@ -199,6 +208,17 @@ export function applyAction(s, raw) {
       return addMemory(a.fakt, area);
     case 'thema_anlegen':
       return addTopic(a.thema);
+    case 'training_eintragen': {
+      const sport = findSport(s, a.sportart || 'Laufen');
+      const sportId = sport?.id || addSport(a.sportart || 'Laufen');
+      return addSession({ sportId, date: d(a.datum) || today(), distance: a.distanz_km || null, duration: parseDuration(a.dauer), hr: a.puls || null, notes: a.notiz || '', source: 'assistent' });
+    }
+    case 'einkauf_hinzufuegen':
+      return addShopping(a.artikel || []);
+    case 'rezept_anlegen':
+      return addRecipe({ title: a.titel, category: a.rezept_kategorie || 'Airfryer', ingredients: a.zutaten || [], steps: a.schritte || '', url: a.url || '' });
+    case 'vorsorge_anlegen':
+      return addHealthItem({ title: a.titel, type: a.vorsorge_art || 'termin', date: d(a.datum), everyMonths: a.alle_monate || null, notes: a.notiz || '' });
     case 'ort_anlegen': {
       const id = addPlace({ name: a.name, category: a.ort_art || 'Sonstiges', note: a.notiz || '', address: a.adresse || '', status: a.war_da ? 'war' : 'will', rating: a.war_da ? Math.min(5, a.bewertung || 0) : 0 });
       // Kartenpunkt im Hintergrund suchen

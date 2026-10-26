@@ -66,6 +66,12 @@ export function seed() {
     radar: { topics: ['KI-Entwicklungen', 'Startups und VC', 'Portugiesisch'], items: [] },
     wishes: [], // Wunschliste für Änderungen an der App selbst
     places: [], // Orte mit Karte (Bars, Cafés …)
+    sports: [], // Sportarten (Laufen, Kraft …)
+    sessions: [], // Trainingseinheiten
+    recipes: [], // Rezepte
+    recipeCats: ['Airfryer', 'Schnell', 'Meal Prep'],
+    shopping: { items: [], history: {} }, // Einkaufsliste + was schon mal gekauft wurde
+    healthItems: [], // Vorsorge: Termine, Routinen, Verletzungen
     memory: [], // Was Life über Mateo weiß (aus Erzählungen gelernt, jederzeit änderbar)
   };
 }

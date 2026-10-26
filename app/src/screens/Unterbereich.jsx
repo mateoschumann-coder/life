@@ -2,6 +2,7 @@ import { useStore } from '../lib/store';
 import { areaOf, pillarOf, subOf } from '../lib/logic';
 import { AreaIcon, Back, TabBar } from '../components/ui';
 import AreaContent from '../components/AreaContent';
+import ToolCards from '../components/ToolCards';
 import { Missing } from './Saeule';
 
 export default function Unterbereich({ areaId, subId }) {
@@ -23,6 +24,7 @@ export default function Unterbereich({ areaId, subId }) {
             </div>
           </div>
         </div>
+        <ToolCards areaId={area.id} subName={sub.name} />
         <AreaContent s={s} area={area} subId={sub.id} />
       </main>
       <TabBar active="bereiche" />

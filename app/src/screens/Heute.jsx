@@ -10,6 +10,8 @@ import { clothingTip, dayForecast, describeCode, loadWeather } from '../lib/weat
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
 import Coach from '../components/Coach';
+import { doneHealthItem } from '../lib/health';
+const fmtShortDays = (d, t) => { const n = diffDays(d, t); return `${n} ${n === 1 ? 'Tag' : 'Tagen'}`; };
 
 const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const monthFmt = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
@@ -175,6 +177,9 @@ export default function Heute() {
     s.events
       .filter((e) => e.date === key && e.stage !== 'entdeckt')
       .forEach((e) => list.push({ key: 'e' + e.id, event: true, title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
+    (s.healthItems || [])
+      .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date === key)
+      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
     s.people
       .filter((p) => p.birthday && p.birthday.slice(5) === key.slice(5))
       .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
@@ -190,6 +195,9 @@ export default function Heute() {
         const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
         extra.push({ key: 't' + x.id, done: false, onCheck: () => toggleTask(x.id), title: x.title, color: pillarColor(proj ? proj.areaId : x.areaId), meta: `überfällig · ${dueText(x.due, t)}`, overdue: true });
       });
+    (s.healthItems || [])
+      .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date < t)
+      .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
     s.habits
       .filter((h) => h.count > 0)
       .forEach((h) => {
