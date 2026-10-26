@@ -41,30 +41,30 @@ export default function Finanzen() {
           <h1 className="h1">Finanzen</h1>
         </div>
 
+        <section className="card" style={{ gap: 6, padding: '10px 12px' }}>
+          <div className="sec-h" style={{ padding: 0 }}>
+            <span className="label" style={{ padding: 0 }}>Wechselkurse{b.ratesAt ? ` · ${new Date(b.ratesAt).toLocaleDateString('de-DE')}` : ''}</span>
+            <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={loadRates} disabled={busy}>{busy ? '…' : 'Aktuell holen'}</button>
+          </div>
+          <div className="rate-grid">
+            {[
+              { id: 'usdars', label: 'US$ → ARS', value: b.rates.ARS, set: (v) => setRate('ARS', v) },
+              { id: 'eurars', label: '€ → ARS', value: b.rates.ARS / b.rates.EUR, set: (v) => setRate('EUR', b.rates.ARS / v) },
+              { id: 'eurusd', label: '€ → US$', value: 1 / b.rates.EUR, set: (v) => setRate('EUR', 1 / v) },
+            ].map((x) => (
+              <label key={x.id} className="rate-cell">
+                <span className="tiny">{x.label}</span>
+                <input className="input" inputMode="decimal" defaultValue={fmtRate(x.value)} key={fmtRate(x.value)} onBlur={(e) => { const v = Number(String(e.target.value).replace(/\./g, '').replace(',', '.')); if (v > 0 && fmtRate(v) !== fmtRate(x.value)) x.set(v); }} aria-label={`Kurs ${x.label}`} />
+              </label>
+            ))}
+          </div>
+        </section>
+
         <section className="card countdown" style={{ gap: 6, alignItems: 'center', textAlign: 'center' }}>
           <span className="tiny">Pro Tag im {MONTHS[now.getMonth()]} ({r.days} Tage)</span>
           <b style={{ fontSize: 34, color: r.free < 0 ? 'var(--danger)' : 'var(--text)' }}>{money(r.perDay, b.base)}</b>
           <span className="sub">≈ {money(convert(b, r.perDay, b.base, other), other)} · pro Woche {money(r.perWeek, b.base)}</span>
           <span className="tiny">Frei im Monat: {money(r.free, b.base)} = Einnahmen {money(r.income, b.base)} − Fixkosten {money(r.fixed, b.base)} − Sparen {money(r.save, b.base)}</span>
-        </section>
-
-        <section className="card" style={{ gap: 6 }}>
-          <div className="sec-h" style={{ padding: 0 }}>
-            <span className="label" style={{ padding: 0 }}>Wechselkurse</span>
-            <button type="button" className="link-btn" onClick={loadRates} disabled={busy}>{busy ? '…' : 'Aktuell holen'}</button>
-          </div>
-          {[
-            { id: 'usdars', left: '1 US$', right: 'ARS', value: b.rates.ARS, set: (v) => setRate('ARS', v) },
-            { id: 'eurars', left: '1 €', right: 'ARS', value: b.rates.ARS / b.rates.EUR, set: (v) => setRate('EUR', b.rates.ARS / v) },
-            { id: 'eurusd', left: '1 €', right: 'US$', value: 1 / b.rates.EUR, set: (v) => setRate('EUR', 1 / v) },
-          ].map((x) => (
-            <label key={x.id} className="row" style={{ minHeight: 46 }}>
-              <span className="row-main"><span className="row-title plain">{x.left} =</span></span>
-              <input className="input" style={{ width: 120, textAlign: 'right' }} inputMode="decimal" defaultValue={fmtRate(x.value)} key={fmtRate(x.value)} onBlur={(e) => { const v = Number(String(e.target.value).replace(/\./g, '').replace(',', '.')); if (v > 0 && fmtRate(v) !== fmtRate(x.value)) x.set(v); }} aria-label={`Kurs ${x.left} in ${x.right}`} />
-              <b style={{ width: 40 }}>{x.right}</b>
-            </label>
-          ))}
-          <span className="tiny">„Aktuell holen“ nimmt den offiziellen Kurs{b.ratesAt ? ` (zuletzt ${new Date(b.ratesAt).toLocaleDateString('de-DE')})` : ''}. Für den Blue-Kurs einfach die Peso-Werte selbst eintragen – die anderen passen sich an.</span>
         </section>
 
         <section className="card" style={{ gap: 8 }}>

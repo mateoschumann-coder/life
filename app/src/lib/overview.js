@@ -112,59 +112,51 @@ function facts(s) {
 
 const TOOL = {
   name: 'ueberblick_geben',
-  description: 'Strukturierter Durchgang durch Mateos Bereiche.',
+  description: 'Strukturierte Übersicht: pro Bereich kurz, was dort gerade passiert.',
   input_schema: {
     type: 'object',
     properties: {
-      lage: { type: 'string', description: '1–2 Sätze: Worauf kommt es heute/diese Woche an? Persönlich, konkret, ohne Floskeln.' },
+      lage: { type: 'string', description: '1 Satz Gesamtbild (optional)' },
       bereiche: {
         type: 'array',
-        description: 'Die Bereiche in der vorgegebenen Reihenfolge; nur die, zu denen es etwas Sinnvolles gibt (meist 6–10).',
+        description: 'Die Bereiche in der vorgegebenen Reihenfolge; nur Bereiche, in denen es etwas gibt.',
         items: {
           type: 'object',
           properties: {
             key: { type: 'string', enum: SECTIONS.map((x) => x.key) },
-            punkte: { type: 'array', items: { type: 'object', properties: { ref: { type: 'string', description: 'Genau eine ref aus der Liste' }, hinweis: { type: 'string', description: 'Kurzer Halbsatz, was zu tun ist (z.B. „Einladung noch nicht raus“)' } }, required: ['ref'] } },
-            frage: { type: 'string', description: 'Optional: eine kurze, konkrete Frage, wie es dort läuft – nur wenn dort gerade etwas läuft (z.B. „Wie läuft das Buch über den Kalten Krieg?“)' },
-            vorschlag: { type: 'string', description: 'Optional: wenn dort nichts los ist oder es eingeschlafen wirkt – ein kurzer konkreter Anstoß als Aufgabe formuliert (z.B. „Einen Halbmarathon für März aussuchen“)' },
+            text: { type: 'string', description: '1–3 kurze, sachliche Sätze: Was ist dort gerade los / was steht an (mit Datum, wenn vorhanden).' },
           },
-          required: ['key'],
+          required: ['key', 'text'],
         },
       },
     },
-    required: ['lage', 'bereiche'],
+    required: ['bereiche'],
   },
 };
 export async function askOverview(s) {
   const items = collectItems(s);
   const t = today();
-  const system = `Du bist Mateos ruhiger Organisator in der App „Life“. Heute ist ${fmtLong(t)} (${t}).
-Geh die Bereiche seiner App nacheinander durch (Reihenfolge: ${SECTIONS.map((x) => x.key).join(', ')}). Pro Bereich bekommst du, was dort offen oder bald fällig ist (Punkte mit "ref"), und einen kurzen Stand.
-Für jeden Bereich:
-- Steht etwas an → die wichtigen Punkte (punkte) mit kurzem Hinweis, was zu tun ist; denk mit, was VORBEREITET werden muss (Event in 3 Tagen mit offenen To-dos, Geburtstag morgen, Bewerbung ohne Rückmeldung → nachfassen, jemandem schreiben).
-- Läuft dort gerade etwas ohne Dringlichkeit → eine kurze Frage, wie es läuft.
-- Ist dort nichts los oder eingeschlafen → ein kurzer, konkreter Vorschlag (eine Aufgabe, die sofort machbar ist).
-Lass Bereiche weg, zu denen es nichts Sinnvolles gibt. Höchstens 14 Punkte insgesamt, pro Bereich höchstens eins von frage/vorschlag. Nutze nur refs aus der Liste, erfinde nichts. Deutsch, kurz, kein Markdown. Antworte mit "ueberblick_geben".`;
+  const system = `Du schreibst für Mateo eine strukturierte Übersicht seiner App „Life“. Heute ist ${fmtLong(t)} (${t}).
+Geh die Bereiche in dieser Reihenfolge durch: ${SECTIONS.map((x) => x.key).join(', ')}. Schreib pro Bereich in 1–3 kurzen, sachlichen Sätzen, was dort gerade passiert bzw. ansteht – nur aus den Daten, nichts erfinden, keine Ratschläge, keine Fragen. Bereiche ohne Inhalt weglassen. Deutsch, kein Markdown. Antworte mit "ueberblick_geben".`;
   const byKey = {};
-  for (const i of items) (byKey[i.sec] = byKey[i.sec] || []).push({ ref: i.ref, text: i.text, stand: [i.area, i.info].filter(Boolean).join(' · ') });
+  for (const i of items) (byKey[i.sec] = byKey[i.sec] || []).push([i.text, i.area, i.info].filter(Boolean).join(' · '));
   const f = facts(s);
   const input = SECTIONS.map((x) => ({ key: x.key, bereich: x.name, offen: byKey[x.key] || [], stand: f[x.key] }));
-  const r = await searchWithTool({ system, user: JSON.stringify(input), tool: TOOL, maxUses: 0, maxTokens: 2500, label: 'Überblick' });
+  const r = await searchWithTool({ system, user: JSON.stringify(input), tool: TOOL, maxUses: 0, maxTokens: 2000, label: 'Überblick' });
   const v = {
-    date: t, at: new Date().toISOString(), lage: r.lage || '', done: [],
-    sections: (r.bereiche || []).filter((b) => secOf(b.key)).map((b) => ({ key: b.key, points: (b.punkte || []).filter((p) => items.some((i) => i.ref === p.ref)).map((p) => ({ ref: p.ref, note: p.hinweis || '' })), ask: b.frage || '', idea: b.vorschlag || '' }))
-      .filter((b) => b.points.length || b.ask || b.idea)
+    date: t, at: new Date().toISOString(), kind: 'text', lage: r.lage || '',
+    sections: (r.bereiche || []).filter((b) => secOf(b.key) && b.text).map((b) => ({ key: b.key, text: b.text }))
       .sort((a, b2) => SECTIONS.findIndex((x) => x.key === a.key) - SECTIONS.findIndex((x) => x.key === b2.key)),
   };
   saveOverview(v);
   return v;
 }
 
-// Ohne KI: Punkte nach Bereichen gruppiert
+// Ohne KI: pro Bereich die offenen Punkte als kurzer Text
 export function localOverview(s) {
   const items = collectItems(s);
   return {
-    lage: '', done: [],
-    sections: SECTIONS.map((x) => ({ key: x.key, points: items.filter((i) => i.sec === x.key).slice(0, 6).map((i) => ({ ref: i.ref })), ask: '', idea: '' })).filter((x) => x.points.length),
+    kind: 'text', lage: '',
+    sections: SECTIONS.map((x) => ({ key: x.key, text: items.filter((i) => i.sec === x.key).slice(0, 4).map((i) => [i.text, i.info].filter(Boolean).join(' – ')).join('. ') })).filter((x) => x.text),
   };
 }

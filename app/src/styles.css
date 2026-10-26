@@ -411,3 +411,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .ov-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--text); text-decoration: none; padding-top: 6px; }
 .ov-ask { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .ov-ask p { margin: 0; font-size: 15px; line-height: 1.4; }
+.ov-text { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); }
+.rate-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rate-cell { display: flex; flex-direction: column; gap: 2px; }
+.rate-cell .input { min-height: 36px; height: 36px; padding: 0 8px; text-align: right; font-size: 15px; }

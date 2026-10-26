@@ -396,7 +396,7 @@ const SPORT_EVENT_TOOL = {
   },
 };
 // sportIds: eine oder mehrere Sportarten (leer = alle); jedes Event bekommt seine Sportart
-export async function searchSportEvents(s, sportIds, query, { web = false, regions = [] } = {}) {
+export async function searchSportEvents(s, sportIds, query, { web = false, regions = [], period = '' } = {}) {
   const ids = (Array.isArray(sportIds) ? sportIds : [sportIds]).filter(Boolean);
   const sports = ids.length ? s.sports.filter((x) => ids.includes(x.id)) : s.sports;
   if (!sports.length) throw new Error('Füg zuerst eine Sportart hinzu.');
@@ -408,7 +408,8 @@ export async function searchSportEvents(s, sportIds, query, { web = false, regio
   const system = `Du findest für Mateo (lebt in Buenos Aires) Sport-Events: Wettkämpfe, Rennen, Turniere, offene Trainings, Lauftreffs, Clubs. Heute ist ${fmtLong(t)} (${t}).
 Sportarten: ${JSON.stringify(names)}${goals.length ? `. Ziele: ${JSON.stringify(goals)}` : ''}.
 Region: ${where} – suche nur dort (bei „Argentinien“ im ganzen Land, bei einer Provinz in der ganzen Provinz).
-${named ? `Mateos Suchwunsch: „${named}“. Wenn das wie der Name eines konkreten Rennens/Events klingt, finde GENAU dieses Event zuerst (nächste Ausgabe mit Datum, Ort, Anmelde-Link) und gib es auf jeden Fall als erstes zurück; danach ähnliche Events.` : 'Gib einen möglichst vollständigen Überblick über die kommenden Events (nächste 6 Monate).'}
+Zeitraum: ${period || 'die nächsten 6 Monate'} (ab heute) – nur Events in diesem Zeitraum.
+${named ? `Mateos Suchwunsch: „${named}“. Wenn das wie der Name eines konkreten Rennens/Events klingt, finde GENAU dieses Event zuerst (nächste Ausgabe mit Datum, Ort, Anmelde-Link) und gib es auf jeden Fall als erstes zurück; danach ähnliche Events.` : 'Gib einen möglichst vollständigen Überblick über die kommenden Events in diesem Zeitraum.'}
 ${web ? 'Suche gezielt, höchstens 4-mal: zuerst nach dem genannten Namen (falls vorhanden), dann Kalender-Seiten mit vielen Terminen (auf Spanisch, z.B. „calendario carreras 2026 2027 <Region>“). Gib nur echte Events aus den Suchergebnissen mit Link zurück.' : 'Ohne Internet: nenne bekannte, regelmäßig stattfindende Events aus deinem Wissen (z.B. jährliche Rennen mit ungefährem Monat), ohne erfundene Daten oder Links; sag im hinweis, dass Mateo für aktuelle Termine „Mit Internet“ wählen kann.'}
 Gib bis zu 12 Events (bei mehreren Sportarten gemischt) mit "events_zeigen" zurück, sortiert nach Datum – auch solche, die Mateo sich schon gemerkt hat. "sportart" genau wie in der Liste. Deutsch, kurz.`;
   const tool = JSON.parse(JSON.stringify(SPORT_EVENT_TOOL));
@@ -473,3 +474,5 @@ export async function importRecipe(s, input, category) {
 // Regionen für die Sport-Event-Suche (frei änderbar)
 export const sportRegions = (s) => s.profile?.sportRegions || ['Buenos Aires', 'Argentinien'];
 export const setSportRegions = (list) => store.update((s) => { s.profile = { ...(s.profile || {}), sportRegions: list }; });
+export const sportPeriods = (s) => s.profile?.sportPeriods || ['Diesen Monat', 'Nächste 3 Monate', 'Dieses Jahr', 'Nächstes Jahr'];
+export const setSportPeriods = (list) => store.update((s) => { s.profile = { ...(s.profile || {}), sportPeriods: list }; });

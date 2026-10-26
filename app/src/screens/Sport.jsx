@@ -3,7 +3,7 @@ import { useStore } from '../lib/store';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addProject, addTask } from '../lib/actions';
 import {
-  addSession, addSport, addSportEvent, deleteSession, removeSportEvent, searchSportEvents, sportRegions, setSportRegions, sportCoach, SPORT_EVENT_STATUS, updateSportEvent, fmtDuration, fmtPace, guessSportName, hasDistance, lastAnalysis, parseDuration, parseGarminCsv,
+  addSession, addSport, addSportEvent, deleteSession, removeSportEvent, searchSportEvents, sportRegions, setSportRegions, sportPeriods, setSportPeriods, sportCoach, SPORT_EVENT_STATUS, updateSportEvent, fmtDuration, fmtPace, guessSportName, hasDistance, lastAnalysis, parseDuration, parseGarminCsv,
   removeSport, SPORT_PRESETS, updateSport, weekStats,
 } from '../lib/health';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -123,6 +123,10 @@ function SportsPage({ s }) {
   const regions = sportRegions(s);
   const [regPick, setRegPick] = useState(() => [sportRegions(s)[0]].filter(Boolean));
   const [editReg, setEditReg] = useState(false);
+  const periods = sportPeriods(s);
+  const [period, setPeriod] = useState(() => sportPeriods(s)[1] || sportPeriods(s)[0] || '');
+  const [editPer, setEditPer] = useState(false);
+  const [newPer, setNewPer] = useState('');
   const [newReg, setNewReg] = useState('');
   const [editSports, setEditSports] = useState(false);
   const [newSport, setNewSport] = useState('');
@@ -145,7 +149,7 @@ function SportsPage({ s }) {
     setBusy(web ? 'web' : 'ki');
     setErr(null);
     try {
-      setRes(await searchSportEvents(s, pick, q.trim(), { web, regions: regPick.filter((r) => regions.includes(r)) }));
+      setRes(await searchSportEvents(s, pick, q.trim(), { web, regions: regPick.filter((r) => regions.includes(r)), period: periods.includes(period) ? period : '' }));
     } catch (e) {
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
     } finally {
@@ -228,6 +232,21 @@ function SportsPage({ s }) {
             <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); const r = newReg.trim(); if (r && !regions.includes(r)) { setSportRegions([...regions, r]); setRegPick([...regPick, r]); } setNewReg(''); }}>
               <input className="input" value={newReg} onChange={(ev) => setNewReg(ev.target.value)} placeholder="z.B. Córdoba, Mendoza, Uruguay" aria-label="Neue Region" />
               <button type="submit" className="btn small" disabled={!newReg.trim()}>+</button>
+            </form>
+          )}
+          <span className="tiny" style={{ marginBottom: -4 }}>Wann?</span>
+          <div className="chips">
+            {periods.map((x) => (
+              <button key={x} type="button" className={editPer ? 'chip editing' : period === x ? 'chip on' : 'chip'} onClick={() => (editPer ? setSportPeriods(periods.filter((y) => y !== x)) : setPeriod(period === x ? '' : x))}>
+                🗓 {x}{editPer && <Icon name="x" size={11} />}
+              </button>
+            ))}
+            <button type="button" className="chip" onClick={() => setEditPer(!editPer)} aria-label="Zeiträume bearbeiten">{editPer ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+          </div>
+          {editPer && (
+            <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); const x = newPer.trim(); if (x && !periods.includes(x)) { setSportPeriods([...periods, x]); setPeriod(x); } setNewPer(''); }}>
+              <input className="input" value={newPer} onChange={(ev) => setNewPer(ev.target.value)} placeholder="z.B. Frühling 2027, bis Juni, Herbst" aria-label="Neuer Zeitraum" />
+              <button type="submit" className="btn small" disabled={!newPer.trim()}>+</button>
             </form>
           )}
           <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" />
