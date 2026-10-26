@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, setEventStage, updatePlace } from '../lib/actions';
 import {
-  citiesOf, cityOf, cityPos, discoverPlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
+  citiesOf, cityOf, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import { getAi } from '../lib/ai';
@@ -355,7 +355,56 @@ function PlaceSheet({ open, onClose, place, s, city }) {
   );
 }
 
+// Mehrere Orte auf einmal: Text einfügen oder diktieren → KI zieht die Orte heraus → abhaken → in die Liste der gewählten Stadt
+function PlaceImport({ open, city, onClose }) {
+  const [text, setText] = useState('');
+  const [list, setList] = useState(null);
+  const [pick, setPick] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = async () => {
+    setBusy(true); setErr(null);
+    try { const l = await parsePlaces(text, city); setList(l); setPick(Object.fromEntries(l.map((x) => [x.id, true]))); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
+  };
+  const save = async () => {
+    const chosen = list.filter((x) => pick[x.id]);
+    const ids = chosen.map((x) => [x, addPlace({ ...x, city })]);
+    toast(`${chosen.length} Orte in ${city} gespeichert`);
+    setText(''); setList(null); onClose();
+    for (const [x, id] of ids) { const pos = await locate(x.name, x.address, city); if (pos) updatePlace(id, { lat: pos.lat, lon: pos.lon }); }
+  };
+  return (
+    <Sheet open={open} title={`Orte in ${city} einfügen`} onClose={onClose}>
+      {!list ? (
+        <>
+          <span className="sub">Füg eine Liste ein (z.B. aus Notizen, WhatsApp, einem Artikel) oder diktier sie über die Tastatur. Die KI sortiert jeden Ort ein – mit deinen Notizen.</span>
+          <textarea className="input" style={{ minHeight: 160 }} value={text} onChange={(e) => setText(e.target.value)} placeholder={'z.B. „Café Crisol in Palermo – bester Flat White. Don Julio, Parrilla, war super. Floreria Atlántico Cocktailbar, will ich hin.“'} aria-label="Text mit Orten" />
+          <button type="button" className="btn" onClick={run} disabled={busy || !text.trim() || !getAi().apiKey}>{busy ? 'Ich sortiere …' : '✨ Orte herausziehen'}</button>
+          {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
+        </>
+      ) : (
+        <>
+          {list.length === 0 && <span className="sub">Keine Orte gefunden.</span>}
+          {list.map((x) => (
+            <label key={x.id} className="option">
+              <input type="checkbox" checked={!!pick[x.id]} onChange={() => setPick({ ...pick, [x.id]: !pick[x.id] })} />
+              <span className="row-main">
+                <span style={{ fontWeight: 600 }}>{x.name}</span>
+                <span className="tiny">{[x.subcat || x.category, x.address, x.status === 'war' ? 'War schon da' : 'Will hin'].filter(Boolean).join(' · ')}</span>
+                {x.note && <span className="tiny" style={{ color: 'var(--text)' }}>{x.note}</span>}
+              </span>
+            </label>
+          ))}
+          <button type="button" className="btn" onClick={save} disabled={!list.some((x) => pick[x.id])}>{list.filter((x) => pick[x.id]).length} Orte speichern</button>
+          <button type="button" className="link-btn" onClick={() => setList(null)}>Zurück zum Text</button>
+        </>
+      )}
+    </Sheet>
+  );
+}
+
 function Orte({ s, city }) {
+  const [importOpen, setImportOpen] = useState(false);
   const [sel, setSel] = useState(null);
   const [status, setStatus] = useState('alle');
   const [cat, setCat] = useState(null);
@@ -426,7 +475,8 @@ function Orte({ s, city }) {
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <Segmented options={[{ id: 'alle', label: 'Alle' }, { id: 'will', label: 'Will hin' }, { id: 'war', label: 'War da' }]} value={status} onChange={setStatus} label="Filter" />
-        <button type="button" className="btn small" style={{ marginLeft: 'auto' }} onClick={() => setSheet('neu')}>+ Ort</button>
+        <button type="button" className="btn small sec" style={{ marginLeft: 'auto', background: 'var(--card-2)' }} onClick={() => setImportOpen(true)}>📋 Liste</button>
+        <button type="button" className="btn small" onClick={() => setSheet('neu')}>+ Ort</button>
       </div>
       {cats.length > 0 && (
         <div className="box-tabs">
@@ -480,6 +530,7 @@ function Orte({ s, city }) {
           </div>
         ))}
       </section>
+      <PlaceImport open={importOpen} city={city} onClose={() => setImportOpen(false)} />
       <PlaceSheet s={s} city={city} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
     </>
   );

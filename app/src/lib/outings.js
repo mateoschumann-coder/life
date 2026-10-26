@@ -256,6 +256,27 @@ Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern in der Landess
   return v;
 }
 
+// Orte aus eingefügtem/diktiertem Text übernehmen (v0.46): KI ohne Internet zieht die Orte heraus, Mateo hakt ab
+const PARSE_TOOL = {
+  name: 'orte_aus_text',
+  description: 'Alle Orte aus Mateos Text strukturiert.',
+  input_schema: { type: 'object', properties: { orte: { type: 'array', items: { type: 'object', properties: {
+    name: { type: 'string' },
+    kategorie: PLACE_TOOL.input_schema.properties.orte.items.properties.kategorie,
+    unterart: { type: 'string' },
+    adresse: { type: 'string', description: 'nur wenn im Text oder sicher bekannt (Viertel reicht)' },
+    notiz: { type: 'string', description: 'Mateos eigene Worte/Bewertung zu diesem Ort, kurz' },
+    war_da: { type: 'boolean', description: 'true, wenn er schon dort war' },
+  }, required: ['name', 'kategorie'] } } }, required: ['orte'] },
+};
+export async function parsePlaces(text, city = HOME_CITY) {
+  const r = await searchWithTool({
+    system: `Mateo gibt dir einen Text (Liste, Notizen, Empfehlungen, Diktat) mit Orten in ${city}. Zieh JEDEN genannten Ort heraus (Cafés, Bars, Restaurants, Kultur …), ordne Kategorie und Unterart zu und übernimm seine Notizen. Nichts erfinden, keine Orte hinzufügen, die nicht im Text stehen.`,
+    user: text, tool: PARSE_TOOL, maxUses: 0, label: 'Orte aus Text',
+  });
+  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Sonstiges', subcat: o.unterart || '', address: o.adresse || '', note: o.notiz || '', status: o.war_da ? 'war' : 'will' }));
+}
+
 // Adresse → Koordinaten (OpenStreetMap Nominatim, kostenlos; sparsam benutzen)
 export async function geocode(q, city = HOME_CITY) {
   const ba = city === HOME_CITY ? '&countrycodes=ar&viewbox=-58.65,-34.45,-58.25,-34.75' : '';

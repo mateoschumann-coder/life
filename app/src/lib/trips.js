@@ -1,7 +1,7 @@
 // Reisen: Ideen sammeln („Wohin könnte ich?“) und festgelegte Reisen mit Vorlage planen
 // (Stationen, Transport, Orte auf der Karte, Unterlagen, To-dos und Packliste nach Kategorien, KI-Planer)
 import { store, uid } from './store';
-import { fmtLong, today } from './dates';
+import { diffDays, fmtLong, today } from './dates';
 import { searchWithTool } from './outings';
 import { normalizeTrip } from './normalize';
 
@@ -237,7 +237,6 @@ const GUIDE_TOOL = {
           required: ['ziel', 'kurz'],
         },
       },
-      vergleich: VERGLEICH,
     },
     required: ['antwort'],
   },
@@ -251,14 +250,11 @@ Arbeitsweise:
 - Auf Nachfragen eingehen: vergleichen, Alternativen, „mehr wie X“, „günstiger“ – dann neue Ziele unter "ziele".
 - Mateo will zwischen Zielen entscheiden: jedes Ziel eigenständig, nicht mehrere Orte in einem Eintrag zusammenfassen.
 - Pro Ziel: "kurz" (höchstens 6 Wörter, das sieht er in der Liste) und dafür ausführlich warum, highlights, dauer, anreise ab Buenos Aires, beste_zeit, budget – das wird beim Übernehmen in die Idee geschrieben.
-- Abflug: Mateo fliegt ab ${airportsOf(s)}.
-- PREISVERGLEICH: Will Mateo Preise vergleichen (Flüge, Airbnb/Unterkunft), fülle "vergleich" mit einer Zeile pro Ziel aus dem Gespräch (die zuletzt vorgeschlagenen bzw. genannten): Flugpreis hin & zurück ab seinem Flughafen (Airline, Dauer, für welchen Zeitraum), Unterkunft pro Nacht (Airbnb und ggf. Hotel), grobe Summe. Keine neuen "ziele" dazu.
-- ${web ? 'Du darfst höchstens 4-mal im Internet suchen (aktuelle Flug- und Unterkunftspreise; bündle Ziele pro Suche, z.B. „vuelos Buenos Aires Florianópolis Salvador enero precio“). Links nur aus Suchergebnissen. Preise immer „ca. … (Stand Suche)“.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, ohne URLs; Preise als grobe Schätzung kennzeichnen.'}
+- Hier geht es ums Finden von Zielen. Genaue Flug- und Unterkunftspreise prüft Mateo später mit dem Knopf „Preise“ bei seinen Ideen – darauf kannst du kurz hinweisen.
+- ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Tipps, Events, Saison). Links nur aus Suchergebnissen.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, ohne URLs.'}
 Antworte immer mit "reiseziele". Deutsch.`;
   const messages = history.map((m) => ({ role: m.role, content: m.text }));
-  const r = await searchWithTool({ system, messages, tool: GUIDE_TOOL, maxUses: web ? 4 : 0, label: 'Reiseziele finden', smart });
-  if (r.vergleich) r.vergleich = fixVergleich(r.vergleich, s);
-  return r;
+  return searchWithTool({ system, messages, tool: GUIDE_TOOL, maxUses: web ? 2 : 0, label: 'Reiseziele finden', smart });
 }
 export const ideaText = (z) => [
   z.kurz,
@@ -327,6 +323,29 @@ export const renameGroup = (g, name) => store.update((s) => { for (const x of s.
 // Preise (aus einem Vergleich) an einer Reise speichern
 const priceOf = (v) => Object.fromEntries(Object.entries({ flug: v.flug, unterkunft: v.unterkunft, gesamt: v.gesamt, urlFlug: okUrl(v.url_flug), urlStay: okUrl(v.url_unterkunft), ab: v.ab }).filter(([, x]) => x));
 const sameDest = (tr, ziel) => [tr.name, tr.dest, (tr.dest || '').split(',')[0]].some((x) => norm(x) === norm(ziel));
+// Preise nachsehen (v0.46, Mateo): Knopf an einer Gruppe oder Idee – Flug hin & zurück + Unterkunft pro Nacht für jedes Ziel, mit Websuche
+const PRICE_TOOL = {
+  name: 'preise_zeigen',
+  description: 'Gibt aktuelle Flug- und Unterkunftspreise pro Ziel zurück.',
+  input_schema: { type: 'object', properties: { hinweis: { type: 'string', description: '1 Satz, z.B. welches Ziel am günstigsten ist' }, vergleich: VERGLEICH }, required: ['vergleich'] },
+};
+export async function comparePrices(s, trips, { from = '', to = '', airport = '', people = 1 } = {}) {
+  const ab = airport.trim() || airportsOf(s, trips[0]);
+  const ziele = trips.map((x) => x.dest || x.name);
+  const nights = from && to ? Math.max(1, diffDays(from, to)) : null;
+  const system = `Du recherchierst für Mateo aktuelle Reisepreise. Heute ist ${fmtLong(today())}.
+Ziele: ${JSON.stringify(ziele)}. Abflug ab: ${ab}. Zeitraum: ${from && to ? `${from} bis ${to} (${nights} Nächte)` : 'flexibel – nimm einen typischen Zeitraum in den nächsten 2–3 Monaten und nenne ihn'}. Personen: ${people}.
+Suche höchstens 4-mal im Internet, bündle die Ziele (z.B. „vuelos Buenos Aires Florianópolis Salvador ${from ? from.slice(0, 7) : ''} precio“, „airbnb Florianópolis precio noche“). Dann rufe "preise_zeigen" auf: genau eine Zeile pro Ziel (gleiche Schreibweise wie oben) mit Flug hin & zurück pro Person (Airline/Direktflug?, Dauer, für welches Datum), Unterkunft pro Nacht (Airbnb und ggf. Hotel/Pousada), Summe pro Person${nights ? ` für ${nights} Nächte` : ''}. Preise als „ca. … USD (Stand Suche)“. Links nur aus Suchergebnissen, nie erfinden. Deutsch, kurz.`;
+  const r = await searchWithTool({ system, user: 'Bitte Preise vergleichen.', tool: PRICE_TOOL, maxUses: 4, label: 'Reisepreise vergleichen' });
+  const rows = fixVergleich(r.vergleich, s, { from, to, airport: ab });
+  store.update((st) => {
+    for (const v of rows) {
+      const t = st.trips.find((x) => trips.some((y) => y.id === x.id) && sameDest(x, v.ziel));
+      if (t) t.prices = { ...priceOf(v), when: from && to ? `${from}|${to}` : '', checked: today() };
+    }
+  });
+  return { rows, hinweis: r.hinweis || '' };
+}
 // Aus dem Reiseführer-Chat: jedes gewählte Ziel wird eine eigene Idee, optional in einer Gruppe; Preisvergleiche ergänzen vorhandene Ideen
 export function applyGuide(sel, { group = '' } = {}) {
   const g = String(group || '').trim();
@@ -411,7 +430,7 @@ Arbeitsweise:
   · Sehenswürdigkeiten/Restaurants kennst du meist selbst – dafür nur suchen, wenn nach etwas Aktuellem gefragt ist (Öffnungszeiten, neue Orte).
   Preise immer als „ca. … (Stand Suche)“. Links nur aus Suchergebnissen, nie erfinden.` : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen (Sehenswürdigkeiten, Restaurants, Routen gehen gut), gib keine URLs an. Preise nur als grobe Schätzung kennzeichnen; für aktuelle Flug-/Unterkunftspreise sag kurz, dass Mateo „🔍 Nochmal mit Internet suchen“ tippen kann.'}
 - ${tr.status === 'idee' ? 'Packliste und To-dos kommen erst beim Festlegen dazu: schlage dafür noch nichts vor (kein "packen", "todo", "entfernen").' : 'Die Packliste und To-dos haben eine Standard-Vorlage. Passe sie an Ziel, Jahreszeit, Dauer und Aktivitäten an: Fehlendes unter "packen"/"todo", Unpassendes (z.B. Badekleidung bei Winterreise) unter "entfernen".'}
-- Abflug ab ${airportsOf(s, tr)}. ${tr.group ? `Diese Idee gehört zur Gruppe „${tr.group}“ mit den Alternativen: ${JSON.stringify(s.trips.filter((x) => x.group === tr.group && x.id !== tr.id).map((x) => x.dest || x.name))}. Mateo entscheidet zwischen ihnen. ` : ''}Will er Preise vergleichen, fülle "vergleich" mit einer Zeile pro Ziel${tr.group ? ' (diese Idee und die Alternativen der Gruppe)' : ''}: Flug hin & zurück ab ${airportsOf(s, tr)}, Unterkunft/Nacht, grobe Summe – nur mit Internet aktuell, sonst als Schätzung kennzeichnen.
+- Abflug ab ${airportsOf(s, tr)}. ${tr.group ? `Diese Idee gehört zur Gruppe „${tr.group}“ mit den Alternativen: ${JSON.stringify(s.trips.filter((x) => x.group === tr.group && x.id !== tr.id).map((x) => x.dest || x.name))}. ` : ''}${tr.prices ? `Bekannte Preise: ${JSON.stringify(tr.prices)}. ` : ''}Preisvergleiche macht Mateo über den Knopf „Preise“ – schlag dafür nichts vor.
 - Nichts vorschlagen, was schon im Stand steht. Bei Orten wenn möglich lat/lon angeben.
 - Fehlt Wichtiges (Zeitraum, Budget, Reisestil, wer kommt mit), frag kurz nach – mach trotzdem schon erste Vorschläge.
 Antworte immer mit "reise_planen". Deutsch, konkret, kurz.`;

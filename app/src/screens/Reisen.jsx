@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
-  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf,
+  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
@@ -33,7 +33,6 @@ const VERGLEICH_GROUP = {
 };
 const GUIDE_GROUPS = [
   { key: 'ziele', label: 'Als Idee speichern', title: (x) => `${x.ziel}${x.land ? `, ${x.land}` : ''}`, meta: (x) => [x.kurz, x.dauer].filter(Boolean).join(' · ') },
-  VERGLEICH_GROUP,
 ];
 // Abflughafen für Preisvergleiche (gemerkt im Profil)
 // mit tr: Abflughafen nur für diese Reise (leer = Standard)
@@ -81,13 +80,63 @@ function TargetSheet({ s, sel, onClose }) {
     </Sheet>
   );
 }
+// ✈️🏠 Preise nachsehen für eine Gruppe oder eine einzelne Idee (Websuche, ca. 3–5 Cent)
+function PriceSheet({ s, trips, title, onClose }) {
+  const first = trips?.[0];
+  const [f, setF] = useState({ from: '', to: '', airport: '', people: '1' });
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);
+  const [err, setErr] = useState(null);
+  const [key, setKey] = useState(null);
+  const k = trips ? trips.map((x) => x.id).join() : null;
+  if (k !== key) { setKey(k); setRes(null); setErr(null); if (first) setF({ from: first.from || '', to: first.to || '', airport: first.airport || '', people: '1' }); }
+  const run = async () => {
+    setBusy(true); setErr(null);
+    try { setRes(await comparePrices(s, trips, { ...f, people: Number(f.people) || 1 })); } catch (e) { setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
+  };
+  return (
+    <Sheet open={!!trips} title={title || 'Preise nachsehen'} onClose={onClose}>
+      <span className="sub">{trips?.length > 1 ? `Flug hin & zurück und Unterkunft für ${trips.map((x) => x.name).join(', ')} – nebeneinander.` : 'Flug hin & zurück und Unterkunft pro Nacht.'} Die KI sucht im Internet (ca. 3–5 Cent).</span>
+      <Field label="Zeitraum (optional)"><DateRangeField from={f.from} to={f.to} onChange={(v) => setF({ ...f, ...v })} title="Reisezeitraum" /></Field>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <Field label="Abflug ab"><input className="input" value={f.airport} onChange={(e) => setF({ ...f, airport: e.target.value })} placeholder={airportsOf(s, first)} /></Field>
+        <Field label="Personen"><input className="input" inputMode="numeric" style={{ width: 70 }} value={f.people} onChange={(e) => setF({ ...f, people: e.target.value.replace(/\D/g, '') })} /></Field>
+      </div>
+      <button type="button" className="btn" onClick={run} disabled={busy || !getAi().apiKey}>{busy ? 'Ich suche Preise … (ca. 30 Sek.)' : '🔍 Preise suchen'}</button>
+      {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
+      {res && (
+        <>
+          {res.hinweis && <span className="sub">{res.hinweis}</span>}
+          <PriceTable rows={res.rows.map((v) => ({ id: v.ziel, name: v.ziel, prices: { flug: v.flug, unterkunft: v.unterkunft, gesamt: v.gesamt, urlFlug: v.url_flug, urlStay: v.url_unterkunft } }))} />
+          <span className="tiny">Gespeichert – die Preise stehen jetzt bei den Ideen.</span>
+        </>
+      )}
+    </Sheet>
+  );
+}
+function PriceTable({ rows }) {
+  const list = rows.filter((x) => x.prices && (x.prices.flug || x.prices.unterkunft));
+  if (!list.length) return null;
+  return (
+    <div className="price-table">
+      {list.map((x) => (
+        <div key={x.id} className="price-row">
+          <b>{x.name}</b>
+          {x.prices.flug && <span>✈️ {x.prices.flug}{x.prices.urlFlug && <> · <a href={x.prices.urlFlug} target="_blank" rel="noreferrer">Flüge</a></>}</span>}
+          {x.prices.unterkunft && <span>🏠 {x.prices.unterkunft}{x.prices.urlStay && <> · <a href={x.prices.urlStay} target="_blank" rel="noreferrer">Unterkünfte</a></>}</span>}
+          {x.prices.gesamt && <span>Σ {x.prices.gesamt}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
 function Inspiration({ s }) {
   const [pending, setPending] = useState(null);
   return (
     <>
       <PlanChat
         title="Wohin könnte ich?"
-        intro="Ich bin dein Reiseführer: Sag, worauf du Lust hast – oder tipp unten einen Vorschlag an. Kreuz danach die Ziele an, die dich reizen – jedes wird eine eigene Idee, auf Wunsch zusammen in einer Gruppe. Frag auch: „Vergleich Flug- und Airbnb-Preise“."
+        intro="Ich bin dein Reiseführer: Sag, worauf du Lust hast – oder tipp unten einen Vorschlag an. Kreuz danach die Ziele an, die dich reizen – jedes wird eine eigene Idee, auf Wunsch zusammen in einer Gruppe. Preise prüfst du danach mit „✈️🏠 Preise“ bei der Gruppe oder Idee."
         history={chatOf(s, 'reiseziele')}
         prefKey="reiseziele"
         onSave={(h) => saveChatOf('reiseziele', h)}
@@ -95,11 +144,8 @@ function Inspiration({ s }) {
         groups={GUIDE_GROUPS}
         onApply={(sel) => setPending(sel)}
         chips={INSPO_CHIPS}
-        webChips={['Flug- & Airbnb-Preise vergleichen']}
-        autoWeb={TRAVEL_WEB}
         placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD"
       />
-      <Airport s={s} />
       <TargetSheet s={s} sel={pending} onClose={() => setPending(null)} />
     </>
   );
@@ -128,6 +174,7 @@ function TripList({ s }) {
     toast(`In Gruppe „${gname.trim()}“ – jede Idee bleibt, wie sie ist`);
   };
   const [closed, setClosed] = useState({});
+  const [priceFor, setPriceFor] = useState(null);
   const groups = groupsOf(s);
   const loose = ideas.filter((x) => !x.group);
   const Row = ({ tr, idea }) => grouping && idea ? (
@@ -187,9 +234,11 @@ function TripList({ s }) {
                     <span className="row-title strong">📁 {g} {isClosed ? '▸' : '▾'}</span>
                     <span className="row-meta">{items.length} {items.length === 1 ? 'Idee' : 'Ideen'}: {items.map((x) => x.name).join(', ')}</span>
                   </button>
+                  <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 9px', whiteSpace: 'nowrap' }} onClick={() => setPriceFor({ trips: items, title: `Preise: ${g}` })}>✈️🏠 Preise</button>
                   <button type="button" className="x-btn" aria-label={`Gruppe ${g} umbenennen`} onClick={() => { const n = prompt('Neuer Name der Gruppe', g); if (n && n.trim()) renameGroup(g, n); }}><Icon name="edit" size={13} color="var(--muted)" /></button>
                   <button type="button" className="x-btn" aria-label={`Gruppe ${g} auflösen`} onClick={() => confirm(`Gruppe „${g}“ auflösen? Die Ideen bleiben erhalten.`) && ungroup(g)}><Icon name="x" size={13} color="var(--chev)" /></button>
                 </div>
+                {!isClosed && items.some((x) => x.prices && (x.prices.flug || x.prices.unterkunft)) && <div style={{ padding: '4px 12px 8px' }}><PriceTable rows={items} /></div>}
                 {!isClosed && items.map((tr) => <div key={tr.id} style={{ paddingLeft: 14 }}><Row tr={tr} idea /></div>)}
               </div>
             );
@@ -210,6 +259,7 @@ function TripList({ s }) {
           </section>
         )}
       </main>
+      <PriceSheet s={s} trips={priceFor?.trips ? priceFor.trips.map((x) => s.trips.find((y) => y.id === x.id) || x) : null} title={priceFor?.title} onClose={() => setPriceFor(null)} />
       <Sheet open={open} title="Neue Reise" onClose={() => setOpen(false)}>
         <Field label="Wohin?"><input className="input" value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })} placeholder="z.B. Florianópolis" /></Field>
         <div className="seg-mini">
@@ -482,7 +532,6 @@ function Variants({ tr, onChosen, onCommit }) {
 }
 
 const PLAN_GROUPS = [
-  VERGLEICH_GROUP,
   { key: 'varianten', label: 'Als Routen-Variante speichern', title: (x) => x.name, meta: (x) => [(x.abschnitte || []).map((a) => `${a.ort}${a.naechte ? ` (${a.naechte} N.)` : ''}`).join(' → '), x.kurz].filter(Boolean).join(' · ') },
   { key: 'stationen', label: 'Stationen', title: (x) => x.name, meta: (x) => [x.von && x.bis ? `${fmtShort(x.von)} – ${fmtShort(x.bis)}` : '', x.notiz].filter(Boolean).join(' · ') },
   { key: 'transport', label: 'Transport', title: (x) => `${x.von} → ${x.nach}`, meta: (x) => [MODES[x.art], x.dauer, x.preis, x.notiz].filter(Boolean).join(' · ') },
@@ -500,6 +549,7 @@ function TripDetail({ s, tr }) {
     : [['route', 'Route'], ['varianten', 'Varianten'], ['orte', 'Orte'], ['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen']];
   const [tab, setTab] = useState(isIdea ? 'varianten' : 'route');
   const [commit, setCommit] = useState(false);
+  const [priceFor, setPriceFor] = useState(null);
   const [range, setRange] = useState({ from: tr.from, to: tr.to });
   const cur = tabs.some(([k]) => k === tab) ? tab : tabs[0][0];
   const days = tr.from ? diffDays(t, tr.from) : null;
@@ -519,14 +569,11 @@ function TripDetail({ s, tr }) {
           <section className="card" style={{ gap: 8 }}>
             <span className="label" style={{ padding: 0 }}>Infos</span>
             <textarea className="input" style={{ minHeight: 90, fontSize: 15 }} defaultValue={tr.idea} key={tr.id + 'idea' + (tr.idea || '').length} placeholder="Alles sammeln: was es dort gibt, Kosten, Anreise, beste Zeit …" onBlur={(e) => e.target.value !== tr.idea && updateTrip(tr.id, { idea: e.target.value })} aria-label="Infos zur Idee" />
-            {tr.prices && (tr.prices.flug || tr.prices.unterkunft) && (
-              <div className="opt-prices">
-                {tr.prices.flug && <span>✈️ {tr.prices.flug}{tr.prices.urlFlug && <> · <a href={tr.prices.urlFlug} target="_blank" rel="noreferrer">Flüge</a></>}</span>}
-                {tr.prices.unterkunft && <span>🏠 {tr.prices.unterkunft}{tr.prices.urlStay && <> · <a href={tr.prices.urlStay} target="_blank" rel="noreferrer">Unterkünfte</a></>}</span>}
-                {tr.prices.gesamt && <span>Σ {tr.prices.gesamt}</span>}
-              </div>
-            )}
-            <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setCommit(true)}>Reise festlegen</button>
+            <PriceTable rows={tr.group ? s.trips.filter((x) => x.group === tr.group) : [tr]} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn small" onClick={() => setCommit(true)}>Reise festlegen</button>
+              <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => setPriceFor(tr.group ? s.trips.filter((x) => x.group === tr.group) : [tr])}>✈️🏠 Preise{tr.group ? ' der Gruppe' : ''}</button>
+            </div>
           </section>
         ) : (
           <section className="card countdown" style={{ gap: 10 }}>
@@ -562,14 +609,15 @@ function TripDetail({ s, tr }) {
           prefKey="reise"
           onSave={(chat) => updateTrip(tr.id, { chat })}
           onAsk={(hist, o) => tripAssist(s, tr, hist, o)}
-          webChips={[...(tr.group ? [`Preise mit den anderen Ideen aus „${tr.group}“ vergleichen`] : []), 'Flüge suchen', 'Unterkunft suchen', 'Bus & Fähren zwischen den Stationen']}
+          webChips={isIdea ? [] : ['Flüge suchen', 'Unterkunft suchen', 'Bus & Fähren zwischen den Stationen']}
           autoWeb={TRAVEL_WEB}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyTripProposal(tr.id, sel)}
-          chips={isIdea ? [...(tr.group ? [`Vergleich mit den anderen Ideen aus „${tr.group}“`] : []), 'Was gibt es dort zu sehen?', 'Schlag mir 2 Routen vor', 'Vergleich meine Routen'] : ['Alternative Route als Variante', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen', 'Was fehlt noch?']}
+          chips={isIdea ? ['Was gibt es dort zu sehen?', 'Schlag mir 2 Routen vor', 'Vergleich meine Routen'] : ['Alternative Route als Variante', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen', 'Was fehlt noch?']}
         />
         <button type="button" className="btn danger" onClick={() => { if (confirm(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
       </main>
+      <PriceSheet s={s} trips={priceFor} title={tr.group ? `Preise: ${tr.group}` : `Preise: ${tr.name}`} onClose={() => setPriceFor(null)} />
       <Sheet open={commit} title="Reise festlegen" onClose={() => setCommit(false)}>
         <span className="sub">Wann reist du? Danach bekommst du To-dos und eine Packliste nach Kategorien – die KI kann sie anpassen.</span>
         <DateRangeField from={range.from} to={range.to} onChange={setRange} />

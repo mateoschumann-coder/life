@@ -423,3 +423,6 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .variant-steps { display: flex; flex-direction: column; gap: 6px; }
 .variant-step { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .group-head { background: color-mix(in srgb, #2FA36B 8%, transparent); }
+.price-table { display: flex; flex-direction: column; gap: 6px; }
+.price-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #2FA36B 10%, transparent); font-size: 14px; }
+.price-row a { color: var(--accent); }
