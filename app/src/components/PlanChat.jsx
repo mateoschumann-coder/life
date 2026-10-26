@@ -22,7 +22,7 @@ const savePrefs = (k, v) => {
 };
 
 // groups: [{ key, label, title: (x) => string, meta?: (x) => string }]
-export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false }) {
+export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -50,14 +50,16 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
   };
   const hasKey = !!getAi().apiKey;
 
-  const send = async (msg, forceWeb = false) => {
+  // base = Verlauf, an den angehängt wird (für „Nochmal mit Internet“ ohne die alte Antwort)
+  const send = async (msg, forceWeb = false, base = history) => {
     const q = String(msg ?? text).trim();
-    const useWeb = web || forceWeb;
+    // autoWeb (z.B. Reisen): bei Flügen, Unterkünften, Preisen automatisch im Internet suchen – aktuelle Preise kennt die KI sonst nicht
+    const useWeb = web || forceWeb || (!hideToggles && !!autoWeb && autoWeb.test(q));
     if (!q || busy) return;
     mic.stop();
     setErr(null);
     const user = { id: mid(), role: 'user', text: q };
-    const hist = [...history, user];
+    const hist = [...base, user];
     onSave(hist);
     setText('');
     setBusy(true);
@@ -73,9 +75,9 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
         else if (typeof rest[g.key] === 'string' && rest[g.key].trim()) proposal[g.key] = [rest[g.key]];
       const names = Object.entries(proposal).map(([k, list]) => `${groups.find((g) => g.key === k).label}: ${list.map((x) => groups.find((g) => g.key === k).title(x)).join('; ')}`).join(' | ');
       const picked = Object.fromEntries(Object.entries(proposal).map(([k, list]) => [k, list.map(() => false)]));
-      onSave([...hist, { id: mid(), role: 'assistant', text: (antwort || 'Hier sind meine Vorschläge.') + (names ? `\n[Vorgeschlagen – ${names}]` : ''), shown: antwort || 'Hier sind meine Vorschläge.', proposal, picked, applied: false }]);
+      onSave([...hist, { id: mid(), role: 'assistant', text: (antwort || 'Hier sind meine Vorschläge.') + (names ? `\n[Vorgeschlagen – ${names}]` : ''), shown: antwort || 'Hier sind meine Vorschläge.', proposal, picked, applied: false, web: useWeb }]);
     } catch (e) {
-      onSave(history); // Frage wieder heraus, damit das Gespräch gültig bleibt
+      onSave(base); // Frage wieder heraus, damit das Gespräch gültig bleibt
       setText(q);
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
     } finally {
@@ -105,11 +107,15 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       {history.length > 4 && !showAll && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setShowAll(true)}>Ältere Nachrichten zeigen</button>}
       {visible.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {visible.map((m) => (m.role === 'user' ? (
+          {visible.map((m, vi) => (m.role === 'user' ? (
             <div key={m.id} className="bubble me" style={{ fontSize: 15 }}>{m.text}</div>
           ) : (
             <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div className="bubble ai" style={{ fontSize: 15, maxWidth: '100%' }}>{m.shown || m.text}{lang !== 'de-DE' && <button type="button" className="say-btn" onClick={() => say(m.shown || m.text)} aria-label="Vorlesen"><Icon name="speaker" size={14} /></button>}</div>
+              {!hideToggles && !m.web && !m.applied && !busy && vi === visible.length - 1 && history.length >= 2 && history[history.length - 2].role === 'user' && (
+                <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} disabled={!hasKey} onClick={() => send(history[history.length - 2].text, true, history.slice(0, -2))}>🔍 Nochmal mit Internet suchen (aktuelle Preise & Links)</button>
+              )}
+              {m.web && <span className="tiny" style={{ paddingLeft: 4 }}>🔍 mit Internet gesucht</span>}
               {Object.keys(m.proposal || {}).length > 0 && (
                 <div className="proposal">
                   {groups.filter((g) => m.proposal[g.key]).map((g) => (
@@ -141,15 +147,15 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{searching ? 'Ich suche im Internet und plane … (ca. 20–40 Sek.)' : 'Ich denke nach … (ca. 5–10 Sek.)'}</span></div>}
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {mic.error && <span className="sub" style={{ color: 'var(--danger)' }}>{mic.error}</span>}
-      {!busy && chips.length > 0 && (
+      {!busy && (chips.length > 0 || webChips.length > 0) && (
         <div className="box-tabs">
-          {chips.map((c) => <button key={c} type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
+          {[...webChips.filter((c) => !chips.includes(c)), ...chips].map((c) => <button key={c} type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
         </div>
       )}
       {!hideToggles && <div className="ai-toggles">
         <button type="button" className={web ? 'chip on' : 'chip soft'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })}>🔍 Internet {web ? 'an' : 'aus'}</button>
         <button type="button" className={smart ? 'chip on' : 'chip soft'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
-        <span className="tiny" style={{ flex: 1, minWidth: 140 }}>{[web ? 'Internet: aktuelle Infos & Links, ca. 1–3 Cent mehr' : 'Ohne Internet: aus KI-Wissen, günstig', smart ? 'Gründlich: besseres Modell, ca. 20× teurer' : null].filter(Boolean).join(' · ')}</span>
+        <span className="tiny" style={{ flex: 1, minWidth: 140 }}>{[web ? 'Internet: aktuelle Infos & Links, ca. 1–3 Cent mehr' : autoWeb ? 'Ohne Internet: aus KI-Wissen – bei Flügen, Unterkünften und Preisen sucht die KI automatisch im Internet' : 'Ohne Internet: aus KI-Wissen, günstig', smart ? 'Gründlich: besseres Modell, ca. 20× teurer' : null].filter(Boolean).join(' · ')}</span>
       </div>}
       <form className="block-add" style={{ alignItems: 'flex-end' }} onSubmit={(e) => { e.preventDefault(); send(); }}>
         <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören beenden' : 'Sprechen'} disabled={busy}>

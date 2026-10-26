@@ -284,6 +284,13 @@ export const tripSnapshot = (tr) => ({
   routen_varianten: (tr.variants || []).map((v) => `${v.name}${v.chosen ? ' (gewählt)' : ''}: ${v.stops.map((x) => `${x.name}${x.nights ? ` ${x.nights}N` : ''}`).join(' → ')}`),
   todo: tr.todo.map((x) => x.text), packen: tr.packen.map((x) => x.text), notizen: tr.notes || undefined,
 });
+export const flightUrl = (from, to, date) => `https://www.google.com/travel/flights?q=${encodeURIComponent(`Flights from ${from} to ${to}${date ? ` on ${date}` : ''}`)}`;
+const stayUrl = (name, where, tr) => {
+  const st = tr.stops.find((y) => norm(y.name) === norm(where));
+  const ci = st?.from || tr.from;
+  const co = st?.to || tr.to;
+  return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(`${name}, ${where}`)}${ci ? `&checkin=${ci}` : ''}${co ? `&checkout=${co}` : ''}`;
+};
 export async function tripAssist(s, tr, history, { web = false, smart = false } = {}) {
   const system = `Du bist Mateos Reiseplaner in der App „Life“. Er lebt in Buenos Aires. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
@@ -294,13 +301,21 @@ Arbeitsweise:
   2) Dann ORTE: schlage wenige (2–4) passende Orte/Regionen vor, je mit kurzem „was es dort gibt“ (unter "orte", art sehenswuerdigkeit/aktivitaet, notiz = 3–6 Wörter), damit er versteht, was ihn erwartet. Gemerkte Orte im Stand sind gesetzt.
   3) Erst wenn Orte klar sind: ROUTEN-VARIANTEN unter "varianten" (1–2 pro Antwort, je mit Abschnitten in Reihenfolge und Nächten), gern unterschiedlich (z.B. „entspannt“ vs. „viel sehen“). Vorhandene Varianten kennst du aus dem Stand – baue darauf auf, ändere/vergleiche sie auf Wunsch, wiederhole sie nicht.
   4) Transport zwischen den Abschnitten erst, wenn eine Variante interessant ist. Keine "stationen" vorschlagen – die entstehen, wenn Mateo eine Variante wählt.` : 'Die Reise steht: hilf konkret zu planen (Stationen, Transport, Unterkunft, Restaurants, Sehenswürdigkeiten) und die Listen anzupassen. Will Mateo die Route überdenken, vergleichen oder Alternativen sehen, skizziere 1–2 Routen-Varianten unter "varianten" (aufbauend auf vorhandenen, nicht wiederholen) – die aktuelle Route bleibt, bis er eine Variante wählt; dann keine "stationen" vorschlagen.'}
-- ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Verbindungen, Preise, konkrete Unterkünfte/Restaurants). Links nur aus Suchergebnissen.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, gib keine URLs an. Wenn für eine gute Antwort aktuelle Infos nötig wären (Preise, Verfügbarkeit), sag kurz, dass Mateo „Im Internet suchen“ einschalten kann.'}
+- ${web ? `Du darfst höchstens 3-mal im Internet suchen – gezielt für das, was aktuell sein muss:
+  · FLÜGE/BUS/FÄHRE: konkrete Verbindungen unter "transport" mit Anbieter/Airline, Dauer, aktuellem Preis (mit Datum, für das er gilt) und Link aus den Suchergebnissen (z.B. Google Flights, Skyscanner, Busbud, Anbieter-Seite). Reisedaten aus dem Stand nutzen.
+  · UNTERKÜNFTE: 3–5 konkrete Unterkünfte unter "orte" (art unterkunft) mit Preis pro Nacht, Lage und Link (Booking, Airbnb, Hostelworld, eigene Website); passend zu Stil/Budget.
+  · Sehenswürdigkeiten/Restaurants kennst du meist selbst – dafür nur suchen, wenn nach etwas Aktuellem gefragt ist (Öffnungszeiten, neue Orte).
+  Preise immer als „ca. … (Stand Suche)“. Links nur aus Suchergebnissen, nie erfinden.` : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen (Sehenswürdigkeiten, Restaurants, Routen gehen gut), gib keine URLs an. Preise nur als grobe Schätzung kennzeichnen; für aktuelle Flug-/Unterkunftspreise sag kurz, dass Mateo „🔍 Nochmal mit Internet suchen“ tippen kann.'}
 - ${tr.status === 'idee' ? 'Packliste und To-dos kommen erst beim Festlegen dazu: schlage dafür noch nichts vor (kein "packen", "todo", "entfernen").' : 'Die Packliste und To-dos haben eine Standard-Vorlage. Passe sie an Ziel, Jahreszeit, Dauer und Aktivitäten an: Fehlendes unter "packen"/"todo", Unpassendes (z.B. Badekleidung bei Winterreise) unter "entfernen".'}
 - Nichts vorschlagen, was schon im Stand steht. Bei Orten wenn möglich lat/lon angeben.
 - Fehlt Wichtiges (Zeitraum, Budget, Reisestil, wer kommt mit), frag kurz nach – mach trotzdem schon erste Vorschläge.
 Antworte immer mit "reise_planen". Deutsch, konkret, kurz.`;
   const messages = history.map((m) => ({ role: m.role, content: m.text }));
-  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 2 : 0, label: 'Reise-Planer', smart });
+  const r = await searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 3 : 0, label: 'Reise-Planer', smart });
+  // Ohne Link: Such-Links bauen (Google Flights, Booking) – damit man die aktuellen Preise mit einem Tipp sieht
+  for (const x of r.transport || []) if (!okUrl(x.url) && x.von && x.nach) x.url = x.art === 'flug' ? flightUrl(x.von, x.nach, tr.from) : `https://www.google.com/search?q=${encodeURIComponent(`${x.art === 'sonstiges' ? '' : MODES[x.art] || ''} ${x.von} ${x.nach} pasaje precio`.trim())}`;
+  for (const x of r.orte || []) if (!okUrl(x.url) && x.art === 'unterkunft') x.url = stayUrl(x.name, x.station || tr.dest || tr.name, tr);
+  return r;
 }
 
 // Ausgewählte Vorschläge übernehmen

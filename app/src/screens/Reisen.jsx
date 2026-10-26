@@ -17,6 +17,8 @@ import { Back, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/
 import { Missing } from './Saeule';
 
 const COLOR = '#2FA36B';
+// Bei diesen Wörtern sucht der Reise-Chat automatisch im Internet (aktuelle Preise, Verbindungen, Unterkünfte)
+const TRAVEL_WEB = /fl(u|ü)g|fliegen|unterkunft|unterkünfte|hotel|hostel|airbnb|booking|posada|preis|kostet|ticket|buchen|\bbus|fähre|zug\b|verbindung/i;
 const INSPO_CHIPS = ['Langes Wochenende', 'Strand & Sonne', 'Berge & Wandern', 'Städtetrip', 'Mit dem Bus erreichbar', 'Günstig', 'Überrasch mich'];
 const fmtMoney = (n, c) => `${Math.round(n).toLocaleString('de-DE')} ${c}`;
 const tint = { background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: COLOR };
@@ -42,6 +44,7 @@ function Inspiration({ s }) {
       }}
       chips={INSPO_CHIPS}
       webChips={['Was kostet die Anreise gerade?']}
+      autoWeb={TRAVEL_WEB}
       placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD"
     />
   );
@@ -450,10 +453,11 @@ function TripDetail({ s, tr }) {
           prefKey="reise"
           onSave={(chat) => updateTrip(tr.id, { chat })}
           onAsk={(hist, o) => tripAssist(s, tr, hist, o)}
-          webChips={['Wie komme ich hin?', 'Beste Reisezeit und Kosten?', 'Unterkunft finden', 'Restaurant-Tipps', 'Transport zwischen den Stationen']}
+          webChips={['Flüge suchen', 'Unterkunft suchen', 'Bus & Fähren zwischen den Stationen']}
+          autoWeb={TRAVEL_WEB}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyTripProposal(tr.id, sel)}
-          chips={isIdea ? ['Was gibt es dort zu sehen?', 'Schlag mir 2 Routen vor', 'Vergleich meine Routen', 'Wie komme ich hin?'] : ['Alternative Route als Variante', 'Packliste anpassen', 'Unterkunft finden', 'Restaurant-Tipps', 'Sehenswürdigkeiten', 'Transport zwischen den Stationen', 'Was fehlt noch?']}
+          chips={isIdea ? ['Was gibt es dort zu sehen?', 'Schlag mir 2 Routen vor', 'Vergleich meine Routen'] : ['Alternative Route als Variante', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen', 'Was fehlt noch?']}
         />
         <button type="button" className="btn danger" onClick={() => { if (confirm(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
       </main>
