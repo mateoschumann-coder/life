@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../lib/store';
 import { getAi } from '../lib/ai';
-import { clearChat, send, setDraft, setSpeak, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
-import { Back, Icon, toast } from '../components/ui';
+import { clearChat, needsRetry, resend, send, setDraft, setMode, setSpeak, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
+import { Back, Icon, Segmented, toast } from '../components/ui';
 import Proposal from '../components/Proposal';
 
 const SUGGESTIONS = ['Was steht heute an?', 'Wem sollte ich mal wieder schreiben?', 'Plane meine Woche', 'Neues Projekt: '];
 
 export default function Assistent() {
   const s = useStore();
-  const { items, busy, listening, draft } = useChat();
+  const { items, busy, listening, draft, mode } = useChat();
   const endRef = useRef(null);
   const inputRef = useRef(null);
   const ai = getAi();
@@ -29,7 +29,7 @@ export default function Assistent() {
   const toggleMic = () => {
     unlockSpeech();
     if (listening) stopListening();
-    else if (!startListening({ onError: toast })) inputRef.current?.focus();
+    else if (!startListening({ continuous: true, onError: toast })) inputRef.current?.focus();
   };
   const submit = (text) => {
     stopListening();
@@ -42,8 +42,8 @@ export default function Assistent() {
       <header className="chat-head">
         <Back href="#/heute" label="Heute" />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ fontSize: 17, fontWeight: 600 }}>Assistent</span>
-          <span className="tiny">macht Vorschläge, du bestätigst</span>
+          <span style={{ fontSize: 17, fontWeight: 600 }}>{mode === 'coach' ? 'Coach' : 'Assistent'}</span>
+          <span className="tiny">{mode === 'coach' ? 'Gespräch, Ideen, sucht im Internet' : 'trägt ein, du bestätigst'}</span>
         </div>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <button type="button" className="icon-btn" style={{ width: 34, height: 34, background: ai.speak ? 'var(--accent-bg)' : 'var(--fill)', color: ai.speak ? 'var(--accent)' : 'var(--muted)' }} onClick={() => { unlockSpeech(); setSpeak(!ai.speak); }} aria-label={ai.speak ? 'Vorlesen ausschalten' : 'Antworten vorlesen'} aria-pressed={!!ai.speak}>
@@ -53,6 +53,9 @@ export default function Assistent() {
         </div>
       </header>
 
+      <div style={{ padding: '0 16px 8px' }}>
+        <Segmented full options={[{ id: 'assistent', label: 'Assistent' }, { id: 'coach', label: 'Coach' }]} value={mode} onChange={setMode} label="Rolle der KI" />
+      </div>
       <main className="chat-body">
         {!hasKey && (
           <div className="notice" style={{ lineHeight: 1.5 }}>
@@ -62,7 +65,9 @@ export default function Assistent() {
         )}
         {items.length === 0 && hasKey && (
           <div className="notice" style={{ lineHeight: 1.5 }}>
-            Sag oder schreib mir, was du vorhast, z.B. „Erinnere mich Freitag an den Friseur“, „Ich war heute laufen“ oder „Leg ein Projekt für die Brasilien-Reise an“. Ich schlage dir die Änderungen vor, und du bestätigst.
+            {mode === 'coach'
+              ? 'Erzähl mir frei, wie es läuft, was du vorhast oder wo es hakt – auch lange und durcheinander. Ich trage ein, was passt, merke mir das Wichtige und gebe dir Ideen, wie du weiterkommst.'
+              : 'Sag oder schreib mir, was du vorhast, z.B. „Erinnere mich Freitag an den Friseur“, „Ich war heute laufen“ oder „Leg ein Projekt für die Brasilien-Reise an“. Ich schlage dir die Änderungen vor, und du bestätigst.'}
           </div>
         )}
         {items.map((it) =>
@@ -81,6 +86,9 @@ export default function Assistent() {
           )
         )}
         {busy && <div className="bubble ai typing" aria-label="Denkt nach"><span /><span /><span /></div>}
+        {!busy && hasKey && needsRetry(items) && (
+          <button type="button" className="pill on" style={{ alignSelf: 'flex-start' }} onClick={resend}>Nochmal senden</button>
+        )}
         <div ref={endRef} />
       </main>
 

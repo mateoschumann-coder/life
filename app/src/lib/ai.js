@@ -192,37 +192,61 @@ function resultText(item) {
   return 'Mateo hat noch nicht entschieden und schreibt weiter.';
 }
 
-export async function askClaude(s, items) {
+// Zwei Rollen derselben KI: „assistent“ (kurz, trägt ein) und „coach“ (Gespräch, Ideen, darf im Internet suchen)
+const COACH_ROLE = `
+
+DU BIST JETZT IM COACH-MODUS:
+- Du bist Mateos persönlicher Coach und Sparringspartner, nicht nur ein Eingabe-Assistent. Ziel: Er soll vorankommen, nicht perfekt organisiert sein.
+- Wenn er erzählt (auch lange, durcheinander, per Sprache): fasse kurz zusammen, was du verstanden hast, trage alles Passende in EINEM Vorschlag ein (Erledigtes, neue Aufgaben, merken für Ziele/Vorlieben/Probleme, Orte, Events, Projekte) und gib 2–4 konkrete Anstöße oder Ideen, die ihn weiterbringen.
+- Stelle Rückfragen wie ein guter Coach (höchstens 2), z.B. was ihn gerade bremst oder was ihm wichtig ist.
+- Du darfst die Websuche nutzen (höchstens 3-mal), wenn ein konkreter Link, ein Video, ein Rezept, ein Event oder eine Lernquelle wirklich hilft. Erfinde keine Links.
+- Antworten dürfen hier länger sein (bis ca. 12 Zeilen), aber klar gegliedert mit Zeilen, die mit „–“ beginnen.`;
+
+export async function askClaude(s, items, mode = 'assistent') {
   const ai = getAi();
   if (!ai.apiKey) throw new Error('KEIN_SCHLUESSEL');
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': ai.apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: ai.model,
-      max_tokens: 1600,
-      system: buildSystem(s),
-      tools: [TOOL],
-      messages: toApiMessages(items),
-    }),
-  });
-  if (!res.ok) {
-    let msg = '';
-    try {
-      msg = (await res.json())?.error?.message || '';
-    } catch {}
-    throw new Error(explainError(res.status, msg));
+  const coach = mode === 'coach';
+  const tools = coach
+    ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3, user_location: { type: 'approximate', city: 'Buenos Aires', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' } }, TOOL]
+    : [TOOL];
+  const messages = toApiMessages(items);
+  const call = async (body) => {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': ai.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({ model: ai.model, max_tokens: 4096, system: buildSystem(s) + (coach ? COACH_ROLE : ''), ...body }),
+    });
+    if (!res.ok) {
+      let msg = '';
+      try {
+        msg = (await res.json())?.error?.message || '';
+      } catch {}
+      // Websuche im Konto aus: ohne Suche weitermachen
+      if (res.status === 400 && /web_search|web search/i.test(msg) && body.tools.length > 1) return call({ ...body, tools: [TOOL] });
+      throw new Error(explainError(res.status, msg));
+    }
+    const data = await res.json();
+    trackUsage(ai.model, data.usage);
+    return data;
+  };
+  let data = await call({ tools, messages });
+  // Lange Suchen können pausieren: Antwort unverändert zurückschicken und fortsetzen
+  for (let i = 0; i < 3 && data.stop_reason === 'pause_turn'; i++) {
+    data = await call({ tools, messages: [...messages, { role: 'assistant', content: data.content }] });
   }
-  const data = await res.json();
-  trackUsage(ai.model, data.usage);
-  const text = data.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+  let text = data.content.filter((c) => c.type === 'text').map((c) => c.text).join('').trim();
   const tool = data.content.find((c) => c.type === 'tool_use' && c.name === TOOL.name);
-  return { text, toolUseId: tool?.id || null, actions: tool?.input?.aktionen || [] };
+  const actions = Array.isArray(tool?.input?.aktionen) ? tool.input.aktionen : [];
+  const truncated = data.stop_reason === 'max_tokens';
+  if (truncated && !actions.length) text += (text ? '\n\n' : '') + '(Meine Antwort wurde abgeschnitten, bevor ich etwas eintragen konnte. Tippe auf „Nochmal senden“.)';
+  else if (truncated) text += (text ? '\n\n' : '') + '(Meine Antwort wurde abgeschnitten – sag „weiter“, dann mache ich weiter.)';
+  if (!text && !actions.length) text = 'Ich habe dazu gerade keine Antwort erzeugt. Tippe auf „Nochmal senden“ oder formuliere es kurz neu.';
+  return { text, toolUseId: tool && actions.length ? tool.id : null, actions, failed: (truncated || !text) && !actions.length || /keine Antwort erzeugt/.test(text) };
 }
 
 export function explainError(status, msg) {

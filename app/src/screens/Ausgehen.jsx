@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useStore } from '../lib/store';
+import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, setEventStage, updatePlace } from '../lib/actions';
 import {
@@ -11,6 +11,37 @@ import { Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
 const wd = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
 const TAB_KEY = 'life-app-ausgehen-tab';
+
+// Eigene Such-Kategorien: Knöpfe hinzufügen, entfernen (gespeichert in s.profile.chips)
+function SearchChips({ s, kind, defaults, disabled, onPick }) {
+  const [edit, setEdit] = useState(false);
+  const [text, setText] = useState('');
+  const chips = s.profile?.chips?.[kind] ?? defaults;
+  const save = (list) => store.update((d) => {
+    d.profile = { ...d.profile, chips: { ...(d.profile?.chips || {}), [kind]: list } };
+  });
+  return (
+    <>
+      <div className="chips">
+        {chips.map((c) => (
+          <button key={c} type="button" className={edit ? 'chip soft editing' : 'chip soft'} disabled={!edit && disabled} onClick={() => (edit ? save(chips.filter((x) => x !== c)) : onPick(c))} aria-label={edit ? `${c} entfernen` : c}>
+            {c}{edit && <Icon name="x" size={11} />}
+          </button>
+        ))}
+        <button type="button" className="chip soft" onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Kategorien bearbeiten'}>
+          {edit ? 'Fertig' : <Icon name="edit" size={14} />}
+        </button>
+      </div>
+      {edit && (
+        <form className="block-add" onSubmit={(e) => { e.preventDefault(); const t = text.trim(); if (t && !chips.includes(t)) save([...chips, t]); setText(''); }}>
+          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'events' ? 'z.B. Jazz, Padel, Weinproben …' : 'z.B. Sushi, Buchläden, Coworking …'} aria-label="Neue Kategorie" />
+          <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
+        </form>
+      )}
+      {edit && <span className="tiny">Antippen entfernt eine Kategorie. Eigene Knöpfe suchen genau danach.</span>}
+    </>
+  );
+}
 
 function DateBadge({ date }) {
   if (!date) return <span className="date-badge"><span className="tiny">offen</span></span>;
@@ -71,9 +102,7 @@ function Events({ s }) {
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Techno am Samstag, Laufevents …" aria-label="Wonach suchen" />
           <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>
         </form>
-        <div className="chips">
-          {EVENT_CHIPS.map((c) => <button key={c} type="button" className="chip soft" disabled={busy || !hasKey} onClick={() => run(c)}>{c}</button>)}
-        </div>
+        <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={busy || !hasKey} onPick={run} />
         {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
         {busy && (
           <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche auf Passline, Eventbrite, Meetup & Co. … (ca. 20–30 Sek.)</span></div>
@@ -313,9 +342,7 @@ function Orte({ s }) {
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Specialty Coffee in Palermo" aria-label="Orte suchen" />
           <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>
         </form>
-        <div className="chips">
-          {PLACE_CHIPS.map((c) => <button key={c} type="button" className="chip soft" disabled={busy || !hasKey} onClick={() => run(c)}>{c}</button>)}
-        </div>
+        <SearchChips s={s} kind="places" defaults={PLACE_CHIPS} disabled={busy || !hasKey} onPick={run} />
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Empfehlungen … (ca. 20 Sek.)</span></div>}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
         {!busy && search && search.results.filter((r) => r.status === 'neu').map((r) => (

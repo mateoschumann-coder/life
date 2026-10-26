@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { getAi } from '../lib/ai';
-import { send, setDraft, setSpeak, speechAvailable, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
+import { needsRetry, resend, send, setDraft, setMode, setSpeak, speechAvailable, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
 import { Icon, toast } from './ui';
 import Proposal from './Proposal';
 
 export default function FloatingAssistant() {
   const s = useStore();
-  const { items, busy, listening, draft } = useChat();
+  const { items, busy, listening, draft, mode } = useChat();
   const [open, setOpen] = useState(false);
   const [sentAt, setSentAt] = useState(null); // Index der letzten eigenen Nachricht in diesem Fenster
   const ai = getAi();
@@ -118,6 +118,7 @@ export default function FloatingAssistant() {
   // „Erzähl mir, wie es läuft“ (Coach-Karte): Fenster öffnen und zuhören
   const tapRef = useRef(null);
   tapRef.current = () => {
+    setMode('coach');
     if (listening) return;
     setSentAt(items.length);
     if (draft.trim() && open) return;
@@ -148,7 +149,10 @@ export default function FloatingAssistant() {
         <div className="mini" role="dialog" aria-label="Assistent" style={panelStyle}>
           <div className="mini-head" onPointerDown={onHeadDown} onPointerMove={onHeadMove} onPointerUp={onHeadUp} onPointerCancel={onHeadUp} style={{ touchAction: 'none', cursor: 'grab' }}>
             <span className="grip" aria-hidden="true" />
-            <span style={{ fontWeight: 600, fontSize: 15 }}>Assistent</span>
+            <div className="mode-toggle" role="group" aria-label="Rolle der KI">
+              <button type="button" className={mode !== 'coach' ? 'on' : ''} onClick={() => setMode('assistent')} aria-pressed={mode !== 'coach'}>Assistent</button>
+              <button type="button" className={mode === 'coach' ? 'on' : ''} onClick={() => setMode('coach')} aria-pressed={mode === 'coach'}>Coach</button>
+            </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <button type="button" className="icon-btn" style={{ width: 32, height: 32, background: ai.speak ? 'var(--accent-bg)' : 'var(--fill)', color: ai.speak ? 'var(--accent)' : 'var(--muted)' }} onClick={() => setSpeak(!ai.speak)} aria-label={ai.speak ? 'Vorlesen ausschalten' : 'Antworten vorlesen'} aria-pressed={!!ai.speak}>
                 <Icon name={ai.speak ? 'speaker' : 'speakerOff'} size={16} />
@@ -172,6 +176,9 @@ export default function FloatingAssistant() {
                 {reply.error && <div className="mini-ai" style={{ color: 'var(--danger)' }}>{reply.error}</div>}
                 {reply.actions?.length > 0 && <Proposal s={s} item={reply} />}
               </>
+            )}
+            {hasKey && !busy && sentAt !== null && needsRetry(items) && (
+              <button type="button" className="pill on" style={{ alignSelf: 'flex-start' }} onClick={resend}>Nochmal senden</button>
             )}
             {hasKey && !busy && (
               <textarea
