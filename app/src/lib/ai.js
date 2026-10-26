@@ -54,6 +54,7 @@ export function saveChat(items) {
 const ACTION_TYPES = [
   'aufgabe_anlegen', 'aufgabe_erledigen', 'aufgabe_aendern', 'projekt_anlegen', 'rhythmus_anlegen', 'rhythmus_abhaken',
   'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag', 'app_wunsch', 'merken', 'ort_anlegen',
+  'projekt_aendern', 'bausteine_hinzufuegen', 'unterbereich_anlegen', 'aufgabe_loeschen',
 ];
 export const TOOL = {
   name: 'aenderungen_vorschlagen',
@@ -101,6 +102,23 @@ export const TOOL = {
             ort_art: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'], description: 'Für ort_anlegen' },
             war_da: { type: 'boolean', description: 'Für ort_anlegen: true = war schon da, false = will hin' },
             bewertung: { type: 'integer', description: 'Für ort_anlegen: 1–5 Sterne, wenn war_da' },
+            bausteine: {
+              type: 'array',
+              description: 'Für projekt_anlegen oder bausteine_hinzufuegen: Inhalte/Graphen des Projekts',
+              items: {
+                type: 'object',
+                properties: {
+                  typ: { type: 'string', enum: ['kennzahl', 'liste', 'zaehler', 'meilensteine', 'budget', 'notiz'], description: 'kennzahl = Zahl mit Graph (z.B. km/Woche), liste = abhakbare Punkte, zaehler = hochzählen mit Ziel, meilensteine = Etappen, budget = Ausgaben gegen Limit, notiz = Text' },
+                  titel: { type: 'string' },
+                  einheit: { type: 'string' },
+                  ziel: { type: 'number' },
+                  punkte: { type: 'array', items: { type: 'string' } },
+                  text: { type: 'string' },
+                },
+                required: ['typ', 'titel'],
+              },
+            },
+            archivieren: { type: 'boolean', description: 'Für projekt_aendern: true = Projekt abschließen/archivieren' },
             fakt: { type: 'string', description: 'Für merken: dauerhafte Info über Mateo (Ziel, Vorliebe, Interesse, Gewohnheit), kurz in der 3. Person, z.B. „Lernt Italienisch für eine Reise im Mai“' },
           },
           required: ['typ'],
@@ -133,6 +151,7 @@ export function buildSystem(s) {
     heute: t,
     bereiche: areas,
     projekte: projects,
+    projekt_bausteine: s.projects.filter((p) => p.status === 'aktiv' && (p.blocks || []).length).map((p) => ({ projekt: p.id, bausteine: p.blocks.map((b) => b.title) })),
     offene_aufgaben: tasks,
     rhythmen: habits,
     personen: people,
@@ -147,12 +166,13 @@ export function buildSystem(s) {
 So arbeitest du:
 - Antworte auf Deutsch, strukturiert und auf den Punkt: so ausführlich wie nötig, so kurz wie möglich. Meist 3–6 Sätze oder eine gegliederte Liste mit bis zu 7 Punkten; bei Analysen, Rückblicken oder Planungen darf es länger sein, aber immer klar gegliedert. Keine Floskeln („Gern!“, „Natürlich“), keine Wiederholung seiner Frage.
 - Deine Antworten werden oft vorgelesen: schreibe natürliche Sätze; für Listen einfache Zeilen mit „–“, keine Tabellen, kein Fettdruck, keine Überschriften mit #.
+- Du kannst in der App direkt handeln. Mit dem Werkzeug "aenderungen_vorschlagen" kannst du: Aufgaben anlegen/ändern/erledigen/löschen, Projekte anlegen (auch gleich mit Aufgaben und Bausteinen wie Graphen, Listen, Meilensteinen, Budget), Projekte umbenennen/Termin setzen/archivieren, Bausteine zu bestehenden Projekten hinzufügen, Unterbereiche anlegen, Fokus-Themen und Rhythmen anlegen und abhaken, Personen anlegen/ändern und Kontakte notieren, Aktivitäten, Ressourcen, Events, Radar-Einträge und Orte anlegen, dir Dinge merken und App-Wünsche notieren. Sag NIE, dass du etwas nicht kannst, wenn eine dieser Aktionen passt – schlag sie einfach vor. Mateo tippt dann nur noch auf „Übernehmen“ (oder es wird automatisch ausgeführt).
 - Wenn Mateo etwas eintragen, ändern oder planen will, rufe das Werkzeug "aenderungen_vorschlagen" auf. Sag in deinem Text kurz, was du vorschlägst. Behaupte nie, etwas sei schon gespeichert: Mateo muss erst bestätigen.
 - Fasse zusammengehörige Änderungen in EINEM Vorschlag zusammen.
 - Nutze nur IDs aus den Daten unten. Wähle für neue Einträge immer den passendsten Lebensbereich und, wenn klar, den Unterbereich.
 - Relative Angaben wie "morgen" oder "Freitag" rechnest du in ein Datum JJJJ-MM-TT um.
 - Wenn etwas unklar ist, stelle EINE kurze Rückfrage statt zu raten.
-- Die Grundordnung (Säulen, Lebensbereiche) änderst du nie. Du kannst nichts im Internet buchen oder Nachrichten verschicken.
+- Die drei Säulen und Lebensbereiche selbst änderst du nicht (Unterbereiche darfst du anlegen). Du kannst nichts buchen, kaufen oder Nachrichten verschicken.
 - Wenn Mateo die App selbst verändern möchte (Design, neue Funktionen, Fehler), kannst du das nicht direkt. Schlage dann die Aktion "app_wunsch" mit einem klaren titel vor; die Wunschliste setzt Claude später im Code um.
 - Fragen zu seinen Daten (z.B. "Was steht heute an?", "Wem sollte ich schreiben?") beantwortest du direkt aus den Daten.
 - Wenn Mateo frei von seinem Tag oder seiner Woche erzählt (z.B. „War laufen, Python nicht geschafft, mit Lukas telefoniert“): Trage in EINEM Vorschlag alles ein, was passt (aufgabe_erledigen, rhythmus_abhaken, kontakt_notieren, aktivitaet_eintragen, neue Aufgaben). Dauerhafte Infos über ihn (Ziele, Vorlieben, Interessen, Probleme wie „Knie zwickt beim Laufen“, Pläne) speicherst du mit "merken". Antworte kurz und motivierend, gib einen konkreten Anstoß und stelle höchstens EINE Rückfrage, wenn etwas Wichtiges fehlt.
@@ -165,7 +185,10 @@ ${JSON.stringify(data)}`;
 
 // Gesprächsverlauf in das Format der API umwandeln.
 // Ein Vorschlag (tool_use) braucht in der nächsten Nachricht ein Ergebnis (tool_result).
-export function toApiMessages(items) {
+export function toApiMessages(all) {
+  // Nur die letzten ~20 Nachrichten schicken (spart Kosten); muss mit einer eigenen Nachricht beginnen
+  let items = all.slice(-20);
+  while (items.length && items[0].role !== 'user') items = items.slice(1);
   const msgs = [];
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
@@ -176,7 +199,10 @@ export function toApiMessages(items) {
         content.push({ type: 'tool_result', tool_use_id: prev.toolUseId, content: resultText(prev) });
       }
       content.push({ type: 'text', text: it.text });
-      msgs.push({ role: 'user', content });
+      // Zwei eigene Nachrichten hintereinander (z.B. nach einem Fehler) zusammenfassen
+      const last = msgs.at(-1);
+      if (last && last.role === 'user') last.content.push(...content.filter((c) => c.type === 'text'));
+      else msgs.push({ role: 'user', content });
     } else {
       const content = [];
       if (it.text) content.push({ type: 'text', text: it.text });

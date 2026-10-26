@@ -2,12 +2,14 @@
 // teilen sich dasselbe Gespräch, Sprache und Vorlesen.
 import { useSyncExternalStore } from 'react';
 import { askClaude, getAi, loadChat, saveAi, saveChat } from './ai';
-import { applyActions, describe } from './apply';
+import { applyActions, describe, lastProjectId } from './apply';
+import { go } from './router';
 import { store } from './store';
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 let state = { items: loadChat(), busy: false, listening: false, draft: '', mode: getAi().chatMode || 'assistent' };
 const listeners = new Set();
+const snapshots = new Map(); // Stand vor einer Änderung → „Rückgängig“ (nur in dieser Sitzung)
 const set = (patch) => {
   state = { ...state, ...patch };
   if (patch.items) saveChat(state.items);
@@ -43,11 +45,13 @@ async function run(withUser) {
   set({ busy: true });
   try {
     const r = await askClaude(store.get(), withUser, withUser.at(-1)?.mode || state.mode);
-    const reply = {
+    let reply = {
       id: newId(), role: 'assistant', text: r.text, toolUseId: r.toolUseId, actions: r.actions,
       selected: r.actions.map(() => true), status: r.toolUseId ? 'open' : null, failed: r.failed || undefined,
     };
     set({ items: [...withUser, reply], busy: false });
+    // Einstellung „Direkt ausführen“: ohne Nachfrage übernehmen (mit Rückgängig-Knopf)
+    if (reply.status === 'open' && getAi().autoApply) decide(reply.id, true, { auto: true });
     if (getAi().speak) speak(r.text || (r.actions.length ? 'Ich habe dir einen Vorschlag gemacht.' : ''));
   } catch (e) {
     const msg = e.message === 'KEIN_SCHLUESSEL' ? 'Es ist noch kein API-Schlüssel hinterlegt.'
@@ -71,19 +75,32 @@ export function needsRetry(items) {
 }
 
 // Vorschlag übernehmen oder verwerfen
-export function decide(itemId, apply) {
+export function decide(itemId, apply, { auto = false } = {}) {
   const s = store.get();
   let count = 0;
+  let madeProject = false;
   const items = state.items.map((it) => {
     if (it.id !== itemId) return it;
     if (!apply) return { ...it, status: 'rejected' };
     const chosen = it.actions.filter((a, i) => it.selected[i] && describe(s, a).ok);
+    snapshots.set(it.id, s);
     const labels = applyActions(chosen);
     count = labels.length;
-    return { ...it, status: 'applied', appliedLabels: labels };
+    madeProject = chosen.some((a) => a.typ === 'projekt_anlegen');
+    return { ...it, status: 'applied', appliedLabels: labels, auto };
   });
   set({ items });
+  // Neues Projekt gleich öffnen, damit man es sieht
+  if (madeProject && lastProjectId) setTimeout(() => go(`/projekt/${lastProjectId}`), auto ? 600 : 300);
   return count;
+}
+export const canUndo = (itemId) => snapshots.has(itemId);
+export function undo(itemId) {
+  const snap = snapshots.get(itemId);
+  if (!snap) return;
+  store.replace(snap);
+  snapshots.delete(itemId);
+  set({ items: state.items.map((it) => (it.id === itemId ? { ...it, status: 'rejected', appliedLabels: [] } : it)) });
 }
 export function toggleSelected(itemId, idx) {
   set({ items: state.items.map((it) => (it.id === itemId ? { ...it, selected: it.selected.map((v, i) => (i === idx ? !v : v)) } : it)) });

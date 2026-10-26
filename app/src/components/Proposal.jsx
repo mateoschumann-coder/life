@@ -1,6 +1,6 @@
 // Vorschlagskarte des Assistenten: abhaken, übernehmen oder verwerfen
 import { describe } from '../lib/apply';
-import { decide, toggleSelected } from '../lib/chat';
+import { canUndo, decide, toggleSelected, undo } from '../lib/chat';
 import { toast } from './ui';
 
 export default function Proposal({ s, item }) {
@@ -8,7 +8,7 @@ export default function Proposal({ s, item }) {
   const canApply = item.actions.some((a, i) => item.selected?.[i] && describe(s, a).ok);
   return (
     <div className="proposal">
-      <span className="eyebrow" style={{ color: 'var(--accent)' }}>Vorschlag</span>
+      <span className="eyebrow" style={{ color: 'var(--accent)' }}>{item.auto ? 'Ausgeführt' : 'Vorschlag'}</span>
       {item.actions.map((a, i) => {
         const info = describe(s, a);
         return (
@@ -34,7 +34,12 @@ export default function Proposal({ s, item }) {
           <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => decide(item.id, false)}>Verwerfen</button>
         </div>
       )}
-      {item.status === 'applied' && <span className="sub" style={{ color: 'var(--accent)', fontWeight: 600 }}>✓ Übernommen</span>}
+      {item.status === 'applied' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span className="sub" style={{ color: 'var(--accent)', fontWeight: 600 }}>✓ {item.auto ? 'Erledigt' : 'Übernommen'}</span>
+          {canUndo(item.id) && <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={() => { undo(item.id); toast('Rückgängig gemacht'); }}>Rückgängig</button>}
+        </div>
+      )}
       {item.status === 'rejected' && <span className="sub">Verworfen</span>}
       {item.status === 'skipped' && <span className="sub">Nicht übernommen</span>}
     </div>

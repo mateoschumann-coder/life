@@ -97,6 +97,13 @@ export default function Einstellungen() {
                 <span className="tiny" style={{ paddingLeft: 4 }}>{MODELS.find((m) => m.id === ai.model)?.sub}{ai.model === MODELS[0].id ? ' – ideal für Alltagsbefehle' : ' – besser für größere Planungen, etwa 20× teurer'}</span>
               </div>
               <label className="option" style={{ alignItems: 'center' }}>
+                <input type="checkbox" checked={!!ai.autoApply} onChange={(e) => setAi(saveAi({ autoApply: e.target.checked }))} />
+                <span className="row-main">
+                  <span style={{ fontSize: 15, fontWeight: 600 }}>Direkt ausführen, ohne Nachfrage</span>
+                  <span className="tiny">Die KI setzt Änderungen sofort um; mit „Rückgängig“ machst du sie wieder weg</span>
+                </span>
+              </label>
+              <label className="option" style={{ alignItems: 'center' }}>
                 <input type="checkbox" checked={ai.autoCoach !== false} onChange={(e) => setAi(saveAi({ autoCoach: e.target.checked }))} />
                 <span className="row-main">
                   <span style={{ fontSize: 15, fontWeight: 600 }}>Coach kommt jeden Tag von selbst</span>
@@ -175,7 +182,7 @@ export default function Einstellungen() {
           </button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.10 · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.11 · Web-App</span>
       </main>
       <TabBar />
     </>

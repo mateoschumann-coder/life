@@ -1,8 +1,9 @@
 // Übersetzt die Vorschläge der KI in lesbare Sätze und führt sie nach Bestätigung aus.
 import { fmtShort, today } from './dates';
 import { areaOf, subOf } from './logic';
+import { addBlocks, makeBlock } from './blocks';
 import {
-  addMemory, addPlace, updatePlace,
+  addMemory, addPlace, updatePlace, addSub, deleteTask, updateProject,
   addEvent, addHabit, addWish, addProject, addRadarItem, addResource, addTask, logActivity, logContact, savePerson, toggleCheckin, updateTask,
 } from './actions';
 import { store } from './store';
@@ -20,8 +21,43 @@ function where(s, a) {
   return [area?.name, sub?.name].filter(Boolean).join(' › ');
 }
 
+// Die KI nennt manchmal Namen statt IDs („Weiterentwicklung“ statt „entwicklung“): hier großzügig zuordnen
+const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+function findBy(list, val, ...keys) {
+  if (!val) return null;
+  const v = norm(val);
+  return list.find((x) => x.id === val) || list.find((x) => keys.some((k) => norm(x[k]) === v)) || list.find((x) => keys.some((k) => v.length > 3 && (norm(x[k]).includes(v) || v.includes(norm(x[k])))));
+}
+export function normalize(s, a) {
+  const b = { ...a };
+  if (b.bereich_id) {
+    let area = findBy(s.areas, b.bereich_id, 'name');
+    if (!area) area = s.areas.find((x) => x.subs.some((u) => norm(u.name) === norm(b.bereich_id)));
+    b.bereich_id = area?.id || b.bereich_id;
+  }
+  const area = areaOf(s, b.bereich_id);
+  if (b.unterbereich_id && area) b.unterbereich_id = findBy(area.subs, b.unterbereich_id, 'name')?.id || null;
+  if (b.projekt_id) {
+    const p = findBy(s.projects, b.projekt_id, 'name');
+    b.projekt_id = p?.id || b.projekt_id;
+    if (p && !b.bereich_id) b.bereich_id = p.areaId;
+  }
+  if (b.aufgabe_id) b.aufgabe_id = findBy(s.tasks.filter((x) => !x.done || x.id === b.aufgabe_id), b.aufgabe_id, 'title')?.id || b.aufgabe_id;
+  if (b.person_id) b.person_id = findBy(s.people, b.person_id, 'name')?.id || b.person_id;
+  if (b.rhythmus_id) b.rhythmus_id = findBy(s.habits, b.rhythmus_id, 'name')?.id || b.rhythmus_id;
+  if (b.vorlage_id) b.vorlage_id = findBy(s.templates, b.vorlage_id, 'name')?.id || null;
+  // Neues Projekt/Fokus-Thema ohne erkennbaren Bereich: über die Unterbereiche oder den Namen raten, sonst „Weiterentwicklung“
+  if ((b.typ === 'projekt_anlegen' || b.typ === 'rhythmus_anlegen') && !areaOf(s, b.bereich_id)) {
+    b.bereich_id = (findBy(s.areas, b.name, 'name') || s.areas.find((x) => x.subs.some((u) => norm(b.name).includes(norm(u.name)))) || s.areas.find((x) => x.id === 'entwicklung') || s.areas[0]).id;
+    b.geraten = true;
+  }
+  return b;
+}
+const blocksText = (list) => (list || []).map((x) => x.titel).filter(Boolean).join(', ');
+
 // Liefert { ok, label } – ok=false, wenn die Aktion nicht ausführbar ist (z.B. unbekannte ID)
-export function describe(s, a) {
+export function describe(s, raw) {
+  const a = normalize(s, raw);
   const join = (...p) => p.filter(Boolean).join(' · ');
   const task = a.aufgabe_id && s.tasks.find((x) => x.id === a.aufgabe_id);
   const habit = a.rhythmus_id && s.habits.find((x) => x.id === a.rhythmus_id);
@@ -36,8 +72,20 @@ export function describe(s, a) {
     case 'projekt_anlegen': {
       const tpl = a.vorlage_id && s.templates.find((x) => x.id === a.vorlage_id);
       const n = (a.aufgaben || []).length;
-      return { ok: !!a.name && !!areaOf(s, a.bereich_id), label: join(`Projekt: ${a.name}`, where(s, a), tpl && `Vorlage ${tpl.name}`, n && `${n} Aufgaben`, a.faellig && `bis ${date(a.faellig)}`) };
+      return { ok: !!a.name && !!areaOf(s, a.bereich_id), label: join(`Projekt: ${a.name}`, where(s, a), tpl && `Vorlage ${tpl.name}`, n && `${n} Aufgaben`, (a.bausteine || []).length && `Bausteine: ${blocksText(a.bausteine)}`, a.faellig && `bis ${date(a.faellig)}`) };
     }
+    case 'projekt_aendern': {
+      const p = s.projects.find((x) => x.id === a.projekt_id);
+      return { ok: !!p, label: join(`Projekt ändern: ${p?.name || 'unbekanntes Projekt'}`, a.name && `neuer Name „${a.name}“`, a.faellig && `bis ${date(a.faellig)}`, a.archivieren && 'archivieren') };
+    }
+    case 'bausteine_hinzufuegen': {
+      const p = s.projects.find((x) => x.id === a.projekt_id);
+      return { ok: !!p && (a.bausteine || []).length > 0, label: join(`Bausteine für ${p?.name || 'unbekanntes Projekt'}`, blocksText(a.bausteine)) };
+    }
+    case 'unterbereich_anlegen':
+      return { ok: !!areaOf(s, a.bereich_id) && !!a.name, label: `Unterbereich: ${a.name} in ${areaOf(s, a.bereich_id)?.name || '?'}` };
+    case 'aufgabe_loeschen':
+      return { ok: !!task, label: `Löschen: ${task?.title || 'unbekannte Aufgabe'}` };
     case 'rhythmus_anlegen':
       return { ok: !!a.name && !!areaOf(s, a.bereich_id), label: join(`${a.anzahl ? 'Rhythmus' : 'Fokus-Thema'}: ${a.name}`, a.anzahl ? `${a.anzahl}× pro ${a.zeitraum === 'monat' ? 'Monat' : 'Woche'}` : 'ohne feste Zahl', where(s, a)) };
     case 'rhythmus_abhaken':
@@ -67,7 +115,9 @@ export function describe(s, a) {
   }
 }
 
-export function applyAction(s, a) {
+export let lastProjectId = null;
+export function applyAction(s, raw) {
+  const a = normalize(s, raw);
   const area = areaOf(s, a.bereich_id) ? a.bereich_id : null;
   const sub = area && subOf(areaOf(s, area), a.unterbereich_id) ? a.unterbereich_id : null;
   const proj = a.projekt_id && s.projects.some((p) => p.id === a.projekt_id) ? a.projekt_id : null;
@@ -85,9 +135,25 @@ export function applyAction(s, a) {
     }
     case 'projekt_anlegen': {
       const id = addProject({ name: a.name, areaId: area, subId: sub, due: d(a.faellig), templateId: a.vorlage_id || null });
-      (a.aufgaben || []).forEach((title) => addTask({ title, projectId: id }));
+      (a.aufgaben || []).forEach((title) => addTask({ title: typeof title === 'string' ? title : title?.titel || '', projectId: id }));
+      if ((a.bausteine || []).length) addBlocks(id, a.bausteine.map(makeBlock));
+      lastProjectId = id;
       return id;
     }
+    case 'projekt_aendern': {
+      const patch = {};
+      if (a.name) patch.name = a.name;
+      if (d(a.faellig)) patch.due = a.faellig;
+      if (a.archivieren) patch.status = 'archiviert';
+      return updateProject(a.projekt_id, patch);
+    }
+    case 'bausteine_hinzufuegen':
+      lastProjectId = a.projekt_id;
+      return addBlocks(a.projekt_id, a.bausteine.map(makeBlock));
+    case 'unterbereich_anlegen':
+      return addSub(a.bereich_id, a.name);
+    case 'aufgabe_loeschen':
+      return deleteTask(a.aufgabe_id);
     case 'rhythmus_anlegen':
       return addHabit({ name: a.name, areaId: area, subId: sub, count: a.anzahl || 0, period: a.zeitraum === 'monat' ? 'monat' : 'woche' });
     case 'rhythmus_abhaken': {
@@ -140,6 +206,7 @@ export function applyAction(s, a) {
 
 // Führt die ausgewählten Aktionen aus und gibt die gespeicherten Beschreibungen zurück
 export function applyActions(actions) {
+  lastProjectId = null;
   const labels = [];
   actions.forEach((a) => {
     const s = store.get();
