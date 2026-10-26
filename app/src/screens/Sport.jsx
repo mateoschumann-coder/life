@@ -3,7 +3,7 @@ import { useStore } from '../lib/store';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addProject, addTask } from '../lib/actions';
 import {
-  addSession, addSport, addSportEvent, deleteSession, removeSportEvent, searchSportEvents, sportRegions, setSportRegions, sportPeriods, setSportPeriods, sportCoach, SPORT_EVENT_STATUS, updateSportEvent, fmtDuration, fmtPace, guessSportName, hasDistance, lastAnalysis, parseDuration, parseGarminCsv,
+  addSession, addSport, addSportEvent, deleteSession, removeSportEvent, searchSportEvents, distOf, sportRegions, setSportRegions, sportPeriods, setSportPeriods, sportCoach, SPORT_EVENT_STATUS, updateSportEvent, fmtDuration, fmtPace, guessSportName, hasDistance, lastAnalysis, parseDuration, parseGarminCsv,
   removeSport, SPORT_PRESETS, updateSport, weekStats,
 } from '../lib/health';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -165,7 +165,7 @@ function SportsPage({ s }) {
     <div className="row" style={{ minHeight: 60 }}>
       <span className="row-main">
         <span className="row-title strong">{e.name}</span>
-        <span className="row-meta">{[when(e.date, t), e.place, e.result && `Ergebnis: ${e.result}`, e.note].filter(Boolean).join(' · ')}</span>
+        <span className="row-meta">{[when(e.date, t), e.place, distOf(e), e.result && `Ergebnis: ${e.result}`].filter(Boolean).join(' · ')}</span>
       </span>
       {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
       {children}
@@ -191,6 +191,7 @@ function SportsPage({ s }) {
             <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder="z.B. 21K de Buenos Aires" aria-label="Name" autoFocus />
             <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
             <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
+            <input className="input" value={f.dist || ''} onChange={(ev) => setF({ ...f, dist: ev.target.value })} placeholder="Distanz, z.B. 21 km (optional)" aria-label="Distanz" />
             <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
             <button type="submit" className="btn small" disabled={!f.name.trim() || !f.sportId}>Notieren</button>
           </form>
@@ -262,7 +263,7 @@ function SportsPage({ s }) {
             <div key={e.id} className="option" style={{ alignItems: 'center' }}>
               <span className="row-main">
                 <span style={{ fontSize: 15, fontWeight: 600 }}><SportTag s={s} id={e.sportId} />{e.name}</span>
-                <span className="tiny">{[e.date && fmtShort(e.date), e.place, e.note].filter(Boolean).join(' · ')}</span>
+                <span className="tiny">{[e.date && fmtShort(e.date), e.place, e.dist].filter(Boolean).join(' · ')}</span>
               </span>
               {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
               {(() => {

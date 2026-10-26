@@ -368,7 +368,7 @@ export function healthDue(s, day, within = 0) {
 
 // ---------- Sport: Events (Rennen, Turniere, Lauftreffs) und Coach-Chat ----------
 export const SPORT_EVENT_STATUS = { interessiert: 'Interessiert', angemeldet: 'Angemeldet', dabei: 'Dabei gewesen' };
-export function addSportEvent({ sportId, name, date = '', place = '', url = '', note = '', status = 'interessiert' }) {
+export function addSportEvent({ sportId, name, date = '', place = '', url = '', note = '', dist = '', status = 'interessiert' }) {
   const n = String(name || '').trim();
   if (!n) return null;
   const s = store.get();
@@ -376,7 +376,7 @@ export function addSportEvent({ sportId, name, date = '', place = '', url = '', 
   const id = uid();
   store.update((d) => {
     d.sportEvents = d.sportEvents || [];
-    d.sportEvents.push({ id, sportId, name: n, date: /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : '', place, url: /^https?:\/\//.test(url || '') ? url : '', note, status, result: '' });
+    d.sportEvents.push({ id, sportId, name: n, date: /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : '', place, url: /^https?:\/\//.test(url || '') ? url : '', note, dist, status, result: '' });
   });
   return id;
 }
@@ -390,7 +390,7 @@ const SPORT_EVENT_TOOL = {
     type: 'object',
     properties: {
       hinweis: { type: 'string' },
-      events: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, datum: { type: 'string', description: 'JJJJ-MM-TT, falls bekannt' }, ort: { type: 'string' }, details: { type: 'string', description: 'Distanz/Format, Preis, Anmeldeschluss' }, warum: { type: 'string' }, url: { type: 'string', description: 'Nur aus Suchergebnissen, sonst leer' } }, required: ['name'] } },
+      events: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, datum: { type: 'string', description: 'JJJJ-MM-TT, falls bekannt' }, ort: { type: 'string' }, distanz: { type: 'string', description: 'Nur die Distanz(en), ganz kurz, z.B. „21 km“ oder „10/21/42 km“; leer, wenn nicht zutreffend' }, url: { type: 'string', description: 'Nur aus Suchergebnissen, sonst leer' } }, required: ['name'] } },
     },
     required: ['events'],
   },
@@ -411,7 +411,7 @@ Region: ${where} – suche nur dort (bei „Argentinien“ im ganzen Land, bei e
 Zeitraum: ${period || 'die nächsten 6 Monate'} (ab heute) – nur Events in diesem Zeitraum.
 ${named ? `Mateos Suchwunsch: „${named}“. Wenn das wie der Name eines konkreten Rennens/Events klingt, finde GENAU dieses Event zuerst (nächste Ausgabe mit Datum, Ort, Anmelde-Link) und gib es auf jeden Fall als erstes zurück; danach ähnliche Events.` : 'Gib einen möglichst vollständigen Überblick über die kommenden Events in diesem Zeitraum.'}
 ${web ? 'Suche gezielt, höchstens 4-mal: zuerst nach dem genannten Namen (falls vorhanden), dann Kalender-Seiten mit vielen Terminen (auf Spanisch, z.B. „calendario carreras 2026 2027 <Region>“). Gib nur echte Events aus den Suchergebnissen mit Link zurück.' : 'Ohne Internet: nenne bekannte, regelmäßig stattfindende Events aus deinem Wissen (z.B. jährliche Rennen mit ungefährem Monat), ohne erfundene Daten oder Links; sag im hinweis, dass Mateo für aktuelle Termine „Mit Internet“ wählen kann.'}
-Gib bis zu 12 Events (bei mehreren Sportarten gemischt) mit "events_zeigen" zurück, sortiert nach Datum – auch solche, die Mateo sich schon gemerkt hat. "sportart" genau wie in der Liste. Deutsch, kurz.`;
+Pro Event nur: name, datum, ort (kurz, z.B. Stadt/Viertel), distanz, url – keine Beschreibungen. Gib bis zu 12 Events (bei mehreren Sportarten gemischt) mit "events_zeigen" zurück, sortiert nach Datum – auch solche, die Mateo sich schon gemerkt hat. "sportart" genau wie in der Liste. Deutsch, kurz.`;
   const tool = JSON.parse(JSON.stringify(SPORT_EVENT_TOOL));
   tool.input_schema.properties.events.items.properties.sportart = { type: 'string', enum: names };
   const r = await searchWithTool({ system, user: query || `Welche Events gibt es in den nächsten Monaten (${names.join(', ')})?`, tool, maxUses: web ? 4 : 0, label: 'Sport-Events suchen' });
@@ -421,7 +421,7 @@ Gib bis zu 12 Events (bei mehreren Sportarten gemischt) mit "events_zeigen" zur�
       id: 'se' + i + Date.now().toString(36),
       sportId: (sports.find((x) => norm(x.name) === norm(e.sportart)) || sports[0]).id,
       name: e.name, date: /^\d{4}-\d{2}-\d{2}$/.test(e.datum || '') ? e.datum : '', place: e.ort || '',
-      note: [e.details, e.warum].filter(Boolean).join(' · '), url: /^https?:\/\//.test(e.url || '') ? e.url : '',
+      dist: String(e.distanz || '').slice(0, 30), note: '', url: /^https?:\/\//.test(e.url || '') ? e.url : '',
     })),
   };
 }
@@ -476,3 +476,10 @@ export const sportRegions = (s) => s.profile?.sportRegions || ['Buenos Aires', '
 export const setSportRegions = (list) => store.update((s) => { s.profile = { ...(s.profile || {}), sportRegions: list }; });
 export const sportPeriods = (s) => s.profile?.sportPeriods || ['Diesen Monat', 'Nächste 3 Monate', 'Dieses Jahr', 'Nächstes Jahr'];
 export const setSportPeriods = (list) => store.update((s) => { s.profile = { ...(s.profile || {}), sportPeriods: list }; });
+
+// Kurze Distanz-Angabe eines Sport-Events (auch für alte Einträge mit langer Notiz)
+export function distOf(e) {
+  if (e.dist) return e.dist;
+  const m = String(e.note || '').match(/\d+(?:[.,]\d+)?\s?(?:km|K\b)(?:\s?\/\s?\d+(?:[.,]\d+)?\s?(?:km|K\b))*/i);
+  return m ? m[0] : '';
+}
