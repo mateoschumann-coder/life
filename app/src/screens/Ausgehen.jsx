@@ -91,18 +91,19 @@ function Events({ s }) {
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(lastEventSearch);
   const [links, setLinks] = useState(lastEventLinks);
-  const [mode, setMode] = useState('links');
+  const mode = 'web';
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
 
   // web = konkrete Events per Websuche (ca. 3–5 Cent); sonst Such-Links (unter 0,5 Cent)
-  const run = async (query, web = false) => {
+  const run = async (query, web = true) => {
     if (!query.trim() || busy) return;
     setBusy(web ? 'web' : 'links');
     setErr(null);
     try {
-      if (web) { setSearch(await searchEvents(s, query.trim())); setMode('web'); } else { setLinks(await eventLinks(s, query.trim())); setMode('links'); }
+      if (web) setSearch(await searchEvents(s, query.trim()));
+      else setLinks(await eventLinks(s, query.trim()));
       setQ('');
     } catch (e) {
       setErr(errText(e));
@@ -134,11 +135,11 @@ function Events({ s }) {
         <form onSubmit={(e) => { e.preventDefault(); run(q); }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Techno am Samstag, Laufevents …" aria-label="Wonach suchen" />
           <div className="search-row">
-            <button type="submit" className="btn small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey}>{busy === 'links' ? '…' : 'Gute Suchen finden'}</button>
+            <button type="submit" className="btn small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey}>{busy ? '…' : '🔍 Events suchen'}</button>
           </div>
         </form>
         <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={!!busy || !hasKey} onPick={(c) => run(c)} />
-        <span className="tiny">Die KI baut gezielte Suchen passend zu dir – Google Events, Instagram, Eventbrite & Meetup. Du tippst und siehst alles Aktuelle (unter 0,5 Cent).</span>
+        <span className="tiny">Die KI sucht selbst im Internet (Passline, Eventbrite, Instagram & Co.) und zeigt dir konkrete Events passend zu deinen Vorlieben – ca. 3–5 Cent pro Suche.</span>
         <Prefs s={s} />
         {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
         {busy && (
