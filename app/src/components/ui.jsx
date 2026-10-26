@@ -49,6 +49,8 @@ const PATHS = {
   plusCircle: <><circle cx="12" cy="12" r="8.5" /><path d="M12 8v8M8 12h8" /></>,
   flag: <><path d="M5.5 21V4" /><path d="M5.5 4.5h11l-2 4 2 4h-11" /></>,
   minus: <path d="M5 12h14" />,
+  calendar: <><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" /><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" /></>,
+  brain: <><path d="M9.5 4.5a3 3 0 0 0-3 3 3 3 0 0 0-2 5.2 3 3 0 0 0 2.5 4.8 3 3 0 0 0 3 2.5V4.5z" /><path d="M14.5 4.5a3 3 0 0 1 3 3 3 3 0 0 1 2 5.2 3 3 0 0 1-2.5 4.8 3 3 0 0 1-3 2.5V4.5z" /></>,
   more: <><circle cx="5.5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="18.5" cy="12" r="1.3" /></>,
 };
 

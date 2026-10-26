@@ -65,5 +65,6 @@ export function seed() {
     events: [],
     radar: { topics: ['KI-Entwicklungen', 'Startups und VC', 'Portugiesisch'], items: [] },
     wishes: [], // Wunschliste für Änderungen an der App selbst
+    memory: [], // Was Life über Mateo weiß (aus Erzählungen gelernt, jederzeit änderbar)
   };
 }

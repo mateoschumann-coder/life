@@ -5,10 +5,10 @@ import { today } from './dates';
 const now = () => new Date().toISOString();
 
 // Aufgaben
-export function addTask({ title, areaId = null, subId = null, projectId = null, due = null, time = null, idea = false }) {
+export function addTask({ title, areaId = null, subId = null, projectId = null, due = null, time = null, idea = false, url = null }) {
   if (!title.trim()) return;
   store.update((s) => {
-    s.tasks.push({ id: uid(), title: title.trim(), areaId, subId, projectId, due, time, idea, done: false, doneAt: null, createdAt: now() });
+    s.tasks.push({ id: uid(), title: title.trim(), areaId, subId, projectId, due, time, idea, url: url || undefined, done: false, doneAt: null, createdAt: now() });
   });
 }
 // Aus einer Idee ein Projekt machen
@@ -255,5 +255,26 @@ export function toggleWish(id) {
 export function deleteWish(id) {
   store.update((s) => {
     s.wishes = s.wishes.filter((x) => x.id !== id);
+  });
+}
+
+// Gedächtnis: was Life über Mateo weiß (Ziele, Vorlieben, Interessen)
+export function addMemory(text, areaId = null) {
+  if (!text || !text.trim()) return;
+  store.update((s) => {
+    const t = text.trim();
+    if (s.memory.some((m) => m.text.toLowerCase() === t.toLowerCase())) return;
+    s.memory.push({ id: uid(), text: t, areaId, createdAt: now() });
+  });
+}
+export function updateMemory(id, text) {
+  store.update((s) => {
+    const m = s.memory.find((x) => x.id === id);
+    if (m) m.text = text;
+  });
+}
+export function deleteMemory(id) {
+  store.update((s) => {
+    s.memory = s.memory.filter((x) => x.id !== id);
   });
 }

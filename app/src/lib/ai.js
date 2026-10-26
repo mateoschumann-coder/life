@@ -25,13 +25,14 @@ export function saveAi(patch) {
 }
 
 // Kosten pro Monat mitschreiben (geschätzt aus den Token-Zahlen der API)
-function trackUsage(model, usage) {
+export function trackUsage(model, usage) {
   const m = MODELS.find((x) => x.id === model) || MODELS[0];
   const month = today().slice(0, 7);
   const ai = getAi();
   const u = ai.usage[month] || { requests: 0, cost: 0 };
   u.requests += 1;
   u.cost += ((usage?.input_tokens || 0) * m.price.in + (usage?.output_tokens || 0) * m.price.out) / 1e6;
+  u.cost += (usage?.server_tool_use?.web_search_requests || 0) * 0.01; // Websuche: 10 $ pro 1000 Suchen
   saveAi({ usage: { ...ai.usage, [month]: u } });
 }
 export function monthUsage() {
@@ -52,7 +53,7 @@ export function saveChat(items) {
 // Das Werkzeug, mit dem die KI Änderungen VORSCHLÄGT (nichts wird ohne Bestätigung gespeichert)
 const ACTION_TYPES = [
   'aufgabe_anlegen', 'aufgabe_erledigen', 'aufgabe_aendern', 'projekt_anlegen', 'rhythmus_anlegen', 'rhythmus_abhaken',
-  'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag', 'app_wunsch',
+  'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag', 'app_wunsch', 'merken',
 ];
 export const TOOL = {
   name: 'aenderungen_vorschlagen',
@@ -96,6 +97,7 @@ export const TOOL = {
             reise: { type: 'boolean' },
             warum: { type: 'string' },
             thema: { type: 'string' },
+            fakt: { type: 'string', description: 'Für merken: dauerhafte Info über Mateo (Ziel, Vorliebe, Interesse, Gewohnheit), kurz in der 3. Person, z.B. „Lernt Italienisch für eine Reise im Mai“' },
           },
           required: ['typ'],
         },
@@ -133,6 +135,7 @@ export function buildSystem(s) {
     vorlagen: s.templates.map((x) => ({ id: x.id, name: x.name })),
     radar_themen: s.radar.topics,
     events: s.events.map((e) => ({ name: e.name, datum: e.date, status: e.stage })),
+    was_ich_ueber_mateo_weiss: (s.memory || []).map((m) => m.text),
   };
   return `Du bist der persönliche Assistent in Mateos Life-App. Heute ist ${fmtLong(t)} (${t}). Mateo lebt in Buenos Aires.
 
@@ -147,6 +150,8 @@ So arbeitest du:
 - Die Grundordnung (Säulen, Lebensbereiche) änderst du nie. Du kannst nichts im Internet buchen oder Nachrichten verschicken.
 - Wenn Mateo die App selbst verändern möchte (Design, neue Funktionen, Fehler), kannst du das nicht direkt. Schlage dann die Aktion "app_wunsch" mit einem klaren titel vor; die Wunschliste setzt Claude später im Code um.
 - Fragen zu seinen Daten (z.B. "Was steht heute an?", "Wem sollte ich schreiben?") beantwortest du direkt aus den Daten.
+- Wenn Mateo frei von seinem Tag oder seiner Woche erzählt (z.B. „War laufen, Python nicht geschafft, mit Lukas telefoniert“): Trage in EINEM Vorschlag alles ein, was passt (aufgabe_erledigen, rhythmus_abhaken, kontakt_notieren, aktivitaet_eintragen, neue Aufgaben). Dauerhafte Infos über ihn (Ziele, Vorlieben, Interessen, Probleme wie „Knie zwickt beim Laufen“, Pläne) speicherst du mit "merken". Antworte kurz und motivierend, gib einen konkreten Anstoß und stelle höchstens EINE Rückfrage, wenn etwas Wichtiges fehlt.
+- Berücksichtige immer, was du über Mateo weißt (was_ich_ueber_mateo_weiss).
 
 Mateos aktuelle Daten (JSON):
 ${JSON.stringify(data)}`;
@@ -214,7 +219,7 @@ export async function askClaude(s, items) {
   return { text, toolUseId: tool?.id || null, actions: tool?.input?.aktionen || [] };
 }
 
-function explainError(status, msg) {
+export function explainError(status, msg) {
   if (status === 401) return 'Der API-Schlüssel ist ungültig. Bitte in den Einstellungen prüfen.';
   if (status === 403) return 'Der Schlüssel hat keine Berechtigung. Bitte in der Anthropic-Konsole prüfen.';
   if (status === 429) return 'Zu viele Anfragen oder Monatslimit erreicht. Kurz warten oder das Limit in der Konsole prüfen.';

@@ -9,6 +9,7 @@ import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { clothingTip, dayForecast, describeCode, loadWeather } from '../lib/weather';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
+import Coach from '../components/Coach';
 
 const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const monthFmt = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
@@ -167,7 +168,7 @@ export default function Heute() {
         const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
         const areaId = proj ? proj.areaId : x.areaId;
         list.push({
-          key: 't' + x.id, done: x.done, onCheck: () => toggleTask(x.id), title: x.title, time: x.time,
+          key: 't' + x.id, done: x.done, onCheck: () => toggleTask(x.id), title: x.title, time: x.time, url: x.url,
           color: pillarColor(areaId), meta: proj ? proj.name : areaOf(s, areaId)?.name || 'Aufgabe',
         });
       });
@@ -228,6 +229,7 @@ export default function Heute() {
         <span className="row-meta" style={{ color: i.overdue ? 'var(--danger)' : undefined }}><Dot small color={i.color} />{i.meta}</span>
       </div>
       {i.wa && !i.done && <a className="pill" href={i.wa} target="_blank" rel="noreferrer">WhatsApp</a>}
+      {i.url && !i.done && <a className="pill" href={i.url} target="_blank" rel="noreferrer" aria-label={`Link zu ${i.title} öffnen`}><Icon name="link" size={14} /></a>}
       {i.time && <span className="row-side" style={{ fontSize: 14 }}>{i.time}</span>}
     </div>
   );
@@ -253,6 +255,7 @@ export default function Heute() {
           </section>
         )}
 
+        <Coach s={s} />
         <WeatherCard day={day} t={t} />
 
         {/* Wochenleiste */}
@@ -317,7 +320,6 @@ export default function Heute() {
           </section>
         )}
 
-        <CheckIn s={s} />
 
         {attention.length > 0 && (
           <section className="group">

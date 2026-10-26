@@ -96,6 +96,13 @@ export default function Einstellungen() {
                 <Segmented full options={MODELS.map((m) => ({ id: m.id, label: m.label }))} value={ai.model} onChange={(v) => setAi(saveAi({ model: v }))} label="Modell" />
                 <span className="tiny" style={{ paddingLeft: 4 }}>{MODELS.find((m) => m.id === ai.model)?.sub}{ai.model === MODELS[0].id ? ' – ideal für Alltagsbefehle' : ' – besser für größere Planungen, etwa 20× teurer'}</span>
               </div>
+              <label className="option" style={{ alignItems: 'center' }}>
+                <input type="checkbox" checked={ai.autoCoach !== false} onChange={(e) => setAi(saveAi({ autoCoach: e.target.checked }))} />
+                <span className="row-main">
+                  <span style={{ fontSize: 15, fontWeight: 600 }}>Coach kommt jeden Tag von selbst</span>
+                  <span className="tiny">Beim ersten Öffnen am Tag: Anstöße mit Websuche (ca. 3–5 Cent pro Tag)</span>
+                </span>
+              </label>
               <span className="sub">Diesen Monat: {usage.requests} Anfragen · ca. {usage.cost < 0.01 ? 'unter 0,01' : usage.cost.toFixed(2).replace('.', ',')} $</span>
               <button type="button" className="btn danger small" onClick={() => confirm('Schlüssel von diesem iPhone entfernen?') && setAi(saveAi({ apiKey: '' }))}>Schlüssel entfernen</button>
             </>
@@ -109,6 +116,10 @@ export default function Einstellungen() {
         </section>
 
         <section className="list">
+          <a href="#/gedaechtnis" className="row">
+            <span className="row-main"><span className="row-title">Was Life über dich weiß</span><span className="row-meta">{(s.memory || []).length} Einträge · Grundlage für den Coach</span></span>
+            <Chevron />
+          </a>
           <a href="#/vorlagen" className="row">
             <span className="row-main"><span className="row-title">Projekt-Vorlagen</span><span className="row-meta">{s.templates.length} Vorlagen</span></span>
             <Chevron />
@@ -164,7 +175,7 @@ export default function Einstellungen() {
           </button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.7 · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.8 · Web-App</span>
       </main>
       <TabBar />
     </>
