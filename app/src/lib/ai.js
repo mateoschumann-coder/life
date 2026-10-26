@@ -53,7 +53,7 @@ export function saveChat(items) {
 // Das Werkzeug, mit dem die KI Änderungen VORSCHLÄGT (nichts wird ohne Bestätigung gespeichert)
 const ACTION_TYPES = [
   'aufgabe_anlegen', 'aufgabe_erledigen', 'aufgabe_aendern', 'projekt_anlegen', 'rhythmus_anlegen', 'rhythmus_abhaken',
-  'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag', 'app_wunsch', 'merken',
+  'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag', 'app_wunsch', 'merken', 'ort_anlegen',
 ];
 export const TOOL = {
   name: 'aenderungen_vorschlagen',
@@ -97,6 +97,10 @@ export const TOOL = {
             reise: { type: 'boolean' },
             warum: { type: 'string' },
             thema: { type: 'string' },
+            adresse: { type: 'string', description: 'Für ort_anlegen: Adresse oder Viertel' },
+            ort_art: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'], description: 'Für ort_anlegen' },
+            war_da: { type: 'boolean', description: 'Für ort_anlegen: true = war schon da, false = will hin' },
+            bewertung: { type: 'integer', description: 'Für ort_anlegen: 1–5 Sterne, wenn war_da' },
             fakt: { type: 'string', description: 'Für merken: dauerhafte Info über Mateo (Ziel, Vorliebe, Interesse, Gewohnheit), kurz in der 3. Person, z.B. „Lernt Italienisch für eine Reise im Mai“' },
           },
           required: ['typ'],
@@ -134,6 +138,7 @@ export function buildSystem(s) {
     personen: people,
     vorlagen: s.templates.map((x) => ({ id: x.id, name: x.name })),
     radar_themen: s.radar.topics,
+    orte: (s.places || []).map((p) => ({ name: p.name, art: p.category, status: p.status })),
     events: s.events.map((e) => ({ name: e.name, datum: e.date, status: e.stage })),
     was_ich_ueber_mateo_weiss: (s.memory || []).map((m) => m.text),
   };
@@ -152,6 +157,7 @@ So arbeitest du:
 - Fragen zu seinen Daten (z.B. "Was steht heute an?", "Wem sollte ich schreiben?") beantwortest du direkt aus den Daten.
 - Wenn Mateo frei von seinem Tag oder seiner Woche erzählt (z.B. „War laufen, Python nicht geschafft, mit Lukas telefoniert“): Trage in EINEM Vorschlag alles ein, was passt (aufgabe_erledigen, rhythmus_abhaken, kontakt_notieren, aktivitaet_eintragen, neue Aufgaben). Dauerhafte Infos über ihn (Ziele, Vorlieben, Interessen, Probleme wie „Knie zwickt beim Laufen“, Pläne) speicherst du mit "merken". Antworte kurz und motivierend, gib einen konkreten Anstoß und stelle höchstens EINE Rückfrage, wenn etwas Wichtiges fehlt.
 - Berücksichtige immer, was du über Mateo weißt (was_ich_ueber_mateo_weiss).
+- Wenn Mateo einen Ort (Bar, Café, Restaurant …) erwähnt, den er mag oder ausprobieren will, schlage "ort_anlegen" vor (name, ort_art, adresse, war_da, bewertung, notiz). Er sieht ihn dann auf seiner Karte unter „Ausgehen“.
 
 Mateos aktuelle Daten (JSON):
 ${JSON.stringify(data)}`;

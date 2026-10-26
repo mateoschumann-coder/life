@@ -306,3 +306,22 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .pill.on { background: var(--primary); color: var(--on-primary); }
 .coach-foot { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding-top: 4px; }
 .tell { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; min-height: 40px; padding: 0 16px; background: var(--fill); color: var(--text); font-size: 15px; font-weight: 600; }
+
+/* Ausgehen */
+.chip.soft { background: var(--fill); font-size: 14px; min-height: 34px; }
+.chip:disabled { opacity: .5; }
+.date-badge { width: 44px; min-height: 44px; border-radius: 12px; background: var(--accent-bg); color: var(--accent); display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1.1; }
+.date-badge b { font-size: 18px; }
+.date-badge .tiny { color: inherit; }
+.map { position: relative; overflow: hidden; border-radius: 18px; background: #e8e6e1; touch-action: none; box-shadow: var(--shadow); user-select: none; -webkit-user-select: none; }
+.map img { pointer-events: none; }
+.pin { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2.5px solid #fff; background: var(--c); box-shadow: 0 1px 4px rgba(0,0,0,.35); padding: 0; }
+.pin.on { width: 24px; height: 24px; margin: -12px 0 0 -12px; z-index: 2; }
+.pin-label { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); background: var(--card); color: var(--text); font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 8px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.map-zoom { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.map-zoom button { width: 36px; height: 36px; border: 0; background: var(--card); color: var(--text); display: flex; align-items: center; justify-content: center; }
+.map-zoom button + button { border-top: 0.5px solid var(--line); }
+.map-attr { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: #555; background: rgba(255,255,255,.7); padding: 1px 5px; border-radius: 4px; }
+.map-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--card); padding: 8px 12px; border-radius: 10px; font-size: 14px; color: var(--muted); box-shadow: var(--shadow); }
+.cat-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+@media (prefers-color-scheme: dark) { .map { background: #262626; } }

@@ -15,6 +15,7 @@ import Vorlagen from './screens/Vorlagen';
 import Assistent from './screens/Assistent';
 import Wuensche from './screens/Wuensche';
 import Gedaechtnis from './screens/Gedaechtnis';
+import Ausgehen from './screens/Ausgehen';
 import FloatingAssistant from './components/FloatingAssistant';
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
     case 'assistent': screen = <Assistent />; break;
     case 'wuensche': screen = <Wuensche />; break;
     case 'gedaechtnis': screen = <Gedaechtnis />; break;
+    case 'ausgehen': screen = <Ausgehen />; break;
     case 'projekt': screen = <Projekt key={a} id={a} />; break;
     case 'erfassen': screen = <Erfassen />; break;
     case 'menschen': screen = <Menschen />; break;

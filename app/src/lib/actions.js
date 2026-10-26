@@ -219,10 +219,40 @@ export function deleteRadarItem(id) {
 // Events
 export const STAGES = ['entdeckt', 'interessiert', 'zugesagt', 'besucht'];
 export const STAGE_LABEL = { entdeckt: 'Entdeckt', interessiert: 'Interessiert', zugesagt: 'Zugesagt', besucht: 'Besucht' };
-export function addEvent({ name, date = '', place = '', travel = false }) {
+export function addEvent({ name, date = '', place = '', travel = false, stage = 'entdeckt', url = '', time = '', price = '', note = '' }) {
   if (!name.trim()) return;
+  const id = uid();
   store.update((s) => {
-    s.events.push({ id: uid(), name: name.trim(), date, place: place.trim(), travel, stage: 'entdeckt', createdAt: now() });
+    s.events.push({ id, name: name.trim(), date, place: (place || '').trim(), travel, stage, url, time, price, note, createdAt: now() });
+  });
+  return id;
+}
+export function setEventStage(id, stage) {
+  store.update((s) => {
+    const e = s.events.find((x) => x.id === id);
+    if (e) e.stage = stage;
+  });
+}
+
+// Orte (Bars, Cafés, Restaurants …) mit Karte
+export const PLACE_CATS = ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'];
+export function addPlace({ name, category = 'Sonstiges', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '' }) {
+  if (!name || !name.trim()) return;
+  const id = uid();
+  store.update((s) => {
+    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) ? category : 'Sonstiges', note, rating, status, lat, lon, address, url, createdAt: now() });
+  });
+  return id;
+}
+export function updatePlace(id, patch) {
+  store.update((s) => {
+    const p = s.places.find((x) => x.id === id);
+    if (p) Object.assign(p, patch);
+  });
+}
+export function deletePlace(id) {
+  store.update((s) => {
+    s.places = s.places.filter((x) => x.id !== id);
   });
 }
 export function advanceEvent(id) {

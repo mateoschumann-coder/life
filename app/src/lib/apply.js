@@ -2,10 +2,11 @@
 import { fmtShort, today } from './dates';
 import { areaOf, subOf } from './logic';
 import {
-  addMemory,
+  addMemory, addPlace, updatePlace,
   addEvent, addHabit, addWish, addProject, addRadarItem, addResource, addTask, logActivity, logContact, savePerson, toggleCheckin, updateTask,
 } from './actions';
 import { store } from './store';
+import { locate } from './outings';
 
 const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 const date = (d) => (isDate(d) ? fmtShort(d) : null);
@@ -59,6 +60,8 @@ export function describe(s, a) {
       return { ok: !!a.titel, label: `App-Wunsch: ${a.titel}` };
     case 'merken':
       return { ok: !!a.fakt, label: `Merken: ${a.fakt}` };
+    case 'ort_anlegen':
+      return { ok: !!a.name, label: join(`Ort: ${a.name}`, a.ort_art, a.adresse, a.war_da ? (a.bewertung ? '★'.repeat(Math.min(5, a.bewertung)) : 'war da') : 'will hin') };
     default:
       return { ok: false, label: `Unbekannte Aktion (${a.typ})` };
   }
@@ -122,6 +125,12 @@ export function applyAction(s, a) {
       return addWish(a.titel);
     case 'merken':
       return addMemory(a.fakt, area);
+    case 'ort_anlegen': {
+      const id = addPlace({ name: a.name, category: a.ort_art || 'Sonstiges', note: a.notiz || '', address: a.adresse || '', status: a.war_da ? 'war' : 'will', rating: a.war_da ? Math.min(5, a.bewertung || 0) : 0 });
+      // Kartenpunkt im Hintergrund suchen
+      locate(a.name, a.adresse).then((pos) => pos && updatePlace(id, { lat: pos.lat, lon: pos.lon }));
+      return id;
+    }
     case 'radar_eintrag':
       return addRadarItem({ title: a.titel, url: a.url || '', why: a.warum || '', topic: a.thema || '' });
     default:

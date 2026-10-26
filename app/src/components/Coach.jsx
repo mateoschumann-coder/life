@@ -58,9 +58,9 @@ export default function Coach({ s }) {
     toast(`Für ${when} eingeplant`);
   };
   const keepEvent = (x) => {
-    addEvent({ name: x.title, date: x.date || '', place: x.place || '' });
+    addEvent({ name: x.title, date: x.date || '', place: x.place || '', stage: 'interessiert', url: x.url || '', note: x.text });
     if (x.date) addTask({ title: x.task || x.title, areaId: x.areaId, due: x.date, url: x.url });
-    mark(x.id, 'erledigt', x.date ? `Gemerkt und am ${fmtShort(x.date)} im Kalender` : 'Im Radar gemerkt');
+    mark(x.id, 'erledigt', x.date ? `Gemerkt und am ${fmtShort(x.date)} eingetragen` : 'Unter Ausgehen gemerkt');
     toast('Event gemerkt');
   };
   const startProject = (x) => {
