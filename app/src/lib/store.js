@@ -2,6 +2,7 @@
 // Später wird hier die Cloud-Synchronisation (Supabase) angeschlossen.
 import { useSyncExternalStore } from 'react';
 import { AREA_ICONS, seed } from './seed';
+import { normalizeGathering, normalizeTrip } from './normalize';
 
 const KEY = 'life-app-v1';
 const listeners = new Set();
@@ -36,6 +37,9 @@ function migrate(s) {
     if (fin) fin.paused = true;
     s.profile = { ...(s.profile || {}), mig016: true };
   }
+  // Version 0.21: Reisen (Ideen, Stationen, Orte, Transport, Unterlagen) und Events (zu Hause / woanders)
+  s.trips.forEach(normalizeTrip);
+  s.gatherings.forEach(normalizeGathering);
   s.version = base.version;
   return s;
 }

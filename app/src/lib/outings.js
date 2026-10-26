@@ -53,9 +53,9 @@ async function post(body) {
 }
 
 // Websuche + ein Werkzeug, das die Ergebnisse strukturiert zurückgibt
-export async function searchWithTool({ system, user, tool, maxUses }) {
+export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000 }) {
   const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: BA }, tool];
-  const messages = [{ role: 'user', content: user }];
+  const messages = history ? [...history] : [{ role: 'user', content: user }];
   let data;
   let found;
   const complete = (d) => {
@@ -63,7 +63,7 @@ export async function searchWithTool({ system, user, tool, maxUses }) {
     return f && d.stop_reason !== 'max_tokens' ? f : null; // abgeschnittene Antwort zählt nicht
   };
   for (let round = 0; round < 4; round++) {
-    data = await post({ max_tokens: 8000, system, tools, messages });
+    data = await post({ max_tokens: maxTokens, system, tools, messages });
     found = complete(data);
     if (found || data.stop_reason !== 'pause_turn') break;
     messages.push({ role: 'assistant', content: data.content });

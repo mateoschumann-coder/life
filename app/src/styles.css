@@ -359,3 +359,26 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .title-input:focus { background: var(--card); }
 .seg button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stat-row ~ div > .input, .card > div > input[type=date], .card > div > input[type=time] { min-width: 0; flex: 1 1 0; }
+
+/* v0.21: Kalender (Zeitraum), KI-Planer, gruppierte Listen, Reise-Route */
+.date-field { display: flex; align-items: center; gap: 8px; text-align: left; font: inherit; font-size: 16px; min-height: 44px; cursor: pointer; width: 100%; }
+.cal { display: flex; flex-direction: column; gap: 8px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; font-size: 17px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 4px; }
+.cal-wd { text-align: center; font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 0; }
+.cal-day { height: 42px; border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--text); border-radius: 21px; padding: 0; }
+.cal-day.today { font-weight: 700; color: var(--primary); }
+.cal-day.mid { background: color-mix(in srgb, var(--primary) 14%, transparent); border-radius: 0; }
+.cal-day.sel { background: var(--primary); color: var(--on-primary); font-weight: 700; }
+.cal-day.sel.start { border-radius: 21px 0 0 21px; }
+.cal-day.sel.end { border-radius: 0 21px 21px 0; }
+.proposal { display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 14px; background: var(--fill); }
+.plan-input { resize: none; min-height: 42px !important; height: 42px; max-height: 140px; padding: 10px 12px; font-size: 16px; line-height: 1.35; }
+.block-add .btn.small { white-space: nowrap; }
+.stop-edit .btn.small { white-space: nowrap; }
+.progress-line { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+.group-head { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; min-height: 48px; }
+.step-no { width: 26px; height: 26px; border-radius: 13px; background: color-mix(in srgb, #2FA36B 16%, transparent); color: #2FA36B; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.stop-edit { display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 14px 0; }
+.stop-edit .input { padding: 10px 12px; font-size: 16px; min-width: 0; }
+.seg-mini { display: flex; gap: 8px; flex-wrap: wrap; }
