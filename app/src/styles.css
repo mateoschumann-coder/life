@@ -415,3 +415,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .rate-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .rate-cell { display: flex; flex-direction: column; gap: 2px; }
 .rate-cell .input { min-height: 36px; height: 36px; padding: 0 8px; text-align: right; font-size: 15px; }
+.variant { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-bottom: 0.5px solid var(--line); }
+.variant:last-child { border-bottom: 0; }
+.variant-steps { display: flex; flex-direction: column; gap: 6px; }
+.variant-step { display: flex; align-items: center; gap: 8px; font-size: 15px; }

@@ -4,7 +4,7 @@ const nid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(
 // Alte Reisen auf das neue Format bringen (wird beim Laden aufgerufen)
 export function normalizeTrip(tr) {
   tr.status = tr.status || 'geplant';
-  for (const k of ['todo', 'packen', 'stops', 'places', 'transport', 'docs', 'expenses', 'chat']) if (!Array.isArray(tr[k])) tr[k] = [];
+  for (const k of ['todo', 'packen', 'stops', 'places', 'transport', 'docs', 'expenses', 'chat', 'variants']) if (!Array.isArray(tr[k])) tr[k] = [];
   tr.todo.forEach((x) => { x.cat = x.cat || 'Sonstiges'; });
   tr.packen.forEach((x) => { x.cat = x.cat || 'Sonstiges'; });
   if (Array.isArray(tr.ideen) && tr.ideen.length) {

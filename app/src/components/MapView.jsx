@@ -14,8 +14,8 @@ export const CAT_COLOR = {
   Natur: '#2FA36B', Sport: '#0E9F9A', Laden: '#DB2777', Sonstiges: '#6B7280', Unterkunft: '#1E3A8A', Station: '#111827',
 };
 
-function fit(points, w, h) {
-  if (!points.length) return { z: 12, ...world(BA.lat, BA.lon, 12) };
+function fit(points, w, h, center) {
+  if (!points.length) { const c = center || BA; return { z: center ? 9 : 12, ...world(c.lat, c.lon, center ? 9 : 12) }; }
   for (let z = 16; z >= 3; z--) {
     const ps = points.map((p) => world(p.lat, p.lon, z));
     const xs = ps.map((p) => p.x);
@@ -29,12 +29,14 @@ function fit(points, w, h) {
   return { z: 3, ...world(BA.lat, BA.lon, 3) };
 }
 
-export default function MapView({ places, selectedId, onSelect, height = 300 }) {
+export default function MapView({ places, selectedId, onSelect, height = 300, center = null }) {
   const ref = useRef(null);
   const [w, setW] = useState(360);
   const pts = useMemo(() => places.filter((p) => p.lat != null && p.lon != null), [places]);
   const [view, setView] = useState(null); // { z, x, y } = Mittelpunkt in Welt-Pixeln
   const drag = useRef(null);
+  const touches = useRef(new Map()); // für Zwei-Finger-Zoom
+  const pinch = useRef(null);
   const dark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
 
   useEffect(() => {
@@ -47,9 +49,9 @@ export default function MapView({ places, selectedId, onSelect, height = 300 }) 
     return () => ro?.disconnect();
   }, []);
   // Neu ausrichten, wenn Orte dazukommen oder wegfallen
-  const key = pts.map((p) => p.id).join(',');
+  const key = pts.map((p) => `${p.id}:${p.lat.toFixed(3)},${p.lon.toFixed(3)}`).join(',') + (center ? `|${center.lat},${center.lon}` : '');
   useEffect(() => {
-    setView(fit(pts, w, height));
+    setView(fit(pts, w, height, center));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, w]);
   // Ausgewählten Ort in die Mitte holen
@@ -94,16 +96,28 @@ export default function MapView({ places, selectedId, onSelect, height = 300 }) 
       style={{ height }}
       onPointerDown={(e) => {
         if (e.target.closest('button')) return;
-        drag.current = { sx: e.clientX, sy: e.clientY, x: cx, y: cy };
+        touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
         e.currentTarget.setPointerCapture?.(e.pointerId);
+        if (touches.current.size === 2) {
+          const [a, b] = [...touches.current.values()];
+          pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y) };
+          drag.current = null;
+        } else drag.current = { sx: e.clientX, sy: e.clientY, x: cx, y: cy };
       }}
       onPointerMove={(e) => {
-        const d = drag.current;
-        if (!d) return;
-        setView((v) => ({ ...v, x: d.x - (e.clientX - d.sx), y: d.y - (e.clientY - d.sy) }));
+        if (touches.current.has(e.pointerId)) touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pinch.current && touches.current.size === 2) {
+          const [a, b] = [...touches.current.values()];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d / pinch.current.d > 1.4) { zoom(1); pinch.current.d = d; } else if (d / pinch.current.d < 0.7) { zoom(-1); pinch.current.d = d; }
+          return;
+        }
+        const dr = drag.current;
+        if (!dr) return;
+        setView((v) => ({ ...v, x: dr.x - (e.clientX - dr.sx), y: dr.y - (e.clientY - dr.sy) }));
       }}
-      onPointerUp={() => { drag.current = null; }}
-      onPointerCancel={() => { drag.current = null; }}
+      onPointerUp={(e) => { touches.current.delete(e.pointerId); if (touches.current.size < 2) pinch.current = null; drag.current = null; }}
+      onPointerCancel={(e) => { touches.current.delete(e.pointerId); pinch.current = null; drag.current = null; }}
       onDoubleClick={() => zoom(1)}
     >
       {tiles}
@@ -128,7 +142,7 @@ export default function MapView({ places, selectedId, onSelect, height = 300 }) 
         <button type="button" onClick={() => zoom(-1)} aria-label="Herauszoomen"><Icon name="minus" size={16} /></button>
       </div>
       <span className="map-attr">© OpenStreetMap · © CARTO</span>
-      {!pts.length && <span className="map-empty">Noch keine Orte mit Adresse</span>}
+      {!pts.length && <span className="map-empty">{center ? 'Noch keine Orte auf der Karte' : 'Noch keine Orte mit Adresse'}</span>}
     </div>
   );
 }

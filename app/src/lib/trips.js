@@ -100,17 +100,76 @@ export async function geocodeWorld(q) {
   }
 }
 // Ort/Station ohne Koordinaten nachträglich verorten
-export async function locateEntry(tripId, list, id) {
+const km = (a, b) => {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLon = ((b.lon - a.lon) * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+// Mittelpunkt der Reise (Ziel) einmal verorten – Karte zeigt dann immer die Gegend, auch ohne Orte
+export async function locateTrip(tripId) {
+  const tr = store.get().trips.find((x) => x.id === tripId);
+  if (!tr || tr.lat != null || !(tr.dest || tr.name)) return null;
+  const r = await geocodeWorld(tr.dest || tr.name);
+  if (r) updateTrip(tripId, r);
+  return r;
+}
+// Ort/Station verorten: zuerst über OpenStreetMap (zuverlässig), KI-Koordinaten nur als Notlösung und nur, wenn sie in der Nähe des Ziels liegen
+export async function locateEntry(tripId, list, id, force = false) {
   const tr = store.get().trips.find((x) => x.id === tripId);
   const e = tr?.[list].find((x) => x.id === id);
-  if (!e || e.lat != null) return;
+  if (!e || (e.lat != null && !force && !e.aiPos)) return;
   const stop = list === 'places' ? tr.stops.find((x) => x.id === e.stopId) : null;
-  const where = stop?.name || tr.dest;
-  const tries = [e.address && `${e.address}`, `${e.name}, ${where}`, list === 'stops' && e.name].filter(Boolean);
+  const where = stop?.name || tr.dest || tr.name;
+  const tries = (list === 'stops' ? [e.name, `${e.name}, ${where}`] : [e.address && `${e.address}${where ? `, ${where}` : ''}`, `${e.name}, ${where}`, e.name]).filter(Boolean);
+  const center = tr.lat != null ? { lat: tr.lat, lon: tr.lon } : null;
   for (const q of tries) {
     const r = await geocodeWorld(q);
-    if (r) return updateEntry(tripId, list, id, r);
+    if (r && (!center || km(center, r) < 1500)) return updateEntry(tripId, list, id, { ...r, aiPos: false });
   }
+  if (e.aiPos && center && km(center, e) > 1500) updateEntry(tripId, list, id, { lat: null, lon: null, aiPos: false });
+}
+// Alles ohne (sichere) Position nachschlagen
+export async function locateAll(tripId) {
+  await locateTrip(tripId);
+  const tr = store.get().trips.find((x) => x.id === tripId);
+  if (!tr) return 0;
+  const todo = [...tr.stops.filter((x) => x.lat == null || x.aiPos).map((x) => ['stops', x.id]), ...tr.places.filter((x) => x.lat == null || x.aiPos).map((x) => ['places', x.id])];
+  for (const [list, id] of todo) await locateEntry(tripId, list, id);
+  const after = store.get().trips.find((x) => x.id === tripId);
+  return [...after.stops, ...after.places].filter((x) => x.lat == null).length;
+}
+
+// ---------- Routen-Varianten (Skizzen, bevor eine Route feststeht) ----------
+export function addVariant(tripId, { name, summary = '', stops = [] }) {
+  const id = uid();
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === tripId);
+    if (!t) return;
+    t.variants = t.variants || [];
+    t.variants.push({ id, name: String(name || `Route ${t.variants.length + 1}`).trim(), summary, stops: stops.filter((x) => x && x.name).map((x) => ({ name: String(x.name).trim(), nights: Number(x.nights) || null, note: x.note || '' })), chosen: false });
+  });
+  return id;
+}
+export const removeVariant = (tripId, id) => store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (t) t.variants = t.variants.filter((v) => v.id !== id); });
+// Variante wählen: ihre Abschnitte werden die Stationen der Route (vorhandene gleiche Stationen bleiben samt Orten erhalten)
+export function chooseVariant(tripId, id) {
+  const added = [];
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === tripId);
+    const v = t?.variants.find((x) => x.id === id);
+    if (!v) return;
+    t.variants.forEach((x) => { x.chosen = x.id === id; });
+    t.stops = v.stops.map((x) => {
+      const old = t.stops.find((y) => norm(y.name) === norm(x.name));
+      if (old) return { ...old, note: old.note || [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
+      const nid = uid();
+      added.push(nid);
+      return { id: nid, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
+    });
+  });
+  (async () => { for (const sid of added) await locateEntry(tripId, 'stops', sid); })();
 }
 
 // ---------- KI: Wohin könnte ich? ----------
@@ -165,6 +224,19 @@ const PLAN_TOOL = {
       todo: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, kategorie: { type: 'string', description: `z.B. ${Object.keys(TODO_TEMPLATE).join(', ')}` } }, required: ['text'] } },
       packen: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, kategorie: { type: 'string', description: `z.B. ${Object.keys(PACK_TEMPLATE).join(', ')}` } }, required: ['text'] } },
       entfernen: { type: 'array', items: { type: 'string' }, description: 'Punkte der Packliste/To-dos, die für diese Reise nicht passen (genauer Text)' },
+      varianten: {
+        type: 'array',
+        description: 'Routen-Varianten als Skizze (1–2 pro Antwort): Name + Abschnitte in Reihenfolge',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Kurz, z.B. „Küste entspannt“' },
+            kurz: { type: 'string', description: 'Halbsatz, wofür die Route steht' },
+            abschnitte: { type: 'array', items: { type: 'object', properties: { ort: { type: 'string' }, naechte: { type: 'integer' }, notiz: { type: 'string', description: 'ganz kurz, z.B. „Strände, Bus 3 h“' } }, required: ['ort'] } },
+          },
+          required: ['name', 'abschnitte'],
+        },
+      },
     },
     required: ['antwort'],
   },
@@ -173,7 +245,8 @@ export const tripSnapshot = (tr) => ({
   name: tr.name, ziel: tr.dest, status: tr.status === 'idee' ? 'Idee (noch nicht festgelegt)' : 'festgelegt', von: tr.from, bis: tr.to, idee: tr.idea || undefined, budget: tr.budget ? `${tr.budget} ${tr.currency}` : undefined,
   stationen: tr.stops.map((x) => ({ name: x.name, von: x.from, bis: x.to })),
   transport: tr.transport.map((x) => `${x.from} → ${x.to} (${MODES[x.mode] || x.mode}${x.status === 'gebucht' ? ', gebucht' : ''})`),
-  orte: tr.places.map((x) => `${x.name} (${PLACE_KINDS[x.kind]})`),
+  orte: tr.places.map((x) => `${x.name} (${PLACE_KINDS[x.kind]}${x.status === 'fest' ? ', gemerkt' : ''})`),
+  routen_varianten: (tr.variants || []).map((v) => `${v.name}${v.chosen ? ' (gewählt)' : ''}: ${v.stops.map((x) => `${x.name}${x.nights ? ` ${x.nights}N` : ''}`).join(' → ')}`),
   todo: tr.todo.map((x) => x.text), packen: tr.packen.map((x) => x.text), notizen: tr.notes || undefined,
 });
 export async function tripAssist(s, tr, history, { web = false, smart = false } = {}) {
@@ -181,7 +254,11 @@ export async function tripAssist(s, tr, history, { web = false, smart = false } 
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Aktueller Stand der Reise: ${JSON.stringify(tripSnapshot(tr))}
 Arbeitsweise:
-- ${tr.status === 'idee' ? 'Die Reise ist noch eine Idee: hilf herauszufinden, welche Route/Stationen, Transportwege und Aktivitäten möglich sind, mit groben Kosten und Zeiten.' : 'Die Reise steht: hilf konkret zu planen (Stationen, Transport, Unterkunft, Restaurants, Sehenswürdigkeiten) und die Listen anzupassen.'}
+- ${tr.status === 'idee' ? `Die Reise ist noch eine Idee. Führe ein echtes Gespräch und baue Schritt für Schritt auf:
+  1) Erst verstehen: Was will Mateo sehen/erleben, wie lange, welcher Reisestil? Frag gezielt nach (1–2 Fragen), statt gleich viel vorzuschlagen.
+  2) Dann ORTE: schlage wenige (2–4) passende Orte/Regionen vor, je mit kurzem „was es dort gibt“ (unter "orte", art sehenswuerdigkeit/aktivitaet, notiz = 3–6 Wörter), damit er versteht, was ihn erwartet. Gemerkte Orte im Stand sind gesetzt.
+  3) Erst wenn Orte klar sind: ROUTEN-VARIANTEN unter "varianten" (1–2 pro Antwort, je mit Abschnitten in Reihenfolge und Nächten), gern unterschiedlich (z.B. „entspannt“ vs. „viel sehen“). Vorhandene Varianten kennst du aus dem Stand – baue darauf auf, ändere/vergleiche sie auf Wunsch, wiederhole sie nicht.
+  4) Transport zwischen den Abschnitten erst, wenn eine Variante interessant ist. Keine "stationen" vorschlagen – die entstehen, wenn Mateo eine Variante wählt.` : 'Die Reise steht: hilf konkret zu planen (Stationen, Transport, Unterkunft, Restaurants, Sehenswürdigkeiten) und die Listen anzupassen. Alternative Routen nur auf Wunsch unter "varianten".'}
 - ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Verbindungen, Preise, konkrete Unterkünfte/Restaurants). Links nur aus Suchergebnissen.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, gib keine URLs an. Wenn für eine gute Antwort aktuelle Infos nötig wären (Preise, Verfügbarkeit), sag kurz, dass Mateo „Im Internet suchen“ einschalten kann.'}
 - ${tr.status === 'idee' ? 'Packliste und To-dos kommen erst beim Festlegen dazu: schlage dafür noch nichts vor (kein "packen", "todo", "entfernen").' : 'Die Packliste und To-dos haben eine Standard-Vorlage. Passe sie an Ziel, Jahreszeit, Dauer und Aktivitäten an: Fehlendes unter "packen"/"todo", Unpassendes (z.B. Badekleidung bei Winterreise) unter "entfernen".'}
 - Nichts vorschlagen, was schon im Stand steht. Bei Orten wenn möglich lat/lon angeben.
@@ -202,7 +279,7 @@ export function applyTripProposal(tripId, sel) {
     for (const x of sel.stationen || []) {
       if (t.stops.some((y) => norm(y.name) === norm(x.name))) continue;
       const id = uid();
-      t.stops.push({ id, name: x.name, from: okDate(x.von), to: okDate(x.bis), note: x.notiz || '', ...(typeof x.lat === 'number' && typeof x.lon === 'number' ? { lat: x.lat, lon: x.lon } : {}) });
+      t.stops.push({ id, name: x.name, from: okDate(x.von), to: okDate(x.bis), note: x.notiz || '', ...(typeof x.lat === 'number' && typeof x.lon === 'number' ? { lat: x.lat, lon: x.lon, aiPos: true } : {}) });
       added.stops.push(id);
     }
     for (const x of sel.transport || []) t.transport.push({ id: uid(), from: x.von, to: x.nach, mode: MODES[x.art] ? x.art : 'sonstiges', date: '', time: '', note: [x.dauer, x.preis, x.notiz].filter(Boolean).join(' · '), url: okUrl(x.url), status: 'option' });
@@ -210,11 +287,15 @@ export function applyTripProposal(tripId, sel) {
       if (t.places.some((y) => norm(y.name) === norm(x.name))) continue;
       const stop = t.stops.find((y) => norm(y.name) === norm(x.station));
       const id = uid();
-      t.places.push({ id, name: x.name, kind: PLACE_KINDS[x.art] ? x.art : 'sonstiges', stopId: stop?.id || '', note: x.notiz || '', address: x.adresse || '', url: okUrl(x.url), status: 'option', ...(typeof x.lat === 'number' && typeof x.lon === 'number' ? { lat: x.lat, lon: x.lon } : {}) });
+      t.places.push({ id, name: x.name, kind: PLACE_KINDS[x.art] ? x.art : 'sonstiges', stopId: stop?.id || '', note: x.notiz || '', address: x.adresse || '', url: okUrl(x.url), status: 'option', ...(typeof x.lat === 'number' && typeof x.lon === 'number' ? { lat: x.lat, lon: x.lon, aiPos: true } : {}) });
       added.places.push(id);
     }
     for (const x of sel.todo || []) if (!t.todo.some((y) => norm(y.text) === norm(x.text))) t.todo.push({ id: uid(), text: x.text, cat: x.kategorie || 'Sonstiges', done: false });
     for (const x of sel.packen || []) if (!t.packen.some((y) => norm(y.text) === norm(x.text))) t.packen.push({ id: uid(), text: x.text, cat: x.kategorie || 'Sonstiges', done: false });
+    for (const v of sel.varianten || []) {
+      t.variants = t.variants || [];
+      t.variants.push({ id: uid(), name: v.name || `Route ${t.variants.length + 1}`, summary: v.kurz || '', stops: (v.abschnitte || []).filter((x) => x && x.ort).map((x) => ({ name: x.ort, nights: x.naechte || null, note: x.notiz || '' })), chosen: false });
+    }
     if (sel.entfernen?.length) {
       const rm = new Set(sel.entfernen.map(norm));
       t.packen = t.packen.filter((y) => !rm.has(norm(y.text)));
@@ -223,6 +304,7 @@ export function applyTripProposal(tripId, sel) {
   });
   // fehlende Koordinaten im Hintergrund nachschlagen
   (async () => {
+    await locateTrip(tripId);
     for (const id of added.stops) await locateEntry(tripId, 'stops', id);
     for (const id of added.places) await locateEntry(tripId, 'places', id);
   })();

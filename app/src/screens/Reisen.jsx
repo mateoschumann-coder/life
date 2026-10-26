@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripInspiration, updateEntry, updateTrip,
-} from '../lib/trips';
+  addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
@@ -188,7 +188,7 @@ function Route({ tr }) {
       <section className="group">
         <h2 className="label" style={{ padding: '0 4px' }}>Stationen</h2>
         <div className="list">
-          {tr.stops.length === 0 && <div className="empty">Wo hältst du dich auf? Trag Stationen ein oder lass dir oben von der KI eine Route vorschlagen.</div>}
+          {tr.stops.length === 0 && <div className="empty">Noch keine Route. Wähle unter „Routen“ eine Variante oder trag Stationen selbst ein.</div>}
           {tr.stops.map((st, i) => {
             const n = tr.places.filter((p) => p.stopId === st.id).length;
             const stay = tr.places.find((p) => p.stopId === st.id && p.kind === 'unterkunft' && p.status === 'fest');
@@ -258,6 +258,9 @@ function Route({ tr }) {
 // ---------- Orte: Karte + Liste ----------
 function Places({ tr }) {
   const [kind, setKind] = useState('alle');
+  const [locating, setLocating] = useState(false);
+  const missing = [...tr.stops, ...tr.places].filter((x) => x.lat == null).length;
+  useEffect(() => { locateTrip(tr.id); }, [tr.id]);
   const [sel, setSel] = useState(null);
   const [f, setF] = useState({ name: '', kind: 'restaurant', stopId: '', address: '', url: '' });
   const [adding, setAdding] = useState(false);
@@ -276,7 +279,12 @@ function Places({ tr }) {
   const route = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat != null ? `${p.lat},${p.lon}` : [p.name, p.address, stopName(p.stopId) || tr.dest].filter(Boolean).join(', '))}`;
   return (
     <>
-      {mapPts.length > 0 ? <MapView places={mapPts} selectedId={sel} onSelect={setSel} height={280} /> : <div className="notice">Sobald Orte oder Stationen Koordinaten haben, erscheinen sie hier auf der Karte.</div>}
+      <MapView places={mapPts} selectedId={sel} onSelect={setSel} height={280} center={tr.lat != null ? { lat: tr.lat, lon: tr.lon } : null} />
+      {missing > 0 && (
+        <button type="button" className="btn tint small" disabled={locating} onClick={async () => { setLocating(true); const left = await locateAll(tr.id); setLocating(false); toast(left ? `${left} ohne Position – Adresse ergänzen hilft` : 'Alle auf der Karte'); }}>
+          {locating ? 'Suche Positionen …' : `📍 ${missing} ${missing === 1 ? 'Ort' : 'Orte'} auf der Karte suchen`}
+        </button>
+      )}
       <div className="box-tabs">
         {[['alle', 'Alle'], ...Object.entries(PLACE_KINDS)].map(([k, v]) => {
           const n = k === 'alle' ? tr.places.length : tr.places.filter((p) => p.kind === k).length;
@@ -284,7 +292,7 @@ function Places({ tr }) {
         })}
       </div>
       <div className="list">
-        {list.length === 0 && <div className="empty">Unterkunft, Restaurants, Sehenswürdigkeiten … selbst eintragen oder oben von der KI vorschlagen lassen. „Merken ✓“ = steht fest.</div>}
+        {list.length === 0 && <div className="empty">Unterkunft, Restaurants, Sehenswürdigkeiten … selbst eintragen oder unten von der KI vorschlagen lassen. „Merken ✓“ = steht fest.</div>}
         {list.map((p) => (
           <div key={p.id} className="row" style={{ minHeight: 60, background: sel === p.id ? 'var(--accent-bg)' : undefined }}>
             <button type="button" className="row-main" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left', color: 'inherit', font: 'inherit' }} onClick={() => setSel(p.id)}>
@@ -368,7 +376,53 @@ function Budget({ tr }) {
   );
 }
 
+// ---------- Routen-Varianten: Skizzen vergleichen, eine wählen ----------
+function Variants({ tr, onChosen }) {
+  const [text, setText] = useState('');
+  const [name, setName] = useState('');
+  const vs = tr.variants || [];
+  return (
+    <>
+      <div className="list">
+        {vs.length === 0 && <div className="empty">Noch keine Varianten. Lass dir unten von der KI zwei Routen skizzieren (z.B. „entspannt“ und „viel sehen“) oder trag selbst eine ein.</div>}
+        {vs.map((v) => {
+          const nights = v.stops.reduce((n, x) => n + (x.nights || 0), 0);
+          return (
+            <div key={v.id} className="variant">
+              <div className="sec-h" style={{ padding: 0 }}>
+                <span style={{ fontWeight: 700, fontSize: 16 }}>{v.chosen ? '✓ ' : ''}{v.name}</span>
+                <span className="tiny">{v.stops.length} Abschnitte{nights ? ` · ${nights} Nächte` : ''}</span>
+              </div>
+              {v.summary && <span className="tiny">{v.summary}</span>}
+              <div className="variant-steps">
+                {v.stops.map((x, i) => (
+                  <span key={i} className="variant-step">
+                    <span className="step-no" style={{ width: 20, height: 20, fontSize: 11 }}>{i + 1}</span>
+                    <span><b>{x.name}</b>{x.nights ? ` · ${x.nights} N.` : ''}{x.note ? <span className="tiny"> · {x.note}</span> : null}</span>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className={v.chosen ? 'pill on' : 'pill'} onClick={() => { chooseVariant(tr.id, v.id); toast(`„${v.name}“ ist jetzt deine Route`); onChosen?.(); }}>{v.chosen ? 'Gewählt' : 'Diese Route wählen'}</button>
+                <span style={{ flex: 1 }} />
+                <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Variante „${v.name}“ löschen?`) && removeVariant(tr.id, v.id)}>Löschen</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <form className="card" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); addVariant(tr.id, { name: name.trim(), stops: text.split(/→|->|,|\n/).map((x) => x.trim()).filter(Boolean).map((x) => { const m = x.match(/^(.*?)\s*\(?(\d+)\s*(n|nächte|nights)?\)?$/i); return m && m[2] ? { name: m[1], nights: Number(m[2]) } : { name: x }; }) }); setText(''); setName(''); }}>
+        <span className="label" style={{ padding: 0 }}>Eigene Variante</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, z.B. Küste entspannt" aria-label="Name der Variante" />
+        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Orte mit Komma, z.B. Floripa 3, Garopaba 2, Imbituba 2" aria-label="Abschnitte" />
+        <button type="submit" className="btn small" disabled={!text.trim()}>Variante speichern</button>
+      </form>
+    </>
+  );
+}
+
 const PLAN_GROUPS = [
+  { key: 'varianten', label: 'Als Routen-Variante speichern', title: (x) => x.name, meta: (x) => [(x.abschnitte || []).map((a) => `${a.ort}${a.naechte ? ` (${a.naechte} N.)` : ''}`).join(' → '), x.kurz].filter(Boolean).join(' · ') },
   { key: 'stationen', label: 'Stationen', title: (x) => x.name, meta: (x) => [x.von && x.bis ? `${fmtShort(x.von)} – ${fmtShort(x.bis)}` : '', x.notiz].filter(Boolean).join(' · ') },
   { key: 'transport', label: 'Transport', title: (x) => `${x.von} → ${x.nach}`, meta: (x) => [MODES[x.art], x.dauer, x.preis, x.notiz].filter(Boolean).join(' · ') },
   { key: 'orte', label: 'Orte', title: (x) => x.name, meta: (x) => [PLACE_KINDS[x.art], x.station, x.notiz].filter(Boolean).join(' · ') },
@@ -380,14 +434,16 @@ const PLAN_GROUPS = [
 function TripDetail({ s, tr }) {
   const t = today();
   const isIdea = tr.status === 'idee';
-  const tabs = isIdea ? [['route', 'Route'], ['orte', 'Orte'], ['notizen', 'Notizen']] : [['route', 'Route'], ['orte', 'Orte'], ['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen']];
-  const [tab, setTab] = useState('route');
+  const tabs = isIdea
+    ? [['orte', 'Orte'], ['varianten', 'Routen'], ['route', 'Gewählte Route'], ['notizen', 'Notizen']]
+    : [['route', 'Route'], ['orte', 'Orte'], ['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen'], ...((tr.variants || []).length ? [['varianten', 'Varianten']] : [])];
+  const [tab, setTab] = useState(isIdea ? 'orte' : 'route');
   const [commit, setCommit] = useState(false);
   const [range, setRange] = useState({ from: tr.from, to: tr.to });
-  const cur = tabs.some(([k]) => k === tab) ? tab : 'route';
+  const cur = tabs.some(([k]) => k === tab) ? tab : tabs[0][0];
   const days = tr.from ? diffDays(t, tr.from) : null;
   const spent = tr.expenses.reduce((n, x) => n + x.amount, 0);
-  const count = { todo: tr.todo.filter((x) => !x.done).length, packen: tr.packen.filter((x) => !x.done).length, orte: tr.places.length, route: tr.stops.length, docs: tr.docs.length };
+  const count = { varianten: (tr.variants || []).length, todo: tr.todo.filter((x) => !x.done).length, packen: tr.packen.filter((x) => !x.done).length, orte: tr.places.length, route: tr.stops.length, docs: tr.docs.length };
   return (
     <>
       <main className="screen">
@@ -400,7 +456,7 @@ function TripDetail({ s, tr }) {
         {isIdea ? (
           <section className="card" style={{ gap: 10 }}>
             {tr.idea && <span className="sub" style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{tr.idea}</span>}
-            <span className="tiny">Recherchiere unten mit der KI mögliche Routen, Transportwege und Aktivitäten. Wenn es passt: festlegen – dann kommen To-dos, Packliste und Unterlagen dazu.</span>
+            <span className="tiny">So geht's: 1. Orte sammeln (was willst du sehen?) · 2. Routen-Varianten skizzieren und vergleichen · 3. eine Route wählen · 4. festlegen – dann kommen To-dos, Packliste und Unterlagen dazu. Die KI unten hilft bei jedem Schritt.</span>
             <button type="button" className="btn" onClick={() => setCommit(true)}>Reise festlegen</button>
           </section>
         ) : (
@@ -418,6 +474,7 @@ function TripDetail({ s, tr }) {
         <div className="box-tabs main-tabs">
           {tabs.map(([k, l]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{count[k] ? ` ${count[k]}` : ''}</button>)}
         </div>
+        {cur === 'varianten' && <Variants tr={tr} onChosen={() => setTab('route')} />}
         {cur === 'route' && <Route tr={tr} />}
         {cur === 'orte' && <Places tr={tr} />}
         {cur === 'todo' && <GroupedChecklist items={tr.todo} cats={Object.keys(TODO_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'todo', text, cat)} onToggle={(id) => updateEntry(tr.id, 'todo', id, { done: !tr.todo.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'todo', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Neues To-do" />}
@@ -431,7 +488,7 @@ function TripDetail({ s, tr }) {
         )}
         <PlanChat
           title={isIdea ? 'Mit KI recherchieren' : 'Mit KI planen'}
-          intro={isIdea ? 'Frag z.B.: „Welche Route wäre in 7 Tagen sinnvoll?“ oder „Wie komme ich günstig hin?“ – Vorschläge kannst du abhaken und übernehmen.' : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
+          intro={isIdea ? 'Erzähl, was dich reizt (Strände, Städte, Natur …) und wie lange du Zeit hast. Ich frage kurz nach, schlage erst Orte vor und dann Routen-Varianten zum Vergleichen.' : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
           history={tr.chat}
           prefKey="reise"
           onSave={(chat) => updateTrip(tr.id, { chat })}
@@ -439,7 +496,7 @@ function TripDetail({ s, tr }) {
           webChips={['Wie komme ich hin?', 'Beste Reisezeit und Kosten?', 'Unterkunft finden', 'Restaurant-Tipps', 'Transport zwischen den Stationen']}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyTripProposal(tr.id, sel)}
-          chips={isIdea ? ['Welche Route wäre sinnvoll?', 'Wie komme ich hin?', 'Was kann man dort machen?', 'Beste Reisezeit und Kosten?'] : ['Packliste anpassen', 'Unterkunft finden', 'Restaurant-Tipps', 'Sehenswürdigkeiten', 'Transport zwischen den Stationen', 'Was fehlt noch?']}
+          chips={isIdea ? ['Was gibt es dort zu sehen?', 'Schlag mir 2 Routen vor', 'Vergleich meine Routen', 'Wie komme ich hin?'] : ['Packliste anpassen', 'Unterkunft finden', 'Restaurant-Tipps', 'Sehenswürdigkeiten', 'Transport zwischen den Stationen', 'Was fehlt noch?']}
         />
         <button type="button" className="btn danger" onClick={() => { if (confirm(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
       </main>
