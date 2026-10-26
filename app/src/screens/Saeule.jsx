@@ -5,6 +5,7 @@ import { areaStatus, pillarOf, projectProgress, upcomingBirthdays } from '../lib
 import { AreaIcon, Back, Chevron, Dot, TabBar } from '../components/ui';
 import { NewProjectSheet } from '../components/sheets';
 import { TOOL_AREAS, toolsFor } from '../lib/tools';
+import { EventsList } from './Treffen';
 
 export default function Saeule({ id }) {
   const s = useStore();
@@ -12,6 +13,7 @@ export default function Saeule({ id }) {
   const [newOpen, setNewOpen] = useState(false);
   const p = pillarOf(s, id);
   if (!p) return <Missing />;
+  if (id === 'sozial') return <EventsList s={s} />;
   const areas = s.areas.filter((a) => a.pillarId === id);
   const areaIds = new Set(areas.map((a) => a.id));
   const projects = s.projects.filter((x) => x.status === 'aktiv' && areaIds.has(x.areaId));

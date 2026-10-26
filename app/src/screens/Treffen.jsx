@@ -14,7 +14,7 @@ const COLOR = '#E8775A';
 const NEXT = { offen: 'eingeladen', eingeladen: 'zugesagt', zugesagt: 'abgesagt', abgesagt: 'offen' };
 const STATUS_COLOR = { offen: 'var(--muted)', eingeladen: 'var(--accent)', zugesagt: '#2FA36B', abgesagt: 'var(--danger)' };
 
-function List({ s }) {
+export function EventsList({ s }) {
   const t = today();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: '', date: '', time: '', place: '' });
@@ -46,12 +46,13 @@ function List({ s }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/erlebnisse" label="Gemeinsame Erlebnisse" />
+          <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
-            <h1 className="h1">Eigene Events</h1>
+            <h1 className="h1">Sozial</h1>
             <button type="button" className="btn small" onClick={() => setOpen(true)}>+ Event</button>
           </div>
         </div>
+        <span className="sub" style={{ marginTop: -6 }}>Deine eigenen Events – Asado, Spieleabend, Geburtstag … Menschen findest du unten unter „Menschen“.</span>
         <div className="list">
           {upcoming.length === 0 && <div className="empty">Organisier dein eigenes Event – Asado, Spieleabend, Lauftreff … mit Einladung, Gästeliste, Einkaufsliste und To-dos.</div>}
           {upcoming.map((g) => <Row key={g.id} g={g} />)}
@@ -121,7 +122,7 @@ function Detail({ s, g }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/treffen" label="Eigene Events" />
+          <Back href="#/saeule/sozial" label="Sozial" />
           <input className="input title-input" defaultValue={g.name} key={g.id + 'n'} onBlur={(e) => e.target.value.trim() && e.target.value !== g.name && updateGathering(g.id, { name: e.target.value.trim() })} aria-label="Name" />
         </div>
         <section className="card" style={{ gap: 8 }}>
@@ -195,7 +196,7 @@ function Detail({ s, g }) {
 
 export default function Treffen({ id }) {
   const s = useStore();
-  if (!id) return <List s={s} />;
+  if (!id) return <EventsList s={s} />;
   const g = s.gatherings.find((x) => x.id === id);
   return g ? <Detail s={s} g={g} /> : <Missing />;
 }
