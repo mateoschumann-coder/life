@@ -1,5 +1,5 @@
 // Service Worker: sorgt dafür, dass die App auch ohne Internet startet.
-const CACHE = 'life-app-mvp9cxsu';
+const CACHE = 'life-app-mvp9o3z2';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -17,6 +17,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  if (new URL(req.url).searchParams.has('check')) return; // Versions-Prüfung immer direkt übers Netz
 
   // Seitenaufrufe: erst Netz (für Updates), sonst gespeicherte Version
   if (req.mode === 'navigate') {

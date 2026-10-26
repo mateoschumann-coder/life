@@ -7,7 +7,7 @@ import {
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
-import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 import { Missing } from './Saeule';
 
 const COLOR = '#E8775A';
@@ -19,8 +19,10 @@ function List({ s }) {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: '', date: '', time: '', place: '' });
   const list = [...s.gatherings].sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
-  const upcoming = list.filter((g) => !g.date || g.date >= t);
-  const past = list.filter((g) => g.date && g.date < t);
+  const [showDone, setShowDone] = useState(false);
+  const upcoming = list.filter((g) => !g.done && (!g.date || g.date >= t));
+  const past = list.filter((g) => !g.done && g.date && g.date < t); // vorbei, aber noch nicht abgehakt
+  const done = list.filter((g) => g.done).reverse();
   const save = () => {
     const id = addGathering(f);
     setOpen(false);
@@ -30,14 +32,14 @@ function List({ s }) {
   const Row = ({ g }) => {
     const yes = g.guests.filter((x) => x.status === 'zugesagt').length;
     return (
-      <a href={`#/treffen/${g.id}`} className="row" style={{ minHeight: 62 }}>
-        <span className="block-icon" style={{ background: 'color-mix(in srgb, #E8775A 14%, transparent)', color: COLOR }}><Icon name="users" size={16} /></span>
-        <span className="row-main">
-          <span className="row-title strong">{g.name}</span>
+      <div className="row" style={{ minHeight: 62 }}>
+        <Check on={!!g.done} color={COLOR} onClick={() => { updateGathering(g.id, { done: !g.done }); if (!g.done) toast('Abgehakt – hoffentlich war es schön!'); }} label={`${g.name} ${g.done ? 'wieder öffnen' : 'abhaken'}`} />
+        <a href={`#/treffen/${g.id}`} className="row-main">
+          <span className={g.done ? 'row-title strong done' : 'row-title strong'}>{g.name}</span>
           <span className="row-meta">{[g.date ? `${fmtShort(g.date)}${g.time ? `, ${g.time}` : ''}` : 'Datum offen', g.date && g.date >= t && `in ${diffDays(t, g.date)} Tagen`, g.guests.length && `${yes}/${g.guests.length} zugesagt`].filter(Boolean).join(' · ')}</span>
-        </span>
+        </a>
         <Chevron />
-      </a>
+      </div>
     );
   };
   return (
@@ -46,8 +48,8 @@ function List({ s }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Back href="#/bereich/erlebnisse" label="Gemeinsame Erlebnisse" />
           <div className="sec-h" style={{ padding: 0 }}>
-            <h1 className="h1">Treffen planen</h1>
-            <button type="button" className="btn small" onClick={() => setOpen(true)}>+ Treffen</button>
+            <h1 className="h1">Eigene Events</h1>
+            <button type="button" className="btn small" onClick={() => setOpen(true)}>+ Event</button>
           </div>
         </div>
         <div className="list">
@@ -56,12 +58,18 @@ function List({ s }) {
         </div>
         {past.length > 0 && (
           <section className="group">
-            <h2 className="label" style={{ padding: '0 4px' }}>Vergangen</h2>
+            <h2 className="label" style={{ padding: '0 4px' }}>Vorbei – abhaken?</h2>
             <div className="list">{past.reverse().map((g) => <Row key={g.id} g={g} />)}</div>
           </section>
         )}
+        {done.length > 0 && (
+          <>
+            <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setShowDone(!showDone)}>{showDone ? 'Erledigte ausblenden' : `${done.length} erledigte Events`}</button>
+            {showDone && <div className="list">{done.map((g) => <Row key={g.id} g={g} />)}</div>}
+          </>
+        )}
       </main>
-      <Sheet open={open} title="Neues Treffen" onClose={() => setOpen(false)}>
+      <Sheet open={open} title="Neues Event" onClose={() => setOpen(false)}>
         <Field label="Was?"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="z.B. Asado bei mir" /></Field>
         <div style={{ display: 'flex', gap: 10 }}>
           <Field label="Datum"><input className="input" type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
@@ -113,7 +121,7 @@ function Detail({ s, g }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/treffen" label="Treffen planen" />
+          <Back href="#/treffen" label="Eigene Events" />
           <input className="input title-input" defaultValue={g.name} key={g.id + 'n'} onBlur={(e) => e.target.value.trim() && e.target.value !== g.name && updateGathering(g.id, { name: e.target.value.trim() })} aria-label="Name" />
         </div>
         <section className="card" style={{ gap: 8 }}>
@@ -177,6 +185,7 @@ function Detail({ s, g }) {
         {tab === 'todos' && (
           <SimpleList items={g.todos} color={COLOR} onAdd={(text) => addGatherItem(g.id, 'todos', text)} onToggle={(id) => toggleGatherItem(g.id, 'todos', id)} onRemove={(id) => removeGatherItem(g.id, 'todos', id)} placeholder="z.B. Grill sauber machen" />
         )}
+        <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { done: !g.done }); toast(g.done ? 'Wieder offen' : 'Abgehakt'); if (!g.done) go('/treffen'); }}>{g.done ? 'Wieder öffnen' : 'Event abhaken (hat stattgefunden)'}</button>
         <button type="button" className="btn danger" onClick={() => { if (confirm(`„${g.name}“ löschen?`)) { removeGathering(g.id); go('/treffen'); } }}>Treffen löschen</button>
       </main>
       <TabBar active="bereiche" />

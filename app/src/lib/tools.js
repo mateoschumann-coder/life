@@ -19,7 +19,7 @@ export const AREA_TOOLS = {
     { sub: 'Kultur', href: '#/ausgehen', icon: 'pin', title: 'Ausgehen', text: 'Events und Lieblingsorte' },
   ],
   erlebnisse: [
-    { sub: 'Treffen planen', href: '#/treffen', icon: 'users', title: 'Treffen planen', text: 'Eigene Events: Einladung, Gäste, Zu-/Absagen, Einkauf, To-dos' },
+    { sub: 'Treffen planen', href: '#/treffen', icon: 'users', title: 'Eigene Events', text: 'Selbst organisieren: Einladung, Gäste, Zu-/Absagen, Einkauf, To-dos – danach abhaken' },
     { sub: 'Events', href: '#/ausgehen', icon: 'pin', title: 'Ausgehen', text: 'Events finden und deine Lieblingsorte auf der Karte' },
   ],
   informiert: [{ href: '#/radar', icon: 'radar', title: 'Radar', text: 'Deine Themen, Leseliste und Fundstücke' }],

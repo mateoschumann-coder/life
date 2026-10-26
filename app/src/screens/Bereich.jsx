@@ -45,7 +45,7 @@ export default function Bereich({ id }) {
 
   // Sozial: Familie/Freunde/Neue Kontakte zeigen nur die Menschen; Gemeinsame Erlebnisse nur Treffen & Ausgehen
   if (area.peopleCategory || id === 'erlebnisse') {
-    const upcoming = s.gatherings.filter((g) => !g.date || g.date >= t).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+    const upcoming = s.gatherings.filter((g) => !g.done && (!g.date || g.date >= t)).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
     const events = s.events.filter((e) => e.stage !== 'besucht' && e.stage !== 'entdeckt' && e.date && e.date >= t).sort((a, b) => (a.date < b.date ? -1 : 1));
     return (
       <>
