@@ -11,7 +11,11 @@ import { locate } from './outings';
 import { addMaterial, ensureTopic, KINDS } from './library';
 import { addHomeItem, addReminder, EVERY, LISTS } from './home';
 import { addGathering, addHobby, addHobbyItem, addTrip } from './leisure';
-import { addHealthItem, addRecipe, addSession, addShopping, addSport, findSport, parseDuration } from './health';
+import { addHealthItem, addRecipe, addSession, addShopping, addSport, addSportEvent, findSport, parseDuration } from './health';
+import { addSkill, addSkillTodos } from './skills';
+import { addJob, addSearch, stageOf, updateJob } from './career';
+import { addSource } from './news';
+import { addLine, catOf } from './budget';
 
 const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 const date = (d) => (isDate(d) ? fmtShort(d) : null);
@@ -141,6 +145,16 @@ export function describe(s, raw) {
       return { ok: !!a.thema, label: `News-Thema: ${a.thema}` };
     case 'ort_anlegen':
       return { ok: !!a.name, label: join(`Ort: ${a.name}`, a.ort_art, a.adresse, a.war_da ? (a.bewertung ? '★'.repeat(Math.min(5, a.bewertung)) : 'war da') : 'will hin') };
+    case 'sport_event_anlegen':
+      return { ok: !!a.name, label: join(`Sport-Event: ${a.name}`, a.sportart || s.sports[0]?.name, isDate(a.datum) && date(a.datum), a.ort, a.sport_status === 'angemeldet' ? 'angemeldet' : a.sport_status === 'dabei' ? 'dabei gewesen' : 'gemerkt') };
+    case 'skill_ziel':
+      return { ok: !!a.titel && !!a.skill, label: `${a.skill}: ${a.titel}` };
+    case 'bewerbung_eintragen':
+      return { ok: !!a.titel, label: join(`Bewerbung: ${a.titel}`, a.firma, stageOf(a.phase || 'interessiert').label) };
+    case 'quelle_anlegen':
+      return { ok: !!(a.name || a.url), label: join(`Quelle: ${a.name || a.url}`, a.url) };
+    case 'fixkosten_anlegen':
+      return { ok: !!a.titel, label: join(`Fixkosten: ${a.titel}`, a.betrag && `${a.betrag} ${a.waehrung || ''}`.trim(), catOf(a.kostenart).label) };
     default:
       return { ok: false, label: `Unbekannte Aktion (${a.typ})` };
   }
@@ -255,6 +269,26 @@ export function applyAction(s, raw) {
     }
     case 'radar_eintrag':
       return addRadarItem({ title: a.titel, url: a.url || '', why: a.warum || '', topic: a.thema || '' });
+    case 'sport_event_anlegen': {
+      const sportId = findSport(s, a.sportart || '')?.id || (a.sportart ? addSport(a.sportart) : s.sports[0]?.id || addSport('Laufen'));
+      return addSportEvent({ sportId, name: a.name, date: d(a.datum) || '', place: a.ort || '', url: a.url || '', note: a.notiz || '', status: a.sport_status || 'interessiert' });
+    }
+    case 'skill_ziel': {
+      const sk = (s.skills || []).find((x) => norm(x.name) === norm(a.skill)) ;
+      const id = sk?.id || addSkill(a.skill);
+      return addSkillTodos(id, [a.titel]);
+    }
+    case 'bewerbung_eintragen': {
+      const known = (s.jobs || []).find((j) => norm(j.title) === norm(a.titel) && (!a.firma || norm(j.company) === norm(a.firma))) || (a.firma ? (s.jobs || []).find((j) => norm(j.company) === norm(a.firma)) : null);
+      if (known) return updateJob(known.id, { status: a.phase || known.status, note: a.notiz ? [known.note, `${today()}: ${a.notiz}`].filter(Boolean).join('\n') : known.note });
+      const search = findBy(s.jobSearches || [], a.suche, 'name') || (s.jobSearches || [])[0];
+      const searchId = search?.id || addSearch({ name: 'Allgemein' });
+      return addJob({ searchId, title: a.titel, company: a.firma || '', url: a.url || '', note: a.notiz ? `${today()}: ${a.notiz}` : '', status: a.phase || 'interessiert' });
+    }
+    case 'quelle_anlegen':
+      return addSource({ name: a.name || '', url: a.url || '', note: a.notiz || '' });
+    case 'fixkosten_anlegen':
+      return addLine('costs', { name: a.titel, amount: Number(a.betrag) || 0, currency: a.waehrung || 'ARS', cat: a.kostenart || 'sonstiges' });
     default:
       return null;
   }

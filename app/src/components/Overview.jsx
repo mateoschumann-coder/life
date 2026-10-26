@@ -1,13 +1,14 @@
 // „Dein Überblick“ auf Heute: strukturierte Zusammenfassung mit Knöpfen (KI ohne Internet, einmal am Tag automatisch)
 import { useEffect, useState } from 'react';
-import { askOverview, collectItems, loadOverview, localOverview } from '../lib/overview';
+import { askOverview, collectItems, loadOverview, localOverview, saveOverview, secOf } from '../lib/overview';
 import { getAi } from '../lib/ai';
 import { today } from '../lib/dates';
-import { logContact, toggleTask, updateTask } from '../lib/actions';
+import { addTask, logContact, toggleTask, updateTask } from '../lib/actions';
+import { listen } from './Coach';
 import { doneReminder } from '../lib/home';
 import { doneHealthItem } from '../lib/health';
 import { go } from '../lib/router';
-import { Icon, toast } from './ui';
+import { Chevron, Icon, toast } from './ui';
 
 let running = null;
 
@@ -37,8 +38,15 @@ export default function Overview({ s }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const data = v && v.date === today() ? v : !hasKey ? localOverview(s) : v || localOverview(s);
-  // Punkte, die inzwischen erledigt sind, fallen weg
-  const sections = (data?.sections || []).map((sec) => ({ ...sec, points: sec.points.filter((p) => byRef[p.ref]) })).filter((sec) => sec.points.length);
+  const done = new Set(data?.done || []);
+  const hide = (k) => {
+    if (!v || v.date !== today()) return;
+    const next = { ...v, done: [...(v.done || []), k] };
+    saveOverview(next);
+    setV(next);
+  };
+  // Punkte, die inzwischen erledigt sind, fallen weg; ältere Überblicke (ohne Bereiche) werden ignoriert
+  const sections = (data?.sections || []).filter((sec) => sec.key && secOf(sec.key)).map((sec) => ({ ...sec, points: sec.points.filter((p) => byRef[p.ref]), ask: done.has(`${sec.key}:q`) ? '' : sec.ask, idea: done.has(`${sec.key}:v`) ? '' : sec.idea })).filter((sec) => sec.points.length || sec.ask || sec.idea);
 
   const Btns = ({ i }) => (
     <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -60,26 +68,49 @@ export default function Overview({ s }) {
         </span>
         {hasKey && <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={run} disabled={busy} aria-label="Überblick aktualisieren"><Icon name="refresh" size={15} /></button>}
       </div>
-      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich schaue mir an, was gerade los ist …</span></div>}
+      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich gehe deine Bereiche durch …</span></div>}
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {!busy && data?.lage && <p className="coach-summary">{data.lage}</p>}
-      {!busy && sections.map((sec) => (
-        <div key={sec.title} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="label" style={{ padding: 0 }}>{sec.title}</span>
-          {sec.points.map((p) => {
-            const i = byRef[p.ref];
-            return (
-              <div key={p.ref} className="option" style={{ alignItems: 'center' }}>
-                <button type="button" className="row-main" style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', color: 'inherit', font: 'inherit' }} onClick={() => go(i.link.replace(/^#/, ''))}>
-                  <span style={{ fontSize: 15, fontWeight: 600 }}>{i.text}</span>
-                  <span className="tiny">{[i.area, i.info, p.note].filter(Boolean).join(' · ')}</span>
-                </button>
-                <Btns i={i} />
+      {!busy && sections.map((sec) => {
+        const info = secOf(sec.key);
+        return (
+          <div key={sec.key} className="ov-sec">
+            <a href={info.link} className="ov-head"><Icon name={info.icon} size={15} color="var(--accent)" /><span style={{ flex: 1 }}>{info.name}</span><Chevron /></a>
+            {sec.points.map((p) => {
+              const i = byRef[p.ref];
+              return (
+                <div key={p.ref} className="option" style={{ alignItems: 'center' }}>
+                  <button type="button" className="row-main" style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', color: 'inherit', font: 'inherit' }} onClick={() => go(i.link.replace(/^#/, ''))}>
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>{i.text}</span>
+                    <span className="tiny">{[i.area, i.info, p.note].filter(Boolean).join(' · ')}</span>
+                  </button>
+                  <Btns i={i} />
+                </div>
+              );
+            })}
+            {sec.ask && (
+              <div className="ov-ask">
+                <p>{sec.ask}</p>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  <button type="button" className="pill on" onClick={() => listen(`${sec.ask} – `)}>Erzählen</button>
+                  <button type="button" className="pill" onClick={() => { hide(`${sec.key}:q`); toast('Super 👍'); }}>Läuft gut</button>
+                  <button type="button" className="pill" onClick={() => hide(`${sec.key}:q`)}>Später</button>
+                </span>
               </div>
-            );
-          })}
-        </div>
-      ))}
+            )}
+            {sec.idea && (
+              <div className="ov-ask">
+                <p>💡 {sec.idea}</p>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  <button type="button" className="pill on" onClick={() => { addTask({ title: sec.idea, areaId: info.areaId, due: today() }); hide(`${sec.key}:v`); toast('Für heute eingeplant'); }}>Heute machen</button>
+                  <button type="button" className="pill" onClick={() => { addTask({ title: sec.idea, areaId: info.areaId, due: null, idea: true }); hide(`${sec.key}:v`); toast('Als Idee gemerkt'); }}>Merken</button>
+                  <button type="button" className="pill" onClick={() => hide(`${sec.key}:v`)} aria-label="Vorschlag ausblenden">✕</button>
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })}
       {!busy && !sections.length && <span className="sub">Gerade ist nichts Dringendes offen. 🎉</span>}
       {!busy && v?.date === today() && <span className="tiny">Stand {new Date(v.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} · Pfeil oben für einen neuen Überblick (ohne Internet, unter 0,5 Cent)</span>}
       {!hasKey && <span className="tiny">Ohne API-Schlüssel sortiert die App selbst nach Datum. Mit Schlüssel fasst die KI zusammen und denkt mit.</span>}

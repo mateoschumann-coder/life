@@ -227,7 +227,12 @@ function SportsPage({ s }) {
                 <span className="tiny">{[e.date && fmtShort(e.date), e.place, e.note].filter(Boolean).join(' · ')}</span>
               </span>
               {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-              <button type="button" className="pill on" onClick={() => { addSportEvent({ ...e }); setRes({ ...res, events: res.events.filter((x) => x.id !== e.id) }); toast('Gemerkt'); }}>Merken</button>
+              {(() => {
+                const saved = (s.sportEvents || []).find((x) => x.sportId === e.sportId && x.name.trim().toLowerCase() === e.name.trim().toLowerCase());
+                return saved
+                  ? <button type="button" className="pill" onClick={() => { removeSportEvent(saved.id); toast('Nicht mehr gemerkt'); }} aria-label={`${e.name} nicht mehr merken`}>Gemerkt ✓</button>
+                  : <button type="button" className="pill on" onClick={() => { addSportEvent({ ...e }); toast('Gemerkt'); }}>Merken</button>;
+              })()}
             </div>
           ))}
         </section>

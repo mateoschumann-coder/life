@@ -65,3 +65,37 @@ export const WORLD = [
   { region: 'Asien & Pazifik', links: [['SCMP', 'https://www.scmp.com/news/asia'], ['Nikkei Asia', 'https://asia.nikkei.com/'], ['The Diplomat', 'https://thediplomat.com/'], ['The Hindu World', 'https://www.thehindu.com/news/international/']] },
   { region: 'Nahost & Afrika', links: [['Al Jazeera', 'https://www.aljazeera.com/news/'], ['Middle East Eye', 'https://www.middleeasteye.net/'], ['Africa News', 'https://www.africanews.com/'], ['BBC Africa', 'https://www.bbc.com/news/world/africa']] },
 ];
+
+// ---------- v0.31: einfach – Hauptseiten der wichtigsten Nachrichtenseiten + eigene Quellen ----------
+export const OUTLETS = [
+  { region: 'Deutschland', flag: '🇩🇪', list: [
+    ['Tagesschau', 'https://www.tagesschau.de'], ['Spiegel', 'https://www.spiegel.de'], ['Zeit', 'https://www.zeit.de'], ['FAZ', 'https://www.faz.net'],
+    ['Süddeutsche', 'https://www.sueddeutsche.de'], ['Handelsblatt', 'https://www.handelsblatt.com'], ['Deutschlandfunk', 'https://www.deutschlandfunk.de'],
+  ] },
+  { region: 'Europa', flag: '🇪🇺', list: [
+    ['BBC News', 'https://www.bbc.com/news'], ['The Guardian', 'https://www.theguardian.com/europe'], ['Financial Times', 'https://www.ft.com'], ['Politico Europe', 'https://www.politico.eu'],
+    ['Euronews', 'https://www.euronews.com'], ['Le Monde (EN)', 'https://www.lemonde.fr/en/'], ['El País', 'https://elpais.com'], ['NZZ', 'https://www.nzz.ch'],
+  ] },
+  { region: 'USA', flag: '🇺🇸', list: [
+    ['New York Times', 'https://www.nytimes.com'], ['Washington Post', 'https://www.washingtonpost.com'], ['Wall Street Journal', 'https://www.wsj.com'], ['AP News', 'https://apnews.com'],
+    ['Reuters', 'https://www.reuters.com'], ['Bloomberg', 'https://www.bloomberg.com'], ['CNN', 'https://edition.cnn.com'], ['NPR', 'https://www.npr.org'],
+  ] },
+  { region: 'Argentinien', flag: '🇦🇷', list: [
+    ['La Nación', 'https://www.lanacion.com.ar'], ['Clarín', 'https://www.clarin.com'], ['Infobae', 'https://www.infobae.com'], ['Página/12', 'https://www.pagina12.com.ar'],
+    ['Ámbito', 'https://www.ambito.com'], ['El Cronista', 'https://www.cronista.com'], ['Perfil', 'https://www.perfil.com'], ['Buenos Aires Times', 'https://www.batimes.com.ar'],
+  ] },
+];
+export const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+export function addSource({ name, url, note = '' }) {
+  let u = String(url || '').trim();
+  if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u;
+  const n = String(name || '').trim() || host(u);
+  if (!n) return null;
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  store.update((s) => {
+    s.newsSources = s.newsSources || [];
+    if (!s.newsSources.some((x) => norm(x.name) === norm(n) || (u && x.url === u))) s.newsSources.push({ id, name: n, url: u, note });
+  });
+  return id;
+}
+export const removeSource = (id) => store.update((s) => { s.newsSources = (s.newsSources || []).filter((x) => x.id !== id); });

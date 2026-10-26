@@ -77,6 +77,7 @@ const ACTION_TYPES = [
   'projekt_aendern', 'bausteine_hinzufuegen', 'unterbereich_anlegen', 'aufgabe_loeschen', 'thema_anlegen',
   'training_eintragen', 'einkauf_hinzufuegen', 'rezept_anlegen', 'vorsorge_anlegen', 'material_anlegen',
   'erinnerung_anlegen', 'zuhause_eintrag', 'hobby_eintrag', 'reise_anlegen', 'treffen_anlegen',
+  'sport_event_anlegen', 'skill_ziel', 'bewerbung_eintragen', 'quelle_anlegen', 'fixkosten_anlegen',
 ];
 export const TOOL = {
   name: 'aenderungen_vorschlagen',
@@ -161,6 +162,14 @@ export const TOOL = {
             material_art: { type: 'string', enum: ['buch', 'artikel', 'video', 'podcast', 'kurs'], description: 'Für material_anlegen (Bibliothek in „Lernen & Wissen“)' },
             autor: { type: 'string', description: 'Für material_anlegen' },
             archivieren: { type: 'boolean', description: 'Für projekt_aendern: true = Projekt abschließen/archivieren' },
+            sport_status: { type: 'string', enum: ['interessiert', 'angemeldet', 'dabei'], description: 'Für sport_event_anlegen (name, sportart, datum, ort, url)' },
+            skill: { type: 'string', description: 'Für skill_ziel: Name des Skills, z.B. Portugiesisch (titel = das Ziel/To-do)' },
+            firma: { type: 'string', description: 'Für bewerbung_eintragen (titel = Stelle)' },
+            phase: { type: 'string', enum: ['interessiert', 'beworben', 'rueckmeldung', 'gespraech', 'angebot', 'abgesagt'], description: 'Für bewerbung_eintragen' },
+            suche: { type: 'string', description: 'Für bewerbung_eintragen: Name der Jobsuche (optional)' },
+            betrag: { type: 'number', description: 'Für fixkosten_anlegen: Betrag pro Monat' },
+            waehrung: { type: 'string', enum: ['ARS', 'EUR', 'USD'], description: 'Für fixkosten_anlegen' },
+            kostenart: { type: 'string', enum: ['miete', 'nebenkosten', 'energie', 'telefon', 'versicherung', 'abos', 'transport', 'sport', 'kredit', 'sonstiges'], description: 'Für fixkosten_anlegen' },
             fakt: { type: 'string', description: 'Für merken: dauerhafte Info über Mateo (Ziel, Vorliebe, Interesse, Gewohnheit), kurz in der 3. Person, z.B. „Lernt Italienisch für eine Reise im Mai“' },
           },
           required: ['typ'],
@@ -207,6 +216,12 @@ export function buildSystem(s) {
     erinnerungen: (s.reminders || []).map((r) => ({ titel: r.title, naechstes: r.next, wie_oft: r.every })),
     zuhause_offen: Object.fromEntries(Object.entries(s.home || {}).map(([k, l]) => [k, (l.items || []).filter((x) => !x.done).map((x) => `${x.cat}: ${x.text}`).slice(0, 15)])),
     hobbys: (s.hobbies || []).map((h) => h.name),
+    sport_events: (s.sportEvents || []).filter((e) => e.status !== 'dabei').map((e) => ({ name: e.name, sport: s.sports.find((x) => x.id === e.sportId)?.name, datum: e.date, status: e.status })),
+    skills: (s.skills || []).map((k) => ({ name: k.name, offene_ziele: (k.todos || []).filter((x) => !x.done).map((x) => x.text) })),
+    jobsuchen: (s.jobSearches || []).map((x) => x.name),
+    bewerbungen: (s.jobs || []).map((j) => ({ stelle: j.title, firma: j.company, phase: j.status })),
+    eigene_quellen: (s.newsSources || []).map((x) => x.name),
+    fixkosten: (s.budget?.costs || []).map((x) => `${x.name} ${x.amount} ${x.currency}`),
     reisen: (s.trips || []).map((t) => ({ name: t.name, von: t.from, bis: t.to })),
     treffen: (s.gatherings || []).map((g) => ({ name: g.name, datum: g.date })),
     bibliothek: (s.library || []).map((m) => ({ titel: m.title, status: m.status })).slice(-30),
@@ -220,7 +235,7 @@ export function buildSystem(s) {
 So arbeitest du:
 - Antworte auf Deutsch, strukturiert und auf den Punkt: so ausführlich wie nötig, so kurz wie möglich. Meist 3–6 Sätze oder eine gegliederte Liste mit bis zu 7 Punkten; bei Analysen, Rückblicken oder Planungen darf es länger sein, aber immer klar gegliedert. Keine Floskeln („Gern!“, „Natürlich“), keine Wiederholung seiner Frage.
 - Deine Antworten werden oft vorgelesen: schreibe natürliche Sätze; für Listen einfache Zeilen mit „–“, keine Tabellen, kein Fettdruck, keine Überschriften mit #.
-- Du kannst in der App direkt handeln. Mit dem Werkzeug "aenderungen_vorschlagen" kannst du: Aufgaben anlegen/ändern/erledigen/löschen, Projekte anlegen (auch gleich mit Aufgaben und Bausteinen wie Graphen, Listen, Meilensteinen, Budget), Projekte umbenennen/Termin setzen/archivieren, Bausteine zu bestehenden Projekten hinzufügen, Unterbereiche anlegen, Fokus-Themen und Rhythmen anlegen und abhaken, Personen anlegen/ändern und Kontakte notieren, Aktivitäten, Ressourcen, Events, Radar-Einträge und Orte anlegen, Trainingseinheiten eintragen (training_eintragen, z.B. „heute 12 km in 58 Min gelaufen“), Dinge auf die Einkaufsliste setzen (einkauf_hinzufuegen), Rezepte speichern (rezept_anlegen), Arzttermine, Vorsorge-Routinen und Verletzungen eintragen (vorsorge_anlegen), Bücher/Artikel/Videos/Podcasts/Kurse in die Bibliothek legen (material_anlegen mit titel, material_art, thema = Wissensthema wie Geschichte, autor, url), regelmäßige Erinnerungen wie Miete/WLAN anlegen (erinnerung_anlegen mit titel, wie_oft, datum = nächstes Mal), Einträge in Zuhause-Listen setzen (zuhause_eintrag mit liste haushalt/einrichtung/kleidung, zuhause_kategorie, titel), Hobby-Ideen speichern (hobby_eintrag), Reisen anlegen (reise_anlegen mit name, datum, bis_datum), eigene Treffen anlegen (treffen_anlegen mit name, datum, uhrzeit, ort), dir Dinge merken und App-Wünsche notieren. Sag NIE, dass du etwas nicht kannst, wenn eine dieser Aktionen passt – schlag sie einfach vor. Mateo tippt dann nur noch auf „Übernehmen“ (oder es wird automatisch ausgeführt).
+- Du kannst in der App direkt handeln. Mit dem Werkzeug "aenderungen_vorschlagen" kannst du: Aufgaben anlegen/ändern/erledigen/löschen, Projekte anlegen (auch gleich mit Aufgaben und Bausteinen wie Graphen, Listen, Meilensteinen, Budget), Projekte umbenennen/Termin setzen/archivieren, Bausteine zu bestehenden Projekten hinzufügen, Unterbereiche anlegen, Fokus-Themen und Rhythmen anlegen und abhaken, Personen anlegen/ändern und Kontakte notieren, Aktivitäten, Ressourcen, Events, Radar-Einträge und Orte anlegen, Trainingseinheiten eintragen (training_eintragen, z.B. „heute 12 km in 58 Min gelaufen“), Dinge auf die Einkaufsliste setzen (einkauf_hinzufuegen), Rezepte speichern (rezept_anlegen), Arzttermine, Vorsorge-Routinen und Verletzungen eintragen (vorsorge_anlegen), Bücher/Artikel/Videos/Podcasts/Kurse in die Bibliothek legen (material_anlegen mit titel, material_art, thema = Wissensthema wie Geschichte, autor, url), regelmäßige Erinnerungen wie Miete/WLAN anlegen (erinnerung_anlegen mit titel, wie_oft, datum = nächstes Mal), Einträge in Zuhause-Listen setzen (zuhause_eintrag mit liste haushalt/einrichtung/kleidung, zuhause_kategorie, titel), Hobby-Ideen speichern (hobby_eintrag), Reisen anlegen (reise_anlegen mit name, datum, bis_datum), eigene Treffen anlegen (treffen_anlegen mit name, datum, uhrzeit, ort), Sport-Events merken oder als angemeldet eintragen (sport_event_anlegen mit name, sportart, datum, ort, sport_status), konkrete Ziele für einen Skill auf dessen To-do-Liste setzen (skill_ziel mit skill und titel), Bewerbungen in den Trichter eintragen oder die Phase ändern (bewerbung_eintragen mit titel = Stelle, firma, phase), Nachrichten-Quellen wie Blogs/Newsletter speichern (quelle_anlegen mit name, url), Fixkosten im Finanz-Rechner eintragen (fixkosten_anlegen mit titel, betrag, waehrung, kostenart), dir Dinge merken und App-Wünsche notieren. Sag NIE, dass du etwas nicht kannst, wenn eine dieser Aktionen passt – schlag sie einfach vor. Mateo tippt dann nur noch auf „Übernehmen“ (oder es wird automatisch ausgeführt).
 - Wenn Mateo etwas eintragen, ändern oder planen will, rufe das Werkzeug "aenderungen_vorschlagen" auf. Sag in deinem Text kurz, was du vorschlägst. Behaupte nie, etwas sei schon gespeichert: Mateo muss erst bestätigen.
 - Fasse zusammengehörige Änderungen in EINEM Vorschlag zusammen.
 - Nutze nur IDs aus den Daten unten. Wähle für neue Einträge immer den passendsten Lebensbereich und, wenn klar, den Unterbereich.

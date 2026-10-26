@@ -47,6 +47,17 @@ function migrate(s) {
     for (const c of ['Frühstück', 'Mittagessen', 'Abendessen', 'Snacks']) if (!s.recipeCats.includes(c)) s.recipeCats.push(c);
     s.profile = { ...(s.profile || {}), mig029: true };
   }
+  // Version 0.31: Finanzen ans Ende von „Persönlich“ (einmalig)
+  if (!s.profile?.mig031) {
+    const i = s.areas.findIndex((a) => a.id === 'finanzen');
+    if (i >= 0) {
+      const [fin] = s.areas.splice(i, 1);
+      let last = -1;
+      s.areas.forEach((a, j) => { if (a.pillarId === fin.pillarId) last = j; });
+      s.areas.splice(last + 1, 0, fin);
+    }
+    s.profile = { ...(s.profile || {}), mig031: true };
+  }
   // Version 0.29: Bewerbungs-Phasen „Gefunden/Vorbereiten“ → „Interessiert“
   (s.jobs || []).forEach((j) => { if (j.status === 'gefunden' || j.status === 'vorbereiten') j.status = 'interessiert'; });
   s.version = base.version;

@@ -21,11 +21,12 @@ export const AREA_TOOLS = {
     { sub: 'Treffen planen', href: '#/treffen', icon: 'users', title: 'Eigene Events', text: 'Selbst organisieren: Einladung, Gäste, Zu-/Absagen, Einkauf, To-dos – danach abhaken' },
   ],
   karriere: [
-    { href: '#/karriere', icon: 'briefcase', title: 'Jobsuche', text: 'Suchen, neue Angebote, Bewerbungs-Trichter, Unterlagen und Karriere-Coach' },
+    { href: '#/karriere', icon: 'briefcase', title: 'Jobsuche', text: 'Bewerbungs-Trichter pro Suche – einfach erzählen, wie es läuft' },
     { href: '#/karriere/projekte', icon: 'flag', title: 'Eigene Projekte', text: 'Deine Projekte messbar voranbringen: Meilensteine, Arbeitszeit, KI-Mentor' },
   ],
-  entwicklung: [{ href: '#/skills', icon: 'bulb', title: 'Täglich dranbleiben', text: 'Sprachen, Python & Co.: kleine Impulse jeden Tag, Sprechen mit der KI' }],
-  informiert: [{ href: '#/news', icon: 'news', title: 'Informiert bleiben', text: 'Deine Themen mit sortierten Nachrichten-Links' }],
+  entwicklung: [{ href: '#/skills', icon: 'bulb', title: 'Skills & Ziele', text: 'Pro Skill konkrete Ziele als To-do-Liste' }],
+  informiert: [{ href: '#/news', icon: 'news', title: 'Nachrichten & Quellen', text: 'Wichtigste Nachrichtenseiten und deine eigenen Quellen' }],
+  finanzen: [{ href: '#/finanzen', icon: 'wallet', title: 'Monatsrechner', text: 'Einnahmen, Sparziel, Fixkosten → was pro Tag bleibt' }],
 };
 const LIB_TEXT = { bibliothek: 'Bücher, Artikel, Videos und Kurse zu deinen Themen', podcasts: 'Podcasts zu deinen Themen – entdecken, hören, merken' };
 export const toolsFor = (areaId, subName, s) => {
@@ -34,4 +35,4 @@ export const toolsFor = (areaId, subName, s) => {
 };
 
 // In diesen Bereichen ersetzen die Werkzeuge die allgemeine Unterbereichs-Liste
-export const TOOL_AREAS = new Set(['koerper', 'mental', 'zuhause', 'freizeit', 'erlebnisse', 'familie', 'freunde', 'neue', 'karriere', 'entwicklung']);
+export const TOOL_AREAS = new Set(['koerper', 'mental', 'zuhause', 'freizeit', 'erlebnisse', 'familie', 'freunde', 'neue', 'karriere', 'entwicklung', 'informiert', 'finanzen']);

@@ -11,8 +11,8 @@ const AREAS = [
   ['koerper', 'persoenlich', 'Körperliche Gesundheit', 3, 'heart', ['Sport', 'Ernährung', 'Schlaf', 'Vorsorge']],
   ['mental', 'persoenlich', 'Lernen & Wissen', 7, 'bulb', ['Geschichte', 'Physik', 'Geopolitik', 'Wirtschaft']],
   ['zuhause', 'persoenlich', 'Zuhause', 14, 'home', ['Ordnung und Haushalt', 'Einrichtung und Design', 'Kleidung']],
-  ['finanzen', 'persoenlich', 'Finanzen', 30, 'wallet', ['Budget', 'Investments', 'Verträge und Admin']],
   ['freizeit', 'persoenlich', 'Freizeit und Erlebnisse', 14, 'plane', ['Reisen', 'Kultur', 'Hobbys']],
+  ['finanzen', 'persoenlich', 'Finanzen', 30, 'wallet', ['Budget', 'Investments', 'Verträge und Admin']],
   ['familie', 'sozial', 'Familie', 14, 'family', ['Kontakt halten', 'Besuche'], 'familie'],
   ['freunde', 'sozial', 'Freunde', 14, 'users', ['Enge Freunde', 'Weiterer Kreis'], 'freunde'],
   ['neue', 'sozial', 'Neue Kontakte', 30, 'userPlus', ['Kennenlernen', 'Community'], 'neu'],
@@ -85,6 +85,8 @@ export function seed() {
     careerDocs: CAREER_DOCS.map((text, i) => ({ id: 'doc' + i, text, done: false })), // Unterlagen-Checkliste
     skills: [],
     sideProjects: [], // Karriere: eigene Projekte mit Meilensteinen und Arbeitszeit // Weiterentwicklung: Skills mit täglichen Impulsen
+    newsSources: [], // Informiert bleiben → Andere Quellen (Blogs, Newsletter, Webseiten)
+    budget: null, // Finanzen: Monatsrechner (Einnahmen, Sparziel, Fixkosten, Währungen)
     sportEvents: [], // Events pro Sportart (Rennen, Turniere, Lauftreffs …)
     libCats: [ // Kategorien in „Lernen & Wissen“ (z.B. Bibliothek, Podcasts) – frei erweiterbar
       { id: 'bibliothek', name: 'Bibliothek', kind: '', icon: 'book' },

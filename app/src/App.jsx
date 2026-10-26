@@ -22,6 +22,7 @@ import Vorsorge from './screens/Vorsorge';
 import Karriere from './screens/Karriere';
 import Skills from './screens/Skills';
 import News from './screens/News';
+import Finanzen from './screens/Finanzen';
 import Wissen from './screens/Wissen';
 import Zuhause from './screens/Zuhause';
 import Hobbys from './screens/Hobbys';
@@ -49,6 +50,7 @@ export default function App() {
     case 'vorsorge': screen = <Vorsorge />; break;
     case 'karriere': screen = <Karriere key={(a || '') + (b || '')} view={a} id={b} />; break;
     case 'news': screen = <News />; break;
+    case 'finanzen': screen = <Finanzen />; break;
     case 'skills': screen = <Skills key={a || 'liste'} id={a} />; break;
     case 'wissen': screen = <Wissen key={a || 'bibliothek'} catId={a} />; break;
     case 'zuhause': screen = <Zuhause tab={a} />; break;
