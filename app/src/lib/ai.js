@@ -54,7 +54,7 @@ export function saveChat(items) {
 const ACTION_TYPES = [
   'aufgabe_anlegen', 'aufgabe_erledigen', 'aufgabe_aendern', 'projekt_anlegen', 'rhythmus_anlegen', 'rhythmus_abhaken',
   'person_anlegen', 'person_aendern', 'kontakt_notieren', 'aktivitaet_eintragen', 'ressource_anlegen', 'event_anlegen', 'radar_eintrag', 'app_wunsch', 'merken', 'ort_anlegen',
-  'projekt_aendern', 'bausteine_hinzufuegen', 'unterbereich_anlegen', 'aufgabe_loeschen',
+  'projekt_aendern', 'bausteine_hinzufuegen', 'unterbereich_anlegen', 'aufgabe_loeschen', 'thema_anlegen',
 ];
 export const TOOL = {
   name: 'aenderungen_vorschlagen',

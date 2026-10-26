@@ -14,7 +14,7 @@ export default function Proposal({ s, item }) {
         return (
           <label key={i} className="prop-row" style={{ opacity: info.ok ? 1 : 0.5 }}>
             <input type="checkbox" checked={!!item.selected?.[i] && info.ok} disabled={!open || !info.ok} onChange={() => toggleSelected(item.id, i)} />
-            <span>{info.label}{!info.ok && ' (nicht möglich)'}</span>
+            <span>{info.label}{!info.ok && ` (${info.reason || 'nicht möglich'})`}</span>
           </label>
         );
       })}

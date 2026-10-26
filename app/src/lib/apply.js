@@ -3,7 +3,7 @@ import { fmtShort, today } from './dates';
 import { areaOf, subOf } from './logic';
 import { addBlocks, makeBlock } from './blocks';
 import {
-  addMemory, addPlace, updatePlace, addSub, deleteTask, updateProject,
+  addMemory, addPlace, updatePlace, addSub, deleteTask, updateProject, addTopic,
   addEvent, addHabit, addWish, addProject, addRadarItem, addResource, addTask, logActivity, logContact, savePerson, toggleCheckin, updateTask,
 } from './actions';
 import { store } from './store';
@@ -72,6 +72,7 @@ export function describe(s, raw) {
     case 'projekt_anlegen': {
       const tpl = a.vorlage_id && s.templates.find((x) => x.id === a.vorlage_id);
       const n = (a.aufgaben || []).length;
+      if (a.name && s.projects.some((p) => p.status === 'aktiv' && norm(p.name) === norm(a.name))) return { ok: false, reason: 'schon vorhanden', label: `Projekt: ${a.name}` };
       return { ok: !!a.name && !!areaOf(s, a.bereich_id), label: join(`Projekt: ${a.name}`, where(s, a), tpl && `Vorlage ${tpl.name}`, n && `${n} Aufgaben`, (a.bausteine || []).length && `Bausteine: ${blocksText(a.bausteine)}`, a.faellig && `bis ${date(a.faellig)}`) };
     }
     case 'projekt_aendern': {
@@ -87,6 +88,7 @@ export function describe(s, raw) {
     case 'aufgabe_loeschen':
       return { ok: !!task, label: `Löschen: ${task?.title || 'unbekannte Aufgabe'}` };
     case 'rhythmus_anlegen':
+      if (a.name && s.habits.some((h) => norm(h.name) === norm(a.name))) return { ok: false, reason: 'schon vorhanden', label: `Fokus-Thema: ${a.name}` };
       return { ok: !!a.name && !!areaOf(s, a.bereich_id), label: join(`${a.anzahl ? 'Rhythmus' : 'Fokus-Thema'}: ${a.name}`, a.anzahl ? `${a.anzahl}× pro ${a.zeitraum === 'monat' ? 'Monat' : 'Woche'}` : 'ohne feste Zahl', where(s, a)) };
     case 'rhythmus_abhaken':
       return { ok: !!habit, label: join(`Abhaken: ${habit?.name || 'unbekannter Rhythmus'}`, isDate(a.datum) && a.datum !== today() ? date(a.datum) : 'heute') };
@@ -107,7 +109,11 @@ export function describe(s, raw) {
     case 'app_wunsch':
       return { ok: !!a.titel, label: `App-Wunsch: ${a.titel}` };
     case 'merken':
+      if (a.fakt && (s.memory || []).some((m) => norm(m.text) === norm(a.fakt))) return { ok: false, reason: 'schon gemerkt', label: `Merken: ${a.fakt}` };
       return { ok: !!a.fakt, label: `Merken: ${a.fakt}` };
+    case 'thema_anlegen':
+      if (a.thema && s.radar.topics.some((t) => norm(t) === norm(a.thema))) return { ok: false, reason: 'schon vorhanden', label: `News-Thema: ${a.thema}` };
+      return { ok: !!a.thema, label: `News-Thema: ${a.thema}` };
     case 'ort_anlegen':
       return { ok: !!a.name, label: join(`Ort: ${a.name}`, a.ort_art, a.adresse, a.war_da ? (a.bewertung ? '★'.repeat(Math.min(5, a.bewertung)) : 'war da') : 'will hin') };
     default:
@@ -191,6 +197,8 @@ export function applyAction(s, raw) {
       return addWish(a.titel);
     case 'merken':
       return addMemory(a.fakt, area);
+    case 'thema_anlegen':
+      return addTopic(a.thema);
     case 'ort_anlegen': {
       const id = addPlace({ name: a.name, category: a.ort_art || 'Sonstiges', note: a.notiz || '', address: a.adresse || '', status: a.war_da ? 'war' : 'will', rating: a.war_da ? Math.min(5, a.bewertung || 0) : 0 });
       // Kartenpunkt im Hintergrund suchen
