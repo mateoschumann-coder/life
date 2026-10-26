@@ -13,6 +13,7 @@ const TOOLS = {
 };
 import { Heatmap, HeatLegend } from '../components/Heatmap';
 import AreaContent from '../components/AreaContent';
+import { CoachBox } from '../components/Coach';
 import { Missing } from './Saeule';
 
 const RANGES = [
@@ -55,6 +56,8 @@ export default function Bereich({ id }) {
             <h1 className="h1 sm">{area.name}</h1>
           </div>
         </div>
+
+        <CoachBox s={s} areaId={id} />
 
         {TOOLS[id] && (
           <a href={TOOLS[id].href} className="card design-cta">

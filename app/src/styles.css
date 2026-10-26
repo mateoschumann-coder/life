@@ -330,3 +330,11 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .mode-toggle button { border: 0; background: none; border-radius: 999px; padding: 5px 11px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
 .mode-toggle button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .chip.editing { display: inline-flex; align-items: center; gap: 6px; box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Coach-Boxen */
+.box-tabs { display: flex; gap: 6px; overflow-x: auto; margin: 0 -4px; padding: 2px 4px 4px; scrollbar-width: none; }
+.box-tabs::-webkit-scrollbar { display: none; }
+.box-tab { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; min-height: 34px; padding: 0 12px; background: var(--fill); color: var(--text); font-size: 14px; font-weight: 600; }
+.box-tab.on { background: var(--primary); color: var(--on-primary); }
+.badge { min-width: 18px; height: 18px; border-radius: 9px; background: var(--sun); color: #1f2937; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; }
+.coach-q { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--sun) 16%, var(--card)); }

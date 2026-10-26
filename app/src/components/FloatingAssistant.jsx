@@ -117,15 +117,16 @@ export default function FloatingAssistant() {
 
   // „Erzähl mir, wie es läuft“ (Coach-Karte): Fenster öffnen und zuhören
   const tapRef = useRef(null);
-  tapRef.current = () => {
+  tapRef.current = (prefix) => {
     setMode('coach');
+    if (prefix && !listening) setDraft(prefix);
     if (listening) return;
     setSentAt(items.length);
     if (draft.trim() && open) return;
     tap();
   };
   useEffect(() => {
-    const f = () => tapRef.current?.();
+    const f = (e) => tapRef.current?.(e.detail?.prefix);
     window.addEventListener('life-listen', f);
     return () => window.removeEventListener('life-listen', f);
   }, []);

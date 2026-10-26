@@ -27,7 +27,7 @@ export default function Gedaechtnis() {
         <span className="sub" style={{ padding: '0 4px', lineHeight: 1.45 }}>
           Daraus macht dein Coach seine Anstöße. Es füllt sich von selbst, wenn du dem Assistenten erzählst, was du vorhast, magst oder wie es läuft. Falsches einfach löschen oder antippen und ändern.
         </span>
-        <button type="button" className="tell" style={{ alignSelf: 'flex-start' }} onClick={listen}>
+        <button type="button" className="tell" style={{ alignSelf: 'flex-start' }} onClick={() => listen()}>
           <Icon name="mic" size={16} /> Von mir erzählen
         </button>
         {mem.length === 0 && (

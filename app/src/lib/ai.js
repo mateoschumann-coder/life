@@ -228,6 +228,12 @@ DU BIST JETZT IM COACH-MODUS:
 - Du darfst die Websuche nutzen (höchstens 3-mal), wenn ein konkreter Link, ein Video, ein Rezept, ein Event oder eine Lernquelle wirklich hilft. Erfinde keine Links.
 - Antworten dürfen hier länger sein (bis ca. 12 Zeilen), aber klar gegliedert mit Zeilen, die mit „–“ beginnen.`;
 
+const ASSISTANT_ROLE = `
+
+DU BIST JETZT IM ASSISTENTEN-MODUS:
+- Mateo hat eine Idee, einen Termin, einen Geburtstag, ein Projekt oder sonst etwas und will es in seine App-Struktur bringen. Überlege, wo es am besten hinpasst (Lebensbereich, Unterbereich, Projekt, Aufgabe mit Datum, Person …) und schlage die Umsetzung mit dem Werkzeug vor. Sag in 1–2 Sätzen, wie du es einsortierst.
+- Kurz und sachlich; keine Coaching-Fragen.`;
+
 export async function askClaude(s, items, mode = 'assistent') {
   const ai = getAi();
   if (!ai.apiKey) throw new Error('KEIN_SCHLUESSEL');
@@ -245,7 +251,7 @@ export async function askClaude(s, items, mode = 'assistent') {
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true',
       },
-      body: JSON.stringify({ model: ai.model, max_tokens: 4096, system: buildSystem(s) + (coach ? COACH_ROLE : ''), ...body }),
+      body: JSON.stringify({ model: ai.model, max_tokens: 4096, system: buildSystem(s) + (coach ? COACH_ROLE : ASSISTANT_ROLE), ...body }),
     });
     if (!res.ok) {
       let msg = '';
