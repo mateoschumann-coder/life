@@ -40,7 +40,7 @@ export const lastBriefing = () => {
   return b && Array.isArray(b.boxes) ? b : null; // alte Form (ohne Boxen) ignorieren
 };
 export const saveBriefing = (b) => save(KEY, b);
-export const autoCoach = () => getAi().autoCoach !== false;
+export const autoCoach = () => false; // Coach läuft nicht mehr automatisch (v0.34; Heute hat den Überblick)
 
 // Antworten auf Coach-Fragen merken (fließen in den nächsten Durchgang ein)
 export function logAnswer(question, answer, boxId) {

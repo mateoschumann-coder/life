@@ -114,13 +114,6 @@ export default function Einstellungen() {
                   <span className="tiny">Die KI setzt Änderungen sofort um; mit „Rückgängig“ machst du sie wieder weg</span>
                 </span>
               </label>
-              <label className="option" style={{ alignItems: 'center' }}>
-                <input type="checkbox" checked={ai.autoCoach !== false} onChange={(e) => setAi(saveAi({ autoCoach: e.target.checked }))} />
-                <span className="row-main">
-                  <span style={{ fontSize: 15, fontWeight: 600 }}>Coach kommt jeden Tag von selbst</span>
-                  <span className="tiny">Beim ersten Öffnen am Tag, ohne Internet-Suche (unter 1 Cent pro Tag)</span>
-                </span>
-              </label>
               <span className="sub">Diesen Monat: {usage.requests} Anfragen · {usage.searches || 0} Internet-Suchen · ca. {usage.cost < 0.01 ? 'unter 0,01' : usage.cost.toFixed(2).replace('.', ',')} $</span>
               {usage.by && Object.keys(usage.by).length > 0 && (
                 <div className="list" style={{ boxShadow: 'none', background: 'var(--fill)' }}>
@@ -210,7 +203,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.33 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.34 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>

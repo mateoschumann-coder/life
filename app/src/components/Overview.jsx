@@ -28,7 +28,7 @@ export default function Overview({ s }) {
     }
   };
   useEffect(() => {
-    if (hasKey && getAi().autoCoach !== false && !fresh) run();
+    if (hasKey && !fresh) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const data = fresh ? v : localOverview(s);

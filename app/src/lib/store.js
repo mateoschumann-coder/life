@@ -47,6 +47,11 @@ function migrate(s) {
     for (const c of ['Frühstück', 'Mittagessen', 'Abendessen', 'Snacks']) if (!s.recipeCats.includes(c)) s.recipeCats.push(c);
     s.profile = { ...(s.profile || {}), mig029: true };
   }
+  // Version 0.34: Finanzen ist jetzt ein Rechner – alte Rhythmen/Fokus-Themen dort entfernen (einmalig)
+  if (!s.profile?.mig034) {
+    s.habits = (s.habits || []).filter((h) => h.areaId !== 'finanzen');
+    s.profile = { ...(s.profile || {}), mig034: true };
+  }
   // Version 0.31: Finanzen ans Ende von „Persönlich“ (einmalig)
   if (!s.profile?.mig031) {
     const i = s.areas.findIndex((a) => a.id === 'finanzen');

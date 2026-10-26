@@ -25,6 +25,7 @@ export function useDictation(text, setText, lang = 'de-DE') {
     rec.onresult = (e) => {
       let said = '';
       for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript;
+      if (st.rec !== rec) return;
       setText(st.base + said);
     };
     rec.onerror = (e) => {
@@ -61,12 +62,19 @@ export function useDictation(text, setText, lang = 'de-DE') {
     ref.current.until = Date.now() + 5 * 60 * 1000;
     begin();
   };
+  // Stopp: Erkennung sofort abhängen, damit verspätete Ergebnisse den (inzwischen gesendeten/geleerten) Text nicht wieder füllen
   const stop = () => {
     const st = ref.current;
     st.want = false;
-    try {
-      st.rec?.stop();
-    } catch {}
+    const rec = st.rec;
+    st.rec = null;
+    if (rec) {
+      rec.onresult = null;
+      rec.onend = null;
+      try {
+        rec.abort();
+      } catch {}
+    }
     setOn(false);
   };
   useEffect(() => () => {

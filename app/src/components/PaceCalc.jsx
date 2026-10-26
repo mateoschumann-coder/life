@@ -1,59 +1,76 @@
-// Zeitrechner fürs Laufen: zwei von drei Werten eingeben (Distanz, Zeit, Pace) → der dritte wird berechnet.
-// Dazu Prognosen für andere Distanzen (Riegel-Formel) und Zwischenzeiten.
+// Zeitrechner (v0.34, Mateo: meist kurze Distanzen): Distanz + Zeit ODER Pace → der Rest wird berechnet.
+// Schnellwahl 200–1000 m, sonst Meter frei eingeben. Dazu Durchgangszeiten und Schätzung für die anderen Distanzen.
 import { useState } from 'react';
-import { fmtDuration, parseDuration } from '../lib/health';
-import { Segmented } from './ui';
 
-const DISTS = [{ id: '5', label: '5 km', km: 5 }, { id: '10', label: '10 km', km: 10 }, { id: '21.0975', label: 'Halb', km: 21.0975 }, { id: '42.195', label: 'Marathon', km: 42.195 }];
+const QUICK = [200, 400, 600, 800, 1000];
+
+// "75" → 75 s · "1:15" → 75 s · "1:02:30" → 3750 s (Komma als Dezimal erlaubt: "58,5")
+export function parseSec(v) {
+  const s = String(v || '').trim().replace(',', '.');
+  if (!s) return 0;
+  const p = s.split(':').map(Number);
+  if (p.some((x) => Number.isNaN(x))) return 0;
+  if (p.length === 1) return p[0];
+  if (p.length === 2) return p[0] * 60 + p[1];
+  return p[0] * 3600 + p[1] * 60 + p[2];
+}
+export function fmtSec(sec) {
+  if (!sec || !Number.isFinite(sec)) return '';
+  const tot = sec < 600 ? Math.round(sec * 10) / 10 : Math.round(sec);
+  const h = Math.floor(tot / 3600);
+  const m = Math.floor((tot % 3600) / 60);
+  const r = Math.round((tot - h * 3600 - m * 60) * 10) / 10;
+  const ss = (r < 10 ? '0' : '') + String(r).replace('.', ',');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+const label = (m) => (m >= 1000 && m % 1000 === 0 ? `${m / 1000} km` : `${m} m`);
 
 export default function PaceCalc() {
-  const [km, setKm] = useState('42.195');
+  const [meters, setMeters] = useState('400');
   const [time, setTime] = useState('');
   const [pace, setPace] = useState('');
-  const [last, setLast] = useState('time'); // welcher Wert zuletzt eingegeben wurde
-  const d = parseFloat(String(km).replace(',', '.'));
-  const tMin = parseDuration(time);
-  const pMin = parseDuration(pace);
-  let resTime = tMin;
-  let resPace = pMin;
-  if (d > 0 && last === 'time' && tMin) resPace = tMin / d;
-  if (d > 0 && last === 'pace' && pMin) resTime = pMin * d;
-  const ok = d > 0 && resTime && resPace;
-  const predict = (target) => resTime * (target / d) ** 1.06;
-  const splits = ok ? [5, 10, 15, 20, 21.0975, 25, 30, 35, 40].filter((k) => k < d).map((k) => ({ k, t: resPace * k })) : [];
+  const [last, setLast] = useState('time');
+  const m = parseFloat(String(meters).replace(',', '.'));
+  const t = parseSec(time);
+  const p = parseSec(pace); // Sekunden pro km
+  let resT = t;
+  let resP = p;
+  if (m > 0 && last === 'time' && t) resP = (t / m) * 1000;
+  if (m > 0 && last === 'pace' && p) resT = (p * m) / 1000;
+  const ok = m > 0 && resT > 0 && resP > 0;
+  const step = m <= 1000 ? 100 : m <= 5000 ? 400 : 1000;
+  const splits = ok ? Array.from({ length: Math.floor((m - 1) / step) }, (_, i) => (i + 1) * step).map((x) => ({ x, t: (resP * x) / 1000 })) : [];
+  const others = [...QUICK, 1500, 3000, 5000, 10000].filter((x) => Math.abs(x - m) > 1);
+  const predict = (x) => resT * (x / m) ** 1.06;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <Segmented full options={DISTS.map((x) => ({ id: x.id, label: x.label }))} value={DISTS.some((x) => x.id === km) ? km : ''} onChange={setKm} label="Distanz" />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="chips">
+        {QUICK.map((x) => <button key={x} type="button" className={Number(meters) === x ? 'chip on' : 'chip soft'} style={{ padding: '6px 10px', fontSize: 13 }} onClick={() => setMeters(String(x))}>{label(x)}</button>)}
+      </div>
       <div className="calc-grid">
-        <label className="field"><span>Distanz (km)</span><input className="input" inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} /></label>
-        <label className="field"><span>Zielzeit</span><input className="input" value={last === 'pace' && ok ? fmtDuration(resTime) : time} onChange={(e) => { setTime(e.target.value); setLast('time'); }} placeholder="3:20:00" inputMode="numeric" /></label>
-        <label className="field"><span>Pace (/km)</span><input className="input" value={last === 'time' && ok ? fmtDuration(resPace) : pace} onChange={(e) => { setPace(e.target.value); setLast('pace'); }} placeholder="4:44" inputMode="numeric" /></label>
+        <label className="field"><span>Distanz (m)</span><input className="input" inputMode="decimal" value={meters} onChange={(e) => setMeters(e.target.value)} aria-label="Distanz in Metern" /></label>
+        <label className="field"><span>Zeit</span><input className="input" value={last === 'pace' && ok ? fmtSec(resT) : time} onChange={(e) => { setTime(e.target.value); setLast('time'); }} placeholder="1:15 oder 75" inputMode="decimal" aria-label="Zeit" /></label>
+        <label className="field"><span>Pace (/km)</span><input className="input" value={last === 'time' && ok ? fmtSec(resP) : pace} onChange={(e) => { setPace(e.target.value); setLast('pace'); }} placeholder="3:45" inputMode="decimal" aria-label="Pace pro km" /></label>
       </div>
       {ok && (
         <>
           <div className="calc-result">
-            <div><span className="tiny">Zeit</span><b>{fmtDuration(resTime)}</b></div>
-            <div><span className="tiny">Pace</span><b>{fmtDuration(resPace)} /km</b></div>
-            <div><span className="tiny">Tempo</span><b>{(60 / resPace).toFixed(1).replace('.', ',')} km/h</b></div>
-          </div>
-          <span className="label" style={{ padding: 0 }}>Damit möglich auf anderen Distanzen (Schätzung)</span>
-          <div className="calc-result">
-            {DISTS.filter((x) => Math.abs(x.km - d) > 0.01).map((x) => (
-              <div key={x.id}><span className="tiny">{x.label}</span><b>{fmtDuration(predict(x.km))}</b></div>
-            ))}
+            <div><span className="tiny">Zeit</span><b>{fmtSec(resT)}</b></div>
+            <div><span className="tiny">Pace</span><b>{fmtSec(resP)} /km</b></div>
+            <div><span className="tiny">Tempo</span><b>{(3600 / resP).toFixed(1).replace('.', ',')} km/h</b></div>
           </div>
           {splits.length > 0 && (
             <>
-              <span className="label" style={{ padding: 0 }}>Zwischenzeiten bei gleichmäßigem Tempo</span>
-              <div className="chips">
-                {splits.map((x) => <span key={x.k} className="tag" style={{ fontSize: 13 }}>{x.k === 21.0975 ? 'HM' : `${x.k} km`}: {fmtDuration(x.t)}</span>)}
-              </div>
+              <span className="label" style={{ padding: 0 }}>Durchgangszeiten bei gleichem Tempo</span>
+              <div className="chips">{splits.map((x) => <span key={x.x} className="tag" style={{ fontSize: 13 }}>{label(x.x)}: {fmtSec(x.t)}</span>)}</div>
             </>
           )}
+          <span className="label" style={{ padding: 0 }}>Gleiches Niveau auf anderen Distanzen (Schätzung)</span>
+          <div className="chips">{others.map((x) => <span key={x} className="tag" style={{ fontSize: 13 }}>{label(x)}: {fmtSec(predict(x))}</span>)}</div>
         </>
       )}
-      {!ok && <span className="tiny">Gib Zielzeit oder Pace ein, z.B. 3:20:00 oder 4:44.</span>}
+      {!ok && <span className="tiny">Gib Zeit oder Pace ein – z.B. 400 m in 1:15 (oder 75 Sekunden), oder eine Pace von 3:45 pro km.</span>}
     </div>
   );
 }

@@ -72,7 +72,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       for (const g of groups) if (Array.isArray(rest[g.key]) && rest[g.key].length) proposal[g.key] = rest[g.key];
         else if (typeof rest[g.key] === 'string' && rest[g.key].trim()) proposal[g.key] = [rest[g.key]];
       const names = Object.entries(proposal).map(([k, list]) => `${groups.find((g) => g.key === k).label}: ${list.map((x) => groups.find((g) => g.key === k).title(x)).join('; ')}`).join(' | ');
-      const picked = Object.fromEntries(Object.entries(proposal).map(([k, list]) => [k, list.map(() => true)]));
+      const picked = Object.fromEntries(Object.entries(proposal).map(([k, list]) => [k, list.map(() => false)]));
       onSave([...hist, { id: mid(), role: 'assistant', text: (antwort || 'Hier sind meine Vorschläge.') + (names ? `\n[Vorgeschlagen – ${names}]` : ''), shown: antwort || 'Hier sind meine Vorschläge.', proposal, picked, applied: false }]);
     } catch (e) {
       onSave(history); // Frage wieder heraus, damit das Gespräch gültig bleibt

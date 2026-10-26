@@ -310,6 +310,10 @@ function SportsPage({ s }) {
             ))}</div>}
           </section>
         )}
+        <section className="card" style={{ gap: 10 }}>
+          <span className="label" style={{ padding: 0 }}>Zeitrechner</span>
+          <PaceCalc />
+        </section>
       </main>
       <TabBar active="bereiche" />
     </>

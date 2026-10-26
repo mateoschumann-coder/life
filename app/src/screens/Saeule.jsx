@@ -28,14 +28,12 @@ export default function Saeule({ id }) {
         </div>
 
         {areas.map((a) => {
-          const st = areaStatus(s, a, t);
           return (
             <section key={a.id} className="list" style={{ background: `color-mix(in srgb, ${p.color} 7%, var(--card))` }}>
               <a href={DIRECT[a.id] || `#/bereich/${a.id}`} className="row" style={{ minHeight: 60 }}>
                 <AreaIcon icon={a.icon} color={p.color} size={32} />
                 <span className="row-main">
                   <span className="row-title strong">{a.name}</span>
-                  <span className="row-meta"><Dot small level={st.level} />{st.text}</span>
                 </span>
                 <Chevron />
               </a>
