@@ -318,12 +318,18 @@ const KITCHEN_TOOL = {
     required: ['antwort'],
   },
 };
-export async function kitchenChat(s, history, { web = false, smart = false } = {}) {
+const KITCHEN_MODE = {
+  neu: 'Modus „Neues Rezept“: Schlag 2–3 passende Rezepte zu seinem Wunsch vor (unter "rezepte"), fehlende Zutaten unter "einkaufen".',
+  kuehlschrank: 'Modus „Aus dem Kühlschrank“: Mateo nennt, was er da hat. Schlag 1–3 Rezepte vor, die vor allem DIESE Zutaten nutzen (Grundzutaten wie Öl, Salz, Gewürze darfst du annehmen); was wirklich fehlt, unter "einkaufen".',
+  diktieren: 'Modus „Rezept diktieren“: Mateo erzählt SEIN Rezept (oft per Sprache, ungeordnet). Schreib daraus genau 1 sauberes Rezept unter "rezepte": treffender Titel, Zutaten mit seinen Mengen (eine pro Eintrag), kurze nummerierte Schritte, ungefähre Minuten. Nichts erfinden, nichts Neues vorschlagen; fehlt Wichtiges (z.B. Temperatur), frag kurz nach. Keine "einkaufen".',
+};
+export async function kitchenChat(s, history, { web = false, smart = false, mode = 'neu', cat = '' } = {}) {
   const system = `Du bist Mateos Küchen-Helfer in der App „Life“ (er lebt in Buenos Aires, kocht gern mit dem Airfryer, trainiert für einen Marathon). Heute ist ${fmtLong(today())}.
 Seine Rezepte: ${JSON.stringify(s.recipes.map((r) => `${r.title} (${r.category})`))}
 Einkaufsliste offen: ${JSON.stringify(s.shopping.items.filter((x) => !x.done).map((x) => x.name || x.text))}
 Was du über ihn weißt: ${JSON.stringify(s.memory.map((m) => m.text))}
-Hilf beim Planen: was kochen, Wochenplan, Resteverwertung, Einkauf. Rezepte (mit Zutaten für 2 Portionen und kurzen Schritten) unter "rezepte", fehlende Zutaten unter "einkaufen" (nichts, was schon auf der Liste steht).
+${KITCHEN_MODE[mode] || KITCHEN_MODE.neu}${cat ? ` Gewählte Kategorie: ${cat}.` : ''}
+Rezepte mit Zutaten (für 2 Portionen, außer beim Diktieren) und kurzen Schritten unter "rezepte"; unter "einkaufen" nichts, was schon auf der Liste steht.
 ${web ? 'Du darfst höchstens 1-mal im Internet suchen; Links nur aus Suchergebnissen.' : 'Ohne Internet: aus deinem Wissen, keine URLs.'}
 Antworte immer mit "kueche_antwort". Deutsch, kein Markdown.`;
   return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: KITCHEN_TOOL, maxUses: web ? 1 : 0, label: 'Küchen-Chat', smart });
