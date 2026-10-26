@@ -40,6 +40,8 @@ function migrate(s) {
   // Version 0.21: Reisen (Ideen, Stationen, Orte, Transport, Unterlagen) und Events (zu Hause / woanders)
   s.trips.forEach(normalizeTrip);
   s.gatherings.forEach(normalizeGathering);
+  // Version 0.23: Material bekommt eine Kategorie (Podcasts → „Podcasts“, sonst „Bibliothek“)
+  s.library.forEach((m) => { if (!m.cat) m.cat = m.kind === 'podcast' && s.libCats.some((c) => c.id === 'podcasts') ? 'podcasts' : s.libCats[0]?.id || 'bibliothek'; });
   s.version = base.version;
   return s;
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
-import { addHobby, addHobbyItem, HOBBY_KINDS, hobbyIdeas, removeHobby, removeHobbyItem, updateHobby, updateHobbyItem } from '../lib/leisure';
+import { addHobby, addHobbyItem, HOBBY_KINDS, hobbyChat, hobbyIdeas, searchLink, removeHobby, removeHobbyItem, updateHobby, updateHobbyItem } from '../lib/leisure';
 import { getAi } from '../lib/ai';
+import { chatOf, saveChatOf } from '../lib/chats';
+import PlanChat from '../components/PlanChat';
 import { Back, Chevron, Icon, Segmented, TabBar, toast } from '../components/ui';
 import { Missing } from './Saeule';
 
@@ -63,11 +65,11 @@ function HobbyDetail({ s, h }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const list = h.items.filter((x) => (tab === 'geschafft' ? x.status === 'geschafft' : x.status !== 'geschafft'));
-  const ask = async () => {
-    setBusy(true);
+  const ask = async (web) => {
+    setBusy(web ? 'web' : 'ki');
     setErr(null);
     try {
-      setIdeas(await hobbyIdeas(s, h.id, wish.trim()));
+      setIdeas(await hobbyIdeas(s, h.id, wish.trim(), { web }));
       setWish('');
     } catch (e) {
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
@@ -91,11 +93,13 @@ function HobbyDetail({ s, h }) {
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
             <span className="spark"><Icon name="sparkle" size={15} color="currentColor" /></span> Neue Ideen
           </span>
-          <form className="block-add" onSubmit={(e) => { e.preventDefault(); ask(); }}>
-            <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder="Wunsch, z.B. „Songs mit Barré-Griffen“" aria-label="Wunsch" />
-            <button type="submit" className="btn small" disabled={busy || !getAi().apiKey}>{busy ? '…' : 'Los'}</button>
-          </form>
-          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Ideen passend zu deinem Niveau … (ca. 20 Sek.)</span></div>}
+          <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder="Wunsch, z.B. „Songs mit Barré-Griffen“" aria-label="Wunsch" />
+          <div className="search-row">
+            <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => ask(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
+            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => ask(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
+          </div>
+          <span className="tiny">Ohne Internet: Ideen aus dem KI-Wissen mit YouTube-/Google-Suchlink (günstig). Mit Internet: konkrete Videos/Seiten mit Link (ca. 2–3 Cent).</span>
+          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche im Internet …' : 'Ich überlege Ideen passend zu deinem Niveau …'}</span></div>}
           {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
           {!busy && ideas && ideas.map((x) => (
             <div key={x.id} className="option" style={{ alignItems: 'center' }}>
@@ -127,6 +131,18 @@ function HobbyDetail({ s, h }) {
             </div>
           ))}
         </div>
+        <PlanChat
+          title={`Chat: ${h.name}`}
+          intro="Frag mich alles zu deinem Hobby – Erklärungen, Übungspläne, was du als Nächstes lernen kannst. Gute Ideen kannst du direkt auf deine Liste setzen."
+          history={chatOf(s, `hobby:${h.id}`)}
+          onSave={(hist) => saveChatOf(`hobby:${h.id}`, hist)}
+          onAsk={(hist, o) => hobbyChat(s, h.id, hist, o)}
+          prefKey="hobby"
+          groups={[{ key: 'ideen', label: 'Auf meine Liste', title: (x) => x.titel, meta: (x) => [HOBBY_KINDS[x.art], x.warum].filter(Boolean).join(' · ') }]}
+          onApply={(sel) => { for (const x of sel.ideen || []) addHobbyItem(h.id, { title: x.titel, kind: HOBBY_KINDS[x.art] ? x.art : 'idee', why: x.warum || '', url: /^https?:\/\//.test(x.url || '') ? x.url : searchLink(x.titel, x.art) }); }}
+          chips={['Übungsplan für diese Woche', 'Was sollte ich als Nächstes lernen?', 'Erklär mir etwas Grundlegendes']}
+        />
+
         <form className="card" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); addHobbyItem(h.id, { title: text, kind }); setText(''); }}>
           <span className="label" style={{ padding: 0 }}>Selbst eintragen</span>
           <div className="chips">{Object.entries(HOBBY_KINDS).map(([k, v]) => <button key={k} type="button" className={kind === k ? 'chip on' : 'chip soft'} onClick={() => setKind(k)}>{v}</button>)}</div>

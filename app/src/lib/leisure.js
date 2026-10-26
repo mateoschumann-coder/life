@@ -70,14 +70,41 @@ const HOBBY_TOOL = {
     required: ['ideen'],
   },
 };
-export async function hobbyIdeas(s, hobbyId, wish = '') {
+export async function hobbyIdeas(s, hobbyId, wish = '', { web = false } = {}) {
   const h = s.hobbies.find((x) => x.id === hobbyId);
   const system = `Du bist ein inspirierender Mentor für Mateos Hobby „${h.name}“${h.level ? ` (Niveau: ${h.level})` : ''}${h.goal ? `, Ziel: ${h.goal}` : ''}. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Was er schon gemacht hat / auf der Liste hat: ${JSON.stringify(h.items.map((x) => `${x.title} (${x.status})`))}
-Antworte aus deinem Wissen (ohne Internet) mit "ideen_zeigen": 5 bis 6 abwechslungsreiche, konkrete Ideen zurück, die ihn weiterbringen und Spaß machen – passend zu Niveau und Geschmack, nichts doppelt. Deutsch, kurz. Links: Gib KEINE URLs an (du suchst nicht im Internet) – die App erzeugt selbst einen Such-Link zum Titel.`;
-  const input = await searchWithTool({ system, user: wish ? `Wunsch: ${wish}` : `Neue Ideen für ${h.name}`, tool: HOBBY_TOOL, maxUses: 0, label: 'Hobby-Ideen' });
-  return (input.ideen || []).filter((x) => x && x.titel).map((x, i) => ({ id: 'h' + i + Date.now().toString(36), title: x.titel, kind: HOBBY_KINDS[x.art] ? x.art : 'idee', why: x.warum || '', url: searchLink(x.titel, x.art) }));
+${web ? 'Suche höchstens 2-mal im Internet (z.B. YouTube-Lektionen, Tabs, aktuelle Kurse) und gib Links aus den Suchergebnissen an.' : 'Antworte aus deinem Wissen (ohne Internet). Gib KEINE URLs an – die App erzeugt selbst einen Such-Link zum Titel.'}
+Gib mit "ideen_zeigen" 5 bis 6 abwechslungsreiche, konkrete Ideen zurück, die ihn weiterbringen und Spaß machen – passend zu Niveau und Geschmack, nichts doppelt. Deutsch, kurz.`;
+  const tool = web ? { ...HOBBY_TOOL, input_schema: JSON.parse(JSON.stringify(HOBBY_TOOL.input_schema)) } : HOBBY_TOOL;
+  if (web) tool.input_schema.properties.ideen.items.properties.url = { type: 'string', description: 'Link aus den Suchergebnissen' };
+  const input = await searchWithTool({ system, user: wish ? `Wunsch: ${wish}` : `Neue Ideen für ${h.name}`, tool, maxUses: web ? 2 : 0, label: 'Hobby-Ideen' });
+  return (input.ideen || []).filter((x) => x && x.titel).map((x, i) => ({ id: 'h' + i + Date.now().toString(36), title: x.titel, kind: HOBBY_KINDS[x.art] ? x.art : 'idee', why: x.warum || '', url: /^https?:\/\//.test(x.url || '') ? x.url : searchLink(x.titel, x.art) }));
+}
+
+// Chat pro Hobby: Fragen, Üben, Motivation → Ideen übernehmen
+const HOBBY_CHAT_TOOL = {
+  name: 'antwort_geben',
+  description: 'Antwort plus Ideen zum Merken.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      antwort: { type: 'string', description: 'Antwort (2–8 Sätze), gern mit Rückfrage' },
+      ideen: HOBBY_TOOL.input_schema.properties.ideen,
+    },
+    required: ['antwort'],
+  },
+};
+export async function hobbyChat(s, hobbyId, history, { web = false, smart = false } = {}) {
+  const h = s.hobbies.find((x) => x.id === hobbyId);
+  const system = `Du bist Mateos Mentor für sein Hobby „${h.name}“${h.level ? ` (Niveau: ${h.level})` : ''}${h.goal ? `, Ziel/Geschmack: ${h.goal}` : ''} in der App „Life“.
+Seine Liste: ${JSON.stringify(h.items.map((x) => `${x.title} (${x.status})`))}
+Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
+Hilf ihm beim Üben und Weiterkommen: erkläre, gib Übungspläne, beantworte Fragen. Konkrete Dinge zum Merken (Songs, Videos, Bücher, Übungen) unter "ideen".
+${web ? 'Du darfst höchstens 2-mal im Internet suchen; Links nur aus Suchergebnissen.' : 'Ohne Internet: aus deinem Wissen, keine URLs.'}
+Antworte immer mit "antwort_geben". Deutsch, kein Markdown.`;
+  return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: HOBBY_CHAT_TOOL, maxUses: web ? 2 : 0, label: 'Hobby-Chat', smart });
 }
 
 // Reisen und eigene Events liegen in trips.js und gather.js

@@ -108,7 +108,7 @@ export const gatherSnapshot = (g) => ({
   einkauf: g.shopping.map((x) => x.text), mitbringen: g.bring.map((x) => `${x.text}${x.who ? ` – ${x.who}` : ''}`),
   todos: g.todos.map((x) => x.text), orte: g.venues.map((x) => `${x.name} (${x.status})`), einladung_vorhanden: !!g.invite,
 });
-export async function gatherAssist(s, g, history, { web = false } = {}) {
+export async function gatherAssist(s, g, history, { web = false, smart = false } = {}) {
   const system = `Du hilfst Mateo (lebt in Buenos Aires), ein eigenes Event zu planen. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Aktueller Stand: ${JSON.stringify(gatherSnapshot(g))}
@@ -119,7 +119,7 @@ Arbeitsweise:
 - Nichts vorschlagen, was schon im Stand steht. Links nur aus Suchergebnissen.
 Antworte immer mit "event_planen". Deutsch, konkret, kurz.`;
   const messages = history.map((m) => ({ role: m.role, content: m.text }));
-  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 2 : 0, label: 'Event-Planer' });
+  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 2 : 0, label: 'Event-Planer', smart });
 }
 
 export function applyGatherProposal(gId, sel) {

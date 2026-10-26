@@ -78,6 +78,12 @@ export function seed() {
     reminders: [], // Regelmäßige Erinnerungen (Miete, WLAN …)
     hobbies: [], // Hobbys mit Ideen
     trips: [], // Reisen mit eigenem Dashboard
+    sportEvents: [], // Events pro Sportart (Rennen, Turniere, Lauftreffs …)
+    libCats: [ // Kategorien in „Lernen & Wissen“ (z.B. Bibliothek, Podcasts) – frei erweiterbar
+      { id: 'bibliothek', name: 'Bibliothek', kind: '', icon: 'book' },
+      { id: 'podcasts', name: 'Podcasts', kind: 'podcast', icon: 'mic' },
+    ],
+    chats: {}, // Gesprächsverläufe der Bereichs-Chats (Sport-Coach, Küche, Hobbys, Lernen)
     gatherings: [], // Eigene Treffen/Events // Bücher, Artikel, Videos … pro Thema (Thema = Unterbereich von „Lernen & Wissen“) // Was Life über Mateo weiß (aus Erzählungen gelernt, jederzeit änderbar)
   };
 }

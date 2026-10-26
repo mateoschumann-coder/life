@@ -190,6 +190,7 @@ function Detail({ s, g }) {
           title="Mit KI planen"
           intro={home ? 'Erzähl, was dir vorschwebt – ich frage nach (wie viele ungefähr, Einschränkungen, Budget) und schlage Ideen, Menü, Getränke und was Gäste mitbringen können vor.' : 'Erzähl, was dir vorschwebt – ich frage nach und suche passende Orte in Buenos Aires, sage, wie man reserviert und was du den Gästen schicken musst.'}
           history={g.chat}
+          prefKey="event"
           onSave={(chat) => updateGathering(g.id, { chat })}
           onAsk={(hist, o) => gatherAssist(s, g, hist, o)}
           webChips={['Passenden Ort finden']}

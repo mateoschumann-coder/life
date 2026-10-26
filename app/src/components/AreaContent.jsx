@@ -7,7 +7,8 @@ import { Check, Chevron, Icon, toast } from './ui';
 import { NewHabitSheet, NewProjectSheet, ResourceSheet } from './sheets';
 import { go } from '../lib/router';
 
-export default function AreaContent({ s, area, subId = null }) {
+export default function AreaContent({ s, area, subId = null, only = null }) {
+  const show = (k) => !only || only.includes(k);
   const t = today();
   const [sheet, setSheet] = useState(null);
   const [taskText, setTaskText] = useState('');
@@ -27,7 +28,7 @@ export default function AreaContent({ s, area, subId = null }) {
 
   return (
     <>
-      <section className="group">
+      {show('rhythmen') && <section className="group">
         <div className="sec-h">
           <h2 className="h2">Fokus und Rhythmen</h2>
           <button type="button" className="link-btn" onClick={() => setSheet('habit')}>Hinzufügen</button>
@@ -51,9 +52,9 @@ export default function AreaContent({ s, area, subId = null }) {
             );
           })}
         </div>
-      </section>
+      </section>}
 
-      <section className="group">
+      {show('projekte') && <section className="group">
         <div className="sec-h">
           <h2 className="h2">Projekte</h2>
           <button type="button" className="link-btn" onClick={() => setSheet('projekt')}>Neues Projekt</button>
@@ -77,9 +78,9 @@ export default function AreaContent({ s, area, subId = null }) {
             );
           })}
         </div>
-      </section>
+      </section>}
 
-      <section className="group">
+      {show('aufgaben') && <section className="group">
         <div className="sec-h">
           <h2 className="h2">Aufgaben und Ideen</h2>
           {doneCount > 0 && <span className="sub">{doneCount} erledigt</span>}
@@ -114,9 +115,9 @@ export default function AreaContent({ s, area, subId = null }) {
             <button type="submit" className="btn small" disabled={!taskText.trim()} aria-label="Hinzufügen">+</button>
           </form>
         </div>
-      </section>
+      </section>}
 
-      <section className="group">
+      {show('ressourcen') && <section className="group">
         <div className="sec-h">
           <h2 className="h2">Ressourcen</h2>
           <button type="button" className="link-btn" onClick={() => setSheet('res')}>Hinzufügen</button>
@@ -136,7 +137,7 @@ export default function AreaContent({ s, area, subId = null }) {
             </div>
           ))}
         </div>
-      </section>
+      </section>}
 
       <NewHabitSheet s={s} open={sheet === 'habit'} onClose={close} areaId={area.id} subId={subId} />
       <NewProjectSheet s={s} open={sheet === 'projekt'} onClose={close} areaId={area.id} subId={subId} />

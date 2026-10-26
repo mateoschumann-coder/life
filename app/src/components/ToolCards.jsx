@@ -1,8 +1,8 @@
 import { toolsFor } from '../lib/tools';
 import { Chevron, Icon } from './ui';
 
-export default function ToolCards({ areaId, subName }) {
-  const tools = toolsFor(areaId, subName);
+export default function ToolCards({ areaId, subName, s }) {
+  const tools = toolsFor(areaId, subName, s);
   if (!tools.length) return null;
   return (
     <div className="tool-grid">

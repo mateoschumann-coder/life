@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import {
-  addRecipe, addShopping, clearBought, deleteRecipe, findRecipes, removeShopping, setRecipeCats, shoppingSuggestions, toggleShopping, updateRecipe,
+  addRecipe, addShopping, clearBought, deleteRecipe, findRecipes, kitchenChat, removeShopping, setRecipeCats, shoppingSuggestions, toggleShopping, updateRecipe,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
+import { chatOf, saveChatOf } from '../lib/chats';
+import PlanChat from '../components/PlanChat';
 import { listen } from '../components/Coach';
 import { Back, Check, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
@@ -92,12 +94,12 @@ function Recipes({ s }) {
   const hasKey = !!getAi().apiKey;
   const list = s.recipes.filter((r) => !cat || r.category === cat);
   const ideas = cat === 'Airfryer' || !cat ? ['Airfryer Hähnchen', 'Airfryer Gemüse', 'Airfryer Fisch', 'Proteinreich nach dem Lauf'] : [`${cat}: schnelle Ideen`, `${cat}: vegetarisch`];
-  const search = async (query) => {
+  const search = async (query, web = false) => {
     if (!query.trim() || busy) return;
-    setBusy(true);
+    setBusy(web ? 'web' : 'ki');
     setErr(null);
     try {
-      setResults(await findRecipes(s, query.trim(), cat || (/airfryer/i.test(query) ? 'Airfryer' : s.recipeCats[0])));
+      setResults(await findRecipes(s, query.trim(), cat || (/airfryer/i.test(query) ? 'Airfryer' : s.recipeCats[0]), { web }));
       setQ('');
     } catch (e) {
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
@@ -142,12 +144,16 @@ function Recipes({ s }) {
 
       <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Rezepte finden</span>
-        <form className="block-add" onSubmit={(e) => { e.preventDefault(); search(q); }}>
+        <form onSubmit={(e) => { e.preventDefault(); search(q); }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Airfryer Süßkartoffel" aria-label="Rezept suchen" />
-          <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>
+          <div className="search-row">
+            <button type="submit" className="btn tint small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
+            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey} onClick={() => search(q, true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
+          </div>
         </form>
-        <div className="chips">{ideas.map((c) => <button key={c} type="button" className="chip soft" disabled={busy || !hasKey} onClick={() => search(c)}>{c}</button>)}</div>
-        {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Rezepte … (ca. 20 Sek.)</span></div>}
+        <div className="chips">{ideas.map((c) => <button key={c} type="button" className="chip soft" disabled={!!busy || !hasKey} onClick={() => search(c)}>{c}</button>)}</div>
+        <span className="tiny">Ohne Internet: Rezepte aus dem KI-Wissen (sehr günstig). Mit Internet: echte Rezepte von Webseiten mit Link (ca. 1–2 Cent). Die Vorschläge oben laufen ohne Internet.</span>
+        {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche Rezepte im Internet … (ca. 20 Sek.)' : 'Ich überlege Rezepte … (ca. 10 Sek.)'}</span></div>}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
         {!busy && results && results.map((r) => (
           <button key={r.id} type="button" className="option" style={{ alignItems: 'center', textAlign: 'left', border: 0, width: '100%', font: 'inherit', color: 'inherit' }} onClick={() => setSheet(r)}>
@@ -210,6 +216,11 @@ function Shopping({ s }) {
   );
 }
 
+const KITCHEN_GROUPS = [
+  { key: 'rezepte', label: 'Rezepte speichern', title: (x) => x.titel, meta: (x) => [x.minuten && `${x.minuten} Min`, (x.zutaten || []).length && `${x.zutaten.length} Zutaten`, x.warum].filter(Boolean).join(' · ') },
+  { key: 'einkaufen', label: 'Auf die Einkaufsliste', title: (x) => x },
+];
+
 export default function Kueche() {
   const s = useStore();
   const [tab, setTab] = useState(() => {
@@ -235,6 +246,20 @@ export default function Kueche() {
         </div>
         <Segmented full options={[{ id: 'rezepte', label: 'Rezepte' }, { id: 'einkauf', label: `Einkaufsliste${openCount ? ` (${openCount})` : ''}` }]} value={tab} onChange={choose} label="Ansicht" />
         {tab === 'rezepte' ? <Recipes s={s} /> : <Shopping s={s} />}
+        <PlanChat
+          title="Küchen-Chat"
+          intro="Sag mir, worauf du Lust hast oder was noch im Kühlschrank ist – ich schlage Rezepte vor und ergänze die Einkaufsliste."
+          history={chatOf(s, 'kueche')}
+          onSave={(h) => saveChatOf('kueche', h)}
+          onAsk={(hist, o) => kitchenChat(s, hist, o)}
+          prefKey="kueche"
+          groups={KITCHEN_GROUPS}
+          onApply={(sel) => {
+            for (const r of sel.rezepte || []) addRecipe({ title: r.titel, category: s.recipeCats[0] || 'Airfryer', ingredients: r.zutaten || [], steps: r.schritte || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '', minutes: r.minuten || null });
+            if (sel.einkaufen?.length) addShopping(sel.einkaufen);
+          }}
+          chips={['Was koche ich heute?', 'Wochenplan mit Einkaufsliste', 'Proteinreich nach dem Lauf', 'Resteverwertung']}
+        />
       </main>
       <TabBar active="bereiche" />
     </>

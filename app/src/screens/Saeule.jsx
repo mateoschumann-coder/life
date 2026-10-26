@@ -47,7 +47,7 @@ export default function Saeule({ id }) {
                       return [<span key="n" className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{n} {n === 1 ? 'Person' : 'Personen'}</span>, b > 0 && <span key="b" className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>🎂 {b} bald</span>];
                     })()
                     : TOOL_AREAS.has(a.id)
-                    ? toolsFor(a.id).filter((x) => x.href).map((x) => <a key={x.title} href={x.href} className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{x.title}</a>)
+                    ? toolsFor(a.id, null, s).filter((x) => x.href).map((x) => <a key={x.title} href={x.href} className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{x.title}</a>)
                     : a.subs.map((sub) => (
                       <a key={sub.id} href={`#/unterbereich/${a.id}/${sub.id}`} className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{sub.name}</a>
                     ))}

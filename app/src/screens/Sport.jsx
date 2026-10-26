@@ -3,9 +3,12 @@ import { useStore } from '../lib/store';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addProject, addTask } from '../lib/actions';
 import {
-  addSession, addSport, analyzeSport, deleteSession, fmtDuration, fmtPace, guessSportName, hasDistance, lastAnalysis, parseDuration, parseGarminCsv,
+  addSession, addSport, addSportEvent, deleteSession, removeSportEvent, searchSportEvents, sportCoach, SPORT_EVENT_STATUS, updateSportEvent, fmtDuration, fmtPace, guessSportName, hasDistance, lastAnalysis, parseDuration, parseGarminCsv,
   removeSport, SPORT_PRESETS, updateSport, weekStats,
 } from '../lib/health';
+import { chatOf, saveChatOf } from '../lib/chats';
+import PlanChat from '../components/PlanChat';
+import { DateRangeField } from '../components/DateRange';
 import { getAi } from '../lib/ai';
 import MiniChart from '../components/MiniChart';
 import PaceCalc from '../components/PaceCalc';
@@ -140,55 +143,112 @@ function ProjectSheet({ s, sport, open, onClose }) {
   );
 }
 
-function Analysis({ s, sport }) {
-  const [a, setA] = useState(() => lastAnalysis(sport.id));
+
+
+// ---------- Coach-Vorschläge übernehmen ----------
+const COACH_GROUPS = [
+  { key: 'einheiten', label: 'Einheiten einplanen', title: (x) => x.titel, meta: (x) => (x.tage_ab_heute != null ? fmtShort(addDays(today(), Math.max(0, x.tage_ab_heute))) : 'heute') },
+  { key: 'uebungen', label: 'Übungen (als Aufgabe mit Video-Suche)', title: (x) => x.titel, meta: (x) => x.warum },
+  { key: 'events', label: 'Events merken', title: (x) => x.name, meta: (x) => [x.datum && fmtShort(x.datum), x.ort].filter(Boolean).join(' · ') },
+];
+function applyCoach(sport, sel) {
+  for (const x of sel.einheiten || []) addTask({ title: x.titel, areaId: 'koerper', due: addDays(today(), Math.max(0, x.tage_ab_heute || 0)) });
+  for (const x of sel.uebungen || []) addTask({ title: x.titel, areaId: 'koerper', due: today(), url: `https://www.youtube.com/results?search_query=${encodeURIComponent(x.titel)}` });
+  for (const x of sel.events || []) addSportEvent({ sportId: sport.id, name: x.name, date: x.datum, place: x.ort, url: x.url });
+}
+
+// ---------- Events dieser Sportart: notieren und suchen ----------
+const NEXT_STATUS = { interessiert: 'angemeldet', angemeldet: 'dabei', dabei: 'interessiert' };
+function SportEvents({ s, sport }) {
+  const t = today();
+  const [adding, setAdding] = useState(false);
+  const [f, setF] = useState({ name: '', date: '', place: '', url: '' });
+  const [q, setQ] = useState('');
+  const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
-  const run = async () => {
-    setBusy(true);
+  const list = (s.sportEvents || []).filter((e) => e.sportId === sport.id).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+  const upcoming = list.filter((e) => e.status !== 'dabei' && (!e.date || e.date >= t));
+  const past = list.filter((e) => e.status === 'dabei' || (e.date && e.date < t));
+  const search = async (web) => {
+    setBusy(web ? 'web' : 'ki');
     setErr(null);
     try {
-      setA(await analyzeSport(s, sport.id));
+      setRes(await searchSportEvents(s, sport.id, q.trim(), { web }));
     } catch (e) {
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
     } finally {
       setBusy(false);
     }
   };
-  const plan = (x) => {
-    addTask({ title: x.titel, areaId: 'koerper', due: addDays(today(), Math.max(0, x.tage_ab_heute || 0)) });
-    toast(`Eingeplant für ${fmtShort(addDays(today(), Math.max(0, x.tage_ab_heute || 0)))}`);
+  const save = () => {
+    if (addSportEvent({ sportId: sport.id, ...f })) toast('Event notiert');
+    setF({ name: '', date: '', place: '', url: '' });
+    setAdding(false);
   };
+  const Row = ({ e }) => (
+    <div className="row" style={{ minHeight: 60 }}>
+      <span className="row-main">
+        <span className="row-title strong">{e.name}</span>
+        <span className="row-meta">{[e.date ? `${fmtShort(e.date)}${e.date >= t ? ` · in ${diffDays(t, e.date)} Tagen` : ''}` : 'Datum offen', e.place, e.result && `Ergebnis: ${e.result}`, e.note].filter(Boolean).join(' · ')}</span>
+      </span>
+      {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+      <button type="button" className={e.status === 'interessiert' ? 'pill' : 'pill on'} onClick={() => {
+        const next = NEXT_STATUS[e.status];
+        const patch = { status: next };
+        if (next === 'dabei') { const r = prompt('Wie lief es? (z.B. Zeit oder Platz – optional)', e.result || ''); if (r !== null) patch.result = r; }
+        updateSportEvent(e.id, patch);
+      }}>{SPORT_EVENT_STATUS[e.status]}</button>
+      <button type="button" className="x-btn" aria-label="Löschen" onClick={() => confirm(`„${e.name}“ löschen?`) && removeSportEvent(e.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+    </div>
+  );
   return (
-    <section className="card checkin" style={{ gap: 10 }}>
-      <div className="sec-h" style={{ padding: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
-          <span className="spark"><Icon name="sparkle" size={15} color="currentColor" /></span> KI-Analyse
-        </span>
-        {a && <span className="tiny">{a.date === today() ? 'heute' : fmtShort(a.date)}</span>}
+    <section className="group">
+      <div className="sec-h">
+        <h2 className="h2" style={{ fontSize: 19 }}>Events</h2>
+        <button type="button" className="link-btn" onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Notieren'}</button>
       </div>
-      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich schaue mir Ziel, Rennen und Daten an …</span></div>}
-      {!busy && a && (
+      {adding && (
+        <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); save(); }}>
+          <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder={sport.kind === 'laufen' ? 'z.B. 21K de Buenos Aires' : 'z.B. Turnier im Club'} aria-label="Name" autoFocus />
+          <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
+          <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
+          <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
+          <button type="submit" className="btn small" disabled={!f.name.trim()}>Notieren</button>
+        </form>
+      )}
+      <div className="list">
+        {upcoming.length === 0 && <div className="empty">Noch keine Events. Notier dir Rennen, Turniere oder Lauftreffs – oder such unten nach neuen.</div>}
+        {upcoming.map((e) => <Row key={e.id} e={e} />)}
+      </div>
+      {past.length > 0 && (
         <>
-          <p className="coach-summary">{a.stand}</p>
-          {a.prognose && <span className="sub"><b>Prognose:</b> {a.prognose}</span>}
-          {a.staerken?.length > 0 && <div className="analysis-list"><b>Stark</b>{a.staerken.map((x, i) => <span key={i}>– {x}</span>)}</div>}
-          {a.verbessern?.length > 0 && <div className="analysis-list"><b>Verbessern</b>{a.verbessern.map((x, i) => <span key={i}>– {x}</span>)}</div>}
-          {a.naechste_einheiten?.length > 0 && (
-            <div className="analysis-list">
-              <b>Nächste Einheiten</b>
-              {a.naechste_einheiten.map((x, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ flex: 1 }}>{x.titel}{x.tage_ab_heute ? <span className="tiny"> · {fmtShort(addDays(today(), x.tage_ab_heute))}</span> : null}</span>
-                  <button type="button" className="pill" onClick={() => plan(x)}>Planen</button>
-                </div>
-              ))}
-            </div>
-          )}
+          <span className="label" style={{ padding: '4px 4px 0' }}>Vorbei</span>
+          <div className="list">{[...past].reverse().map((e) => <Row key={e.id} e={e} />)}</div>
         </>
       )}
-      {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-      <button type="button" className="btn small" onClick={run} disabled={busy || !getAi().apiKey}>{a ? 'Neu analysieren' : 'Daten analysieren'}</button>
+      <section className="card" style={{ gap: 10 }}>
+        <span className="label" style={{ padding: 0 }}>Events finden</span>
+        <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder={sport.kind === 'laufen' ? 'z.B. „10K oder Halbmarathon bis März“' : `z.B. „${sport.name} Turniere für Anfänger“`} aria-label="Wonach suchen" />
+        <div className="search-row">
+          <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
+          <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => search(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
+        </div>
+        <span className="tiny">Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link (ca. 2–3 Cent).</span>
+        {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Termine …' : 'Ich überlege …'}</span></div>}
+        {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
+        {!busy && res?.hint && <span className="sub">{res.hint}</span>}
+        {!busy && res?.events.map((e) => (
+          <div key={e.id} className="option" style={{ alignItems: 'center' }}>
+            <span className="row-main">
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{e.name}</span>
+              <span className="tiny">{[e.date && fmtShort(e.date), e.place, e.note].filter(Boolean).join(' · ')}</span>
+            </span>
+            {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+            <button type="button" className="pill on" onClick={() => { addSportEvent({ sportId: sport.id, ...e }); setRes({ ...res, events: res.events.filter((x) => x.id !== e.id) }); toast('Notiert'); }}>Merken</button>
+          </div>
+        ))}
+      </section>
     </section>
   );
 }
@@ -235,7 +295,20 @@ function SportDetail({ s, sport }) {
           <MiniChart entries={chart} color={GREEN} unit={dist ? 'km' : 'min'} />
         </section>
 
-        <Analysis s={s} sport={sport} />
+        <PlanChat
+          title={`Dein ${sport.kind === 'laufen' ? 'Lauf-' : ''}Coach`}
+          intro="Frag mich zu deinem Training: Wo stehst du, was solltest du diese Woche machen, welche Übungen helfen? Ich kenne deine Einheiten, Ziele, Rennen und Verletzungen."
+          history={chatOf(s, `sport:${sport.id}`)}
+          onSave={(h) => saveChatOf(`sport:${sport.id}`, h)}
+          onAsk={(hist, o) => sportCoach(s, sport.id, hist, o)}
+          prefKey="sport"
+          groups={COACH_GROUPS}
+          onApply={(sel) => applyCoach(sport, sel)}
+          chips={['Wie stehe ich gerade da?', 'Plan für nächste Woche', 'Übungen für Kraft & Mobilität', 'Was sollte ich verbessern?']}
+          webChips={[]}
+        />
+
+        <SportEvents s={s} sport={sport} />
 
         <section className="group">
           <div className="sec-h">

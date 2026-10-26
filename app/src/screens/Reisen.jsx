@@ -418,6 +418,7 @@ function TripDetail({ s, tr }) {
           title={isIdea ? 'Mit KI recherchieren' : 'Mit KI planen'}
           intro={isIdea ? 'Frag z.B.: „Welche Route wäre in 7 Tagen sinnvoll?“ oder „Wie komme ich günstig hin?“ – Vorschläge kannst du abhaken und übernehmen.' : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
           history={tr.chat}
+          prefKey="reise"
           onSave={(chat) => updateTrip(tr.id, { chat })}
           onAsk={(hist, o) => tripAssist(s, tr, hist, o)}
           webChips={['Wie komme ich hin?', 'Beste Reisezeit und Kosten?', 'Unterkunft finden', 'Restaurant-Tipps', 'Transport zwischen den Stationen']}

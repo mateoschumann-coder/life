@@ -1,6 +1,7 @@
 // Ausgehen: Events und Orte mit KI-Websuche finden, Orte auf der Karte (OpenStreetMap)
 import { addDays, fmtLong, today } from './dates';
-import { explainError, getAi, setCostLabel, trackUsage } from './ai';
+import { explainError, getAi, MODELS, setCostLabel, trackUsage } from './ai';
+const SMART_MODEL = 'claude-sonnet-5-5';
 
 const SEARCH_KEY = 'life-app-eventsearch';
 const PLACE_KEY = 'life-app-placesearch';
@@ -37,7 +38,7 @@ async function post(body) {
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({ model: ai.model, ...body }),
+    body: JSON.stringify({ ...body, model: body.model || ai.model }),
   });
   if (!res.ok) {
     let msg = '';
@@ -48,17 +49,19 @@ async function post(body) {
     throw new Error(explainError(res.status, msg));
   }
   const data = await res.json();
-  trackUsage(ai.model, data.usage);
+  trackUsage(body.model || ai.model, data.usage);
   return data;
 }
 
 // Websuche + ein Werkzeug, das die Ergebnisse strukturiert zurückgibt
 // maxUses = 0: ohne Websuche (viel günstiger) – die KI antwortet aus ihrem eigenen Wissen
-export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label }) {
+// smart = true: gründlicheres Modell (Sonnet) statt des eingestellten
+export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false }) {
   if (label) setCostLabel(label);
+  const model = smart ? SMART_MODEL : undefined;
   const messages = history ? [...history] : [{ role: 'user', content: user }];
   if (!maxUses) {
-    const d = await post({ max_tokens: maxTokens, system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages });
+    const d = await post({ model, max_tokens: maxTokens, system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages });
     const f = d.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
     if (!f) throw new Error('Keine Antwort erhalten. Bitte noch einmal versuchen.');
     return f.input || {};
@@ -71,7 +74,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     return f && d.stop_reason !== 'max_tokens' ? f : null; // abgeschnittene Antwort zählt nicht
   };
   for (let round = 0; round < 4; round++) {
-    data = await post({ max_tokens: maxTokens, system, tools, messages });
+    data = await post({ model, max_tokens: maxTokens, system, tools, messages });
     found = complete(data);
     if (found || data.stop_reason !== 'pause_turn') break;
     messages.push({ role: 'assistant', content: data.content });
@@ -80,7 +83,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     // Die Suchergebnisse stecken in der bisherigen Antwort: Gespräch fortsetzen und das Werkzeug verlangen
     const prev = data.stop_reason === 'max_tokens' ? data.content.filter((c) => c.type !== 'tool_use') : data.content;
     const cont = prev.length ? [...messages, { role: 'assistant', content: prev }, { role: 'user', content: `Gib jetzt deine Ergebnisse mit "${tool.name}" zurück – kompakt, ohne weitere Suche.` }] : messages;
-    data = await post({ max_tokens: 8000, system, tools, tool_choice: { type: 'tool', name: tool.name }, messages: cont });
+    data = await post({ model, max_tokens: 8000, system, tools, tool_choice: { type: 'tool', name: tool.name }, messages: cont });
     found = data.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
   }
   if (!found) throw new Error('Die Suche hat keine Ergebnisse geliefert. Bitte noch einmal versuchen.');

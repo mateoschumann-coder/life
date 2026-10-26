@@ -11,6 +11,7 @@ import { CoachBox } from '../components/Coach';
 import ToolCards from '../components/ToolCards';
 import PeopleArea from '../components/PeopleArea';
 import { TOOL_AREAS } from '../lib/tools';
+import { addLibCat, KINDS, removeLibCat } from '../lib/library';
 import { Missing } from './Saeule';
 
 const RANGES = [
@@ -42,6 +43,33 @@ export default function Bereich({ id }) {
       0
     );
   const close = () => setSheet(null);
+
+  // Körperliche Gesundheit und Lernen & Wissen: nur Kategorien (Werkzeuge), Projekte, Aufgaben und Ideen
+  if (id === 'koerper' || id === 'mental') {
+    return (
+      <>
+        <main className="screen">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Back href={`#/saeule/${pillar.id}`} label={pillar.name} />
+            <div className="title-row">
+              <AreaIcon icon={area.icon} color={pillar.color} size={40} />
+              <h1 className="h1 sm">{area.name}</h1>
+            </div>
+          </div>
+          {id === 'mental' && (
+            <div className="sec-h" style={{ padding: '0 4px' }}>
+              <h2 className="h2" style={{ fontSize: 19 }}>Kategorien</h2>
+              <button type="button" className="link-btn" onClick={() => setSheet('cats')}>Bearbeiten</button>
+            </div>
+          )}
+          <ToolCards areaId={id} s={s} />
+          <AreaContent s={s} area={area} only={['projekte', 'aufgaben']} />
+        </main>
+        <LibCatsSheet s={s} open={sheet === 'cats'} onClose={close} />
+        <TabBar active="bereiche" />
+      </>
+    );
+  }
 
   // Sozial: Familie/Freunde/Neue Kontakte zeigen nur die Menschen; Gemeinsame Erlebnisse nur Treffen & Ausgehen
   if (area.peopleCategory || id === 'erlebnisse') {
@@ -181,5 +209,35 @@ export default function Bereich({ id }) {
       </Sheet>
       <TabBar active="bereiche" />
     </>
+  );
+}
+
+// Kategorien in „Lernen & Wissen“ hinzufügen und entfernen (z.B. Bibliothek, Podcasts, YouTube-Kanäle)
+function LibCatsSheet({ s, open, onClose }) {
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState('');
+  return (
+    <Sheet open={open} title="Kategorien" onClose={onClose}>
+      <div className="list">
+        {s.libCats.map((c) => {
+          const n = s.library.filter((m) => m.cat === c.id).length;
+          return (
+            <div key={c.id} className="row" style={{ minHeight: 52 }}>
+              <span className="row-main"><span className="row-title plain">{c.name}</span><span className="row-meta">{c.kind ? KINDS[c.kind]?.label : 'Gemischt'} · {n} Einträge</span></span>
+              <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(n ? `„${c.name}“ mit ${n} Einträgen entfernen?` : `„${c.name}“ entfernen?`) && removeLibCat(c.id)}>Entfernen</button>
+            </div>
+          );
+        })}
+      </div>
+      <Field label="Neue Kategorie"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="z.B. YouTube-Kanäle, Kurse, Dokus" /></Field>
+      <div className="field">
+        <span>Was kommt hinein?</span>
+        <div className="chips">
+          <button type="button" className={!kind ? 'chip on' : 'chip'} onClick={() => setKind('')}>Gemischt</button>
+          {Object.entries(KINDS).map(([k, v]) => <button key={k} type="button" className={kind === k ? 'chip on' : 'chip'} onClick={() => setKind(k)}>{v.label}</button>)}
+        </div>
+      </div>
+      <button type="button" className="btn" disabled={!name.trim()} onClick={() => { addLibCat(name, kind); setName(''); setKind(''); toast('Kategorie hinzugefügt'); }}>Hinzufügen</button>
+    </Sheet>
   );
 }

@@ -37,14 +37,14 @@ export function removeTopic(id) {
   });
 }
 
-export function addMaterial({ title, kind = 'buch', subId = null, author = '', url = '', note = '', why = '', status = 'will' }) {
+export function addMaterial({ title, kind = 'buch', subId = null, author = '', url = '', note = '', why = '', status = 'will', cat = null }) {
   const t = String(title || '').trim();
   if (!t) return null;
   const s = store.get();
   if (s.library.some((m) => norm(m.title) === norm(t))) return null;
   const id = uid();
   store.update((d) => {
-    d.library.push({ id, title: t, kind: KINDS[kind] ? kind : 'buch', subId, author, url, note, why, status, rating: 0, addedAt: today(), startedAt: status === 'aktiv' ? today() : null, finishedAt: null });
+    d.library.push({ id, title: t, kind: KINDS[kind] ? kind : 'buch', cat: cat || (kind === 'podcast' && d.libCats.some((c) => c.id === 'podcasts') ? 'podcasts' : d.libCats[0]?.id || 'bibliothek'), subId, author, url, note, why, status, rating: 0, addedAt: today(), startedAt: status === 'aktiv' ? today() : null, finishedAt: null });
   });
   return id;
 }
@@ -89,14 +89,70 @@ const RECO_TOOL = {
     required: ['empfehlungen'],
   },
 };
-export async function recommend(s, topicName, wish = '') {
+// Such-Link statt (teurer) Websuche: Podcast → Spotify, Video → YouTube, sonst Google
+export const linkFor = (title, author, kind) => {
+  const q = encodeURIComponent(`${title} ${author || ''}`.trim());
+  if (kind === 'podcast') return `https://open.spotify.com/search/${q}/podcasts`;
+  if (kind === 'video') return `https://www.youtube.com/results?search_query=${q}`;
+  return `https://www.google.com/search?q=${q}`;
+};
+const okUrl = (u) => (/^https?:\/\//.test(u || '') ? u : '');
+const toReco = (r, i, fallbackKind) => {
+  const kind = KINDS[r.art] ? r.art : fallbackKind || 'buch';
+  return { id: 'e' + i + Date.now().toString(36), title: r.titel, kind, author: r.autor || '', why: r.warum || '', url: okUrl(r.url) || linkFor(r.titel, r.autor, kind) };
+};
+const catText = (cat) => (cat?.kind ? `Kategorie „${cat.name}“: empfiehl NUR ${KINDS[cat.kind].label === 'Podcast' ? 'Podcasts (ganze Shows oder einzelne starke Folgen)' : `Material der Art „${KINDS[cat.kind].label}“`}.` : cat ? `Kategorie „${cat.name}“: abwechslungsreich (Bücher, lange Artikel, Videos/Vorträge, Kurse${cat.id === 'bibliothek' ? '' : ', Podcasts'}).` : '');
+
+// Kategorien (Bibliothek, Podcasts, eigene)
+export function addLibCat(name, kind = '') {
+  const n = String(name || '').trim();
+  if (!n) return null;
+  const id = uid();
+  store.update((s) => { s.libCats.push({ id, name: n, kind: KINDS[kind] ? kind : '', icon: KINDS[kind]?.icon || 'bulb' }); });
+  return id;
+}
+export function removeLibCat(id) {
+  store.update((s) => {
+    s.libCats = s.libCats.filter((c) => c.id !== id);
+    s.library = s.library.filter((m) => m.cat !== id);
+  });
+}
+
+export async function recommend(s, topicName, wish = '', { web = false, cat = null } = {}) {
   const have = s.library.map((m) => m.title);
-  const system = `Du empfiehlst Mateo hochwertiges Material zum Thema „${topicName}“: Bücher, lange Artikel, gute Videos/Vorträge, Podcasts, Kurse. Er ist neugierig, analytisch, mag fundierte Erklärungen statt Oberflächlichem und liest gern auf Deutsch oder Englisch.
+  const system = `Du empfiehlst Mateo hochwertiges Material zum Thema „${topicName}“. ${catText(cat)} Er ist neugierig, analytisch, mag fundierte Erklärungen statt Oberflächlichem und liest/hört gern auf Deutsch oder Englisch.
 Was du über ihn weißt: ${JSON.stringify(s.memory.map((m) => m.text))}
 Was er schon hat (nicht wiederholen): ${JSON.stringify(have)}
-Antworte aus deinem Wissen (ohne Internet; nur Werke, die es sicher gibt) mit "empfehlungen_zeigen": 5 bis 6 abwechslungsreiche Empfehlungen zurück (mindestens 2 Bücher). Kurz, auf Deutsch. Links: Gib KEINE URLs an (du suchst nicht im Internet) – die App erzeugt selbst einen Such-Link zum Titel.`;
-  const input = await searchWithTool({ system, user: wish ? `Wunsch: ${wish}` : `Was sollte ich zu ${topicName} lesen, hören oder ansehen?`, tool: RECO_TOOL, maxUses: 0, label: 'Lern-Empfehlungen' });
-  return (input.empfehlungen || []).filter((r) => r && r.titel).map((r, i) => ({
-    id: 'e' + i + Date.now().toString(36), title: r.titel, kind: KINDS[r.art] ? r.art : 'buch', author: r.autor || '', why: r.warum || '', url: ['video', 'podcast'].includes(r.art) ? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${r.titel} ${r.autor || ''}`)}` : `https://www.google.com/search?q=${encodeURIComponent(`${r.titel} ${r.autor || ''}`)}`,
-  }));
+${web ? 'Suche höchstens 2-mal gezielt im Internet (aktuelle Empfehlungen, neue Folgen/Bücher) und gib Links aus den Suchergebnissen an.' : 'Antworte aus deinem Wissen (ohne Internet; nur Werke, die es sicher gibt). Gib KEINE URLs an – die App erzeugt selbst einen Such-Link.'}
+Gib mit "empfehlungen_zeigen" 5 bis 6 abwechslungsreiche Empfehlungen zurück. Kurz, auf Deutsch.`;
+  const tool = web ? { ...RECO_TOOL, input_schema: JSON.parse(JSON.stringify(RECO_TOOL.input_schema)) } : RECO_TOOL;
+  if (web) tool.input_schema.properties.empfehlungen.items.properties.url = { type: 'string', description: 'Link aus den Suchergebnissen' };
+  const input = await searchWithTool({ system, user: wish ? `Wunsch: ${wish}` : `Was sollte ich zu ${topicName} lesen, hören oder ansehen?`, tool, maxUses: web ? 2 : 0, label: 'Lern-Empfehlungen' });
+  return (input.empfehlungen || []).filter((r) => r && r.titel).map((r, i) => toReco(r, i, cat?.kind));
+}
+
+// Chat pro Kategorie: Gespräch über Lernen, mit Empfehlungen zum Übernehmen
+const LIB_CHAT_TOOL = {
+  name: 'antwort_geben',
+  description: 'Antwort plus Empfehlungen zum Merken.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      antwort: { type: 'string', description: 'Antwort (2–8 Sätze), gern mit Rückfrage' },
+      empfehlungen: RECO_TOOL.input_schema.properties.empfehlungen,
+    },
+    required: ['antwort'],
+  },
+};
+export async function libChat(s, cat, history, { web = false, smart = false } = {}) {
+  const topics = topicsOf(s).map((t) => t.name);
+  const mine = s.library.filter((m) => m.cat === cat.id).map((m) => `${m.title} (${STATUS[m.status]}${m.rating ? `, ${m.rating}★` : ''}${m.note ? `, Notiz: ${m.note}` : ''})`);
+  const system = `Du bist Mateos Lern-Begleiter in der App „Life“ für „${cat.name}“. ${catText(cat)}
+Seine Themen: ${JSON.stringify(topics)}. Was er in dieser Kategorie hat: ${JSON.stringify(mine)}
+Was du über ihn weißt: ${JSON.stringify(s.memory.map((m) => m.text))}
+Hilf ihm, Neues zu entdecken, Gelesenes/Gehörtes einzuordnen und dranzubleiben. Konkrete Vorschläge unter "empfehlungen".
+${web ? 'Du darfst höchstens 2-mal im Internet suchen; Links nur aus Suchergebnissen.' : 'Ohne Internet: aus deinem Wissen, keine URLs.'}
+Antworte immer mit "antwort_geben". Deutsch, kein Markdown.`;
+  const r = await searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: LIB_CHAT_TOOL, maxUses: web ? 2 : 0, label: `Chat: ${cat.name}`, smart });
+  return r;
 }

@@ -5,14 +5,32 @@ import { useDictation } from '../lib/dictate';
 import { Icon, toast } from './ui';
 
 const mid = () => Math.random().toString(36).slice(2, 10);
+const PREF_KEY = 'life-app-chatprefs';
+const loadPrefs = (k) => {
+  try {
+    return JSON.parse(localStorage.getItem(PREF_KEY) || '{}')[k] || {};
+  } catch {
+    return {};
+  }
+};
+const savePrefs = (k, v) => {
+  try {
+    const all = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+    all[k] = v;
+    localStorage.setItem(PREF_KEY, JSON.stringify(all));
+  } catch {}
+};
 
 // groups: [{ key, label, title: (x) => string, meta?: (x) => string }]
-export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …' }) {
+export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein' }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [showAll, setShowAll] = useState(false);
-  const [web, setWeb] = useState(false); // Internet-Suche kostet extra (ca. 1–3 Cent) – nur bei Bedarf
+  // Einstellungen pro Chat (bleiben gespeichert): Internet-Suche (kostet extra) und gründliches Modell (Sonnet, teurer)
+  const [prefs, setPrefs] = useState(() => loadPrefs(prefKey));
+  const { web = false, smart = false } = prefs;
+  const setPref = (patch) => { const next = { ...prefs, ...patch }; setPrefs(next); savePrefs(prefKey, next); };
   const [searching, setSearching] = useState(false);
   const mic = useDictation(text, setText);
   const hasKey = !!getAi().apiKey;
@@ -33,8 +51,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       let ctx = hist.slice(-12);
       while (ctx.length && ctx[0].role !== 'user') ctx = ctx.slice(1);
       setSearching(useWeb);
-      const r = await onAsk(ctx, { web: useWeb });
-      setWeb(false);
+      const r = await onAsk(ctx, { web: useWeb, smart });
       const { antwort, ...rest } = r || {};
       const proposal = {};
       for (const g of groups) if (Array.isArray(rest[g.key]) && rest[g.key].length) proposal[g.key] = rest[g.key];
@@ -114,10 +131,11 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
           {chips.map((c) => <button key={c} type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
         </div>
       )}
-      <label className="web-toggle">
-        <input type="checkbox" checked={web} onChange={(e) => setWeb(e.target.checked)} disabled={busy} />
-        <span>🔍 Im Internet suchen <span className="tiny">(aktuelle Preise, Orte, Links · ca. 1–3 Cent)</span></span>
-      </label>
+      <div className="ai-toggles">
+        <button type="button" className={web ? 'chip on' : 'chip soft'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })}>🔍 Internet {web ? 'an' : 'aus'}</button>
+        <button type="button" className={smart ? 'chip on' : 'chip soft'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
+        <span className="tiny" style={{ flex: 1, minWidth: 140 }}>{[web ? 'Internet: aktuelle Infos & Links, ca. 1–3 Cent mehr' : 'Ohne Internet: aus KI-Wissen, günstig', smart ? 'Gründlich: besseres Modell, ca. 20× teurer' : null].filter(Boolean).join(' · ')}</span>
+      </div>
       <form className="block-add" style={{ alignItems: 'flex-end' }} onSubmit={(e) => { e.preventDefault(); send(); }}>
         <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören beenden' : 'Sprechen'} disabled={busy}>
           <Icon name={mic.on ? 'stop' : 'mic'} size={18} />

@@ -1,12 +1,12 @@
 // Eigene Werkzeuge (zugeschnittene Seiten) pro Lebensbereich und Unterbereich
 export const AREA_TOOLS = {
   koerper: [
-    { sub: 'Sport', href: '#/sport', icon: 'run', title: 'Sport', text: 'Sportarten, Einheiten, Rennen, Zeitrechner und KI-Analyse' },
-    { sub: 'Ernährung', href: '#/kueche', icon: 'pot', title: 'Küche', text: 'Rezepte (z.B. Airfryer) und Einkaufsliste' },
+    { sub: 'Sport', href: '#/sport', icon: 'run', title: 'Sport', text: 'Sportarten mit Coach-Chat, Events, Einheiten und Zeitrechner' },
+    { sub: 'Ernährung', href: '#/kueche', icon: 'pot', title: 'Küche', text: 'Rezepte (z.B. Airfryer), Einkaufsliste und Küchen-Chat' },
     { sub: 'Vorsorge', href: '#/vorsorge', icon: 'medical', title: 'Vorsorge', text: 'Arzttermine, Routinen und Verletzungen mit Erinnerung' },
     { sub: 'Schlaf', icon: 'moon', title: 'Schlaf', text: 'Kommt, sobald Schlafdaten von der Uhr verfügbar sind (iPhone-App)', soon: true },
   ],
-  mental: [{ href: '#/wissen', icon: 'bulb', title: 'Bibliothek', text: 'Deine Themen mit Büchern, Artikeln, Videos und Kursen – und Empfehlungen' }],
+  mental: [], // dynamisch aus s.libCats (Bibliothek, Podcasts, eigene Kategorien)
   zuhause: [
     { sub: 'Ordnung und Haushalt', href: '#/zuhause/haushalt', icon: 'home', title: 'Haushalt', text: 'Was zu tun ist – sortiert nach Räumen' },
     { href: '#/zuhause/erinnerungen', icon: 'refresh', title: 'Erinnerungen', text: 'Regelmäßiges wie Miete oder WLAN bezahlen' },
@@ -22,7 +22,11 @@ export const AREA_TOOLS = {
   ],
   informiert: [{ href: '#/radar', icon: 'radar', title: 'Radar', text: 'Deine Themen, Leseliste und Fundstücke' }],
 };
-export const toolsFor = (areaId, subName) => (AREA_TOOLS[areaId] || []).filter((t) => !subName || t.sub === subName);
+const LIB_TEXT = { bibliothek: 'Bücher, Artikel, Videos und Kurse zu deinen Themen', podcasts: 'Podcasts zu deinen Themen – entdecken, hören, merken' };
+export const toolsFor = (areaId, subName, s) => {
+  if (areaId === 'mental') return subName ? [] : (s?.libCats || []).map((c) => ({ href: `#/wissen/${c.id}`, icon: c.icon || 'book', title: c.name, text: LIB_TEXT[c.id] || 'Deine eigene Kategorie mit Empfehlungen' }));
+  return (AREA_TOOLS[areaId] || []).filter((t) => !subName || t.sub === subName);
+};
 
 // In diesen Bereichen ersetzen die Werkzeuge die allgemeine Unterbereichs-Liste
 export const TOOL_AREAS = new Set(['koerper', 'mental', 'zuhause', 'freizeit', 'erlebnisse', 'familie', 'freunde', 'neue']);

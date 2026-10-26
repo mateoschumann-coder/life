@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort } from '../lib/dates';
-import { addMaterial, deleteMaterial, ensureTopic, KINDS, recommend, removeTopic, STATUS, topicsOf, updateMaterial } from '../lib/library';
+import { addMaterial, deleteMaterial, ensureTopic, KINDS, libChat, linkFor, recommend, removeTopic, STATUS, topicsOf, updateMaterial } from '../lib/library';
+import { chatOf, saveChatOf } from '../lib/chats';
+import PlanChat from '../components/PlanChat';
+import { Missing } from './Saeule';
 import { getAi } from '../lib/ai';
 import { Back, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
@@ -17,9 +20,9 @@ function Stars({ value, onChange }) {
   );
 }
 
-function MaterialSheet({ s, item, onClose, defaultTopic }) {
+function MaterialSheet({ s, item, onClose, defaultTopic, cat }) {
   const isNew = item && !item.id;
-  const blank = { title: '', kind: 'buch', subId: defaultTopic || topicsOf(s)[0]?.id || null, author: '', url: '', note: '' };
+  const blank = { title: '', kind: cat?.kind || 'buch', cat: cat?.id, subId: defaultTopic || topicsOf(s)[0]?.id || null, author: '', url: '', note: '' };
   const [f, setF] = useState(blank);
   const [loaded, setLoaded] = useState(null);
   const key = item ? item.id || 'neu' : null;
@@ -34,7 +37,7 @@ function MaterialSheet({ s, item, onClose, defaultTopic }) {
   const m = item?.id ? s.library.find((x) => x.id === item.id) : null;
   const save = () => {
     if (m) updateMaterial(m.id, { title: f.title, kind: f.kind, subId: f.subId, author: f.author, url: f.url, note: f.note });
-    else if (!addMaterial(f)) return toast('Ist schon in deiner Bibliothek');
+    else if (!addMaterial({ ...f, cat: cat?.id })) return toast('Ist schon in deiner Liste');
     toast('Gespeichert');
     onClose();
   };
@@ -66,8 +69,16 @@ function MaterialSheet({ s, item, onClose, defaultTopic }) {
   );
 }
 
-export default function Wissen() {
+export default function Wissen({ catId }) {
   const s = useStore();
+  const cat = s.libCats.find((c) => c.id === catId) || (!catId ? s.libCats[0] : null);
+  if (!cat) return <Missing />;
+  return <CategoryPage s={s} cat={cat} />;
+}
+
+const CHAT_GROUPS = [{ key: 'empfehlungen', label: 'Auf die Liste setzen', title: (x) => x.titel, meta: (x) => [KINDS[x.art]?.label, x.autor, x.warum].filter(Boolean).join(' · ') }];
+
+function CategoryPage({ s, cat }) {
   const topics = topicsOf(s);
   const [topic, setTopic] = useState(null);
   const [status, setStatus] = useState('will');
@@ -80,17 +91,18 @@ export default function Wissen() {
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
   const current = topics.find((t) => t.id === topic);
-  const inTopic = s.library.filter((m) => !topic || m.subId === topic);
+  const mine = s.library.filter((m) => m.cat === cat.id);
+  const inTopic = mine.filter((m) => !topic || m.subId === topic);
   const list = inTopic.filter((m) => m.status === status);
-  const active = s.library.filter((m) => m.status === 'aktiv');
+  const active = mine.filter((m) => m.status === 'aktiv');
   const count = (st) => inTopic.filter((m) => m.status === st).length;
 
-  const ask = async () => {
+  const ask = async (web) => {
     const name = current?.name || topics.map((t) => t.name).join(', ') || 'Allgemeinbildung';
-    setBusy(true);
+    setBusy(web ? 'web' : 'ki');
     setErr(null);
     try {
-      setRecos(await recommend(s, name, wish.trim()));
+      setRecos(await recommend(s, name, wish.trim(), { web, cat }));
       setWish('');
     } catch (e) {
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
@@ -100,7 +112,7 @@ export default function Wissen() {
   };
   const keep = (r) => {
     const subId = topic || topics[0]?.id || ensureTopic('Allgemein');
-    if (addMaterial({ ...r, subId })) toast('Auf deiner Liste');
+    if (addMaterial({ ...r, subId, cat: cat.id })) toast('Auf deiner Liste');
     setRecos(recos.filter((x) => x.id !== r.id));
   };
 
@@ -110,8 +122,8 @@ export default function Wissen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Back href="#/bereich/mental" label="Lernen & Wissen" />
           <div className="sec-h" style={{ padding: 0 }}>
-            <h1 className="h1">Bibliothek</h1>
-            <button type="button" className="btn small" onClick={() => setSheet({ subId: topic })}>+ Material</button>
+            <h1 className="h1">{cat.name}</h1>
+            <button type="button" className="btn small" onClick={() => setSheet({ subId: topic })}>+ {cat.kind ? KINDS[cat.kind].label : 'Material'}</button>
           </div>
         </div>
 
@@ -165,11 +177,13 @@ export default function Wissen() {
             <span className="spark"><Icon name="sparkle" size={15} color="currentColor" /></span>
             Empfehlungen{current ? `: ${current.name}` : ''}
           </span>
-          <form className="block-add" onSubmit={(e) => { e.preventDefault(); ask(); }}>
-            <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder={current ? `Wunsch, z.B. „Einstieg, eher kurz“` : 'z.B. „Gutes Buch über Kalten Krieg“'} aria-label="Wunsch" />
-            <button type="submit" className="btn small" disabled={busy || !hasKey}>{busy ? '…' : 'Los'}</button>
-          </form>
-          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche gute Bücher, Artikel und Videos … (ca. 20 Sek.)</span></div>}
+          <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder={cat.kind === 'podcast' ? 'z.B. „Podcast über Geopolitik, 30 Min Folgen“' : current ? `Wunsch, z.B. „Einstieg, eher kurz“` : 'z.B. „Gutes Buch über Kalten Krieg“'} aria-label="Wunsch" />
+          <div className="search-row">
+            <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !hasKey} onClick={() => ask(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
+            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !hasKey} onClick={() => ask(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
+          </div>
+          <span className="tiny">Ohne Internet: aus dem KI-Wissen (günstig, Such-Link zum Titel). Mit Internet: aktuell und mit echten Links (ca. 2–3 Cent).</span>
+          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche im Internet …' : 'Ich überlege …'}</span></div>}
           {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
           {!busy && recos && recos.map((r) => (
             <div key={r.id} className="option" style={{ alignItems: 'center' }}>
@@ -185,8 +199,20 @@ export default function Wissen() {
           ))}
           {!busy && recos && recos.length === 0 && <span className="sub">Alles gemerkt oder nichts gefunden – frag gern nochmal.</span>}
         </section>
+
+        <PlanChat
+          title={`Chat: ${cat.name}`}
+          intro={cat.kind === 'podcast' ? 'Erzähl, was dich interessiert oder was du zuletzt gehört hast – ich schlage passende Podcasts und Folgen vor.' : 'Frag nach Empfehlungen, lass dir etwas einordnen oder erzähl, was du gerade liest – ich helfe dir dranzubleiben.'}
+          history={chatOf(s, `wissen:${cat.id}`)}
+          onSave={(h) => saveChatOf(`wissen:${cat.id}`, h)}
+          onAsk={(hist, o) => libChat(s, cat, hist, o)}
+          prefKey="wissen"
+          groups={CHAT_GROUPS}
+          onApply={(sel) => { for (const r of sel.empfehlungen || []) addMaterial({ title: r.titel, kind: KINDS[r.art] ? r.art : cat.kind || 'buch', author: r.autor || '', why: r.warum || '', url: r.url || linkFor(r.titel, r.autor, KINDS[r.art] ? r.art : cat.kind), subId: topic || topics[0]?.id || null, cat: cat.id }); }}
+          chips={cat.kind === 'podcast' ? ['Neue Podcasts für mich', 'Gute Folgen zu meinen Themen', 'Etwas für die nächste Laufrunde'] : ['Was sollte ich als Nächstes lesen?', 'Ein Einstieg in ein neues Thema', 'Fass mir ein Buch kurz zusammen']}
+        />
       </main>
-      <MaterialSheet s={s} item={sheet} defaultTopic={topic} onClose={() => setSheet(null)} />
+      <MaterialSheet s={s} item={sheet} defaultTopic={topic} cat={cat} onClose={() => setSheet(null)} />
       <TabBar active="bereiche" />
     </>
   );

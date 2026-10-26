@@ -44,7 +44,7 @@ export default function App() {
     case 'sport': screen = <Sport key={a || 'liste'} id={a} />; break;
     case 'kueche': screen = <Kueche />; break;
     case 'vorsorge': screen = <Vorsorge />; break;
-    case 'wissen': screen = <Wissen />; break;
+    case 'wissen': screen = <Wissen key={a || 'bibliothek'} catId={a} />; break;
     case 'zuhause': screen = <Zuhause tab={a} />; break;
     case 'hobbys': screen = <Hobbys key={a || 'liste'} id={a} />; break;
     case 'reisen': screen = <Reisen key={a || 'liste'} id={a} />; break;

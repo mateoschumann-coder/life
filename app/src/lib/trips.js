@@ -176,7 +176,7 @@ export const tripSnapshot = (tr) => ({
   orte: tr.places.map((x) => `${x.name} (${PLACE_KINDS[x.kind]})`),
   todo: tr.todo.map((x) => x.text), packen: tr.packen.map((x) => x.text), notizen: tr.notes || undefined,
 });
-export async function tripAssist(s, tr, history, { web = false } = {}) {
+export async function tripAssist(s, tr, history, { web = false, smart = false } = {}) {
   const system = `Du bist Mateos Reiseplaner in der App „Life“. Er lebt in Buenos Aires. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Aktueller Stand der Reise: ${JSON.stringify(tripSnapshot(tr))}
@@ -188,7 +188,7 @@ Arbeitsweise:
 - Fehlt Wichtiges (Zeitraum, Budget, Reisestil, wer kommt mit), frag kurz nach – mach trotzdem schon erste Vorschläge.
 Antworte immer mit "reise_planen". Deutsch, konkret, kurz.`;
   const messages = history.map((m) => ({ role: m.role, content: m.text }));
-  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 2 : 0, label: 'Reise-Planer' });
+  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 2 : 0, label: 'Reise-Planer', smart });
 }
 
 // Ausgewählte Vorschläge übernehmen

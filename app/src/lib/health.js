@@ -163,11 +163,11 @@ const ANALYSE_TOOL = {
     required: ['stand', 'verbessern', 'naechste_einheiten'],
   },
 };
-export async function analyzeSport(s, sportId) {
+export function sportData(s, sportId) {
   const sport = s.sports.find((x) => x.id === sportId);
   const t = today();
   const sessions = s.sessions.filter((x) => x.sportId === sportId && x.date >= addDays(t, -90)).sort((a, b) => (a.date < b.date ? -1 : 1));
-  const data = {
+  return {
     heute: t,
     sportart: sport.name,
     ziel: sport.goal || undefined,
@@ -176,7 +176,15 @@ export async function analyzeSport(s, sportId) {
     wochen: weekStats(s, sportId, 12),
     verletzungen_aktiv: s.healthItems.filter((h) => h.type === 'verletzung' && h.status !== 'ausgeheilt').map((h) => h.title),
     was_ich_ueber_mateo_weiss: s.memory.map((m) => m.text),
+    events: (s.sportEvents || []).filter((e) => e.sportId === sportId).map((e) => ({ name: e.name, datum: e.date, status: e.status, ergebnis: e.result || undefined })),
   };
+}
+export async function analyzeSport(s, sportId) {
+  const sport = s.sports.find((x) => x.id === sportId);
+  const t = today();
+  const sessions = s.sessions.filter((x) => x.sportId === sportId && x.date >= addDays(t, -90)).sort((a, b) => (a.date < b.date ? -1 : 1));
+  const data = sportData(s, sportId);
+
   const system = `Du bist ein erfahrener, ehrlicher ${sport.kind === 'laufen' ? 'Lauftrainer' : 'Trainer'} für Mateo. Heute ist ${fmtLong(t)}. Analysiere seine Daten im Verhältnis zu seinem Ziel und seinen Rennen/Projekten. Sei konkret (Umfang, Tempo, Regeneration, Verletzungsrisiko), motivierend und ohne Floskeln. Wenn Daten fehlen, sag kurz, was dir für eine bessere Analyse helfen würde. Gib das Ergebnis mit dem Werkzeug "analyse_geben" zurück. Deutsch, kein Markdown. Bei Schmerzen/Verletzungen: zur Vorsicht raten und ärztliche Abklärung empfehlen, keine Diagnosen.`;
   const { tools } = await callApi({ max_tokens: 2000, system, tools: [ANALYSE_TOOL], tool_choice: { type: 'tool', name: ANALYSE_TOOL.name }, messages: [{ role: 'user', content: JSON.stringify(data) }] }, 'Sport-Analyse');
   const r = tools.find((c) => c.name === ANALYSE_TOOL.name)?.input || {};
@@ -282,16 +290,43 @@ const RECIPE_TOOL = {
     required: ['rezepte'],
   },
 };
-export async function findRecipes(s, query, category) {
+export async function findRecipes(s, query, category, { web = false } = {}) {
   const system = `Du findest für Mateo Rezepte${category ? ` (Kategorie: ${category})` : ''}. Er lebt in Buenos Aires (Zutaten sollten dort leicht zu bekommen sein).
 Was du über ihn weißt: ${JSON.stringify(s.memory.map((m) => m.text))}
 Seine Rezepte (nicht wiederholen): ${JSON.stringify(s.recipes.map((r) => r.title))}
-Suche höchstens 1-mal im Internet (eine gezielte Suche, z.B. auf Spanisch oder Englisch) und gib dann mit "rezepte_zeigen" 3 bis 5 alltagstaugliche Rezepte zurück, auf Deutsch, mit Zutaten (mit Mengen für 2 Portionen) und kurzen Schritten.`;
-  const input = await searchWithTool({ system, user: `Suche: ${query}`, tool: RECIPE_TOOL, maxUses: 1, label: 'Rezepte suchen' });
-  return (input.rezepte || []).filter((r) => r && r.titel).map((r, i) => ({
-    id: 'r' + i + Date.now().toString(36),
-    title: r.titel, minutes: r.minuten || null, ingredients: r.zutaten || [], steps: r.schritte || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '', why: r.warum || '', category: category || 'Airfryer', temp: true,
-  }));
+${web ? 'Suche höchstens 1-mal im Internet (eine gezielte Suche, z.B. auf Spanisch oder Englisch); url nur aus den Suchergebnissen.' : 'Ohne Internet: aus deinem Wissen, erprobte Rezepte mit realistischen Mengen, Zeiten und Temperaturen. Keine URLs.'}
+Gib mit "rezepte_zeigen" 3 bis 5 alltagstaugliche Rezepte zurück, auf Deutsch, mit Zutaten (mit Mengen für 2 Portionen) und kurzen Schritten.`;
+  const input = await searchWithTool({ system, user: `Suche: ${query}`, tool: RECIPE_TOOL, maxUses: web ? 1 : 0, label: web ? 'Rezepte (Internet)' : 'Rezepte (KI)' });
+  return (input.rezepte || []).filter((r) => r && r.titel).map((r, i) => toRecipe(r, i, category));
+}
+const toRecipe = (r, i, category) => ({
+  id: 'r' + i + Date.now().toString(36),
+  title: r.titel, minutes: r.minuten || null, ingredients: r.zutaten || [], steps: r.schritte || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '', why: r.warum || '', category: category || 'Airfryer', temp: true,
+});
+
+// Küchen-Chat: Was koche ich? Was kaufe ich ein? → Rezepte speichern, Einkaufsliste ergänzen
+const KITCHEN_TOOL = {
+  name: 'kueche_antwort',
+  description: 'Antwort plus Rezepte und Einkaufsliste zum Übernehmen.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      antwort: { type: 'string', description: 'Antwort (2–8 Sätze), gern mit Rückfrage' },
+      rezepte: RECIPE_TOOL.input_schema.properties.rezepte,
+      einkaufen: { type: 'array', items: { type: 'string' }, description: 'Artikel für die Einkaufsliste, mit Menge' },
+    },
+    required: ['antwort'],
+  },
+};
+export async function kitchenChat(s, history, { web = false, smart = false } = {}) {
+  const system = `Du bist Mateos Küchen-Helfer in der App „Life“ (er lebt in Buenos Aires, kocht gern mit dem Airfryer, trainiert für einen Marathon). Heute ist ${fmtLong(today())}.
+Seine Rezepte: ${JSON.stringify(s.recipes.map((r) => `${r.title} (${r.category})`))}
+Einkaufsliste offen: ${JSON.stringify(s.shopping.items.filter((x) => !x.done).map((x) => x.name || x.text))}
+Was du über ihn weißt: ${JSON.stringify(s.memory.map((m) => m.text))}
+Hilf beim Planen: was kochen, Wochenplan, Resteverwertung, Einkauf. Rezepte (mit Zutaten für 2 Portionen und kurzen Schritten) unter "rezepte", fehlende Zutaten unter "einkaufen" (nichts, was schon auf der Liste steht).
+${web ? 'Du darfst höchstens 1-mal im Internet suchen; Links nur aus Suchergebnissen.' : 'Ohne Internet: aus deinem Wissen, keine URLs.'}
+Antworte immer mit "kueche_antwort". Deutsch, kein Markdown.`;
+  return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: KITCHEN_TOOL, maxUses: web ? 1 : 0, label: 'Küchen-Chat', smart });
 }
 
 // ---------- Vorsorge ----------
@@ -329,4 +364,68 @@ export function doneHealthItem(id) {
 }
 export function healthDue(s, day, within = 0) {
   return s.healthItems.filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date <= addDays(day, within));
+}
+
+// ---------- Sport: Events (Rennen, Turniere, Lauftreffs) und Coach-Chat ----------
+export const SPORT_EVENT_STATUS = { interessiert: 'Interessiert', angemeldet: 'Angemeldet', dabei: 'Dabei gewesen' };
+export function addSportEvent({ sportId, name, date = '', place = '', url = '', note = '', status = 'interessiert' }) {
+  const n = String(name || '').trim();
+  if (!n) return null;
+  const s = store.get();
+  if ((s.sportEvents || []).some((e) => e.sportId === sportId && norm(e.name) === norm(n))) return null;
+  const id = uid();
+  store.update((d) => {
+    d.sportEvents = d.sportEvents || [];
+    d.sportEvents.push({ id, sportId, name: n, date: /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : '', place, url: /^https?:\/\//.test(url || '') ? url : '', note, status, result: '' });
+  });
+  return id;
+}
+export const updateSportEvent = (id, patch) => store.update((s) => Object.assign((s.sportEvents || []).find((e) => e.id === id) || {}, patch));
+export const removeSportEvent = (id) => store.update((s) => { s.sportEvents = (s.sportEvents || []).filter((e) => e.id !== id); });
+
+const SPORT_EVENT_TOOL = {
+  name: 'events_zeigen',
+  description: 'Gibt passende Sport-Events zurück.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      hinweis: { type: 'string' },
+      events: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, datum: { type: 'string', description: 'JJJJ-MM-TT, falls bekannt' }, ort: { type: 'string' }, details: { type: 'string', description: 'Distanz/Format, Preis, Anmeldeschluss' }, warum: { type: 'string' }, url: { type: 'string', description: 'Nur aus Suchergebnissen, sonst leer' } }, required: ['name'] } },
+    },
+    required: ['events'],
+  },
+};
+export async function searchSportEvents(s, sportId, query, { web = false } = {}) {
+  const sport = s.sports.find((x) => x.id === sportId);
+  const t = today();
+  const system = `Du findest für Mateo (lebt in Buenos Aires) Events zur Sportart „${sport.name}“: Wettkämpfe, Rennen, Turniere, offene Trainings, Lauftreffs, Clubs. Heute ist ${fmtLong(t)} (${t}).
+Sein Ziel: ${sport.goal || '(keins angegeben)'}. Schon notiert: ${JSON.stringify((s.sportEvents || []).filter((e) => e.sportId === sportId).map((e) => e.name))}
+${web ? 'Suche höchstens 2-mal gezielt (gern auf Spanisch, z.B. Kalender-Seiten mit vielen Terminen) und gib nur echte Events aus den Suchergebnissen mit Link zurück.' : 'Ohne Internet: nenne bekannte, regelmäßig stattfindende Events und Angebote aus deinem Wissen (z.B. jährliche Rennen mit ungefährem Monat), ohne erfundene Daten oder Links; sag im hinweis, dass Mateo für aktuelle Termine „Mit Internet“ wählen kann.'}
+Gib 4–8 Events mit "events_zeigen" zurück, sortiert nach Datum. Deutsch, kurz.`;
+  const r = await searchWithTool({ system, user: query || `Welche ${sport.name}-Events gibt es in den nächsten Monaten?`, tool: SPORT_EVENT_TOOL, maxUses: web ? 2 : 0, label: 'Sport-Events suchen' });
+  return { hint: r.hinweis || '', events: (r.events || []).filter((e) => e && e.name).map((e, i) => ({ id: 'se' + i + Date.now().toString(36), name: e.name, date: /^\d{4}-\d{2}-\d{2}$/.test(e.datum || '') ? e.datum : '', place: e.ort || '', note: [e.details, e.warum].filter(Boolean).join(' · '), url: /^https?:\/\//.test(e.url || '') ? e.url : '' })) };
+}
+
+const SPORT_COACH_TOOL = {
+  name: 'coach_antwort',
+  description: 'Antwort des Trainers plus Vorschläge zum Übernehmen.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      antwort: { type: 'string', description: 'Ehrliche, konkrete Antwort (2–8 Sätze), gern mit Rückfrage' },
+      einheiten: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string', description: 'z.B. „Langer Lauf 24 km locker (5:30/km)“' }, tage_ab_heute: { type: 'integer' } }, required: ['titel'] }, description: 'Konkrete Trainingseinheiten zum Einplanen' },
+      uebungen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string', description: 'z.B. „15 Min Knie-Stabilisation“' }, warum: { type: 'string' } }, required: ['titel'] }, description: 'Übungen/Videos (Kraft, Mobilität, Dehnen)' },
+      events: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, datum: { type: 'string' }, ort: { type: 'string' }, url: { type: 'string' } }, required: ['name'] } },
+    },
+    required: ['antwort'],
+  },
+};
+export async function sportCoach(s, sportId, history, { web = false, smart = false } = {}) {
+  const sport = s.sports.find((x) => x.id === sportId);
+  const system = `Du bist Mateos persönlicher ${sport.kind === 'laufen' ? 'Lauftrainer' : `Trainer für ${sport.name}`} in der App „Life“. Heute ist ${fmtLong(today())}.
+Seine Daten: ${JSON.stringify(sportData(s, sportId))}
+So arbeitest du: ehrlich, konkret (Umfang, Tempo, Regeneration, Verletzungsrisiko), motivierend, ohne Floskeln. Wenn Daten fehlen, frag gezielt nach. Konkrete Einheiten unter "einheiten" (mit Tagen ab heute), Übungen unter "uebungen", passende Events unter "events".
+${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Events, Studien, gute Videos). Links nur aus Suchergebnissen.' : 'Ohne Internet: aus deinem Wissen, keine URLs.'}
+Bei Schmerzen/Verletzungen: zur Vorsicht raten und ärztliche Abklärung empfehlen, keine Diagnosen. Antworte immer mit "coach_antwort". Deutsch, kein Markdown.`;
+  return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: SPORT_COACH_TOOL, maxUses: web ? 2 : 0, label: 'Sport-Coach', smart });
 }

@@ -385,3 +385,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 
 .web-toggle { display: flex; align-items: center; gap: 8px; font-size: 14.5px; }
 .web-toggle input { width: 18px; height: 18px; accent-color: var(--primary); flex-shrink: 0; }
+.ai-toggles { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ai-toggles .chip { min-height: 32px; font-size: 14px; padding: 0 12px; }
+.search-row { display: flex; gap: 6px; }
+.search-row .btn.small { white-space: nowrap; padding: 0 12px; }
