@@ -47,6 +47,22 @@ function migrate(s) {
     for (const c of ['Frühstück', 'Mittagessen', 'Abendessen', 'Snacks']) if (!s.recipeCats.includes(c)) s.recipeCats.push(c);
     s.profile = { ...(s.profile || {}), mig029: true };
   }
+  // Version 0.45: „Optionen“ einer Reise-Idee werden wieder eigene Ideen – zusammengehalten durch eine Gruppe (einmalig)
+  if (!s.profile?.mig045) {
+    const add = [];
+    for (const tr of s.trips) {
+      if (!(tr.options || []).length) continue;
+      for (const o of tr.options) {
+        add.push(normalizeTrip({ id: Math.random().toString(36).slice(2, 10), name: o.ziel, dest: [o.ziel, o.land].filter(Boolean).join(', '), status: 'idee', group: tr.name,
+          idea: [o.kurz, o.info].filter(Boolean).join('\n'), prices: { flug: o.flug, unterkunft: o.unterkunft, gesamt: o.gesamt, urlFlug: o.urlFlug, urlStay: o.urlStay }, createdAt: tr.createdAt }));
+      }
+      tr.options = [];
+      tr.group = tr.name;
+      tr.dropMe = tr.status === 'idee' && !tr.stops.length && !tr.places.length && !(tr.variants || []).length && !tr.idea;
+    }
+    s.trips = [...s.trips.filter((x) => !x.dropMe), ...add];
+    s.profile = { ...(s.profile || {}), mig045: true };
+  }
   // Version 0.34: Finanzen ist jetzt ein Rechner – alte Rhythmen/Fokus-Themen dort entfernen (einmalig)
   if (!s.profile?.mig034) {
     s.habits = (s.habits || []).filter((h) => h.areaId !== 'finanzen');

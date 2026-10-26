@@ -422,3 +422,4 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .variant:last-child { border-bottom: 0; }
 .variant-steps { display: flex; flex-direction: column; gap: 6px; }
 .variant-step { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.group-head { background: color-mix(in srgb, #2FA36B 8%, transparent); }

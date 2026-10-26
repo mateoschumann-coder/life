@@ -315,27 +315,35 @@ export function chooseOption(tripId, id) {
   });
   locateTrip(tripId);
 }
-// Mehrere Ideen zu einer Idee mit Optionen zusammenfassen (v0.44); die einzelnen Ideen werden dabei zu Optionen
+// Gruppen (v0.45, Mateo): Ideen für dieselbe Reise unter einer Überschrift sammeln – jede Idee bleibt eigenständig (Orte, Routen …)
+export const groupsOf = (s) => [...new Set(s.trips.filter((x) => x.status === 'idee' && x.group).map((x) => x.group))];
 export function groupIdeas(ids, name) {
-  const st = store.get();
-  const picked = st.trips.filter((x) => ids.includes(x.id) && x.status === 'idee');
-  if (picked.length < 2) return null;
-  const list = picked.flatMap((x) => ((x.options || []).length ? x.options.map((o) => ({ ...o, ziel: o.ziel, land: o.land })) : [{ ziel: x.dest || x.name, kurz: (x.idea || '').split('\n')[0], info: (x.idea || '').split('\n').slice(1).join('\n') }]));
-  const id = addTrip({ name: String(name || '').trim() || picked.map((x) => x.name).join(' / '), dest: '', status: 'idee' });
-  store.update((s) => {
-    const t = s.trips.find((x) => x.id === id);
-    for (const o of list) if (o.ziel && !t.options.some((y) => norm(y.ziel) === norm(o.ziel))) t.options.push({ ...o, id: uid() });
-    s.trips = s.trips.filter((x) => !picked.some((p) => p.id === x.id));
-  });
-  return id;
+  const g = String(name || '').trim();
+  if (!g) return;
+  store.update((s) => { for (const x of s.trips) if (ids.includes(x.id)) x.group = g; });
 }
-// Aus dem Reiseführer-Chat: gewählte Ziele (und Preisvergleiche) als Optionen in eine Reise-Idee – neu oder bestehend
-export function applyGuide(sel, { tripId, name } = {}) {
-  const list = [...(sel.ziele || []), ...(sel.vergleich || [])];
-  if (!list.length) return null;
-  const id = tripId || addTrip({ name: String(name || '').trim() || 'Neue Reise-Idee', dest: '', status: 'idee' });
-  addOptions(id, list);
-  return id;
+export const ungroup = (g) => store.update((s) => { for (const x of s.trips) if (x.group === g) x.group = ''; });
+export const renameGroup = (g, name) => store.update((s) => { for (const x of s.trips) if (x.group === g) x.group = String(name || '').trim(); });
+// Preise (aus einem Vergleich) an einer Reise speichern
+const priceOf = (v) => Object.fromEntries(Object.entries({ flug: v.flug, unterkunft: v.unterkunft, gesamt: v.gesamt, urlFlug: okUrl(v.url_flug), urlStay: okUrl(v.url_unterkunft), ab: v.ab }).filter(([, x]) => x));
+const sameDest = (tr, ziel) => [tr.name, tr.dest, (tr.dest || '').split(',')[0]].some((x) => norm(x) === norm(ziel));
+// Aus dem Reiseführer-Chat: jedes gewählte Ziel wird eine eigene Idee, optional in einer Gruppe; Preisvergleiche ergänzen vorhandene Ideen
+export function applyGuide(sel, { group = '' } = {}) {
+  const g = String(group || '').trim();
+  let n = 0;
+  for (const z of [...(sel.ziele || []), ...(sel.vergleich || [])]) {
+    if (!z?.ziel) continue;
+    const st = store.get();
+    const old = st.trips.find((x) => x.status === 'idee' && sameDest(x, z.ziel) && (!g || x.group === g || !x.group));
+    if (old) {
+      updateTrip(old.id, { ...(g ? { group: g } : {}), ...(z.flug || z.unterkunft ? { prices: { ...(old.prices || {}), ...priceOf(z) } } : {}), ...(!old.idea && (z.warum || z.kurz) ? { idea: ideaText(z) } : {}) });
+      continue;
+    }
+    const id = addTrip({ name: z.ziel, dest: [z.ziel, z.land].filter(Boolean).join(', '), status: 'idee', idea: ideaText(z) });
+    updateTrip(id, { group: g, ...(z.flug || z.unterkunft ? { prices: priceOf(z) } : {}) });
+    n++;
+  }
+  return n;
 }
 
 // ---------- KI: Reise-Planer (Gespräch mit Vorschlägen) ----------
@@ -375,7 +383,8 @@ export const tripSnapshot = (tr) => ({
   stationen: tr.stops.map((x) => ({ name: x.name, von: x.from, bis: x.to })),
   transport: tr.transport.map((x) => `${x.from} → ${x.to} (${MODES[x.mode] || x.mode}${x.status === 'gebucht' ? ', gebucht' : ''})`),
   orte: tr.places.map((x) => `${x.name} (${PLACE_KINDS[x.kind]}${x.status === 'fest' ? ', gemerkt' : ''})`),
-  ziel_optionen: (tr.options || []).map((o) => [o.ziel, o.kurz, o.flug && `Flug ${o.flug}`, o.unterkunft && `Unterkunft ${o.unterkunft}`].filter(Boolean).join(' · ')),
+  preise: tr.prices ? [tr.prices.flug && `Flug ${tr.prices.flug}`, tr.prices.unterkunft && `Unterkunft ${tr.prices.unterkunft}`].filter(Boolean).join(' · ') : undefined,
+  gruppe: tr.group || undefined,
   routen_varianten: (tr.variants || []).map((v) => `${v.name}${v.chosen ? ' (gewählt)' : ''}: ${v.stops.map((x) => `${x.name}${x.nights ? ` ${x.nights}N` : ''}`).join(' → ')}`),
   todo: tr.todo.map((x) => x.text), packen: tr.packen.map((x) => x.text), notizen: tr.notes || undefined,
 });
@@ -402,7 +411,7 @@ Arbeitsweise:
   · Sehenswürdigkeiten/Restaurants kennst du meist selbst – dafür nur suchen, wenn nach etwas Aktuellem gefragt ist (Öffnungszeiten, neue Orte).
   Preise immer als „ca. … (Stand Suche)“. Links nur aus Suchergebnissen, nie erfinden.` : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen (Sehenswürdigkeiten, Restaurants, Routen gehen gut), gib keine URLs an. Preise nur als grobe Schätzung kennzeichnen; für aktuelle Flug-/Unterkunftspreise sag kurz, dass Mateo „🔍 Nochmal mit Internet suchen“ tippen kann.'}
 - ${tr.status === 'idee' ? 'Packliste und To-dos kommen erst beim Festlegen dazu: schlage dafür noch nichts vor (kein "packen", "todo", "entfernen").' : 'Die Packliste und To-dos haben eine Standard-Vorlage. Passe sie an Ziel, Jahreszeit, Dauer und Aktivitäten an: Fehlendes unter "packen"/"todo", Unpassendes (z.B. Badekleidung bei Winterreise) unter "entfernen".'}
-- ${(tr.options || []).length ? `Mateo vergleicht noch mehrere Ziel-Optionen (ziel_optionen). Hilf beim Entscheiden. Will er Preise vergleichen, fülle "vergleich" mit einer Zeile pro Option (Flug hin & zurück ab ${airportsOf(s, tr)}, Unterkunft/Nacht, grobe Summe) – nur mit Internet aktuell, sonst als Schätzung kennzeichnen.` : `Abflug ab ${airportsOf(s, tr)}. Preisvergleiche mehrerer Ziele (Flug ab ${airportsOf(s, tr)}, Unterkunft) gehören in "vergleich".`}
+- Abflug ab ${airportsOf(s, tr)}. ${tr.group ? `Diese Idee gehört zur Gruppe „${tr.group}“ mit den Alternativen: ${JSON.stringify(s.trips.filter((x) => x.group === tr.group && x.id !== tr.id).map((x) => x.dest || x.name))}. Mateo entscheidet zwischen ihnen. ` : ''}Will er Preise vergleichen, fülle "vergleich" mit einer Zeile pro Ziel${tr.group ? ' (diese Idee und die Alternativen der Gruppe)' : ''}: Flug hin & zurück ab ${airportsOf(s, tr)}, Unterkunft/Nacht, grobe Summe – nur mit Internet aktuell, sonst als Schätzung kennzeichnen.
 - Nichts vorschlagen, was schon im Stand steht. Bei Orten wenn möglich lat/lon angeben.
 - Fehlt Wichtiges (Zeitraum, Budget, Reisestil, wer kommt mit), frag kurz nach – mach trotzdem schon erste Vorschläge.
 Antworte immer mit "reise_planen". Deutsch, konkret, kurz.`;
@@ -440,11 +449,9 @@ export function applyTripProposal(tripId, sel) {
     for (const x of sel.todo || []) if (!t.todo.some((y) => norm(y.text) === norm(x.text))) t.todo.push({ id: uid(), text: x.text, cat: x.kategorie || 'Sonstiges', done: false });
     for (const x of sel.packen || []) if (!t.packen.some((y) => norm(y.text) === norm(x.text))) t.packen.push({ id: uid(), text: x.text, cat: x.kategorie || 'Sonstiges', done: false });
     for (const v of sel.vergleich || []) {
-      t.options = t.options || [];
-      const add = optInfo(v);
-      const old = t.options.find((o) => norm(o.ziel) === norm(v.ziel));
-      if (old) Object.assign(old, Object.fromEntries(Object.entries(add).filter(([k, val]) => val && k !== 'info' && k !== 'kurz')));
-      else t.options.push({ id: uid(), ...add });
+      // passende Reise finden: diese oder eine Idee aus derselben Gruppe
+      const target = sameDest(t, v.ziel) ? t : st.trips.find((x) => x.id !== t.id && t.group && x.group === t.group && sameDest(x, v.ziel));
+      if (target) target.prices = { ...(target.prices || {}), ...priceOf(v) };
     }
     for (const v of sel.varianten || []) {
       t.variants = t.variants || [];
