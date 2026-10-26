@@ -28,6 +28,17 @@ async function shareFile(name, content, type) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+const BUILD_ID = document.querySelector('script[src*="main.js"]')?.getAttribute('src')?.match(/v=([^&]+)/)?.[1] || 'dev';
+async function forceUpdate() {
+  try {
+    const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+    await Promise.all(regs.map((r) => r.unregister()));
+    const keys = (await caches?.keys?.()) || [];
+    await Promise.all(keys.map((k) => caches.delete(k)));
+  } catch {}
+  location.replace(location.pathname + '?u=' + Date.now() + location.hash);
+}
+
 export default function Einstellungen() {
   const s = useStore();
   const fileRef = useRef(null);
@@ -182,7 +193,13 @@ export default function Einstellungen() {
           </button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.18 · Web-App</span>
+        <section className="card">
+          <h2 className="h2">App aktualisieren</h2>
+          <span className="sub">Falls neue Funktionen nicht auftauchen: lädt die neueste Version vom Server. Deine Daten bleiben erhalten.</span>
+          <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
+        </section>
+
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.19 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>

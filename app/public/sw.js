@@ -22,7 +22,7 @@ self.addEventListener('fetch', (e) => {
   // Seitenaufrufe: erst Netz (für Updates), sonst gespeicherte Version
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' })
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put('./index.html', copy));
