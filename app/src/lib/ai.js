@@ -7,8 +7,9 @@ const AI_KEY = 'life-app-ai';
 const CHAT_KEY = 'life-app-chat';
 
 export const MODELS = [
-  { id: 'claude-haiku-5-5', label: 'Schnell und günstig', sub: 'Claude Haiku 5.5', price: { in: 0.1, out: 0.5 } },
-  { id: 'claude-sonnet-5-5', label: 'Gründlich', sub: 'Claude Sonnet 5.5', price: { in: 2, out: 10 } },
+  // Preise in USD pro 1 Mio. Token (laut Anthropic, Okt. 2026). Haiku: über 100.000 Token Eingabe gilt der höhere Preis.
+  { id: 'claude-haiku-5-5', label: 'Schnell und günstig', sub: 'Claude Haiku 5.5', price: { in: 0.1, out: 0.5, cacheRead: 0.1 }, long: { in: 0.5, out: 2.5 } },
+  { id: 'claude-sonnet-5-5', label: 'Gründlich', sub: 'Claude Sonnet 5.5', price: { in: 2, out: 10, cacheRead: 0.05 } },
 ];
 
 export function getAi() {
@@ -24,15 +25,34 @@ export function saveAi(patch) {
   return next;
 }
 
-// Kosten pro Monat mitschreiben (geschätzt aus den Token-Zahlen der API)
-export function trackUsage(model, usage) {
+// Wofür gerade KI benutzt wird (für die Kosten-Aufschlüsselung in den Einstellungen)
+let costLabel = 'Assistent';
+export const setCostLabel = (label) => { costLabel = label; };
+
+// Kosten einer Antwort berechnen (aus den Token-Zahlen der API)
+export function costOf(model, usage) {
   const m = MODELS.find((x) => x.id === model) || MODELS[0];
+  const inp = usage?.input_tokens || 0;
+  const write = usage?.cache_creation_input_tokens || 0;
+  const read = usage?.cache_read_input_tokens || 0;
+  const p = m.long && inp + write + read > 100000 ? { ...m.price, ...m.long } : m.price;
+  const tokens = (inp * p.in + write * p.in * 1.25 + read * p.in * p.cacheRead + (usage?.output_tokens || 0) * p.out) / 1e6;
+  const searches = usage?.server_tool_use?.web_search_requests || 0;
+  return { tokens, searches, total: tokens + searches * 0.01 }; // Websuche: 10 $ pro 1000 Suchen
+}
+// Kosten pro Monat mitschreiben – gesamt und pro Funktion
+export function trackUsage(model, usage) {
+  const c = costOf(model, usage);
   const month = today().slice(0, 7);
   const ai = getAi();
   const u = ai.usage[month] || { requests: 0, cost: 0 };
   u.requests += 1;
-  u.cost += ((usage?.input_tokens || 0) * m.price.in + (usage?.output_tokens || 0) * m.price.out) / 1e6;
-  u.cost += (usage?.server_tool_use?.web_search_requests || 0) * 0.01; // Websuche: 10 $ pro 1000 Suchen
+  u.cost += c.total;
+  u.searches = (u.searches || 0) + c.searches;
+  const by = { ...(u.by || {}) };
+  const b = by[costLabel] || { n: 0, cost: 0, searches: 0 };
+  by[costLabel] = { n: b.n + 1, cost: b.cost + c.total, searches: b.searches + c.searches };
+  u.by = by;
   saveAi({ usage: { ...ai.usage, [month]: u } });
 }
 export function monthUsage() {
@@ -271,8 +291,12 @@ export async function askClaude(s, items, mode = 'assistent') {
   const ai = getAi();
   if (!ai.apiKey) throw new Error('KEIN_SCHLUESSEL');
   const coach = mode === 'coach';
-  const tools = coach
-    ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3, user_location: { type: 'approximate', city: 'Buenos Aires', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' } }, TOOL]
+  setCostLabel(coach ? 'Chat: Coach' : 'Chat: Assistent');
+  // Websuche kostet extra – nur, wenn in der letzten Nachricht ausdrücklich danach gefragt wird
+  const lastText = String([...items].reverse().find((x) => x.role === 'user')?.text || '');
+  const wantsWeb = /such|googl|recherch|internet|aktuell|news|nachricht|heute abend|dieses wochenende|öffnungszeit|preis/i.test(lastText);
+  const tools = coach && wantsWeb
+    ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1, user_location: { type: 'approximate', city: 'Buenos Aires', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' } }, TOOL]
     : [TOOL];
   const messages = toApiMessages(items);
   const call = async (body) => {
@@ -284,7 +308,8 @@ export async function askClaude(s, items, mode = 'assistent') {
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true',
       },
-      body: JSON.stringify({ model: ai.model, max_tokens: 4096, system: buildSystem(s) + (coach ? COACH_ROLE : ASSISTANT_ROLE), ...body }),
+      // Der lange System-Text (deine Daten) wird zwischengespeichert: Folgenachrichten innerhalb von 5 Min. zahlen nur 10 % dafür
+      body: JSON.stringify({ model: ai.model, max_tokens: 4096, system: [{ type: 'text', text: buildSystem(s) + (coach ? COACH_ROLE : ASSISTANT_ROLE), cache_control: { type: 'ephemeral' } }], ...body }),
     });
     if (!res.ok) {
       let msg = '';
@@ -326,8 +351,9 @@ export function explainError(status, msg) {
 export const areaName = (s, id) => areaOf(s, id)?.name;
 
 // Gemeinsamer Aufruf der Claude-API (für Check-in und Projekt-Gestalter)
-export async function callApi(body) {
+export async function callApi(body, label) {
   const ai = getAi();
+  if (label) setCostLabel(label);
   if (!ai.apiKey) throw new Error('KEIN_SCHLUESSEL');
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -429,7 +455,7 @@ Nutze nur die Daten unten; erfinde keine Fakten. Wenn kaum Daten vorhanden sind,
     system,
     tools: [OPTIONS_TOOL],
     messages: [{ role: 'user', content: `Meine Daten (JSON): ${JSON.stringify({ bereiche: areas, fokus_themen: focus, ueberfaellige_aufgaben: overdue, ids })}\n\nWie stehe ich gerade da, und was sind gute nächste Schritte?` }],
-  });
+  }, 'Check-in');
   const tool = tools.find((c) => c.name === OPTIONS_TOOL.name);
   const options = (tool?.input?.optionen || [])
     .filter((o) => o && o.titel)
@@ -561,7 +587,7 @@ Das Projekt bisher (JSON): ${JSON.stringify(existing)}`;
       if (content.length) messages.push({ role: 'assistant', content });
     }
   });
-  const { text, tools } = await callApi({ max_tokens: 1600, system, tools: [DESIGN_TOOL], messages });
+  const { text, tools } = await callApi({ max_tokens: 1600, system, tools: [DESIGN_TOOL], messages }, 'Projekt gestalten');
   const tool = tools.find((c) => c.name === DESIGN_TOOL.name);
   return { text, toolUseId: tool?.id || null, input: tool?.input || null };
 }

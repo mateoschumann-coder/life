@@ -146,8 +146,8 @@ export async function tripInspiration(s, wish) {
   const system = `Du bist Mateos Reise-Scout. Er lebt in Buenos Aires. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Schon auf seiner Liste (nicht wiederholen): ${JSON.stringify(known)}
-Suche höchstens 3-mal und schlage 4–6 abwechslungsreiche Ziele vor (gern ein überraschendes dabei), passend zu seinem Wunsch, Reisezeit und Anreise ab Buenos Aires. Gib sie mit "ziele_zeigen" zurück. Deutsch, konkret, kurz.`;
-  const r = await searchWithTool({ system, user: wish || 'Wohin könnte ich als Nächstes reisen?', tool: INSPIRE_TOOL, maxUses: 3 });
+Suche höchstens 2-mal (gezielt, jede Suche kostet Geld) und schlage 4–6 abwechslungsreiche Ziele vor (gern ein überraschendes dabei), passend zu seinem Wunsch, Reisezeit und Anreise ab Buenos Aires. Gib sie mit "ziele_zeigen" zurück. Deutsch, konkret, kurz.`;
+  const r = await searchWithTool({ system, user: wish || 'Wohin könnte ich als Nächstes reisen?', tool: INSPIRE_TOOL, maxUses: 2, label: 'Reiseziele finden' });
   return (r.ziele || []).map((z) => ({ ...z, id: uid(), url: okUrl(z.url) }));
 }
 
@@ -176,19 +176,19 @@ export const tripSnapshot = (tr) => ({
   orte: tr.places.map((x) => `${x.name} (${PLACE_KINDS[x.kind]})`),
   todo: tr.todo.map((x) => x.text), packen: tr.packen.map((x) => x.text), notizen: tr.notes || undefined,
 });
-export async function tripAssist(s, tr, history) {
+export async function tripAssist(s, tr, history, { web = false } = {}) {
   const system = `Du bist Mateos Reiseplaner in der App „Life“. Er lebt in Buenos Aires. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Aktueller Stand der Reise: ${JSON.stringify(tripSnapshot(tr))}
 Arbeitsweise:
 - ${tr.status === 'idee' ? 'Die Reise ist noch eine Idee: hilf herauszufinden, welche Route/Stationen, Transportwege und Aktivitäten möglich sind, mit groben Kosten und Zeiten.' : 'Die Reise steht: hilf konkret zu planen (Stationen, Transport, Unterkunft, Restaurants, Sehenswürdigkeiten) und die Listen anzupassen.'}
-- Suche höchstens 3-mal im Internet für aktuelle Infos (Verbindungen, Preise, Öffnungszeiten, gute Restaurants, Geheimtipps). Links nur aus Suchergebnissen.
+- ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Verbindungen, Preise, konkrete Unterkünfte/Restaurants). Links nur aus Suchergebnissen.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, gib keine URLs an. Wenn für eine gute Antwort aktuelle Infos nötig wären (Preise, Verfügbarkeit), sag kurz, dass Mateo „Im Internet suchen“ einschalten kann.'}
 - ${tr.status === 'idee' ? 'Packliste und To-dos kommen erst beim Festlegen dazu: schlage dafür noch nichts vor (kein "packen", "todo", "entfernen").' : 'Die Packliste und To-dos haben eine Standard-Vorlage. Passe sie an Ziel, Jahreszeit, Dauer und Aktivitäten an: Fehlendes unter "packen"/"todo", Unpassendes (z.B. Badekleidung bei Winterreise) unter "entfernen".'}
 - Nichts vorschlagen, was schon im Stand steht. Bei Orten wenn möglich lat/lon angeben.
 - Fehlt Wichtiges (Zeitraum, Budget, Reisestil, wer kommt mit), frag kurz nach – mach trotzdem schon erste Vorschläge.
 Antworte immer mit "reise_planen". Deutsch, konkret, kurz.`;
   const messages = history.map((m) => ({ role: m.role, content: m.text }));
-  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: 3 });
+  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 2 : 0, label: 'Reise-Planer' });
 }
 
 // Ausgewählte Vorschläge übernehmen

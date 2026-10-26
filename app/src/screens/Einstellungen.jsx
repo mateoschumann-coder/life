@@ -118,10 +118,21 @@ export default function Einstellungen() {
                 <input type="checkbox" checked={ai.autoCoach !== false} onChange={(e) => setAi(saveAi({ autoCoach: e.target.checked }))} />
                 <span className="row-main">
                   <span style={{ fontSize: 15, fontWeight: 600 }}>Coach kommt jeden Tag von selbst</span>
-                  <span className="tiny">Beim ersten Öffnen am Tag: Anstöße mit Websuche (ca. 3–5 Cent pro Tag)</span>
+                  <span className="tiny">Beim ersten Öffnen am Tag, ohne Internet-Suche (unter 1 Cent pro Tag)</span>
                 </span>
               </label>
-              <span className="sub">Diesen Monat: {usage.requests} Anfragen · ca. {usage.cost < 0.01 ? 'unter 0,01' : usage.cost.toFixed(2).replace('.', ',')} $</span>
+              <span className="sub">Diesen Monat: {usage.requests} Anfragen · {usage.searches || 0} Internet-Suchen · ca. {usage.cost < 0.01 ? 'unter 0,01' : usage.cost.toFixed(2).replace('.', ',')} $</span>
+              {usage.by && Object.keys(usage.by).length > 0 && (
+                <div className="list" style={{ boxShadow: 'none', background: 'var(--fill)' }}>
+                  {Object.entries(usage.by).sort((a, b) => b[1].cost - a[1].cost).map(([k, v]) => (
+                    <div key={k} className="row" style={{ minHeight: 40 }}>
+                      <span className="row-main"><span className="row-title plain" style={{ fontSize: 14.5 }}>{k}</span><span className="row-meta">{v.n}× · {v.searches} Suchen · Ø {((v.cost / v.n) * 100).toFixed(1).replace('.', ',')} Cent</span></span>
+                      <span className="tiny" style={{ fontWeight: 600 }}>{(v.cost * 100).toFixed(1).replace('.', ',')} ct</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <span className="tiny">Internet-Suchen kosten je 1 Cent plus den gefundenen Text. Gesucht wird nur noch bei Events, Orten, Rezepten, Reisezielen und wenn du „Im Internet suchen“ bzw. die Lupe antippst. Aufschlüsselung ab Version 0.22.</span>
               <button type="button" className="btn danger small" onClick={() => confirm('Schlüssel von diesem iPhone entfernen?') && setAi(saveAi({ apiKey: '' }))}>Schlüssel entfernen</button>
             </>
           ) : (
@@ -199,7 +210,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.21 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.22 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>

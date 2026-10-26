@@ -81,7 +81,6 @@ const RECO_TOOL = {
             art: { type: 'string', enum: Object.keys(KINDS) },
             autor: { type: 'string', description: 'Autor, Kanal oder Anbieter' },
             warum: { type: 'string', description: '1 Satz: warum lohnt es sich für Mateo' },
-            url: { type: 'string', description: 'Nur aus den Suchergebnissen, nie erfinden' },
           },
           required: ['titel', 'art', 'warum'],
         },
@@ -95,9 +94,9 @@ export async function recommend(s, topicName, wish = '') {
   const system = `Du empfiehlst Mateo hochwertiges Material zum Thema „${topicName}“: Bücher, lange Artikel, gute Videos/Vorträge, Podcasts, Kurse. Er ist neugierig, analytisch, mag fundierte Erklärungen statt Oberflächlichem und liest gern auf Deutsch oder Englisch.
 Was du über ihn weißt: ${JSON.stringify(s.memory.map((m) => m.text))}
 Was er schon hat (nicht wiederholen): ${JSON.stringify(have)}
-Suche höchstens 2-mal gezielt im Internet (z.B. aktuelle Empfehlungen, Klassiker, gute Einstiege) und gib dann mit "empfehlungen_zeigen" 5 bis 6 abwechslungsreiche Empfehlungen zurück (mindestens 2 Bücher). Kurz, auf Deutsch.`;
-  const input = await searchWithTool({ system, user: wish ? `Wunsch: ${wish}` : `Was sollte ich zu ${topicName} lesen, hören oder ansehen?`, tool: RECO_TOOL, maxUses: 2 });
+Antworte aus deinem Wissen (ohne Internet; nur Werke, die es sicher gibt) mit "empfehlungen_zeigen": 5 bis 6 abwechslungsreiche Empfehlungen zurück (mindestens 2 Bücher). Kurz, auf Deutsch. Links: Gib KEINE URLs an (du suchst nicht im Internet) – die App erzeugt selbst einen Such-Link zum Titel.`;
+  const input = await searchWithTool({ system, user: wish ? `Wunsch: ${wish}` : `Was sollte ich zu ${topicName} lesen, hören oder ansehen?`, tool: RECO_TOOL, maxUses: 0, label: 'Lern-Empfehlungen' });
   return (input.empfehlungen || []).filter((r) => r && r.titel).map((r, i) => ({
-    id: 'e' + i + Date.now().toString(36), title: r.titel, kind: KINDS[r.art] ? r.art : 'buch', author: r.autor || '', why: r.warum || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '',
+    id: 'e' + i + Date.now().toString(36), title: r.titel, kind: KINDS[r.art] ? r.art : 'buch', author: r.autor || '', why: r.warum || '', url: ['video', 'podcast'].includes(r.art) ? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${r.titel} ${r.autor || ''}`)}` : `https://www.google.com/search?q=${encodeURIComponent(`${r.titel} ${r.autor || ''}`)}`,
   }));
 }

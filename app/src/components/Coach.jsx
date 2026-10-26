@@ -12,6 +12,7 @@ import { Icon, toast } from './ui';
 let briefing = lastBriefing();
 let running = null;
 let busy = false;
+let searching = false;
 let error = null;
 const subs = new Set();
 const emit = () => subs.forEach((f) => f());
@@ -26,10 +27,11 @@ const setState = (patch) => {
 function useBriefing() {
   return useSyncExternalStore((f) => (subs.add(f), () => subs.delete(f)), () => snap);
 }
-export async function runCoach(s) {
+export async function runCoach(s, { search = false } = {}) {
   if (running) return running;
+  searching = search;
   setState({ busy: true, error: null });
-  running = askCoach(s)
+  running = askCoach(s, { search })
     .then((b) => setState({ briefing: b }))
     .catch((e) => setState({ error: e.message === 'KEIN_SCHLUESSEL' ? 'Für den Coach braucht es einen API-Schlüssel (Einstellungen).' : e.message }))
     .finally(() => {
@@ -177,8 +179,13 @@ export default function Coach({ s }) {
             <Icon name="mic" size={15} />
           </button>
           {hasKey && (
-            <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => runCoach(s)} disabled={isBusy} aria-label="Neues Briefing holen">
+            <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => runCoach(s)} disabled={isBusy} aria-label="Neues Briefing holen (ohne Internet)">
               <Icon name="refresh" size={15} />
+            </button>
+          )}
+          {hasKey && (
+            <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => runCoach(s, { search: true })} disabled={isBusy} aria-label="Briefing mit Internet-Suche (Events, News, Chancen)">
+              <Icon name="search" size={15} />
             </button>
           )}
         </span>
@@ -187,11 +194,12 @@ export default function Coach({ s }) {
       {isBusy && (
         <div className="coach-busy">
           <span className="dots" aria-hidden="true"><i /><i /><i /></span>
-          <span className="sub">Ich gehe deine Themen durch und suche passendes Material … (ca. 30 Sek.)</span>
+          <span className="sub">{searching ? 'Ich suche im Internet nach Events, News und Chancen und gehe deine Themen durch … (ca. 30–60 Sek.)' : 'Ich gehe deine Themen durch … (ca. 15 Sek.)'}</span>
         </div>
       )}
       {!isBusy && b?.summary && <p className="coach-summary">{b.summary}</p>}
       {!isBusy && b && b.date !== today() && <span className="tiny">Stand: {relDays(diffDays(b.date, today()))}</span>}
+      {!isBusy && b && <span className="tiny">Tipp: Die Lupe oben holt einmal gebündelt aktuelle Events, News und Chancen aus dem Internet (ca. 3–5 Cent). Der Pfeil kostet unter 1 Cent.</span>}
 
       {!isBusy && boxes.length > 0 && (
         <>

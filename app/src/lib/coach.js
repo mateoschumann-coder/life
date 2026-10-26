@@ -3,7 +3,7 @@
 // im Internet nach Material und gibt pro Box 1–3 kleine Anstöße und eine kurze Frage.
 import { addDays, fmtLong, today } from './dates';
 import { allAreaStatuses, peopleOverdue, upcomingBirthdays } from './logic';
-import { explainError, getAi, trackUsage } from './ai';
+import { explainError, getAi, setCostLabel, trackUsage } from './ai';
 
 const KEY = 'life-app-coach';
 const LOG_KEY = 'life-app-coach-log';
@@ -140,7 +140,7 @@ function coachData(s) {
   };
 }
 
-function systemPrompt() {
+function systemPrompt(search) {
   const boxes = BOXES.map((b) => `– ${b.id} (${b.title}, Bereiche ${b.areas.join('/')}): ${b.hint}`).join('\n');
   return `Du bist Mateos persönlicher Coach in seiner Life-App. Mateo lebt in Buenos Aires. Heute ist ${fmtLong(today())} (${today()}).
 Mateo will vorankommen, nicht perfekt organisiert sein, und wenig Zeit in der App verbringen. Du gehst seine Themen der Reihe nach durch, pushst ihn gezielt und lieferst ein bisschen Material dazu. Es muss nicht kompliziert sein: kleine, machbare Schritte.
@@ -150,7 +150,7 @@ ${boxes}
 
 So gehst du vor:
 1. Lies seine Daten, was du über ihn weißt und seine letzten Antworten auf deine Fragen.
-2. Nutze die Websuche höchstens 4-mal, gezielt für Material mit echtem Mehrwert (Events, News zu seinen Themen, eine Lernquelle/Übung/Video, evtl. eine Job-Chance). Führe ALLE Suchen zuerst aus und rufe "briefing_geben" erst ganz am Ende allein auf.
+2. ${search ? 'Mateo hat die Internet-Suche angefordert: Nutze die Websuche höchstens 3-mal und bündle dabei mehrere Themen pro Suche (z.B. Events dieses Wochenende + News zu seinen Themen + eine Job-Chance). Führe ALLE Suchen zuerst aus und rufe "briefing_geben" erst ganz am Ende allein auf.' : 'Diesmal OHNE Internet: arbeite mit seinen Daten und deinem Wissen (Lernquellen, Übungen, Klassiker darfst du nennen, aber ohne erfundene Links – lass url leer). Keine konkreten Events oder News mit Datum erfinden; für aktuelle Events/News kann er oben auf die Lupe tippen.'}
 3. Rufe "briefing_geben" auf: kurzes lagebild und 4 bis 6 Boxen (nur Boxen mit sinnvollem Inhalt; lernen, karriere und menschen fast immer). Pro Box 1 bis 3 Anstöße, höchstens 1 Idee für ein neues Projekt insgesamt. Gib in 2 bis 4 Boxen eine kurze, persönliche frage, um zu erfahren, wie es läuft (darauf antwortet er mit Ja/Nein oder per Sprache).
 4. Ton: locker, persönlich, ermutigend („Mach doch heute mal …“, „Hast du diese Woche …?“). Keine Vorwürfe, kein schlechtes Gewissen.
 5. Erfinde keine Fakten und keine Links. Wenn kaum Daten da sind, gib Einstiegs-Anstöße und frage nach seinen Zielen.
@@ -183,15 +183,17 @@ async function post(body) {
   return data;
 }
 
-export async function askCoach(s, { search = true } = {}) {
+// Standard: ohne Websuche (günstig). Mit search=true sucht der Coach einmal gebündelt für alle Themen (max. 3 Suchen).
+export async function askCoach(s, { search = false } = {}) {
+  setCostLabel(search ? 'Coach mit Suche' : 'Coach');
   const tools = [COACH_TOOL];
-  if (search) tools.unshift({ type: 'web_search_20250305', name: 'web_search', max_uses: 4, user_location: { type: 'approximate', city: 'Buenos Aires', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' } });
+  if (search) tools.unshift({ type: 'web_search_20250305', name: 'web_search', max_uses: 3, user_location: { type: 'approximate', city: 'Buenos Aires', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' } });
   const messages = [{ role: 'user', content: `Meine Daten (JSON): ${JSON.stringify(coachData(s))}\n\nGeh meine Themen durch: Was sind heute meine Anstöße?` }];
   let data;
   let tool;
   try {
     for (let round = 0; round < 4; round++) {
-      data = await post({ max_tokens: 8000, system: systemPrompt(), tools, messages });
+      data = await post({ max_tokens: 8000, system: systemPrompt(search), tools, messages });
       tool = data.content.find((c) => c.type === 'tool_use' && c.name === COACH_TOOL.name);
       if (tool && data.stop_reason === 'max_tokens') tool = null;
       if (tool || data.stop_reason !== 'pause_turn') break;
@@ -205,7 +207,7 @@ export async function askCoach(s, { search = true } = {}) {
     // Gespräch mit den bisherigen Suchergebnissen fortsetzen und das Briefing verlangen
     const prev = data.content.filter((c) => c.type !== 'tool_use');
     const cont = prev.length ? [...messages, { role: 'assistant', content: prev }, { role: 'user', content: 'Gib jetzt das Briefing mit briefing_geben – kompakt, ohne weitere Suche.' }] : messages;
-    data = await post({ max_tokens: 8000, system: systemPrompt(), tools, tool_choice: { type: 'tool', name: COACH_TOOL.name }, messages: cont });
+    data = await post({ max_tokens: 8000, system: systemPrompt(search), tools, tool_choice: { type: 'tool', name: COACH_TOOL.name }, messages: cont });
     tool = data.content.find((c) => c.type === 'tool_use' && c.name === COACH_TOOL.name);
   }
   if (!tool) throw new Error('Das Briefing ist nicht angekommen. Bitte noch einmal auf den Pfeil tippen.');

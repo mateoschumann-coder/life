@@ -178,7 +178,7 @@ export async function analyzeSport(s, sportId) {
     was_ich_ueber_mateo_weiss: s.memory.map((m) => m.text),
   };
   const system = `Du bist ein erfahrener, ehrlicher ${sport.kind === 'laufen' ? 'Lauftrainer' : 'Trainer'} für Mateo. Heute ist ${fmtLong(t)}. Analysiere seine Daten im Verhältnis zu seinem Ziel und seinen Rennen/Projekten. Sei konkret (Umfang, Tempo, Regeneration, Verletzungsrisiko), motivierend und ohne Floskeln. Wenn Daten fehlen, sag kurz, was dir für eine bessere Analyse helfen würde. Gib das Ergebnis mit dem Werkzeug "analyse_geben" zurück. Deutsch, kein Markdown. Bei Schmerzen/Verletzungen: zur Vorsicht raten und ärztliche Abklärung empfehlen, keine Diagnosen.`;
-  const { tools } = await callApi({ max_tokens: 2000, system, tools: [ANALYSE_TOOL], tool_choice: { type: 'tool', name: ANALYSE_TOOL.name }, messages: [{ role: 'user', content: JSON.stringify(data) }] });
+  const { tools } = await callApi({ max_tokens: 2000, system, tools: [ANALYSE_TOOL], tool_choice: { type: 'tool', name: ANALYSE_TOOL.name }, messages: [{ role: 'user', content: JSON.stringify(data) }] }, 'Sport-Analyse');
   const r = tools.find((c) => c.name === ANALYSE_TOOL.name)?.input || {};
   const result = { date: t, ...r };
   try {
@@ -286,8 +286,8 @@ export async function findRecipes(s, query, category) {
   const system = `Du findest für Mateo Rezepte${category ? ` (Kategorie: ${category})` : ''}. Er lebt in Buenos Aires (Zutaten sollten dort leicht zu bekommen sein).
 Was du über ihn weißt: ${JSON.stringify(s.memory.map((m) => m.text))}
 Seine Rezepte (nicht wiederholen): ${JSON.stringify(s.recipes.map((r) => r.title))}
-Suche höchstens 2-mal im Internet und gib dann mit "rezepte_zeigen" 3 bis 5 alltagstaugliche Rezepte zurück, auf Deutsch, mit Zutaten (mit Mengen für 2 Portionen) und kurzen Schritten.`;
-  const input = await searchWithTool({ system, user: `Suche: ${query}`, tool: RECIPE_TOOL, maxUses: 2 });
+Suche höchstens 1-mal im Internet (eine gezielte Suche, z.B. auf Spanisch oder Englisch) und gib dann mit "rezepte_zeigen" 3 bis 5 alltagstaugliche Rezepte zurück, auf Deutsch, mit Zutaten (mit Mengen für 2 Portionen) und kurzen Schritten.`;
+  const input = await searchWithTool({ system, user: `Suche: ${query}`, tool: RECIPE_TOOL, maxUses: 1, label: 'Rezepte suchen' });
   return (input.rezepte || []).filter((r) => r && r.titel).map((r, i) => ({
     id: 'r' + i + Date.now().toString(36),
     title: r.titel, minutes: r.minuten || null, ingredients: r.zutaten || [], steps: r.schritte || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '', why: r.warum || '', category: category || 'Airfryer', temp: true,

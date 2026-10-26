@@ -7,16 +7,19 @@ import { Icon, toast } from './ui';
 const mid = () => Math.random().toString(36).slice(2, 10);
 
 // groups: [{ key, label, title: (x) => string, meta?: (x) => string }]
-export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], placeholder = 'Sag oder schreib, was du brauchst …', busyText = 'Ich denke nach und recherchiere … (ca. 20–40 Sek.)' }) {
+export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …' }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [showAll, setShowAll] = useState(false);
+  const [web, setWeb] = useState(false); // Internet-Suche kostet extra (ca. 1–3 Cent) – nur bei Bedarf
+  const [searching, setSearching] = useState(false);
   const mic = useDictation(text, setText);
   const hasKey = !!getAi().apiKey;
 
-  const send = async (msg) => {
+  const send = async (msg, forceWeb = false) => {
     const q = String(msg ?? text).trim();
+    const useWeb = web || forceWeb;
     if (!q || busy) return;
     mic.stop();
     setErr(null);
@@ -29,7 +32,9 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       // fürs Gespräch: nur die letzten 12 Nachrichten, beginnend mit einer eigenen Nachricht
       let ctx = hist.slice(-12);
       while (ctx.length && ctx[0].role !== 'user') ctx = ctx.slice(1);
-      const r = await onAsk(ctx);
+      setSearching(useWeb);
+      const r = await onAsk(ctx, { web: useWeb });
+      setWeb(false);
       const { antwort, ...rest } = r || {};
       const proposal = {};
       for (const g of groups) if (Array.isArray(rest[g.key]) && rest[g.key].length) proposal[g.key] = rest[g.key];
@@ -101,14 +106,18 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
           )))}
         </div>
       )}
-      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busyText}</span></div>}
+      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{searching ? 'Ich suche im Internet und plane … (ca. 20–40 Sek.)' : 'Ich denke nach … (ca. 5–10 Sek.)'}</span></div>}
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {mic.error && <span className="sub" style={{ color: 'var(--danger)' }}>{mic.error}</span>}
       {!busy && chips.length > 0 && (
         <div className="box-tabs">
-          {chips.map((c) => <button key={c} type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c)}>{c}</button>)}
+          {chips.map((c) => <button key={c} type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
         </div>
       )}
+      <label className="web-toggle">
+        <input type="checkbox" checked={web} onChange={(e) => setWeb(e.target.checked)} disabled={busy} />
+        <span>🔍 Im Internet suchen <span className="tiny">(aktuelle Preise, Orte, Links · ca. 1–3 Cent)</span></span>
+      </label>
       <form className="block-add" style={{ alignItems: 'flex-end' }} onSubmit={(e) => { e.preventDefault(); send(); }}>
         <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören beenden' : 'Sprechen'} disabled={busy}>
           <Icon name={mic.on ? 'stop' : 'mic'} size={18} />

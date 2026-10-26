@@ -106,8 +106,8 @@ const PRODUCT_TOOL = {
             titel: { type: 'string', description: 'Kurz, z.B. „Stehlampe mit Leselicht, dimmbar“' },
             preis: { type: 'string', description: 'Ungefährer Preis mit Währung, falls bekannt' },
             shop: { type: 'string' },
+            suchbegriff: { type: 'string', description: 'Kurzer Suchbegriff auf Spanisch für Mercado Libre, z.B. „lampara de pie led regulable“' },
             warum: { type: 'string', description: '1 Satz, warum es passt' },
-            url: { type: 'string', description: 'Nur aus den Suchergebnissen, nie erfinden' },
           },
           required: ['titel', 'warum'],
         },
@@ -121,9 +121,9 @@ export async function suggestItems(s, key, cat, query) {
   const system = `Du hilfst Mateo (lebt in Buenos Aires) bei „${LISTS[key].title}“${cat ? `, Kategorie ${cat}` : ''}. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Was schon auf seiner Liste steht: ${JSON.stringify(l.items.filter((x) => !x.done).map((x) => x.text))}
-Suche höchstens 3-mal (gern Mercado Libre, lokale Läden in Buenos Aires, gute Ratgeber/Tests) und gib dann mit "vorschlaege_zeigen" 4 bis 6 konkrete, sinnvolle Vorschläge zurück – praktisch, gutes Preis-Leistungs-Verhältnis, mit ungefährem Preis. Deutsch, kurz.`;
-  const input = await searchWithTool({ system, user: query || `Was wäre für ${cat || LISTS[key].title} sinnvoll?`, tool: PRODUCT_TOOL, maxUses: 3 });
+Antworte aus deinem Wissen (ohne Internet) mit "vorschlaege_zeigen": 4 bis 6 konkrete, sinnvolle Vorschläge zurück – praktisch, gutes Preis-Leistungs-Verhältnis, mit ungefährem Preis (falls du ihn grob kennst). Deutsch, kurz. Links: Gib KEINE URLs an (du suchst nicht im Internet) – die App erzeugt selbst einen Such-Link zum Titel.`;
+  const input = await searchWithTool({ system, user: query || `Was wäre für ${cat || LISTS[key].title} sinnvoll?`, tool: PRODUCT_TOOL, maxUses: 0, label: 'Zuhause-Ideen' });
   return (input.vorschlaege || []).filter((v) => v && v.titel).map((v, i) => ({
-    id: 'v' + i + Date.now().toString(36), text: v.titel, price: v.preis || '', shop: v.shop || '', why: v.warum || '', url: /^https?:\/\//.test(v.url || '') ? v.url : '',
+    id: 'v' + i + Date.now().toString(36), text: v.titel, price: v.preis || '', shop: v.shop || '', why: v.warum || '', url: `https://listado.mercadolibre.com.ar/${encodeURIComponent((v.suchbegriff || v.titel).replace(/[,–]/g, ' ').trim().replace(/\s+/g, '-'))}`,
   }));
 }

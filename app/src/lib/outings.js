@@ -1,6 +1,6 @@
 // Ausgehen: Events und Orte mit KI-Websuche finden, Orte auf der Karte (OpenStreetMap)
 import { addDays, fmtLong, today } from './dates';
-import { explainError, getAi, trackUsage } from './ai';
+import { explainError, getAi, setCostLabel, trackUsage } from './ai';
 
 const SEARCH_KEY = 'life-app-eventsearch';
 const PLACE_KEY = 'life-app-placesearch';
@@ -53,9 +53,17 @@ async function post(body) {
 }
 
 // Websuche + ein Werkzeug, das die Ergebnisse strukturiert zurückgibt
-export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000 }) {
-  const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: BA }, tool];
+// maxUses = 0: ohne Websuche (viel günstiger) – die KI antwortet aus ihrem eigenen Wissen
+export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label }) {
+  if (label) setCostLabel(label);
   const messages = history ? [...history] : [{ role: 'user', content: user }];
+  if (!maxUses) {
+    const d = await post({ max_tokens: maxTokens, system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages });
+    const f = d.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
+    if (!f) throw new Error('Keine Antwort erhalten. Bitte noch einmal versuchen.');
+    return f.input || {};
+  }
+  const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: BA }, tool];
   let data;
   let found;
   const complete = (d) => {
@@ -129,14 +137,15 @@ Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Events, die er schon kennt (nicht wiederholen): ${JSON.stringify(s.events.map((e) => e.name))}
 
 Ziel: Mateo will NICHT das, was er selbst in 2 Minuten bei Google findet, sondern eine kuratierte, abwechslungsreiche Auswahl, die wirklich zu ihm passt – inklusive Geheimtipps.
-So suchst du (höchstens 5 Suchen, jede mit einem anderen Blickwinkel, meist auf Spanisch):
-1. Je eine Suche zu 2–3 seiner konkreten Vorlieben (z.B. „recital rock Buenos Aires noviembre“, „fiesta latina Palermo sábado“), nicht nur allgemein „eventos“.
-2. Mindestens eine Suche nach Ungewöhnlichem: kleine Clubs und Bars mit Live-Musik, Ciclos, Ferias, Talleres, Open-Air, Kulturzentren (Centro Cultural Kirchner, Konex, Recoleta), Milongas, Meetups/Luma (Tech), Blogs/Medien wie „qué hacer este finde“, Resident Advisor, Alternativa Teatral, Agenda Cultural der Stadt, Time Out.
-3. Verschiedene Quellen: höchstens 2 Events aus derselben Website; insgesamt mindestens 4 verschiedene Quellen, wenn möglich.
+So suchst du (höchstens 3 Suchen – jede kostet Geld, also gezielt und jede mit einem anderen Blickwinkel, meist auf Spanisch):
+1. Eine Suche, die 2 seiner konkreten Vorlieben kombiniert (z.B. „recital rock o fiesta latina Buenos Aires noviembre“), nicht nur allgemein „eventos“.
+2. Eine Suche nach einer guten Sammel-Seite (Agenda/„qué hacer este finde“), die viele Events auf einmal listet.
+3. Eine Suche nach Ungewöhnlichem: kleine Clubs und Bars mit Live-Musik, Ciclos, Ferias, Talleres, Open-Air, Kulturzentren (Centro Cultural Kirchner, Konex, Recoleta), Milongas, Meetups/Luma (Tech), Blogs/Medien wie „qué hacer este finde“, Resident Advisor, Alternativa Teatral, Agenda Cultural der Stadt, Time Out.
+Verschiedene Quellen: höchstens 2 Events aus derselben Website; insgesamt mindestens 4 verschiedene Quellen, wenn möglich.
 Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bekannt + Geheimtipp), sortiert nach Datum. Markiere Geheimtipps mit geheimtipp=true. Im Feld warum: konkret, warum es zu SEINEN Vorlieben passt. Nur echte Events aus den Suchergebnissen, keine erfundenen Daten oder Links. Texte auf Deutsch, kurz.`;
   const tool = { ...EVENT_TOOL, input_schema: JSON.parse(JSON.stringify(EVENT_TOOL.input_schema)) };
   tool.input_schema.properties.events.items.properties.geheimtipp = { type: 'boolean', description: 'true = eher unbekannt/ungewöhnlich' };
-  const input = await searchWithTool({ system, user: `Anfrage: ${query}`, tool, maxUses: 5 });
+  const input = await searchWithTool({ system, user: `Anfrage: ${query}`, tool, maxUses: 3, label: 'Events suchen' });
   const perHost = {};
   const results = (input.events || []).filter((e) => e && e.name).map((e, i) => ({
     id: 'e' + i + Date.now().toString(36),
@@ -193,8 +202,8 @@ export async function discoverPlaces(s, query) {
   const system = `Du findest für Mateo besondere Orte in Buenos Aires (Cafés, Bars, Restaurants, Kultur …).
 Was du über Mateo weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Orte, die er schon gespeichert hat (nicht wiederholen): ${JSON.stringify(s.places.map((p) => p.name))}
-Suche gezielt (höchstens 3 Suchen, gern auch auf Spanisch und in aktuellen Listen/Artikeln). Danach rufe "orte_zeigen" mit 5 bis 8 Orten auf, mit möglichst genauer Adresse. Nur echte Orte aus den Suchergebnissen. Texte auf Deutsch, kurz.`;
-  const input = await searchWithTool({ system, user: `Suche: ${query}`, tool: PLACE_TOOL, maxUses: 3 });
+Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern auch auf Spanisch und in aktuellen Listen/Artikeln). Danach rufe "orte_zeigen" mit 5 bis 8 Orten auf, mit möglichst genauer Adresse. Nur echte Orte aus den Suchergebnissen. Texte auf Deutsch, kurz.`;
+  const input = await searchWithTool({ system, user: `Suche: ${query}`, tool: PLACE_TOOL, maxUses: 2, label: 'Orte entdecken' });
   const results = (input.orte || []).filter((o) => o && o.name).map((o, i) => ({
     id: 'p' + i + Date.now().toString(36),
     name: String(o.name),

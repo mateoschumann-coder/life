@@ -108,18 +108,18 @@ export const gatherSnapshot = (g) => ({
   einkauf: g.shopping.map((x) => x.text), mitbringen: g.bring.map((x) => `${x.text}${x.who ? ` – ${x.who}` : ''}`),
   todos: g.todos.map((x) => x.text), orte: g.venues.map((x) => `${x.name} (${x.status})`), einladung_vorhanden: !!g.invite,
 });
-export async function gatherAssist(s, g, history) {
+export async function gatherAssist(s, g, history, { web = false } = {}) {
   const system = `Du hilfst Mateo (lebt in Buenos Aires), ein eigenes Event zu planen. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Aktueller Stand: ${JSON.stringify(gatherSnapshot(g))}
 Arbeitsweise:
 - Denk mit: Was für ein Event könnte es werden (Ideen/Motto), was braucht es, was vergisst man leicht?
-- ${g.kind === 'auswaerts' ? 'Das Event ist WOANDERS: hilf, einen passenden Ort zu finden (Websuche, höchstens 3-mal: Bars, Restaurants, Parks, Locations in Buenos Aires mit Gruppenreservierung, Preise, Einschränkungen), wie man reserviert und was man den Gästen schicken muss. Keine Einkaufsliste, außer es wird gewünscht.' : 'Das Event ist ZU HAUSE: Menü, Getränke (mit Mengen), Einkaufsliste nach Kategorien, was Gäste mitbringen können, Vorbereitung. Websuche nur, wenn nötig (z.B. Rezepte, Spiele).'}
+- ${g.kind === 'auswaerts' ? `Das Event ist WOANDERS: hilf, einen passenden Ort zu finden (${web ? 'Websuche höchstens 2-mal' : 'diesmal OHNE Internet – nenne bekannte Orte aus deinem Wissen ohne URL und sag, dass „Im Internet suchen“ aktuelle Infos bringt'}: Bars, Restaurants, Parks, Locations in Buenos Aires mit Gruppenreservierung, Preise, Einschränkungen), wie man reserviert und was man den Gästen schicken muss. Keine Einkaufsliste, außer es wird gewünscht.` : 'Das Event ist ZU HAUSE: Menü, Getränke (mit Mengen), Einkaufsliste nach Kategorien, was Gäste mitbringen können, Vorbereitung. Keine Websuche nötig – du kennst Rezepte, Mengen und Spiele.'}
 - Rechne NICHT einfach mit der Länge der Gästeliste: maßgeblich ist die ungefähre Gästezahl. Ist sie unbekannt, frag danach (und nach Einschränkungen beim Essen wie vegetarisch/Allergien, Budget, Motto) – höchstens 3 kurze Fragen – und mach erst grobe Vorschläge.
 - Nichts vorschlagen, was schon im Stand steht. Links nur aus Suchergebnissen.
 Antworte immer mit "event_planen". Deutsch, konkret, kurz.`;
   const messages = history.map((m) => ({ role: m.role, content: m.text }));
-  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: g.kind === 'auswaerts' ? 3 : 2 });
+  return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 2 : 0, label: 'Event-Planer' });
 }
 
 export function applyGatherProposal(gId, sel) {

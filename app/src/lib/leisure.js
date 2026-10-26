@@ -5,6 +5,8 @@ import { callApi } from './ai';
 import { searchWithTool } from './outings';
 
 const norm = (x) => String(x || '').trim().toLowerCase();
+// Statt (teurer) Websuche: Such-Link passend zur Art (Video/Song → YouTube, sonst Google)
+export const searchLink = (title, kind) => (['song', 'video', 'uebung'].includes(kind) ? `https://www.youtube.com/results?search_query=${encodeURIComponent(title)}` : `https://www.google.com/search?q=${encodeURIComponent(title)}`);
 
 // ---------- Hobbys ----------
 export const HOBBY_KINDS = { idee: 'Idee', song: 'Song', video: 'Video', buch: 'Buch', uebung: 'Übung', link: 'Link' };
@@ -60,8 +62,7 @@ const HOBBY_TOOL = {
             titel: { type: 'string', description: 'z.B. „Wonderwall – Oasis“ oder „Lerne die Sizilianische Verteidigung“' },
             art: { type: 'string', enum: Object.keys(HOBBY_KINDS) },
             warum: { type: 'string', description: '1 Satz: warum passt es zu seinem Niveau/Geschmack' },
-            url: { type: 'string', description: 'Nur aus den Suchergebnissen (Video, Tabs, Artikel), nie erfinden' },
-          },
+                      },
           required: ['titel', 'art', 'warum'],
         },
       },
@@ -74,9 +75,9 @@ export async function hobbyIdeas(s, hobbyId, wish = '') {
   const system = `Du bist ein inspirierender Mentor für Mateos Hobby „${h.name}“${h.level ? ` (Niveau: ${h.level})` : ''}${h.goal ? `, Ziel: ${h.goal}` : ''}. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Was er schon gemacht hat / auf der Liste hat: ${JSON.stringify(h.items.map((x) => `${x.title} (${x.status})`))}
-Suche höchstens 2-mal (z.B. YouTube-Lektionen, Tabs, Bücher, Übungen) und gib dann mit "ideen_zeigen" 5 bis 6 abwechslungsreiche, konkrete Ideen zurück, die ihn weiterbringen und Spaß machen – passend zu Niveau und Geschmack, nichts doppelt. Deutsch, kurz.`;
-  const input = await searchWithTool({ system, user: wish ? `Wunsch: ${wish}` : `Neue Ideen für ${h.name}`, tool: HOBBY_TOOL, maxUses: 2 });
-  return (input.ideen || []).filter((x) => x && x.titel).map((x, i) => ({ id: 'h' + i + Date.now().toString(36), title: x.titel, kind: HOBBY_KINDS[x.art] ? x.art : 'idee', why: x.warum || '', url: /^https?:\/\//.test(x.url || '') ? x.url : '' }));
+Antworte aus deinem Wissen (ohne Internet) mit "ideen_zeigen": 5 bis 6 abwechslungsreiche, konkrete Ideen zurück, die ihn weiterbringen und Spaß machen – passend zu Niveau und Geschmack, nichts doppelt. Deutsch, kurz. Links: Gib KEINE URLs an (du suchst nicht im Internet) – die App erzeugt selbst einen Such-Link zum Titel.`;
+  const input = await searchWithTool({ system, user: wish ? `Wunsch: ${wish}` : `Neue Ideen für ${h.name}`, tool: HOBBY_TOOL, maxUses: 0, label: 'Hobby-Ideen' });
+  return (input.ideen || []).filter((x) => x && x.titel).map((x, i) => ({ id: 'h' + i + Date.now().toString(36), title: x.titel, kind: HOBBY_KINDS[x.art] ? x.art : 'idee', why: x.warum || '', url: searchLink(x.titel, x.art) }));
 }
 
 // Reisen und eigene Events liegen in trips.js und gather.js

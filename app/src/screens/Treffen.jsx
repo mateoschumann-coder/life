@@ -191,7 +191,8 @@ function Detail({ s, g }) {
           intro={home ? 'Erzähl, was dir vorschwebt – ich frage nach (wie viele ungefähr, Einschränkungen, Budget) und schlage Ideen, Menü, Getränke und was Gäste mitbringen können vor.' : 'Erzähl, was dir vorschwebt – ich frage nach und suche passende Orte in Buenos Aires, sage, wie man reserviert und was du den Gästen schicken musst.'}
           history={g.chat}
           onSave={(chat) => updateGathering(g.id, { chat })}
-          onAsk={(hist) => gatherAssist(s, g, hist)}
+          onAsk={(hist, o) => gatherAssist(s, g, hist, o)}
+          webChips={['Passenden Ort finden']}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyGatherProposal(g.id, sel)}
           chips={home ? ['Ideen für das Event', 'Motto finden', 'Was soll ich kochen?', 'Welche Getränke, wie viel?', 'Was können Gäste mitbringen?', 'Einladung schreiben'] : ['Ideen für das Event', 'Passenden Ort finden', 'Wie reserviere ich am besten?', 'Was muss ich den Gästen schicken?', 'Einladung schreiben']}

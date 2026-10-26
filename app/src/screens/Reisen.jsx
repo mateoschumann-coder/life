@@ -419,7 +419,8 @@ function TripDetail({ s, tr }) {
           intro={isIdea ? 'Frag z.B.: „Welche Route wäre in 7 Tagen sinnvoll?“ oder „Wie komme ich günstig hin?“ – Vorschläge kannst du abhaken und übernehmen.' : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
           history={tr.chat}
           onSave={(chat) => updateTrip(tr.id, { chat })}
-          onAsk={(hist) => tripAssist(s, tr, hist)}
+          onAsk={(hist, o) => tripAssist(s, tr, hist, o)}
+          webChips={['Wie komme ich hin?', 'Beste Reisezeit und Kosten?', 'Unterkunft finden', 'Restaurant-Tipps', 'Transport zwischen den Stationen']}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyTripProposal(tr.id, sel)}
           chips={isIdea ? ['Welche Route wäre sinnvoll?', 'Wie komme ich hin?', 'Was kann man dort machen?', 'Beste Reisezeit und Kosten?'] : ['Packliste anpassen', 'Unterkunft finden', 'Restaurant-Tipps', 'Sehenswürdigkeiten', 'Transport zwischen den Stationen', 'Was fehlt noch?']}
