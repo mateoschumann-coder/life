@@ -5,6 +5,7 @@ import { followUps, initials, lastContact, peopleOverdue, upcomingBirthdays, waL
 import { logContact } from '../lib/actions';
 import { Check, Icon, TabBar } from '../components/ui';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
+import ContactImport from '../components/ContactImport';
 
 export const AVATAR = {
   familie: ['#FDE8E1', '#B4472B'],
@@ -19,6 +20,7 @@ export default function Menschen() {
   const t = today();
   const [filter, setFilter] = useState('alle');
   const [q, setQ] = useState('');
+  const [imp, setImp] = useState(false);
   const match = (p) =>
     (filter === 'alle' || p.category === filter) &&
     (!q.trim() || [p.name, p.metAt, p.notes].join(' ').toLowerCase().includes(q.trim().toLowerCase()));
@@ -52,7 +54,10 @@ export default function Menschen() {
       <main className="screen">
         <div className="top">
           <h1 className="h1">Menschen</h1>
-          <a href="#/person/neu" className="icon-btn" aria-label="Person hinzufügen"><Icon name="plus" size={18} width={2.2} /></a>
+          <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button type="button" className="link-btn" onClick={() => setImp(true)}>Aus Kontakten</button>
+            <a href="#/person/neu" className="icon-btn" aria-label="Person hinzufügen"><Icon name="plus" size={18} width={2.2} /></a>
+          </span>
         </div>
         <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, wo kennengelernt …" aria-label="Personen suchen" />
         <div className="chips" style={{ gap: 8 }} role="group" aria-label="Filter">
@@ -116,6 +121,7 @@ export default function Menschen() {
           </section>
         )}
       </main>
+      <ContactImport s={s} open={imp} onClose={() => setImp(false)} />
       <TabBar active="menschen" />
     </>
   );

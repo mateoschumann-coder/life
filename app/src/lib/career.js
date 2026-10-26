@@ -11,12 +11,12 @@ const okUrl = (u) => (/^https?:\/\//.test(u || '') ? u : '');
 const okDate = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '');
 
 export const STAGES = [
-  { id: 'gefunden', label: 'Gefunden', short: 'Gefunden' },
-  { id: 'vorbereiten', label: 'Bewerbung vorbereiten', short: 'Vorbereiten' },
+  { id: 'interessiert', label: 'Interessiert', short: 'Interessiert' },
   { id: 'beworben', label: 'Beworben', short: 'Beworben' },
-  { id: 'gespraech', label: 'Gespräche', short: 'Gespräch' },
+  { id: 'rueckmeldung', label: 'Positive Rückmeldung', short: 'Rückmeldung' },
+  { id: 'gespraech', label: 'Gespräche', short: 'Gespräche' },
   { id: 'angebot', label: 'Angebot', short: 'Angebot' },
-  { id: 'abgesagt', label: 'Abgesagt / passt nicht', short: 'Aus' },
+  { id: 'abgesagt', label: 'Absage / passt nicht', short: 'Absage' },
 ];
 export const stageOf = (id) => STAGES.find((x) => x.id === id) || STAGES[0];
 export const DEFAULT_DOCS = CAREER_DOCS;
@@ -43,11 +43,11 @@ export function addSearch({ name, goal = '', location = 'Buenos Aires / remote' 
 export const updateSearch = (id, patch) => store.update((s) => Object.assign(s.jobSearches.find((x) => x.id === id) || {}, patch));
 export const removeSearch = (id) => store.update((s) => {
   s.jobSearches = s.jobSearches.filter((x) => x.id !== id);
-  s.jobs = s.jobs.filter((j) => j.searchId !== id || j.status !== 'gefunden');
+  s.jobs = s.jobs.filter((j) => j.searchId !== id || j.status !== 'interessiert');
 });
 
 // ---------- Jobs (Funnel) ----------
-export function addJob({ searchId = null, title, company = '', url = '', location = '', note = '', deadline = '' }) {
+export function addJob({ searchId = null, title, company = '', url = '', location = '', note = '', deadline = '', status = 'interessiert', description = '' }) {
   const t = String(title || '').trim();
   if (!t) return null;
   const s = store.get();
@@ -55,7 +55,7 @@ export function addJob({ searchId = null, title, company = '', url = '', locatio
   const id = uid();
   store.update((d) => {
     ensureCareer(d);
-    d.jobs.push({ id, searchId, title: t, company, url: okUrl(url), location, note, deadline: okDate(deadline), status: 'gefunden', description: '', analysis: null, checklist: items(DEFAULT_CHECK), createdAt: today(), updatedAt: today() });
+    d.jobs.push({ id, searchId, title: t, company, url: okUrl(url), location, note, deadline: okDate(deadline), status: STAGES.some((x) => x.id === status) ? status : 'interessiert', description: String(description || ''), analysis: null, checklist: items(DEFAULT_CHECK), createdAt: today(), updatedAt: today() });
   });
   return id;
 }
@@ -223,4 +223,58 @@ Hilf beim ganzen Funnel: Zielrollen schärfen, Firmen/Fonds finden, Unterlagen, 
 ${web ? 'Du darfst höchstens 2-mal im Internet suchen; Links nur aus Suchergebnissen.' : 'Ohne Internet: aus deinem Wissen, keine URLs erfinden.'}
 Antworte immer mit "antwort_geben". Deutsch, kein Markdown.`;
   return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: CHAT_TOOL, maxUses: web ? 2 : 0, label: 'Karriere-Chat', smart });
+}
+
+// ---------- Trichter per Gespräch (ohne Internet, günstig) ----------
+// Mateo erzählt („Bei Kaszek beworben, Mercado Libre hat abgesagt …“) oder fügt eine Anzeige ein → Änderungen am Trichter
+const FUNNEL_TOOL = {
+  name: 'trichter_aktualisieren',
+  description: 'Antwort plus Änderungen am Bewerbungs-Trichter.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      antwort: { type: 'string', description: '1–4 Sätze: kurz bestätigen, was du einträgst; nur nachfragen, wenn etwas Wichtiges fehlt (z.B. Firma)' },
+      aenderungen: {
+        type: 'array',
+        description: 'Eine Zeile pro Stelle, die neu ist oder sich geändert hat',
+        items: {
+          type: 'object',
+          properties: {
+            job_id: { type: 'string', description: 'ID, wenn es eine bekannte Stelle ist' },
+            titel: { type: 'string' },
+            firma: { type: 'string' },
+            phase: { type: 'string', enum: ['interessiert', 'beworben', 'rueckmeldung', 'gespraech', 'angebot', 'abgesagt'] },
+            notiz: { type: 'string', description: 'Kurz, z.B. „2. Gespräch am Donnerstag mit CEO“' },
+            ort: { type: 'string' },
+            url: { type: 'string', description: 'Nur wenn Mateo einen Link genannt hat' },
+          },
+          required: ['titel', 'phase'],
+        },
+      },
+    },
+    required: ['antwort'],
+  },
+};
+export async function funnelChat(s, search, history) {
+  const known = (s.jobs || []).filter((j) => j.searchId === search.id || !j.searchId).map((j) => ({ id: j.id, titel: j.title, firma: j.company, phase: j.status }));
+  const system = `Du pflegst Mateos Bewerbungs-Trichter für die ${searchText(search)}. Heute ist ${fmtLong(today())}.
+Phasen: interessiert → beworben → rueckmeldung (positive Rückmeldung, es geht weiter) → gespraech → angebot; abgesagt = Absage oder passt nicht.
+Bekannte Stellen: ${JSON.stringify(known)}
+Mateo erzählt, wie es läuft, oder fügt eine Stellenanzeige ein. Mach daraus Einträge unter "aenderungen": bekannte Stellen mit job_id und neuer Phase, neue Stellen ohne job_id. Bei einer eingefügten Anzeige: Titel, Firma, Ort herauslesen, Phase interessiert (außer er sagt etwas anderes). Erfinde keine Stellen. Antworte immer mit "trichter_aktualisieren". Deutsch, kein Markdown.`;
+  return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: FUNNEL_TOOL, maxUses: 0, maxTokens: 1500, label: 'Trichter-Chat' });
+}
+// Änderungen übernehmen; lange eingefügte Texte werden bei neuen Stellen als Anzeige gespeichert
+export function applyFunnel(search, list, pasted = '') {
+  const s = store.get();
+  let n = 0;
+  for (const x of list || []) {
+    if (!x || !x.titel) continue;
+    const phase = STAGES.some((st) => st.id === x.phase) ? x.phase : 'interessiert';
+    const j = (s.jobs || []).find((y) => y.id === x.job_id) || (s.jobs || []).find((y) => norm(y.title) === norm(x.titel) && (!x.firma || norm(y.company) === norm(x.firma))) || (x.firma ? (s.jobs || []).find((y) => norm(y.company) === norm(x.firma) && y.searchId === search.id) : null);
+    if (j) {
+      updateJob(j.id, { status: phase, note: x.notiz ? [j.note, `${today()}: ${x.notiz}`].filter(Boolean).join('\n') : j.note });
+      n++;
+    } else if (addJob({ searchId: search.id, title: x.titel, company: x.firma || '', location: x.ort || '', url: x.url || '', note: x.notiz ? `${today()}: ${x.notiz}` : '', status: phase, description: list.length === 1 && pasted.length > 300 ? pasted : '' })) n++;
+  }
+  return n;
 }

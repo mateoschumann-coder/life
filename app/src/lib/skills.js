@@ -169,3 +169,53 @@ Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Gib Ideen, was er auf Basis dessen, was er schon macht, noch lernen oder ausprobieren könnte – und wie man Dinge clever verbindet (z.B. Sprache + Hobby, Python + eigenes Interesse). Konkret, klein anfangen. Neue Skills unter "skills", erste Schritte unter "aufgaben". Ohne Internet, keine URLs. Antworte immer mit "antwort_geben". Deutsch, kein Markdown.`;
   return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: IDEA_TOOL, maxUses: 0, label: 'Lern-Ideen', smart });
 }
+
+// ---------- Konkrete Ziele als To-do-Liste pro Skill (v0.29) ----------
+export function addSkillTodos(id, texts) {
+  let n = 0;
+  store.update((s) => {
+    const sk = (s.skills || []).find((x) => x.id === id);
+    if (!sk) return;
+    sk.todos = sk.todos || [];
+    for (const raw of texts) {
+      const t = String(raw || '').trim();
+      if (t && !sk.todos.some((x) => norm(x.text) === norm(t))) { sk.todos.push({ id: uid(), text: t, done: false }); n++; }
+    }
+  });
+  return n;
+}
+export function toggleSkillTodo(id, todoId) {
+  store.update((s) => {
+    const sk = (s.skills || []).find((x) => x.id === id);
+    const it = sk?.todos?.find((x) => x.id === todoId);
+    if (!it) return;
+    it.done = !it.done;
+    it.doneAt = it.done ? today() : null;
+    if (it.done && !s.activities.some((a) => a.areaId === 'entwicklung' && a.date === today() && a.note === sk.name)) s.activities.push({ id: uid(), areaId: 'entwicklung', date: today(), note: sk.name });
+  });
+}
+export const removeSkillTodo = (id, todoId) => store.update((s) => {
+  const sk = (s.skills || []).find((x) => x.id === id);
+  if (sk) sk.todos = (sk.todos || []).filter((x) => x.id !== todoId);
+});
+export const todoStats = (sk) => ({ done: (sk.todos || []).filter((x) => x.done).length, all: (sk.todos || []).length, next: (sk.todos || []).find((x) => !x.done) });
+
+const TODO_TOOL = {
+  name: 'ziele_vorschlagen',
+  description: 'Antwort plus konkrete To-dos für diesen Skill.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      antwort: { type: 'string', description: '1–4 Sätze, kurz; nachfragen nur, wenn wirklich nötig' },
+      todos: { type: 'array', items: { type: 'string' }, description: 'Konkrete, abhakbare Dinge (z.B. „Die 100 häufigsten Verben lernen“, „Ein Python-Skript schreiben, das meine Ausgaben-CSV auswertet“), in sinnvoller Reihenfolge' },
+    },
+    required: ['antwort'],
+  },
+};
+// Leichte KI ohne Internet: Mateo erzählt, was er erreichen will → To-dos
+export async function skillTodoChat(s, sk, history) {
+  const system = `Du hilfst Mateo, für „${sk.name}“ konkrete Dinge festzulegen, die er erreichen will. Niveau: ${sk.level || 'offen'}. Ziel: ${sk.goal || 'offen'}.
+Schon auf der Liste: ${JSON.stringify((sk.todos || []).map((x) => `${x.text}${x.done ? ' ✓' : ''}`))}
+Mach aus dem, was er erzählt, klare, abhakbare To-dos (3–8, sinnvoll aufeinander aufbauend, nichts doppelt). Nicht drängeln, nicht motivieren, einfach sauber strukturieren. Ohne Internet, keine URLs. Antworte immer mit "ziele_vorschlagen". Deutsch, kein Markdown.`;
+  return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: TODO_TOOL, maxUses: 0, maxTokens: 1200, label: `Ziele: ${sk.name}` });
+}

@@ -429,3 +429,24 @@ ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Events, Studien
 Bei Schmerzen/Verletzungen: zur Vorsicht raten und ärztliche Abklärung empfehlen, keine Diagnosen. Antworte immer mit "coach_antwort". Deutsch, kein Markdown.`;
   return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: SPORT_COACH_TOOL, maxUses: web ? 2 : 0, label: 'Sport-Coach', smart });
 }
+
+// Zutat ohne Menge, z.B. „200 g Mehl“ → „Mehl“, „2 EL Olivenöl“ → „Olivenöl“
+export function stripQty(x) {
+  return String(x || '')
+    .replace(/^\s*(ca\.?|etwa|ungefähr)?\s*[\d½¼¾⅓⅔.,/\-–\s]*\s*(kg|g|gr|mg|ml|cl|dl|l|el|tl|msp|tasse[n]?|becher|prise[n]?|stück|stk\.?|bund|dose[n]?|glas|gläser|pck\.?|päckchen|packung(en)?|zehe[n]?|scheibe[n]?|handvoll|cups?|tbsp|tsp|oz|lb)?\.?\s+(?=\S)/i, '')
+    .replace(/\s*\(.*?\)\s*/g, ' ')
+    .replace(/,.*$/, '')
+    .trim();
+}
+
+// Rezept aus eingefügtem Text (oder nur einem Link) übernehmen
+export async function importRecipe(s, input, category) {
+  const text = String(input || '').trim();
+  const onlyUrl = /^https?:\/\/\S+$/.test(text);
+  const system = `Du überträgst ein Rezept für Mateo in seine App. ${onlyUrl ? 'Er hat nur einen Link geschickt: suche genau diese Seite (1 Suche) und übernimm das Rezept von dort.' : 'Er hat den Text einer Rezept-Seite eingefügt (kann Werbung und Kommentare enthalten – ignoriere die).'}
+Übertrage auf Deutsch: Titel, Zutaten mit Mengen (eine pro Eintrag), kurze nummerierte Schritte, ungefähre Minuten. Mengen so lassen wie im Original (nicht umrechnen). Wenn kein Rezept erkennbar ist, gib ein Rezept mit titel „Kein Rezept gefunden“ und leeren Zutaten zurück. Antworte mit "rezepte_zeigen" (genau 1 Rezept).`;
+  const r = await searchWithTool({ system, user: text.slice(0, 15000), tool: RECIPE_TOOL, maxUses: onlyUrl ? 1 : 0, label: 'Rezept einfügen' });
+  const x = (r.rezepte || [])[0];
+  if (!x || !x.titel || /kein rezept/i.test(x.titel)) throw new Error('Im Text war kein Rezept zu erkennen. Am besten den ganzen Rezepttext (Zutaten + Zubereitung) einfügen.');
+  return { ...toRecipe(x, 0, category), url: onlyUrl ? text : /^https?:\/\//.test(x.url || '') ? x.url : '' };
+}

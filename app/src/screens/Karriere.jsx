@@ -1,16 +1,15 @@
 import { useState } from 'react';
-import { useStore } from '../lib/store';
+import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, today } from '../lib/dates';
 import { addTask } from '../lib/actions';
 import {
-  addCheck, addDoc, addJob, addSearch, analyzeJob, careerChat, claudeBrief, jobLinks, jobOffersWeb, removeCheck, removeDoc, removeJob, removeSearch,
+  addCheck, addDoc, addJob, addSearch, analyzeJob, applyFunnel, careerChat, claudeBrief, funnelChat, removeCheck, removeDoc, removeJob, removeSearch,
   STAGES, stageOf, toggleCheck, toggleDoc, updateJob, updateSearch,
 } from '../lib/career';
 import { chatOf, saveChatOf } from '../lib/chats';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
 import PlanChat from '../components/PlanChat';
-import LinkList from '../components/LinkList';
 import { Back, Check, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
 import { Missing } from './Saeule';
 import { ProjectsList, ProjectPage } from './EigeneProjekte';
@@ -101,7 +100,7 @@ function Overview({ s }) {
         <section className="group">
           <h2 className="label" style={{ padding: '0 4px' }}>Meine Suchen</h2>
           <div className="list">
-            {s.jobSearches.length === 0 && <div className="empty">Leg für jede Richtung eine eigene Suche an, z.B. „VC Analyst“ oder „Generalist in einem KI-Startup“. Jede Suche findet neue Angebote und hat ihren eigenen Coach-Chat.</div>}
+            {s.jobSearches.length === 0 && <div className="empty">Leg für jede Richtung eine eigene Suche an, z.B. „VC Analyst“ oder „Generalist in einem KI-Startup“. In jeder Suche erzählst du einfach, wie es läuft – der Trichter baut sich von selbst.</div>}
             {s.jobSearches.map((x) => {
               const mine = jobs.filter((j) => j.searchId === x.id);
               return (
@@ -109,7 +108,7 @@ function Overview({ s }) {
                   <span className="block-icon" style={{ background: 'color-mix(in srgb, #3B6FE0 14%, transparent)', color: BLUE }}><Icon name="briefcase" size={16} /></span>
                   <span className="row-main">
                     <span className="row-title strong">{x.name}</span>
-                    <span className="row-meta">{[x.location, `${mine.filter(active).length} im Trichter`, mine.filter((j) => j.status === 'beworben' || j.status === 'gespraech').length && `${mine.filter((j) => j.status === 'beworben' || j.status === 'gespraech').length} laufen`].filter(Boolean).join(' · ')}</span>
+                    <span className="row-meta">{[x.location, `${mine.filter(active).length} im Trichter`, mine.filter((j) => ['beworben', 'rueckmeldung', 'gespraech', 'angebot'].includes(j.status)).length && `${mine.filter((j) => ['beworben', 'rueckmeldung', 'gespraech', 'angebot'].includes(j.status)).length} laufen`].filter(Boolean).join(' · ')}</span>
                   </span>
                   <Chevron />
                 </a>
@@ -158,28 +157,17 @@ const CHAT_GROUPS = [
   { key: 'unterlagen', label: 'Zu den Unterlagen', title: (x) => x },
 ];
 
+const FUNNEL_GROUPS = [{ key: 'aenderungen', label: 'In den Trichter', title: (x) => `${x.titel}${x.firma ? ` · ${x.firma}` : ''}`, meta: (x) => [`→ ${stageOf(x.phase).label}`, x.notiz].filter(Boolean).join(' · ') }];
+
 function SearchPage({ s, search }) {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-  const [manual, setManual] = useState({ title: '', company: '', url: '' });
+  const [manual, setManual] = useState({ title: '', company: '', url: '', description: '', status: 'interessiert' });
   const [adding, setAdding] = useState(false);
-  const hasKey = !!getAi().apiKey;
   const jobs = s.jobs.filter((j) => j.searchId === search.id);
-  const offers = (search.results?.offers || []).filter((o) => !s.jobs.some((j) => j.title === o.title && j.company === o.company));
-  const run = async (web) => {
-    setBusy(web ? 'web' : 'links');
-    setErr(null);
-    try {
-      if (web) await jobOffersWeb(s, search);
-      else await jobLinks(s, search);
-    } catch (e) {
-      setErr(errText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const take = (o) => {
-    if (addJob({ searchId: search.id, title: o.title, company: o.company, url: o.url, location: o.location, note: o.why })) toast('Im Trichter');
+  const key = `jobsuche:${search.id}`;
+  const apply = (sel) => {
+    const last = [...chatOf(store.get(), key)].reverse().find((m) => m.role === 'user');
+    const n = applyFunnel(search, sel.aenderungen || [], last?.text || '');
+    if (n) toast(`${n} ${n === 1 ? 'Stelle' : 'Stellen'} im Trichter aktualisiert`);
   };
   return (
     <>
@@ -188,58 +176,52 @@ function SearchPage({ s, search }) {
           <Back href="#/karriere" label="Jobsuche" />
           <input className="input title-input" defaultValue={search.name} key={search.id + 'n'} onBlur={(e) => e.target.value.trim() && e.target.value !== search.name && updateSearch(search.id, { name: e.target.value.trim() })} aria-label="Name der Suche" />
           <input className="input goal-input" defaultValue={search.goal} key={search.id + 'g'} placeholder="Was ist dir wichtig? (hilft der KI)" onBlur={(e) => e.target.value !== search.goal && updateSearch(search.id, { goal: e.target.value })} aria-label="Ziel" />
-          <input className="input goal-input" defaultValue={search.location} key={search.id + 'l'} placeholder="Ort, z.B. Buenos Aires / remote" onBlur={(e) => e.target.value !== search.location && updateSearch(search.id, { location: e.target.value })} aria-label="Ort" />
         </div>
 
-        <section className="card checkin" style={{ gap: 10 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
-            <span className="spark"><Icon name="search" size={15} color="currentColor" /></span> Neue Angebote
-          </span>
-          <div className="search-row">
-            <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !hasKey} onClick={() => run(false)}>{busy === 'links' ? '…' : 'Such-Links'}</button>
-            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !hasKey} onClick={() => run(true)}>{busy === 'web' ? '…' : '🔍 Konkrete Angebote'}</button>
-          </div>
-          <span className="tiny">Such-Links: gezielte Suchen bei LinkedIn (letzte 7 Tage), Google Jobs, Get on Board & Co. – fast kostenlos. Konkrete Angebote: die KI sucht selbst (ca. 3–5 Cent).</span>
-          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Angebote …' : 'Ich überlege die besten Suchen …'}</span></div>}
-          {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-          {!busy && search.links && <LinkList links={search.links.links} hint={search.links.hint} />}
-          {!busy && search.results && (
-            <>
-              {search.results.hint && <span className="sub">{search.results.hint}</span>}
-              {offers.map((o) => (
-                <div key={o.id} className="option" style={{ alignItems: 'center' }}>
-                  <span className="row-main">
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>{o.title}{o.company ? ` · ${o.company}` : ''}</span>
-                    <span className="tiny">{[o.location, o.date, o.why].filter(Boolean).join(' · ')}</span>
-                  </span>
-                  {o.url && <a className="x-btn" href={o.url} target="_blank" rel="noreferrer" aria-label="Anzeige öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-                  <button type="button" className="pill on" onClick={() => take(o)}>Merken</button>
-                </div>
-              ))}
-            </>
-          )}
-        </section>
+        <Funnel jobs={jobs} />
+
+        <PlanChat
+          title="Erzähl, wie es läuft"
+          intro="Sag oder schreib einfach, was passiert ist – z.B. „Bei Kaszek beworben, Mercado Libre hat abgesagt, Donnerstag Gespräch bei Ualá“ – oder füg eine Stellenanzeige ein. Ich trage alles in den Trichter ein."
+          history={chatOf(s, key)}
+          onSave={(h) => saveChatOf(key, h)}
+          onAsk={(hist) => funnelChat(s, search, hist)}
+          prefKey="trichter"
+          hideToggles
+          groups={FUNNEL_GROUPS}
+          onApply={apply}
+          placeholder="Was hat sich getan? Oder Anzeige einfügen …"
+        />
 
         <section className="group">
           <div className="sec-h">
-            <h2 className="h2" style={{ fontSize: 19 }}>Trichter</h2>
-            <button type="button" className="link-btn" onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Stelle'}</button>
+            <h2 className="h2" style={{ fontSize: 19 }}>Stellen</h2>
+            <button type="button" className="link-btn" onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Selbst eintragen'}</button>
           </div>
           {adding && (
-            <form className="card" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); const id = addJob({ searchId: search.id, ...manual }); setManual({ title: '', company: '', url: '' }); setAdding(false); if (id) go(`/karriere/job/${id}`); }}>
+            <form className="card" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); const id = addJob({ searchId: search.id, ...manual }); setManual({ title: '', company: '', url: '', description: '', status: 'interessiert' }); setAdding(false); if (id) toast('Im Trichter'); }}>
               <input className="input" value={manual.title} onChange={(e) => setManual({ ...manual, title: e.target.value })} placeholder="Stelle, z.B. Investment Analyst" aria-label="Stelle" autoFocus />
               <input className="input" value={manual.company} onChange={(e) => setManual({ ...manual, company: e.target.value })} placeholder="Firma" aria-label="Firma" />
+              <div className="chips">{STAGES.map((st) => <button key={st.id} type="button" className={manual.status === st.id ? 'chip on' : 'chip soft'} onClick={() => setManual({ ...manual, status: st.id })}>{st.short}</button>)}</div>
               <input className="input" value={manual.url} onChange={(e) => setManual({ ...manual, url: e.target.value })} placeholder="Link zur Anzeige (optional)" aria-label="Link" inputMode="url" />
+              <textarea className="input" value={manual.description} onChange={(e) => setManual({ ...manual, description: e.target.value })} placeholder="Text der Anzeige einfügen (optional)" aria-label="Anzeigentext" />
               <button type="submit" className="btn small" disabled={!manual.title.trim()}>Hinzufügen</button>
             </form>
           )}
-          <div className="list">
-            {jobs.length === 0 && <div className="empty">Noch keine Stellen. Merk dir oben Angebote oder füg eine Stelle selbst hinzu (z.B. aus einem Such-Link).</div>}
-            {STAGES.flatMap((st) => jobs.filter((j) => j.status === st.id)).map((j) => <JobRow key={j.id} j={j} s={s} />)}
-          </div>
+          {jobs.length === 0 && <div className="list"><div className="empty">Noch keine Stellen. Erzähl oben, wo du dich beworben hast oder was dich interessiert – oder trag sie selbst ein.</div></div>}
+          {STAGES.map((st) => {
+            const list = jobs.filter((j) => j.status === st.id);
+            if (!list.length) return null;
+            return (
+              <div key={st.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span className="label" style={{ padding: '0 4px' }}>{st.label} ({list.length})</span>
+                <div className="list">{list.map((j) => <JobRow key={j.id} j={j} s={s} />)}</div>
+              </div>
+            );
+          })}
         </section>
 
-        <button type="button" className="btn danger" onClick={() => { if (confirm(`Suche „${search.name}“ löschen? Gemerkte Stellen ohne Bewerbung werden mitgelöscht.`)) { removeSearch(search.id); go('/karriere'); } }}>Suche löschen</button>
+        <button type="button" className="btn danger" onClick={() => { if (confirm(`Suche „${search.name}“ löschen? Stellen, die nur „Interessiert“ sind, werden mitgelöscht.`)) { removeSearch(search.id); go('/karriere'); } }}>Suche löschen</button>
       </main>
       <TabBar active="bereiche" />
     </>

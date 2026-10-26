@@ -91,7 +91,7 @@ function Events({ s }) {
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(lastEventSearch);
   const [links, setLinks] = useState(lastEventLinks);
-  const [mode, setMode] = useState(() => (lastEventLinks()?.at || '') > (lastEventSearch()?.at || '') ? 'links' : 'web');
+  const [mode, setMode] = useState('links');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
@@ -134,12 +134,11 @@ function Events({ s }) {
         <form onSubmit={(e) => { e.preventDefault(); run(q); }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Techno am Samstag, Laufevents …" aria-label="Wonach suchen" />
           <div className="search-row">
-            <button type="submit" className="btn tint small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey}>{busy === 'links' ? '…' : 'Such-Links'}</button>
-            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey} onClick={() => run(q, true)}>{busy === 'web' ? '…' : '🔍 Konkrete Events'}</button>
+            <button type="submit" className="btn small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey}>{busy === 'links' ? '…' : 'Gute Suchen finden'}</button>
           </div>
         </form>
         <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={!!busy || !hasKey} onPick={(c) => run(c)} />
-        <span className="tiny">Such-Links: die KI baut gezielte Suchen bei Google Events, Instagram, Eventbrite & Meetup – du tippst und siehst alles Aktuelle (unter 0,5 Cent). Konkrete Events: die KI sucht selbst im Internet (ca. 3–5 Cent). Die Vorschläge laufen als Such-Links.</span>
+        <span className="tiny">Die KI baut gezielte Suchen passend zu dir – Google Events, Instagram, Eventbrite & Meetup. Du tippst und siehst alles Aktuelle (unter 0,5 Cent).</span>
         <Prefs s={s} />
         {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
         {busy && (

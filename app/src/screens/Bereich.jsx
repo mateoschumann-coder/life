@@ -14,7 +14,7 @@ import { TOOL_AREAS } from '../lib/tools';
 import { addLibCat, KINDS, removeLibCat } from '../lib/library';
 import { Missing } from './Saeule';
 
-export const DIRECT = { entwicklung: '#/skills', informiert: '#/news' };
+export const DIRECT = { entwicklung: '#/skills', informiert: '#/news', mental: '#/wissen', zuhause: '#/zuhause/haushalt' };
 
 const RANGES = [
   { id: 4, label: '4 Wo.' },
@@ -220,7 +220,7 @@ export default function Bereich({ id }) {
 }
 
 // Kategorien in „Lernen & Wissen“ hinzufügen und entfernen (z.B. Bibliothek, Podcasts, YouTube-Kanäle)
-function LibCatsSheet({ s, open, onClose }) {
+export function LibCatsSheet({ s, open, onClose }) {
   const [name, setName] = useState('');
   const [kind, setKind] = useState('');
   return (

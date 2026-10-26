@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import {
-  addRecipe, addShopping, clearBought, deleteRecipe, findRecipes, kitchenChat, removeShopping, setRecipeCats, shoppingSuggestions, toggleShopping, updateRecipe,
+  addRecipe, addShopping, clearBought, deleteRecipe, findRecipes, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shoppingSuggestions, toggleShopping, updateRecipe,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -14,6 +14,7 @@ const COLOR = '#2FA36B';
 
 function RecipeSheet({ s, recipe, onClose }) {
   const [edit, setEdit] = useState(false);
+  const [noQty, setNoQty] = useState(true);
   const blank = { title: '', category: s.recipeCats[0] || 'Airfryer', ingredients: '', steps: '', url: '', minutes: '' };
   const [f, setF] = useState(blank);
   const isNew = recipe === 'neu';
@@ -59,12 +60,13 @@ function RecipeSheet({ s, recipe, onClose }) {
               {(r.ingredients || []).map((x, i) => (
                 <div key={i} className="row" style={{ minHeight: 44 }}>
                   <span className="row-main"><span className="row-title plain" style={{ fontSize: 16 }}>{x}</span></span>
-                  <button type="button" className="x-btn" aria-label={`${x} auf die Einkaufsliste`} onClick={() => { addShopping(x); toast('Auf der Einkaufsliste'); }}><Icon name="cart" size={16} color="var(--accent)" /></button>
+                  <button type="button" className="x-btn" aria-label={`${x} auf die Einkaufsliste`} onClick={() => { addShopping(noQty ? stripQty(x) || x : x); toast('Auf der Einkaufsliste'); }}><Icon name="cart" size={16} color="var(--accent)" /></button>
                 </div>
               ))}
             </div>
           </div>
-          <button type="button" className="btn sec" onClick={() => { const n = addShopping(r.ingredients || []); toast(`${n} Zutaten auf der Einkaufsliste`); }}>Alle Zutaten auf die Einkaufsliste</button>
+          <button type="button" className="btn" onClick={() => { const n = addShopping((r.ingredients || []).map((x) => (noQty ? stripQty(x) || x : x))); toast(n ? `${n} Zutaten auf der Einkaufsliste` : 'Steht schon alles auf der Liste'); }}><Icon name="cart" size={16} color="currentColor" /> Zutaten zum Einkauf</button>
+          <label className="web-toggle"><input type="checkbox" checked={noQty} onChange={(e) => setNoQty(e.target.checked)} /><span>Ohne Mengen übernehmen <span className="tiny">(z.B. „Mehl“ statt „200 g Mehl“)</span></span></label>
           {r.steps && <div className="field"><span>Zubereitung</span><p className="recipe-steps">{r.steps}</p></div>}
           {r.url && <a className="link-btn" href={r.url} target="_blank" rel="noreferrer">Original öffnen</a>}
           {r.temp ? (
@@ -89,6 +91,20 @@ function Recipes({ s }) {
   const [catText, setCatText] = useState('');
   const [q, setQ] = useState('');
   const [results, setResults] = useState(null);
+  const [imp, setImp] = useState(null); // { text, cat } – Rezept aus dem Internet einfügen
+  const [impBusy, setImpBusy] = useState(false);
+  const runImport = async () => {
+    setImpBusy(true);
+    try {
+      const r = await importRecipe(s, imp.text, imp.cat);
+      setImp(null);
+      setSheet(r);
+    } catch (e) {
+      toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
+    } finally {
+      setImpBusy(false);
+    }
+  };
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
@@ -127,7 +143,10 @@ function Recipes({ s }) {
 
       <div className="sec-h" style={{ padding: '0 4px' }}>
         <h2 className="h2" style={{ fontSize: 19 }}>Meine Rezepte</h2>
-        <button type="button" className="link-btn" onClick={() => setNewOpen(true)}>+ Rezept</button>
+        <span style={{ display: 'flex', gap: 14 }}>
+          <button type="button" className="link-btn" onClick={() => setImp({ text: '', cat: cat || s.recipeCats[0] })}>Einfügen</button>
+          <button type="button" className="link-btn" onClick={() => setNewOpen(true)}>+ Rezept</button>
+        </span>
       </div>
       <div className="list">
         {list.length === 0 && <div className="empty">Noch keine Rezepte{cat ? ` in „${cat}“` : ''}. Lass dir unten welche vorschlagen oder füg eigene hinzu.</div>}
@@ -165,6 +184,13 @@ function Recipes({ s }) {
           </button>
         ))}
       </section>
+      <Sheet open={!!imp} title="Rezept einfügen" onClose={() => setImp(null)}>
+        <span className="sub">Kopiere auf der Rezept-Seite den Text (Zutaten und Zubereitung) und füg ihn hier ein – oder nur den Link. Die KI macht daraus ein sauberes Rezept.</span>
+        <textarea className="input" style={{ minHeight: 160 }} value={imp?.text || ''} onChange={(e) => setImp({ ...imp, text: e.target.value })} placeholder="Rezepttext oder https://…" aria-label="Rezepttext oder Link" />
+        <div className="field"><span>Kategorie</span><div className="chips">{s.recipeCats.map((c) => <button key={c} type="button" className={imp?.cat === c ? 'chip on' : 'chip'} onClick={() => setImp({ ...imp, cat: c })}>{c}</button>)}</div></div>
+        <button type="button" className="btn" onClick={runImport} disabled={impBusy || !imp?.text?.trim() || !hasKey}>{impBusy ? 'Ich lese das Rezept …' : 'Übernehmen'}</button>
+        <span className="tiny">Text einfügen: unter 0,5 Cent. Nur Link: die KI liest die Seite über eine Internet-Suche (ca. 1–2 Cent).</span>
+      </Sheet>
       <RecipeSheet s={s} recipe={sheet || (newOpen ? 'neu' : null)} onClose={() => { setSheet(null); setNewOpen(false); }} />
     </>
   );

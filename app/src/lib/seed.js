@@ -71,7 +71,7 @@ export function seed() {
     sports: [], // Sportarten (Laufen, Kraft …)
     sessions: [], // Trainingseinheiten
     recipes: [], // Rezepte
-    recipeCats: ['Airfryer', 'Schnell', 'Meal Prep'],
+    recipeCats: ['Frühstück', 'Mittagessen', 'Abendessen', 'Snacks', 'Airfryer', 'Meal Prep'],
     shopping: { items: [], history: {} }, // Einkaufsliste + was schon mal gekauft wurde
     healthItems: [], // Vorsorge: Termine, Routinen, Verletzungen
     memory: [],

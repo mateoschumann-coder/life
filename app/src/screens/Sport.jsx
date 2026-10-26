@@ -39,14 +39,14 @@ function SportList({ s }) {
             {s.sports.length > 0 && <button type="button" className="link-btn" onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
           </div>
         </div>
-        {s.sports.length === 0 && <div className="notice">Füg deine Sportarten hinzu. Jede bekommt ihre eigene Seite mit Einheiten, Verlauf, Projekten/Rennen und KI-Analyse.</div>}
+        {s.sports.length === 0 && <div className="notice">Füg deine Sportarten hinzu. Pro Sportart findest du passende Events (Rennen, Turniere, Lauftreffs) und merkst dir, wo du mitmachst.</div>}
         <div className="list">
           {s.sports.map((sp) => (
             <div key={sp.id} className="row" style={{ minHeight: 64 }}>
               <span className="block-icon" style={{ background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: GREEN }}><Icon name={sp.icon || 'heart'} size={17} /></span>
               <a href={`#/sport/${sp.id}`} className="row-main">
                 <span className="row-title strong">{sp.name}</span>
-                <span className="row-meta">{weekSummary(s, sp)}</span>
+                <span className="row-meta">{(() => { const ev = (s.sportEvents || []).filter((e) => e.sportId === sp.id && e.status !== 'dabei'); const next = ev.filter((e) => e.date).sort((a, b) => (a.date < b.date ? -1 : 1))[0]; return ev.length ? `${ev.length} Events${next ? ` · nächstes ${fmtShort(next.date)}` : ''}` : 'Noch keine Events'; })()}</span>
               </a>
               {edit ? (
                 <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`„${sp.name}“ entfernen? Die Einheiten bleiben gespeichert.`) && removeSport(sp.id)}>Entfernen</button>
@@ -204,29 +204,6 @@ function SportEvents({ s, sport }) {
   );
   return (
     <section className="group">
-      <div className="sec-h">
-        <h2 className="h2" style={{ fontSize: 19 }}>Events</h2>
-        <button type="button" className="link-btn" onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Notieren'}</button>
-      </div>
-      {adding && (
-        <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); save(); }}>
-          <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder={sport.kind === 'laufen' ? 'z.B. 21K de Buenos Aires' : 'z.B. Turnier im Club'} aria-label="Name" autoFocus />
-          <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
-          <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
-          <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
-          <button type="submit" className="btn small" disabled={!f.name.trim()}>Notieren</button>
-        </form>
-      )}
-      <div className="list">
-        {upcoming.length === 0 && <div className="empty">Noch keine Events. Notier dir Rennen, Turniere oder Lauftreffs – oder such unten nach neuen.</div>}
-        {upcoming.map((e) => <Row key={e.id} e={e} />)}
-      </div>
-      {past.length > 0 && (
-        <>
-          <span className="label" style={{ padding: '4px 4px 0' }}>Vorbei</span>
-          <div className="list">{[...past].reverse().map((e) => <Row key={e.id} e={e} />)}</div>
-        </>
-      )}
       <section className="card" style={{ gap: 10 }}>
         <span className="label" style={{ padding: 0 }}>Events finden</span>
         <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder={sport.kind === 'laufen' ? 'z.B. „10K oder Halbmarathon bis März“' : `z.B. „${sport.name} Turniere für Anfänger“`} aria-label="Wonach suchen" />
@@ -249,22 +226,35 @@ function SportEvents({ s, sport }) {
           </div>
         ))}
       </section>
+      <div className="sec-h">
+        <h2 className="h2" style={{ fontSize: 19 }}>Meine Events</h2>
+        <button type="button" className="link-btn" onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Notieren'}</button>
+      </div>
+      {adding && (
+        <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); save(); }}>
+          <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder={sport.kind === 'laufen' ? 'z.B. 21K de Buenos Aires' : 'z.B. Turnier im Club'} aria-label="Name" autoFocus />
+          <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
+          <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
+          <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
+          <button type="submit" className="btn small" disabled={!f.name.trim()}>Notieren</button>
+        </form>
+      )}
+      <div className="list">
+        {upcoming.length === 0 && <div className="empty">Noch keine Events. Notier dir Rennen, Turniere oder Lauftreffs – oder such unten nach neuen.</div>}
+        {upcoming.map((e) => <Row key={e.id} e={e} />)}
+      </div>
+      {past.length > 0 && (
+        <>
+          <span className="label" style={{ padding: '4px 4px 0' }}>Vorbei</span>
+          <div className="list">{[...past].reverse().map((e) => <Row key={e.id} e={e} />)}</div>
+        </>
+      )}
     </section>
   );
 }
 
+// Eine Sportart: nur noch Events (Mateo, v0.29) – Einheiten, Coach und Zeitrechner sind ausgeblendet
 function SportDetail({ s, sport }) {
-  const [projOpen, setProjOpen] = useState(false);
-  const [calcOpen, setCalcOpen] = useState(sport.kind === 'laufen' && !s.sessions.some((x) => x.sportId === sport.id));
-  const t = today();
-  const dist = hasDistance(sport);
-  const weeks = weekStats(s, sport.id, 12);
-  const thisWeek = weeks.at(-1);
-  const sessions = s.sessions.filter((x) => x.sportId === sport.id).sort((a, b) => (a.date < b.date ? 1 : -1));
-  const projects = s.projects.filter((p) => p.sportId === sport.id && p.status === 'aktiv').sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1);
-  const long = dist ? Math.max(0, ...sessions.filter((x) => x.date >= addDays(t, -28)).map((x) => x.distance || 0)) : 0;
-  const chart = weeks.map((w) => ({ date: w.date, value: dist ? w.value : Math.round(w.minutes) }));
-
   return (
     <>
       <main className="screen">
@@ -274,95 +264,10 @@ function SportDetail({ s, sport }) {
             <span className="block-icon" style={{ width: 40, height: 40, borderRadius: 12, background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: GREEN }}><Icon name={sport.icon || 'heart'} size={22} /></span>
             <h1 className="h1 sm">{sport.name}</h1>
           </div>
-          <input className="input goal-input" defaultValue={sport.goal} key={sport.id} placeholder="Dein Ziel, z.B. Marathon unter 3:20" onBlur={(e) => e.target.value !== sport.goal && updateSport(sport.id, { goal: e.target.value })} aria-label="Ziel" />
+          <input className="input goal-input" defaultValue={sport.goal} key={sport.id} placeholder="Dein Ziel (hilft bei der Event-Suche), z.B. Marathon unter 3:20" onBlur={(e) => e.target.value !== sport.goal && updateSport(sport.id, { goal: e.target.value })} aria-label="Ziel" />
         </div>
-
-        {projects.filter((p) => p.due && p.due >= t).slice(0, 1).map((p) => (
-          <a key={p.id} href={`#/projekt/${p.id}`} className="card countdown">
-            <span className="tiny">Nächstes Ziel</span>
-            <span style={{ fontSize: 19, fontWeight: 700 }}>{p.name}</span>
-            <span className="sub">noch <b style={{ color: GREEN, fontSize: 22 }}>{diffDays(t, p.due)}</b> Tage · {fmtShort(p.due)}{p.goalTime ? ` · Ziel ${p.goalTime}` : ''}</span>
-          </a>
-        ))}
-
-        <section className="card" style={{ gap: 8 }}>
-          <div className="stat-row">
-            <div><span className="tiny">Diese Woche</span><b>{dist ? `${String(thisWeek.value).replace('.', ',')} km` : `${thisWeek.count}×`}</b></div>
-            <div><span className="tiny">Zeit</span><b>{thisWeek.minutes ? fmtDuration(thisWeek.minutes) : '–'}</b></div>
-            {dist ? <div><span className="tiny">Längster (4 Wo.)</span><b>{long ? `${String(long).replace('.', ',')} km` : '–'}</b></div> : <div><span className="tiny">Einheiten gesamt</span><b>{sessions.length}</b></div>}
-          </div>
-          <span className="label" style={{ padding: 0 }}>{dist ? 'Kilometer pro Woche' : 'Minuten pro Woche'} · 12 Wochen</span>
-          <MiniChart entries={chart} color={GREEN} unit={dist ? 'km' : 'min'} />
-        </section>
-
-        <PlanChat
-          title={`Dein ${sport.kind === 'laufen' ? 'Lauf-' : ''}Coach`}
-          intro="Frag mich zu deinem Training: Wo stehst du, was solltest du diese Woche machen, welche Übungen helfen? Ich kenne deine Einheiten, Ziele, Rennen und Verletzungen."
-          history={chatOf(s, `sport:${sport.id}`)}
-          onSave={(h) => saveChatOf(`sport:${sport.id}`, h)}
-          onAsk={(hist, o) => sportCoach(s, sport.id, hist, o)}
-          prefKey="sport"
-          groups={COACH_GROUPS}
-          onApply={(sel) => applyCoach(sport, sel)}
-          chips={['Wie stehe ich gerade da?', 'Plan für nächste Woche', 'Übungen für Kraft & Mobilität', 'Was sollte ich verbessern?']}
-          webChips={[]}
-        />
-
         <SportEvents s={s} sport={sport} />
-
-        <section className="group">
-          <div className="sec-h">
-            <h2 className="h2" style={{ fontSize: 19 }}>{sport.kind === 'laufen' ? 'Rennen & Projekte' : 'Projekte'}</h2>
-            <button type="button" className="link-btn" onClick={() => setProjOpen(true)}>+ Neu</button>
-          </div>
-          <div className="list">
-            {projects.length === 0 && <div className="empty">{sport.kind === 'laufen' ? 'Trag dein nächstes Rennen ein – mit Datum und Zielzeit.' : 'Z.B. ein Ziel für die nächsten Wochen.'}</div>}
-            {projects.map((p) => (
-              <a key={p.id} href={`#/projekt/${p.id}`} className="row">
-                <span className="row-main">
-                  <span className="row-title plain">{p.name}</span>
-                  <span className="row-meta">{[p.due && `${fmtShort(p.due)}${p.due >= t ? ` · in ${diffDays(t, p.due)} Tagen` : ''}`, p.goalTime && `Ziel ${p.goalTime}`].filter(Boolean).join(' · ') || 'Ohne Datum'}</span>
-                </span>
-                <Chevron />
-              </a>
-            ))}
-          </div>
-        </section>
-
-        <section className="card" style={{ gap: 10 }}>
-          <span className="label" style={{ padding: 0 }}>Einheit eintragen</span>
-          <SessionForm sport={sport} />
-          <GarminImport s={s} sport={sport} />
-        </section>
-
-        {sport.kind === 'laufen' && (
-          <section className="card" style={{ gap: 10 }}>
-            <button type="button" className="sec-h" style={{ padding: 0, border: 0, background: 'none', width: '100%', color: 'inherit' }} onClick={() => setCalcOpen(!calcOpen)} aria-expanded={calcOpen}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}><Icon name="calc" size={17} /> Zeitrechner</span>
-              <span className="tiny">{calcOpen ? 'zuklappen' : 'öffnen'}</span>
-            </button>
-            {calcOpen && <PaceCalc />}
-          </section>
-        )}
-
-        <section className="group">
-          <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Letzte Einheiten</h2></div>
-          <div className="list">
-            {sessions.length === 0 && <div className="empty">Noch keine Einheiten.</div>}
-            {sessions.slice(0, 20).map((x) => (
-              <div key={x.id} className="row">
-                <span className="date-badge" style={{ background: 'color-mix(in srgb, #2FA36B 12%, transparent)', color: GREEN }}><b style={{ fontSize: 16 }}>{new Date(x.date + 'T12:00:00').getDate()}</b><span className="tiny" style={{ color: 'inherit' }}>{fmtShort(x.date).replace(/^\d+\.\s*/, '')}</span></span>
-                <span className="row-main">
-                  <span className="row-title plain">{[x.distance && `${String(x.distance).replace('.', ',')} km`, x.duration && fmtDuration(x.duration)].filter(Boolean).join(' · ') || x.notes || 'Einheit'}</span>
-                  <span className="row-meta">{[x.distance && x.duration && fmtPace(x.duration / x.distance), x.hr && `♥ ${x.hr}`, x.distance || x.duration ? x.notes : null, x.source === 'garmin' && 'Garmin'].filter(Boolean).join(' · ')}</span>
-                </span>
-                <button type="button" className="x-btn" aria-label="Einheit löschen" onClick={() => deleteSession(x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
-              </div>
-            ))}
-          </div>
-        </section>
       </main>
-      <ProjectSheet s={s} sport={sport} open={projOpen} onClose={() => setProjOpen(false)} />
       <TabBar active="bereiche" />
     </>
   );

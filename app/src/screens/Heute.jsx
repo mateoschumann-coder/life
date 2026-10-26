@@ -8,8 +8,7 @@ import { addTask, logContact, toggleCheckin, toggleTask } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
-import Coach from '../components/Coach';
-import { ImpulseRow, useImpulses } from './Skills';
+import Overview from '../components/Overview';
 import { doneHealthItem } from '../lib/health';
 import { doneReminder, EVERY } from '../lib/home';
 const fmtShortDays = (d, t) => { const n = diffDays(d, t); return `${n} ${n === 1 ? 'Tag' : 'Tagen'}`; };
@@ -235,8 +234,7 @@ export default function Heute() {
           </section>
         )}
 
-        <Coach s={s} />
-        <LearnToday s={s} />
+        <Overview s={s} />
 
         {/* Wochenleiste */}
         <section className="card" style={{ gap: 10, padding: '12px 12px 14px' }}>
@@ -282,89 +280,9 @@ export default function Heute() {
           </div>
         </section>
 
-        {/* Fokus-Themen */}
-        {focus.length > 0 && isToday && (
-          <section className="group">
-            <div className="sec-h"><h2 className="label">Heute dran gewesen?</h2></div>
-            <div className="chips" style={{ gap: 8, padding: '0 2px' }}>
-              {focus.map((h) => {
-                const p = habitProgress(s, h, t);
-                return (
-                  <button key={h.id} type="button" className={p.today ? 'chip focus on' : 'chip focus'} style={p.today ? { background: pillarColor(h.areaId) } : undefined} onClick={() => toggleCheckin(h.id)} aria-pressed={p.today}>
-                    {p.today && <Icon name="check" size={14} color="#fff" width={3} />} {h.name}
-                    {!p.today && p.last && <span className="tiny" style={{ marginLeft: 6 }}>{relDays(diffDays(p.last, t))}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-
-        {attention.length > 0 && (
-          <section className="group">
-            <div className="sec-h"><h2 className="label">Länger nicht gekümmert</h2></div>
-            <div className="list">
-              {attention.map(({ area, status }) => (
-                <a key={area.id} href={`#/bereich/${area.id}`} className="row">
-                  <AreaIcon icon={area.icon} color={pillarOf(s, area.pillarId)?.color} size={30} />
-                  <span className="row-main">
-                    <span className="row-title">{area.name}</span>
-                    <span className="row-meta"><Dot small level={status.level} />{status.text} · Ziel {targetText(area.targetDays)}</span>
-                  </span>
-                  <Chevron />
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {hasFixed && (
-          <section className="card">
-            <div className="sec-h" style={{ padding: 0 }}>
-              <h2 className="label">Rhythmen · <span style={{ color: 'var(--text)', fontWeight: 600 }}>{stats.pct ?? 0} %</span></h2>
-              <Segmented options={[{ id: 'woche', label: 'Woche' }, { id: 'monat', label: 'Monat' }, { id: 'quartal', label: '3 Mon.' }]} value={range} onChange={setRange} label="Zeitraum" />
-            </div>
-            {range === 'woche' ? (
-              <div className="week-bars">
-                {WD.map((l, i) => {
-                  const d = addDays(startOfWeek(t), i);
-                  const future = d > t;
-                  return (
-                    <div key={l}>
-                      <div className="bar" style={{ background: future ? 'transparent' : heatColor(stats.days[d] || 0), boxShadow: future ? 'inset 0 0 0 1px var(--border)' : 'none' }} />
-                      <span style={{ fontSize: 11, color: d === t ? 'var(--text)' : 'var(--muted)', fontWeight: d === t ? 600 : 400 }}>{l}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <Heatmap counts={stats.days} weeks={weeks} t={t} />
-            )}
-          </section>
-        )}
       </main>
       <TabBar active="heute" />
     </>
   );
 }
 
-// Kleine Lern-Impulse für heute (Weiterentwicklung): einmal am Tag automatisch, ohne Internet
-function LearnToday({ s }) {
-  const imp = useImpulses(s);
-  if (!(s.skills || []).length) return null;
-  const open = imp.items.filter((x) => !x.done);
-  if (!imp.busy && imp.items.length && !open.length) return null;
-  return (
-    <section className="card" style={{ gap: 8 }}>
-      <a href="#/skills" className="sec-h" style={{ padding: 0, color: 'inherit' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}><Icon name="bulb" size={17} color="#3B6FE0" /> Heute dranbleiben</span>
-        <Chevron />
-      </a>
-      {imp.busy && <span className="sub">Ich überlege dir kleine Impulse …</span>}
-      {imp.err && <span className="sub" style={{ color: 'var(--danger)' }}>{imp.err}</span>}
-      {!imp.busy && open.map((x) => <ImpulseRow key={x.id} s={s} x={x} onDone={imp.done} />)}
-      {!imp.busy && !imp.items.length && !imp.err && <button type="button" className="btn tint small" onClick={imp.refresh} disabled={!getAi().apiKey}>Impulse für heute holen</button>}
-    </section>
-  );
-}

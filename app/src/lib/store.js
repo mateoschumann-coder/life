@@ -42,6 +42,13 @@ function migrate(s) {
   s.gatherings.forEach(normalizeGathering);
   // Version 0.23: Material bekommt eine Kategorie (Podcasts → „Podcasts“, sonst „Bibliothek“)
   s.library.forEach((m) => { if (!m.cat) m.cat = m.kind === 'podcast' && s.libCats.some((c) => c.id === 'podcasts') ? 'podcasts' : s.libCats[0]?.id || 'bibliothek'; });
+  // Version 0.29: Mahlzeit-Kategorien für Rezepte (einmalig)
+  if (!s.profile?.mig029) {
+    for (const c of ['Frühstück', 'Mittagessen', 'Abendessen', 'Snacks']) if (!s.recipeCats.includes(c)) s.recipeCats.push(c);
+    s.profile = { ...(s.profile || {}), mig029: true };
+  }
+  // Version 0.29: Bewerbungs-Phasen „Gefunden/Vorbereiten“ → „Interessiert“
+  (s.jobs || []).forEach((j) => { if (j.status === 'gefunden' || j.status === 'vorbereiten') j.status = 'interessiert'; });
   s.version = base.version;
   return s;
 }

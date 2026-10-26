@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort } from '../lib/dates';
-import { addMaterial, deleteMaterial, ensureTopic, KINDS, libChat, linkFor, recommend, removeTopic, STATUS, topicsOf, updateMaterial } from '../lib/library';
+import { addMaterial, deleteMaterial, ensureTopic, KINDS, libChat, linkFor, removeTopic, STATUS, topicsOf, updateMaterial } from '../lib/library';
 import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
 import { Missing } from './Saeule';
-import { getAi } from '../lib/ai';
+import { LibCatsSheet } from './Bereich';
 import { Back, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
 const COLOR = '#2FA36B';
@@ -85,46 +85,27 @@ function CategoryPage({ s, cat }) {
   const [sheet, setSheet] = useState(null);
   const [edit, setEdit] = useState(false);
   const [topicText, setTopicText] = useState('');
-  const [wish, setWish] = useState('');
-  const [recos, setRecos] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-  const hasKey = !!getAi().apiKey;
-  const current = topics.find((t) => t.id === topic);
+  const [catSheet, setCatSheet] = useState(false);
   const mine = s.library.filter((m) => m.cat === cat.id);
   const inTopic = mine.filter((m) => !topic || m.subId === topic);
   const list = inTopic.filter((m) => m.status === status);
   const active = mine.filter((m) => m.status === 'aktiv');
   const count = (st) => inTopic.filter((m) => m.status === st).length;
 
-  const ask = async (web) => {
-    const name = current?.name || topics.map((t) => t.name).join(', ') || 'Allgemeinbildung';
-    setBusy(web ? 'web' : 'ki');
-    setErr(null);
-    try {
-      setRecos(await recommend(s, name, wish.trim(), { web, cat }));
-      setWish('');
-    } catch (e) {
-      setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const keep = (r) => {
-    const subId = topic || topics[0]?.id || ensureTopic('Allgemein');
-    if (addMaterial({ ...r, subId, cat: cat.id })) toast('Auf deiner Liste');
-    setRecos(recos.filter((x) => x.id !== r.id));
-  };
-
   return (
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/mental" label="Lernen & Wissen" />
+          <Back href="#/saeule/persoenlich" label="Persönlich" />
+          <span className="tiny">Lernen & Wissen</span>
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">{cat.name}</h1>
             <button type="button" className="btn small" onClick={() => setSheet({ subId: topic })}>+ {cat.kind ? KINDS[cat.kind].label : 'Material'}</button>
           </div>
+        </div>
+        <div className="chips">
+          {s.libCats.map((c) => <a key={c.id} href={`#/wissen/${c.id}`} className={c.id === cat.id ? 'chip on' : 'chip'}>{c.name}</a>)}
+          <button type="button" className="chip" onClick={() => setCatSheet(true)} aria-label="Kategorien bearbeiten"><Icon name="edit" size={14} /></button>
         </div>
 
         {active.length > 0 && (
@@ -158,7 +139,7 @@ function CategoryPage({ s, cat }) {
 
         <Segmented full options={Object.entries(STATUS).map(([id, label]) => ({ id, label: `${label} (${count(id)})` }))} value={status} onChange={setStatus} label="Status" />
         <div className="list">
-          {list.length === 0 && <div className="empty">{status === 'will' ? 'Noch nichts auf der Liste. Füg etwas hinzu oder lass dir unten etwas empfehlen.' : status === 'aktiv' ? 'Gerade nichts angefangen.' : 'Noch nichts abgeschlossen.'}</div>}
+          {list.length === 0 && <div className="empty">{status === 'will' ? 'Noch nichts auf der Liste. Füg etwas hinzu oder frag unten im Chat nach Empfehlungen.' : status === 'aktiv' ? 'Gerade nichts angefangen.' : 'Noch nichts abgeschlossen.'}</div>}
           {list.map((m) => (
             <div key={m.id} className="row" style={{ minHeight: 62 }}>
               <span className="block-icon" style={{ background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: COLOR }}><Icon name={KINDS[m.kind].icon} size={16} /></span>
@@ -172,34 +153,6 @@ function CategoryPage({ s, cat }) {
           ))}
         </div>
 
-        <section className="card checkin" style={{ gap: 12 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
-            <span className="spark"><Icon name="sparkle" size={15} color="currentColor" /></span>
-            Empfehlungen{current ? `: ${current.name}` : ''}
-          </span>
-          <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder={cat.kind === 'podcast' ? 'z.B. „Podcast über Geopolitik, 30 Min Folgen“' : current ? `Wunsch, z.B. „Einstieg, eher kurz“` : 'z.B. „Gutes Buch über Kalten Krieg“'} aria-label="Wunsch" />
-          <div className="search-row">
-            <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !hasKey} onClick={() => ask(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
-            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !hasKey} onClick={() => ask(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
-          </div>
-          <span className="tiny">Ohne Internet: aus dem KI-Wissen (günstig, Such-Link zum Titel). Mit Internet: aktuell und mit echten Links (ca. 2–3 Cent).</span>
-          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche im Internet …' : 'Ich überlege …'}</span></div>}
-          {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-          {!busy && recos && recos.map((r) => (
-            <div key={r.id} className="option" style={{ alignItems: 'center' }}>
-              <Icon name={KINDS[r.kind].icon} size={17} color={COLOR} />
-              <span className="row-main">
-                <span style={{ fontSize: 15, fontWeight: 600 }}>{r.title}</span>
-                <span className="tiny">{[KINDS[r.kind].label, r.author].filter(Boolean).join(' · ')}</span>
-                {r.why && <span className="tiny" style={{ color: 'var(--text)' }}>{r.why}</span>}
-              </span>
-              {r.url && <a className="x-btn" href={r.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-              <button type="button" className="pill on" onClick={() => keep(r)}>Merken</button>
-            </div>
-          ))}
-          {!busy && recos && recos.length === 0 && <span className="sub">Alles gemerkt oder nichts gefunden – frag gern nochmal.</span>}
-        </section>
-
         <PlanChat
           title={`Chat: ${cat.name}`}
           intro={cat.kind === 'podcast' ? 'Erzähl, was dich interessiert oder was du zuletzt gehört hast – ich schlage passende Podcasts und Folgen vor.' : 'Frag nach Empfehlungen, lass dir etwas einordnen oder erzähl, was du gerade liest – ich helfe dir dranzubleiben.'}
@@ -212,6 +165,7 @@ function CategoryPage({ s, cat }) {
           chips={cat.kind === 'podcast' ? ['Neue Podcasts für mich', 'Gute Folgen zu meinen Themen', 'Etwas für die nächste Laufrunde'] : ['Was sollte ich als Nächstes lesen?', 'Ein Einstieg in ein neues Thema', 'Fass mir ein Buch kurz zusammen']}
         />
       </main>
+      <LibCatsSheet s={s} open={catSheet} onClose={() => setCatSheet(false)} />
       <MaterialSheet s={s} item={sheet} defaultTopic={topic} cat={cat} onClose={() => setSheet(null)} />
       <TabBar active="bereiche" />
     </>
