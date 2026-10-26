@@ -426,3 +426,6 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .price-table { display: flex; flex-direction: column; gap: 6px; }
 .price-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #2FA36B 10%, transparent); font-size: 14px; }
 .price-row a { color: var(--accent); }
+.city-chip { display: inline-flex; align-items: center; gap: 2px; padding-right: 6px; white-space: nowrap; }
+.city-chip > button { border: 0; background: none; color: inherit; font: inherit; padding: 0; }
+.city-chip .city-x { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 4px; border-radius: 50%; opacity: 0.7; }

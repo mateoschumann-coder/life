@@ -46,16 +46,15 @@ function SearchChips({ s, kind, defaults, disabled, onPick }) {
 
 // Städte (v0.40): zwischen Buenos Aires, Frankfurt … wechseln – gilt für Events und Orte, bearbeitbar
 function CityChips({ s }) {
-  const [edit, setEdit] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
   const list = citiesOf(s);
   const cur = cityOf(s);
   const pick = (c) => store.update((d) => { d.profile = { ...d.profile, city: c }; });
   const save = (l) => store.update((d) => { d.profile = { ...d.profile, cities: l }; });
   const remove = (c) => {
-    if (list.length <= 1) return toast('Mindestens eine Stadt bleibt');
     const n = s.places.filter((p) => placeCity(p) === c).length;
-    if (n && !confirm(`„${c}“ entfernen? Deine ${n} Orte dort bleiben gespeichert und tauchen wieder auf, wenn du die Stadt neu hinzufügst.`)) return;
+    if (!confirm(`„${c}“ entfernen?${n ? ` Deine ${n} Orte dort bleiben gespeichert und tauchen wieder auf, wenn du die Stadt neu hinzufügst.` : ''}`)) return;
     save(list.filter((x) => x !== c));
   };
   const add = (e) => {
@@ -63,28 +62,30 @@ function CityChips({ s }) {
     const c = text.trim();
     if (c && !list.some((x) => x.toLowerCase() === c.toLowerCase())) {
       save([...list, c]);
-      pick(c);
       locateCity(store, c);
     }
+    if (c) pick(list.find((x) => x.toLowerCase() === c.toLowerCase()) || c);
     setText('');
+    setAdding(false);
   };
+  // Antippen = zu dieser Stadt wechseln · kleines ✕ = Stadt entfernen · „+ Stadt“ = hinzufügen (v0.47)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="box-tabs">
         {list.map((c) => (
-          <button key={c} type="button" className={edit ? 'chip soft editing' : c === cur ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => (edit ? remove(c) : pick(c))} aria-label={edit ? `${c} entfernen` : c} aria-pressed={!edit && c === cur}>
-            📍 {c}{edit && <Icon name="x" size={11} />}
-          </button>
+          <span key={c} className={c === cur ? 'chip on city-chip' : 'chip soft city-chip'}>
+            <button type="button" onClick={() => pick(c)} aria-pressed={c === cur}>📍 {c}</button>
+            {list.length > 1 && <button type="button" className="city-x" onClick={() => remove(c)} aria-label={`${c} entfernen`}><Icon name="x" size={10} /></button>}
+          </span>
         ))}
-        <button type="button" className="chip soft" onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Städte bearbeiten'}>{edit ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+        <button type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Stadt'}</button>
       </div>
-      {edit && (
+      {adding && (
         <form className="block-add" onSubmit={add}>
-          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Frankfurt, Montevideo, Lissabon" aria-label="Neue Stadt" />
+          <input className="input" autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Frankfurt, Montevideo, Brasilien" aria-label="Neue Stadt" />
           <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
         </form>
       )}
-      {edit && <span className="tiny">Antippen entfernt eine Stadt. Events-Suche, Orte-Liste, Karte und „Neue Orte entdecken“ richten sich nach der gewählten Stadt.</span>}
     </div>
   );
 }
@@ -274,8 +275,8 @@ function Stars({ value, onChange, size = 18 }) {
   );
 }
 
-function PlaceSheet({ open, onClose, place, s, city }) {
-  const blank = { name: '', category: 'Café', subcat: '', note: '', rating: 0, status: 'will', lat: null, lon: null, address: '', url: '', city };
+function PlaceSheet({ open, onClose, place, s, city, defaultCat }) {
+  const blank = { name: '', category: defaultCat || 'Café', subcat: '', note: '', rating: 0, status: 'will', lat: null, lon: null, address: '', url: '', city };
   const [f, setF] = useState(blank);
   const [hits, setHits] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -421,7 +422,6 @@ function Orte({ s, city }) {
   const subs = cat ? [...new Set(here.filter((p) => p.category === cat && p.subcat).map((p) => p.subcat))] : [];
   const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => p.category === c).sort((a, b) => (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
   const cats = [...new Set(here.map((p) => p.category))];
-  const selected = here.find((p) => p.id === sel);
   const shown = search && (search.city || HOME_CITY) === city ? search : null;
   useEffect(() => { locateCity(store, city); setCat(null); setSub(null); setSel(null); }, [city]);
 
@@ -444,65 +444,56 @@ function Orte({ s, city }) {
     savePlaceSearch(next);
     const pos = await locate(r.name, r.address, city);
     const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null, city });
-    toast(pos ? 'Gemerkt und auf der Karte' : 'Gemerkt (ohne Kartenpunkt)');
-    if (pos) setSel(id);
+    toast('In deiner Liste gemerkt');
   };
   const routeUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat != null ? `${p.lat},${p.lon}` : `${p.name} ${p.address} ${placeCity(p)}`)}`;
 
   return (
     <>
-      <MapView places={list} selectedId={sel} onSelect={setSel} center={cityPos(s, city)} zoom={12} />
-      {selected && (
-        <article className="nudge">
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <span className="cat-dot" style={{ background: CAT_COLOR[selected.category] }} />
-            <div className="row-main" style={{ gap: 3 }}>
-              <span style={{ fontSize: 17, fontWeight: 650 }}>{selected.name}</span>
-              <span className="tiny">{[selected.category, selected.subcat, selected.status === 'war' ? 'War schon da' : 'Will ich hin', selected.address].filter(Boolean).join(' · ')}</span>
-              {selected.rating > 0 && <Stars value={selected.rating} />}
-              {selected.note && <span style={{ fontSize: 14.5, lineHeight: 1.4 }}>{selected.note}</span>}
-            </div>
-            <button type="button" className="x-btn" aria-label="Schließen" onClick={() => setSel(null)}><Icon name="x" size={12} color="var(--chev)" /></button>
-          </div>
-          <div className="nudge-actions" style={{ paddingLeft: 24 }}>
-            <a className="pill on" href={routeUrl(selected)} target="_blank" rel="noreferrer">Route</a>
-            {selected.url && <a className="pill" href={selected.url} target="_blank" rel="noreferrer">Link <Icon name="link" size={13} /></a>}
-            {selected.status === 'will' && <button type="button" className="pill" onClick={() => { updatePlace(selected.id, { status: 'war' }); setSheet(selected); }}>War da</button>}
-            <button type="button" className="pill" onClick={() => setSheet(selected)}>Bearbeiten</button>
-          </div>
-        </article>
+      {/* v0.47 (Mateo): keine Karte mehr – oben Art wählen (Restaurant, Café …), darunter direkt die Liste */}
+      <div className="box-tabs">
+        <button type="button" className={!cat ? 'chip on' : 'chip soft'} onClick={() => { setCat(null); setSub(null); }}>Alle {here.length}</button>
+        {PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setCat(cat === c ? null : c); setSub(null); }}>{c} {here.filter((p) => p.category === c).length}</button>)}
+      </div>
+      {subs.length > 0 && (
+        <div className="chips">
+          <button type="button" className={!sub ? 'chip on' : 'chip soft'} onClick={() => setSub(null)}>Alle</button>
+          {subs.map((c) => <button key={c} type="button" className={sub === c ? 'chip on' : 'chip soft'} onClick={() => setSub(sub === c ? null : c)}>{c}</button>)}
+        </div>
       )}
-
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <Segmented options={[{ id: 'alle', label: 'Alle' }, { id: 'will', label: 'Will hin' }, { id: 'war', label: 'War da' }]} value={status} onChange={setStatus} label="Filter" />
         <button type="button" className="btn small sec" style={{ marginLeft: 'auto', background: 'var(--card-2)' }} onClick={() => setImportOpen(true)}>📋 Liste</button>
         <button type="button" className="btn small" onClick={() => setSheet('neu')}>+ Ort</button>
       </div>
-      {cats.length > 0 && (
-        <div className="box-tabs">
-          <button type="button" className={!cat ? 'chip on' : 'chip soft'} onClick={() => { setCat(null); setSub(null); }}>Alle Arten</button>
-          {PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setCat(cat === c ? null : c); setSub(null); }}>{c} {here.filter((p) => p.category === c).length}</button>)}
-        </div>
-      )}
-      {subs.length > 0 && (
-        <div className="chips">
-          <button type="button" className={!sub ? 'chip on' : 'chip soft'} onClick={() => setSub(null)}>Alle {cat}s</button>
-          {subs.map((c) => <button key={c} type="button" className={sub === c ? 'chip on' : 'chip soft'} onClick={() => setSub(sub === c ? null : c)}>{c}</button>)}
-        </div>
-      )}
-      {list.length === 0 && <div className="list"><div className="empty">Noch keine Orte{cat ? ` in „${cat}“` : ''} in {city}. Füg deine Lieblingsorte hinzu, sag dem Assistenten „Merk dir die Bar … in Palermo“ oder lass dir unten neue vorschlagen.</div></div>}
+      {list.length === 0 && <div className="list"><div className="empty">Noch keine Orte{cat ? ` in „${cat}“` : ''} in {city}. Tipp auf „+ Ort“, füg mit „📋 Liste“ gleich mehrere ein oder lass dir unten neue vorschlagen.</div></div>}
       {groups.map((g) => (
         <section key={g.c} className="group">
           {!cat && <h2 className="label" style={{ padding: '0 4px' }}>{g.c} · {g.items.length}</h2>}
           <div className="list">
             {g.items.map((p) => (
-              <button key={p.id} type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => { setSel(p.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-                <span className="cat-dot" style={{ background: CAT_COLOR[p.category] }} />
-                <span className="row-main">
-                  <span className="row-title plain">{p.name}</span>
-                  <span className="row-meta">{[p.subcat || p.category, p.status === 'war' ? (p.rating ? '★'.repeat(p.rating) : 'War da') : 'Will hin', p.lat == null && 'ohne Karte'].filter(Boolean).join(' · ')}</span>
-                </span>
-              </button>
+              <div key={p.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                <button type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => setSel(sel === p.id ? null : p.id)}>
+                  <span className="cat-dot" style={{ background: CAT_COLOR[p.category] }} />
+                  <span className="row-main">
+                    <span className="row-title plain">{p.name}</span>
+                    <span className="row-meta">{[p.subcat || p.category, p.status === 'war' ? (p.rating ? '★'.repeat(p.rating) : 'War da') : 'Will hin', p.address].filter(Boolean).join(' · ')}</span>
+                  </span>
+                  <span className="tiny">{sel === p.id ? '▴' : '▾'}</span>
+                </button>
+                {sel === p.id && (
+                  <div style={{ padding: '0 16px 12px 36px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {p.rating > 0 && <Stars value={p.rating} />}
+                    {p.note && <span style={{ fontSize: 14.5, lineHeight: 1.4 }}>{p.note}</span>}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <a className="pill on" href={routeUrl(p)} target="_blank" rel="noreferrer">Route</a>
+                      {p.url && <a className="pill" href={p.url} target="_blank" rel="noreferrer">Link <Icon name="link" size={13} /></a>}
+                      {p.status === 'will' && <button type="button" className="pill" onClick={() => { updatePlace(p.id, { status: 'war' }); setSheet(p); }}>War da</button>}
+                      <button type="button" className="pill" onClick={() => setSheet(p)}>Bearbeiten</button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </section>
@@ -531,7 +522,7 @@ function Orte({ s, city }) {
         ))}
       </section>
       <PlaceImport open={importOpen} city={city} onClose={() => setImportOpen(false)} />
-      <PlaceSheet s={s} city={city} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
+      <PlaceSheet s={s} city={city} defaultCat={cat} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
     </>
   );
 }
