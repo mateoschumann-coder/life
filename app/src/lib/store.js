@@ -19,6 +19,17 @@ function migrate(s) {
   s.pillars.forEach((p) => {
     if (p.color in OLD) p.color = base.pillars[OLD[p.color]].color;
   });
+  // Version 0.15: „Mentale Gesundheit“ wird „Lernen & Wissen“ (Themen = Unterbereiche); leere alte Unterbereiche weg
+  const mental = s.areas.find((a) => a.id === 'mental');
+  if (mental && mental.name === 'Mentale Gesundheit') {
+    mental.name = 'Lernen & Wissen';
+    mental.icon = 'bulb';
+    const used = (subId) => [s.tasks, s.habits, s.projects, s.resources].some((list) => list.some((x) => x.subId === subId));
+    mental.subs = mental.subs.filter((x) => !['Reflexion', 'Erholung', 'Achtsamkeit'].includes(x.name) || used(x.id));
+    ['Geschichte', 'Physik', 'Geopolitik', 'Wirtschaft'].forEach((n, i) => {
+      if (!mental.subs.some((x) => x.name === n)) mental.subs.push({ id: 'w' + i + Date.now().toString(36), name: n });
+    });
+  }
   s.version = base.version;
   return s;
 }

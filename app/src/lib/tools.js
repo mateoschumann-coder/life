@@ -6,8 +6,12 @@ export const AREA_TOOLS = {
     { sub: 'Vorsorge', href: '#/vorsorge', icon: 'medical', title: 'Vorsorge', text: 'Arzttermine, Routinen und Verletzungen mit Erinnerung' },
     { sub: 'Schlaf', icon: 'moon', title: 'Schlaf', text: 'Kommt, sobald Schlafdaten von der Uhr verfügbar sind (iPhone-App)', soon: true },
   ],
+  mental: [{ href: '#/wissen', icon: 'bulb', title: 'Bibliothek', text: 'Deine Themen mit Büchern, Artikeln, Videos und Kursen – und Empfehlungen' }],
   erlebnisse: [{ href: '#/ausgehen', icon: 'pin', title: 'Ausgehen', text: 'Events finden und deine Lieblingsorte auf der Karte' }],
   freizeit: [{ href: '#/ausgehen', icon: 'pin', title: 'Ausgehen', text: 'Events finden und deine Lieblingsorte auf der Karte' }],
   informiert: [{ href: '#/radar', icon: 'radar', title: 'Radar', text: 'Deine Themen, Leseliste und Fundstücke' }],
 };
 export const toolsFor = (areaId, subName) => (AREA_TOOLS[areaId] || []).filter((t) => !subName || t.sub === subName);
+
+// In diesen Bereichen ersetzen die Werkzeuge die allgemeine Unterbereichs-Liste
+export const TOOL_AREAS = new Set(['koerper', 'mental']);

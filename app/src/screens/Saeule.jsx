@@ -4,6 +4,7 @@ import { today } from '../lib/dates';
 import { areaStatus, pillarOf, projectProgress } from '../lib/logic';
 import { AreaIcon, Back, Chevron, Dot, TabBar } from '../components/ui';
 import { NewProjectSheet } from '../components/sheets';
+import { TOOL_AREAS, toolsFor } from '../lib/tools';
 
 export default function Saeule({ id }) {
   const s = useStore();
@@ -37,9 +38,11 @@ export default function Saeule({ id }) {
               </a>
               <div style={{ padding: '0 16px 14px 0' }}>
                 <span className="chips" style={{ paddingLeft: 44 }}>
-                  {a.subs.map((sub) => (
-                    <a key={sub.id} href={`#/unterbereich/${a.id}/${sub.id}`} className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{sub.name}</a>
-                  ))}
+                  {TOOL_AREAS.has(a.id)
+                    ? toolsFor(a.id).filter((x) => x.href).map((x) => <a key={x.title} href={x.href} className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{x.title}</a>)
+                    : a.subs.map((sub) => (
+                      <a key={sub.id} href={`#/unterbereich/${a.id}/${sub.id}`} className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{sub.name}</a>
+                    ))}
                 </span>
               </div>
             </section>

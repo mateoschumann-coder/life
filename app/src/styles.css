@@ -353,3 +353,4 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .analysis-list { display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.4; }
 .analysis-list b { margin-bottom: 2px; }
 .recipe-steps { white-space: pre-wrap; margin: 0; font-size: 15.5px; line-height: 1.5; background: var(--card); border-radius: 14px; padding: 12px 14px; }
+.lib-active { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 6px 0; font: inherit; color: inherit; width: 100%; }

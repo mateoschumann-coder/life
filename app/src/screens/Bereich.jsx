@@ -9,6 +9,7 @@ import { Heatmap, HeatLegend } from '../components/Heatmap';
 import AreaContent from '../components/AreaContent';
 import { CoachBox } from '../components/Coach';
 import ToolCards from '../components/ToolCards';
+import { TOOL_AREAS } from '../lib/tools';
 import { Missing } from './Saeule';
 
 const RANGES = [
@@ -77,7 +78,7 @@ export default function Bereich({ id }) {
           <HeatLegend left={`${activeDays} aktive Tage`} />
         </section>
 
-        <section className="group">
+        {!TOOL_AREAS.has(id) && <section className="group">
           <div className="sec-h"><h2 className="h2">Unterbereiche</h2></div>
           <div className="list">
             {area.subs.map((sub) => {
@@ -95,7 +96,7 @@ export default function Bereich({ id }) {
               <button type="submit" className="btn small" disabled={!subText.trim()}>+</button>
             </form>
           </div>
-        </section>
+        </section>}
 
         <AreaContent s={s} area={area} />
 

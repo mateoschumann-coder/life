@@ -16,7 +16,8 @@ export const BOXES = [
   { id: 'menschen', title: 'Menschen', icon: 'users', areas: ['familie', 'freunde', 'neue'], hint: 'Wem er sich mal wieder melden sollte, Geburtstage, Ideen für ein Treffen.' },
   { id: 'ausgehen', title: 'Ausgehen & Events', icon: 'pin', areas: ['erlebnisse', 'freizeit'], hint: '1–2 Events in Buenos Aires in den nächsten Tagen aus der Websuche, passend zu seinen Interessen, oder ein Ort von seiner Will-hin-Liste.' },
   { id: 'news', title: 'Informiert bleiben', icon: 'news', areas: ['informiert'], hint: '1–2 aktuelle, wirklich interessante Neuigkeiten zu seinen Themen, mit 1–2 Sätzen Zusammenfassung im text und Link.' },
-  { id: 'gesundheit', title: 'Gesundheit & Sport', icon: 'heart', areas: ['koerper', 'mental'], hint: 'Training (seine Sportarten, Einheiten, nächste Rennen), aktive Verletzungen ernst nehmen (z.B. passendes Übungsvideo, Pause), fällige Vorsorge-Termine, Erholung.' },
+  { id: 'wissen', title: 'Lernen & Wissen', icon: 'bulb', areas: ['mental'], hint: 'Neugier-Themen (Geschichte, Physik, Geopolitik …): ans aktuelle Buch erinnern („20 Min lesen?“), passend zu seinen Themen ein konkretes neues Buch/Video/Artikel vorschlagen (art link mit url).' },
+  { id: 'gesundheit', title: 'Gesundheit & Sport', icon: 'heart', areas: ['koerper'], hint: 'Training (seine Sportarten, Einheiten, nächste Rennen), aktive Verletzungen ernst nehmen (z.B. passendes Übungsvideo, Pause), fällige Vorsorge-Termine, Erholung.' },
   { id: 'alltag', title: 'Zuhause & Finanzen', icon: 'home', areas: ['zuhause', 'finanzen'], hint: 'Rezeptidee (gern Airfryer) passend zu seinen Rezepten/Einkaufsliste, Erinnerung an die Einkaufsliste, Finanzen – nur wenn sinnvoll.' },
 ];
 export const boxOfArea = (areaId) => BOXES.find((b) => b.areas.includes(areaId));
@@ -126,6 +127,9 @@ function coachData(s) {
     vorsorge_faellig: (s.healthItems || []).filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date <= addDays(t, 14)).map((h) => ({ titel: h.title, datum: h.date })),
     einkaufsliste_offen: (s.shopping?.items || []).filter((x) => !x.done).length,
     rezepte: (s.recipes || []).map((r) => r.title).slice(0, 15),
+    bibliothek_gerade: (s.library || []).filter((m) => m.status === 'aktiv').map((m) => m.title),
+    bibliothek_will: (s.library || []).filter((m) => m.status === 'will').map((m) => m.title).slice(0, 10),
+    wissensthemen: (s.areas.find((a) => a.id === 'mental')?.subs || []).map((x) => x.name),
   };
 }
 

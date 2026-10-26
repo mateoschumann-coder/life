@@ -9,7 +9,7 @@ export const PILLARS = [
 // id, Säule, Name, Ziel in Tagen, Symbol, Unterbereiche, Personen-Kategorie
 const AREAS = [
   ['koerper', 'persoenlich', 'Körperliche Gesundheit', 3, 'heart', ['Sport', 'Ernährung', 'Schlaf', 'Vorsorge']],
-  ['mental', 'persoenlich', 'Mentale Gesundheit', 7, 'leaf', ['Reflexion', 'Erholung', 'Achtsamkeit']],
+  ['mental', 'persoenlich', 'Lernen & Wissen', 7, 'bulb', ['Geschichte', 'Physik', 'Geopolitik', 'Wirtschaft']],
   ['zuhause', 'persoenlich', 'Zuhause', 14, 'home', ['Ordnung und Haushalt', 'Einrichtung und Design', 'Kleidung']],
   ['finanzen', 'persoenlich', 'Finanzen', 30, 'wallet', ['Budget', 'Investments', 'Verträge und Admin']],
   ['freizeit', 'persoenlich', 'Freizeit und Erlebnisse', 14, 'plane', ['Reisen', 'Kultur', 'Hobbys']],
@@ -72,6 +72,7 @@ export function seed() {
     recipeCats: ['Airfryer', 'Schnell', 'Meal Prep'],
     shopping: { items: [], history: {} }, // Einkaufsliste + was schon mal gekauft wurde
     healthItems: [], // Vorsorge: Termine, Routinen, Verletzungen
-    memory: [], // Was Life über Mateo weiß (aus Erzählungen gelernt, jederzeit änderbar)
+    memory: [],
+    library: [], // Bücher, Artikel, Videos … pro Thema (Thema = Unterbereich von „Lernen & Wissen“) // Was Life über Mateo weiß (aus Erzählungen gelernt, jederzeit änderbar)
   };
 }

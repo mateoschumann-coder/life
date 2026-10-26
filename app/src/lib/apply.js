@@ -8,6 +8,7 @@ import {
 } from './actions';
 import { store } from './store';
 import { locate } from './outings';
+import { addMaterial, ensureTopic, KINDS } from './library';
 import { addHealthItem, addRecipe, addSession, addShopping, addSport, findSport, parseDuration } from './health';
 
 const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
@@ -114,6 +115,9 @@ export function describe(s, raw) {
       return { ok: !!a.fakt, label: `Merken: ${a.fakt}` };
     case 'training_eintragen':
       return { ok: !!(a.sportart || s.sports.length), label: join(`Training: ${findSport(s, a.sportart || 'Laufen')?.name || a.sportart || 'Laufen'}`, a.distanz_km && `${String(a.distanz_km).replace('.', ',')} km`, a.dauer && `${a.dauer}${/^\d+$/.test(String(a.dauer)) ? ' Min' : ''}`, isDate(a.datum) && a.datum !== today() ? date(a.datum) : 'heute', a.notiz) };
+    case 'material_anlegen':
+      if (a.titel && (s.library || []).some((m) => norm(m.title) === norm(a.titel))) return { ok: false, reason: 'schon in der Bibliothek', label: `Bibliothek: ${a.titel}` };
+      return { ok: !!a.titel, label: join(`${KINDS[a.material_art]?.label || 'Material'}: ${a.titel}`, a.autor, a.thema && `Thema ${a.thema}`) };
     case 'einkauf_hinzufuegen':
       return { ok: (a.artikel || []).length > 0, label: `Einkaufsliste: ${(a.artikel || []).join(', ')}` };
     case 'rezept_anlegen':
@@ -215,6 +219,8 @@ export function applyAction(s, raw) {
     }
     case 'einkauf_hinzufuegen':
       return addShopping(a.artikel || []);
+    case 'material_anlegen':
+      return addMaterial({ title: a.titel, kind: a.material_art || 'buch', subId: ensureTopic(a.thema || 'Allgemein'), author: a.autor || '', url: a.url || '', note: a.notiz || '' });
     case 'rezept_anlegen':
       return addRecipe({ title: a.titel, category: a.rezept_kategorie || 'Airfryer', ingredients: a.zutaten || [], steps: a.schritte || '', url: a.url || '' });
     case 'vorsorge_anlegen':

@@ -1,5 +1,5 @@
 // Service Worker: sorgt dafür, dass die App auch ohne Internet startet.
-const CACHE = 'life-app-mvoml0ey';
+const CACHE = 'life-app-mvp7blm6';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
