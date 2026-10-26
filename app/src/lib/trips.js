@@ -179,6 +179,36 @@ export function chooseVariant(tripId, id) {
 
 // ---------- KI: Wohin könnte ich? ----------
 // ---------- KI: Reiseführer „Wohin könnte ich?“ (v0.40: Gespräch, kurze Vorschläge, mehrere als einzelne Ideen übernehmen) ----------
+// Preisvergleich mehrerer Ziele (Flug ab Mateos Flughafen + Unterkunft pro Nacht) – v0.43
+const VERGLEICH = {
+  type: 'array',
+  description: 'Nur wenn Mateo Preise vergleichen will: eine Zeile pro Ziel',
+  items: {
+    type: 'object',
+    properties: {
+      ziel: { type: 'string' },
+      land: { type: 'string' },
+      ab: { type: 'string', description: 'Abflughafen, z.B. EZE' },
+      flug: { type: 'string', description: 'z.B. „ab ca. 420 USD hin & zurück, LATAM, 2 h 40, Stand Suche“' },
+      unterkunft: { type: 'string', description: 'z.B. „Airbnb ab ca. 45 USD/Nacht, Hotel ab 70“' },
+      gesamt: { type: 'string', description: 'grobe Summe für die Reise pro Person, wenn Dauer bekannt' },
+      url_flug: { type: 'string', description: 'Link aus Suchergebnissen' },
+      url_unterkunft: { type: 'string', description: 'Link aus Suchergebnissen' },
+    },
+    required: ['ziel'],
+  },
+};
+export const airportsOf = (s) => s.profile?.airports || 'Buenos Aires (EZE oder AEP)';
+export const airbnbUrl = (ziel, from, to) => `https://www.airbnb.com/s/${encodeURIComponent(ziel)}/homes${from && to ? `?checkin=${from}&checkout=${to}` : ''}`;
+// fehlende Links ergänzen, damit man die echten Preise mit einem Tipp sieht
+export function fixVergleich(rows, s, tr) {
+  const from = airportsOf(s);
+  return (rows || []).filter((x) => x && x.ziel).map((x) => ({
+    ...x,
+    url_flug: okUrl(x.url_flug) || flightUrl(x.ab || from, x.ziel, tr?.from),
+    url_unterkunft: okUrl(x.url_unterkunft) || airbnbUrl(x.ziel, tr?.from, tr?.to),
+  }));
+}
 const GUIDE_TOOL = {
   name: 'reiseziele',
   description: 'Antwort an Mateo plus Reiseziel-Vorschläge, die er einzeln als Idee übernehmen kann.',
@@ -206,6 +236,7 @@ const GUIDE_TOOL = {
           required: ['ziel', 'kurz'],
         },
       },
+      vergleich: VERGLEICH,
     },
     required: ['antwort'],
   },
@@ -219,10 +250,14 @@ Arbeitsweise:
 - Auf Nachfragen eingehen: vergleichen, Alternativen, „mehr wie X“, „günstiger“ – dann neue Ziele unter "ziele".
 - Mateo will zwischen Zielen entscheiden: jedes Ziel eigenständig, nicht mehrere Orte in einem Eintrag zusammenfassen.
 - Pro Ziel: "kurz" (höchstens 6 Wörter, das sieht er in der Liste) und dafür ausführlich warum, highlights, dauer, anreise ab Buenos Aires, beste_zeit, budget – das wird beim Übernehmen in die Idee geschrieben.
-- ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Verbindungen, Preise). Links nur aus Suchergebnissen.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, ohne URLs; Preise als grobe Schätzung kennzeichnen.'}
+- Abflug: Mateo fliegt ab ${airportsOf(s)}.
+- PREISVERGLEICH: Will Mateo Preise vergleichen (Flüge, Airbnb/Unterkunft), fülle "vergleich" mit einer Zeile pro Ziel aus dem Gespräch (die zuletzt vorgeschlagenen bzw. genannten): Flugpreis hin & zurück ab seinem Flughafen (Airline, Dauer, für welchen Zeitraum), Unterkunft pro Nacht (Airbnb und ggf. Hotel), grobe Summe. Keine neuen "ziele" dazu.
+- ${web ? 'Du darfst höchstens 4-mal im Internet suchen (aktuelle Flug- und Unterkunftspreise; bündle Ziele pro Suche, z.B. „vuelos Buenos Aires Florianópolis Salvador enero precio“). Links nur aus Suchergebnissen. Preise immer „ca. … (Stand Suche)“.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, ohne URLs; Preise als grobe Schätzung kennzeichnen.'}
 Antworte immer mit "reiseziele". Deutsch.`;
   const messages = history.map((m) => ({ role: m.role, content: m.text }));
-  return searchWithTool({ system, messages, tool: GUIDE_TOOL, maxUses: web ? 2 : 0, label: 'Reiseziele finden', smart });
+  const r = await searchWithTool({ system, messages, tool: GUIDE_TOOL, maxUses: web ? 4 : 0, label: 'Reiseziele finden', smart });
+  if (r.vergleich) r.vergleich = fixVergleich(r.vergleich, s);
+  return r;
 }
 export const ideaText = (z) => [
   z.kurz,
@@ -234,15 +269,58 @@ export const ideaText = (z) => [
   z.budget && `Kosten: ${z.budget}`,
   okUrl(z.url) && `Mehr: ${okUrl(z.url)}`,
 ].filter(Boolean).join('\n');
-// Jedes gewählte Ziel wird eine eigene Idee (nicht zusammengeschoben)
-export function applyGuide(sel) {
-  const ids = [];
-  for (const z of sel.ziele || []) {
-    if (!z?.ziel) continue;
-    if (store.get().trips.some((x) => norm(x.name) === norm(z.ziel))) continue;
-    ids.push(addTrip({ name: z.ziel, dest: [z.ziel, z.land].filter(Boolean).join(', '), status: 'idee', idea: ideaText(z) }));
-  }
-  return ids.filter(Boolean);
+// Optionen einer Reise-Idee (v0.43, Mateo): mehrere Ziele für DIESELBE Reise sammeln, vergleichen, mit ✕ rauswerfen, eins festlegen
+const optInfo = (x) => ({
+  ziel: x.ziel, land: x.land || '', kurz: x.kurz || '', info: ideaText({ ...x, kurz: '' }),
+  ...(x.flug ? { flug: x.flug } : {}), ...(x.unterkunft ? { unterkunft: x.unterkunft } : {}), ...(x.gesamt ? { gesamt: x.gesamt } : {}),
+  ...(x.url_flug ? { urlFlug: x.url_flug } : {}), ...(x.url_unterkunft ? { urlStay: x.url_unterkunft } : {}),
+});
+export function addOptions(tripId, list) {
+  let n = 0;
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === tripId);
+    if (!t) return;
+    t.options = t.options || [];
+    for (const x of list || []) {
+      if (!x?.ziel) continue;
+      const add = optInfo(x);
+      const old = t.options.find((o) => norm(o.ziel) === norm(x.ziel));
+      if (old) {
+        // Preise/Infos ergänzen statt doppelt anlegen
+        for (const [k, v] of Object.entries(add)) if (v && (!old[k] || ['flug', 'unterkunft', 'gesamt', 'urlFlug', 'urlStay'].includes(k))) old[k] = v;
+      } else {
+        t.options.push({ id: uid(), ...add });
+        n++;
+      }
+    }
+  });
+  return n;
+}
+export const removeOption = (tripId, id) => store.update((s) => {
+  const t = s.trips.find((x) => x.id === tripId);
+  if (t) t.options = (t.options || []).filter((o) => o.id !== id);
+});
+// Auf eine Option festlegen: Ziel der Reise, Infos in die Idee, die anderen Optionen fallen weg
+export function chooseOption(tripId, id) {
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === tripId);
+    const o = t?.options.find((x) => x.id === id);
+    if (!o) return;
+    t.dest = [o.ziel, o.land].filter(Boolean).join(', ');
+    t.idea = [o.kurz, o.info, o.flug && `Flug: ${o.flug}`, o.unterkunft && `Unterkunft: ${o.unterkunft}`, o.gesamt && `Gesamt: ${o.gesamt}`].filter(Boolean).join('\n');
+    t.options = [];
+    t.lat = null;
+    t.lon = null;
+  });
+  locateTrip(tripId);
+}
+// Aus dem Reiseführer-Chat: gewählte Ziele (und Preisvergleiche) als Optionen in eine Reise-Idee – neu oder bestehend
+export function applyGuide(sel, { tripId, name } = {}) {
+  const list = [...(sel.ziele || []), ...(sel.vergleich || [])];
+  if (!list.length) return null;
+  const id = tripId || addTrip({ name: String(name || '').trim() || 'Neue Reise-Idee', dest: '', status: 'idee' });
+  addOptions(id, list);
+  return id;
 }
 
 // ---------- KI: Reise-Planer (Gespräch mit Vorschlägen) ----------
@@ -259,6 +337,7 @@ const PLAN_TOOL = {
       todo: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, kategorie: { type: 'string', description: `z.B. ${Object.keys(TODO_TEMPLATE).join(', ')}` } }, required: ['text'] } },
       packen: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, kategorie: { type: 'string', description: `z.B. ${Object.keys(PACK_TEMPLATE).join(', ')}` } }, required: ['text'] } },
       entfernen: { type: 'array', items: { type: 'string' }, description: 'Punkte der Packliste/To-dos, die für diese Reise nicht passen (genauer Text)' },
+      vergleich: VERGLEICH,
       varianten: {
         type: 'array',
         description: 'Routen-Varianten als Skizze (1–2 pro Antwort): Name + Abschnitte in Reihenfolge',
@@ -281,6 +360,7 @@ export const tripSnapshot = (tr) => ({
   stationen: tr.stops.map((x) => ({ name: x.name, von: x.from, bis: x.to })),
   transport: tr.transport.map((x) => `${x.from} → ${x.to} (${MODES[x.mode] || x.mode}${x.status === 'gebucht' ? ', gebucht' : ''})`),
   orte: tr.places.map((x) => `${x.name} (${PLACE_KINDS[x.kind]}${x.status === 'fest' ? ', gemerkt' : ''})`),
+  ziel_optionen: (tr.options || []).map((o) => [o.ziel, o.kurz, o.flug && `Flug ${o.flug}`, o.unterkunft && `Unterkunft ${o.unterkunft}`].filter(Boolean).join(' · ')),
   routen_varianten: (tr.variants || []).map((v) => `${v.name}${v.chosen ? ' (gewählt)' : ''}: ${v.stops.map((x) => `${x.name}${x.nights ? ` ${x.nights}N` : ''}`).join(' → ')}`),
   todo: tr.todo.map((x) => x.text), packen: tr.packen.map((x) => x.text), notizen: tr.notes || undefined,
 });
@@ -307,6 +387,7 @@ Arbeitsweise:
   · Sehenswürdigkeiten/Restaurants kennst du meist selbst – dafür nur suchen, wenn nach etwas Aktuellem gefragt ist (Öffnungszeiten, neue Orte).
   Preise immer als „ca. … (Stand Suche)“. Links nur aus Suchergebnissen, nie erfinden.` : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen (Sehenswürdigkeiten, Restaurants, Routen gehen gut), gib keine URLs an. Preise nur als grobe Schätzung kennzeichnen; für aktuelle Flug-/Unterkunftspreise sag kurz, dass Mateo „🔍 Nochmal mit Internet suchen“ tippen kann.'}
 - ${tr.status === 'idee' ? 'Packliste und To-dos kommen erst beim Festlegen dazu: schlage dafür noch nichts vor (kein "packen", "todo", "entfernen").' : 'Die Packliste und To-dos haben eine Standard-Vorlage. Passe sie an Ziel, Jahreszeit, Dauer und Aktivitäten an: Fehlendes unter "packen"/"todo", Unpassendes (z.B. Badekleidung bei Winterreise) unter "entfernen".'}
+- ${(tr.options || []).length ? `Mateo vergleicht noch mehrere Ziel-Optionen (ziel_optionen). Hilf beim Entscheiden. Will er Preise vergleichen, fülle "vergleich" mit einer Zeile pro Option (Flug hin & zurück ab ${airportsOf(s)}, Unterkunft/Nacht, grobe Summe) – nur mit Internet aktuell, sonst als Schätzung kennzeichnen.` : `Preisvergleiche mehrerer Ziele (Flug ab ${airportsOf(s)}, Unterkunft) gehören in "vergleich".`}
 - Nichts vorschlagen, was schon im Stand steht. Bei Orten wenn möglich lat/lon angeben.
 - Fehlt Wichtiges (Zeitraum, Budget, Reisestil, wer kommt mit), frag kurz nach – mach trotzdem schon erste Vorschläge.
 Antworte immer mit "reise_planen". Deutsch, konkret, kurz.`;
@@ -315,6 +396,7 @@ Antworte immer mit "reise_planen". Deutsch, konkret, kurz.`;
   // Ohne Link: Such-Links bauen (Google Flights, Booking) – damit man die aktuellen Preise mit einem Tipp sieht
   for (const x of r.transport || []) if (!okUrl(x.url) && x.von && x.nach) x.url = x.art === 'flug' ? flightUrl(x.von, x.nach, tr.from) : `https://www.google.com/search?q=${encodeURIComponent(`${x.art === 'sonstiges' ? '' : MODES[x.art] || ''} ${x.von} ${x.nach} pasaje precio`.trim())}`;
   for (const x of r.orte || []) if (!okUrl(x.url) && x.art === 'unterkunft') x.url = stayUrl(x.name, x.station || tr.dest || tr.name, tr);
+  if (r.vergleich) r.vergleich = fixVergleich(r.vergleich, s, tr);
   return r;
 }
 
@@ -342,6 +424,13 @@ export function applyTripProposal(tripId, sel) {
     }
     for (const x of sel.todo || []) if (!t.todo.some((y) => norm(y.text) === norm(x.text))) t.todo.push({ id: uid(), text: x.text, cat: x.kategorie || 'Sonstiges', done: false });
     for (const x of sel.packen || []) if (!t.packen.some((y) => norm(y.text) === norm(x.text))) t.packen.push({ id: uid(), text: x.text, cat: x.kategorie || 'Sonstiges', done: false });
+    for (const v of sel.vergleich || []) {
+      t.options = t.options || [];
+      const add = optInfo(v);
+      const old = t.options.find((o) => norm(o.ziel) === norm(v.ziel));
+      if (old) Object.assign(old, Object.fromEntries(Object.entries(add).filter(([k, val]) => val && k !== 'info' && k !== 'kurz')));
+      else t.options.push({ id: uid(), ...add });
+    }
     for (const v of sel.varianten || []) {
       t.variants = t.variants || [];
       t.variants.push({ id: uid(), name: v.name || `Route ${t.variants.length + 1}`, summary: v.kurz || '', stops: (v.abschnitte || []).filter((x) => x && x.ort).map((x) => ({ name: x.ort, nights: x.naechte || null, note: x.notiz || '' })), chosen: false });

@@ -102,6 +102,10 @@ export function undo(itemId) {
   snapshots.delete(itemId);
   set({ items: state.items.map((it) => (it.id === itemId ? { ...it, status: 'rejected', appliedLabels: [] } : it)) });
 }
+// Vorschlag vor dem Übernehmen selbst ändern (z.B. Tippfehler im Namen)
+export function editAction(itemId, idx, patch) {
+  set({ items: state.items.map((it) => (it.id === itemId ? { ...it, actions: it.actions.map((a, i) => (i === idx ? { ...a, ...patch } : a)) } : it)) });
+}
 export function toggleSelected(itemId, idx) {
   set({ items: state.items.map((it) => (it.id === itemId ? { ...it, selected: it.selected.map((v, i) => (i === idx ? !v : v)) } : it)) });
 }

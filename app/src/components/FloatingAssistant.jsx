@@ -1,6 +1,6 @@
 // Schwebender Assistent: auf jedem Bildschirm unten rechts.
 // 1. Tipp: zuhören · 2. Tipp: absenden · Antwort erscheint im kleinen Fenster (und wird auf Wunsch vorgelesen).
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { getAi } from '../lib/ai';
 import { needsRetry, resend, send, setDraft, setMode, setSpeak, speechAvailable, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
@@ -18,13 +18,26 @@ export default function FloatingAssistant() {
   // Position des Knopfs (verschiebbar, wird gemerkt) und Verschiebung des Fensters
   const [pos, setPos] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('life-app-fab') || 'null');
+      const p = JSON.parse(localStorage.getItem('life-app-fab') || 'null');
+      // gemerkte Position immer in den sichtbaren Bereich holen (Bildschirm kann sich geändert haben)
+      return p && { x: Math.max(8, Math.min(window.innerWidth - 62, p.x)), y: Math.max(60, Math.min(window.innerHeight - 144, p.y)) };
     } catch {
       return null;
     }
   });
   const [panelOff, setPanelOff] = useState({ x: 0, y: 0 });
   const drag = useRef(null);
+  const panelRef = useRef(null);
+  // Nach jedem Neuzeichnen prüfen: wächst das Fenster (z.B. durch einen Vorschlag), darf die Kopfleiste nicht aus dem Bild rutschen
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (!el || drag.current?.panel) return;
+    const b = el.getBoundingClientRect();
+    let dy = 0;
+    if (b.top < 12) dy = 12 - b.top;
+    else if (b.top > window.innerHeight - 90) dy = window.innerHeight - 90 - b.top;
+    if (dy) setPanelOff((o) => ({ ...o, y: o.y + dy }));
+  });
   const FAB = 54;
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
@@ -63,13 +76,19 @@ export default function FloatingAssistant() {
 
   const onHeadDown = (e) => {
     if (e.target.closest('button, a')) return;
-    drag.current = { panel: true, sx: e.clientX, sy: e.clientY, ox: panelOff.x, oy: panelOff.y };
+    const box = e.currentTarget.parentElement.getBoundingClientRect();
+    drag.current = { panel: true, sx: e.clientX, sy: e.clientY, ox: panelOff.x, oy: panelOff.y, box };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const onHeadMove = (e) => {
     const d = drag.current;
     if (!d || !d.panel) return;
-    setPanelOff({ x: d.ox + e.clientX - d.sx, y: d.oy + e.clientY - d.sy });
+    // Fenster darf nicht aus dem Bildschirm: die Kopfleiste (zum Zurückziehen) bleibt immer sichtbar (v0.43)
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const dx = clamp(e.clientX - d.sx, 4 - d.box.left, Math.max(4 - d.box.left, W - 4 - d.box.right));
+    const dy = clamp(e.clientY - d.sy, 12 - d.box.top, H - 90 - d.box.top);
+    setPanelOff({ x: d.ox + dx, y: d.oy + dy });
   };
   const onHeadUp = () => {
     drag.current = null;
@@ -87,6 +106,7 @@ export default function FloatingAssistant() {
   // Wenn die Spracherkennung von selbst stoppt (Pause), bleibt der Text als Entwurf stehen
   useEffect(() => {
     if (!open) stopListening();
+    setPanelOff({ x: 0, y: 0 }); // beim Öffnen/Schließen wieder an den Ausgangsplatz
   }, [open]);
 
   const tap = () => {
@@ -147,7 +167,7 @@ export default function FloatingAssistant() {
   return (
     <>
       {open && (
-        <div className="mini" role="dialog" aria-label="Assistent" style={panelStyle}>
+        <div className="mini" role="dialog" aria-label="Assistent" style={panelStyle} ref={panelRef}>
           <div className="mini-head" onPointerDown={onHeadDown} onPointerMove={onHeadMove} onPointerUp={onHeadUp} onPointerCancel={onHeadUp} style={{ touchAction: 'none', cursor: 'grab' }}>
             <span className="grip" aria-hidden="true" />
             <div className="mode-toggle" role="group" aria-label="Rolle der KI">

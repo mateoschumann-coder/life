@@ -21,7 +21,7 @@ const savePrefs = (k, v) => {
   } catch {}
 };
 
-// groups: [{ key, label, title: (x) => string, meta?: (x) => string }]
+// groups: [{ key, label, title: (x) => string, meta?: (x) => string, links?: (x) => [{ label, url }] }]
 export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -85,6 +85,14 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
     }
   };
 
+  // Vorschlag selbst umschreiben (Stift): Text-Feld des Vorschlags ersetzen
+  const [editing, setEditing] = useState(null); // { id, key, i, val }
+  const mainKey = (x) => (typeof x === 'string' ? null : ['text', 'titel', 'name', 'ziel'].find((k) => typeof x?.[k] === 'string'));
+  const saveEdit = () => {
+    const { id, key, i, val } = editing;
+    if (val.trim()) onSave(history.map((m) => (m.id === id ? { ...m, proposal: { ...m.proposal, [key]: m.proposal[key].map((x, j) => (j !== i ? x : typeof x === 'string' ? val.trim() : { ...x, [mainKey(x)]: val.trim() })) } } : m)));
+    setEditing(null);
+  };
   const toggle = (msgId, key, i) => onSave(history.map((m) => (m.id === msgId ? { ...m, picked: { ...m.picked, [key]: m.picked[key].map((v, j) => (j === i ? !v : v)) } } : m)));
   const apply = (m) => {
     const sel = Object.fromEntries(Object.entries(m.proposal).map(([k, list]) => [k, list.filter((_, i) => m.picked[k][i])]));
@@ -121,16 +129,23 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
                   {groups.filter((g) => m.proposal[g.key]).map((g) => (
                     <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <span className="label" style={{ padding: 0 }}>{g.label}</span>
-                      {m.proposal[g.key].map((x, i) => (
+                      {m.proposal[g.key].map((x, i) => (editing && editing.id === m.id && editing.key === g.key && editing.i === i ? (
+                        <form key={i} className="block-add" onSubmit={(e) => { e.preventDefault(); saveEdit(); }}>
+                          <input className="input" autoFocus value={editing.val} onChange={(e) => setEditing({ ...editing, val: e.target.value })} aria-label="Vorschlag bearbeiten" />
+                          <button type="submit" className="btn small">OK</button>
+                        </form>
+                      ) : (
                         <label key={i} className="option" style={{ opacity: m.applied ? 0.6 : 1 }}>
                           <input type="checkbox" checked={!!m.picked?.[g.key]?.[i]} disabled={m.applied} onChange={() => toggle(m.id, g.key, i)} />
                           <span className="row-main">
                             <span style={{ fontSize: 15, fontWeight: 600, whiteSpace: g.single ? 'pre-wrap' : undefined }}>{g.title(x)}</span>
                             {g.meta && g.meta(x) && <span className="tiny">{g.meta(x)}</span>}
+                            {g.links && g.links(x).length > 0 && <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>{g.links(x).map((l) => <a key={l.url} className="pill" style={{ fontSize: 12.5, padding: '3px 9px' }} href={l.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{l.label}</a>)}</span>}
                           </span>
                           {x?.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen" onClick={(e) => e.stopPropagation()}><Icon name="link" size={15} color="var(--accent)" /></a>}
+                          {!m.applied && (typeof x === 'string' || mainKey(x)) && <button type="button" className="x-btn" aria-label="Vorschlag bearbeiten" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditing({ id: m.id, key: g.key, i, val: typeof x === 'string' ? x : x[mainKey(x)] }); }}><Icon name="edit" size={14} color="var(--muted)" /></button>}
                         </label>
-                      ))}
+                      )))}
                     </div>
                   ))}
                   {m.applied ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ Übernommen</span> : (
