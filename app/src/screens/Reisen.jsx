@@ -414,18 +414,6 @@ function TripDetail({ s, tr }) {
           </section>
         )}
 
-        <PlanChat
-          title={isIdea ? 'Mit KI recherchieren' : 'Mit KI planen'}
-          intro={isIdea ? 'Frag z.B.: „Welche Route wäre in 7 Tagen sinnvoll?“ oder „Wie komme ich günstig hin?“ – Vorschläge kannst du abhaken und übernehmen.' : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
-          history={tr.chat}
-          prefKey="reise"
-          onSave={(chat) => updateTrip(tr.id, { chat })}
-          onAsk={(hist, o) => tripAssist(s, tr, hist, o)}
-          webChips={['Wie komme ich hin?', 'Beste Reisezeit und Kosten?', 'Unterkunft finden', 'Restaurant-Tipps', 'Transport zwischen den Stationen']}
-          groups={PLAN_GROUPS}
-          onApply={(sel) => applyTripProposal(tr.id, sel)}
-          chips={isIdea ? ['Welche Route wäre sinnvoll?', 'Wie komme ich hin?', 'Was kann man dort machen?', 'Beste Reisezeit und Kosten?'] : ['Packliste anpassen', 'Unterkunft finden', 'Restaurant-Tipps', 'Sehenswürdigkeiten', 'Transport zwischen den Stationen', 'Was fehlt noch?']}
-        />
 
         <div className="box-tabs main-tabs">
           {tabs.map(([k, l]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{count[k] ? ` ${count[k]}` : ''}</button>)}
@@ -441,6 +429,18 @@ function TripDetail({ s, tr }) {
             <textarea className="input" style={{ minHeight: 140 }} defaultValue={tr.notes} key={tr.id + 'notes'} placeholder="Alles Weitere: Kontakte, Ideen, Gedanken …" onBlur={(e) => e.target.value !== tr.notes && updateTrip(tr.id, { notes: e.target.value })} />
           </section>
         )}
+        <PlanChat
+          title={isIdea ? 'Mit KI recherchieren' : 'Mit KI planen'}
+          intro={isIdea ? 'Frag z.B.: „Welche Route wäre in 7 Tagen sinnvoll?“ oder „Wie komme ich günstig hin?“ – Vorschläge kannst du abhaken und übernehmen.' : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
+          history={tr.chat}
+          prefKey="reise"
+          onSave={(chat) => updateTrip(tr.id, { chat })}
+          onAsk={(hist, o) => tripAssist(s, tr, hist, o)}
+          webChips={['Wie komme ich hin?', 'Beste Reisezeit und Kosten?', 'Unterkunft finden', 'Restaurant-Tipps', 'Transport zwischen den Stationen']}
+          groups={PLAN_GROUPS}
+          onApply={(sel) => applyTripProposal(tr.id, sel)}
+          chips={isIdea ? ['Welche Route wäre sinnvoll?', 'Wie komme ich hin?', 'Was kann man dort machen?', 'Beste Reisezeit und Kosten?'] : ['Packliste anpassen', 'Unterkunft finden', 'Restaurant-Tipps', 'Sehenswürdigkeiten', 'Transport zwischen den Stationen', 'Was fehlt noch?']}
+        />
         <button type="button" className="btn danger" onClick={() => { if (confirm(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
       </main>
       <Sheet open={commit} title="Reise festlegen" onClose={() => setCommit(false)}>

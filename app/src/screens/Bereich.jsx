@@ -70,7 +70,6 @@ export default function Bereich({ id }) {
             </div>
           )}
           <ToolCards areaId={id} s={s} />
-          {id !== 'karriere' && <AreaContent s={s} area={area} only={['projekte', 'aufgaben']} />}
         </main>
         <LibCatsSheet s={s} open={sheet === 'cats'} onClose={close} />
         <TabBar active="bereiche" />

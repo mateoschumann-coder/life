@@ -59,6 +59,12 @@ async function post(body) {
 // smart = true: gründlicheres Modell (Sonnet) statt des eingestellten
 export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false }) {
   if (label) setCostLabel(label);
+  // Chats mit Vorschlägen (Mateo, v0.35): kurze Antwort, die Vorschläge erscheinen als Häkchen-Liste darunter
+  if (history && tool?.input_schema?.properties?.antwort) {
+    tool = JSON.parse(JSON.stringify(tool));
+    tool.input_schema.properties.antwort.description = 'KURZ: 1–2 Sätze (höchstens 3). Die Vorschläge NICHT im Text aufzählen – sie erscheinen als antippbare Liste. Nur eine Rückfrage, wenn wirklich nötig.';
+    system = `${system}\n\nWICHTIG: Antworte immer kurz (1–2 Sätze, keine Aufzählungen, kein langer Text). Konkrete Vorschläge gehören in die Listen-Felder des Werkzeugs – kurz formuliert (wenige Wörter pro Punkt), damit Mateo sie einfach antippen kann.`;
+  }
   const model = smart ? SMART_MODEL : undefined;
   const messages = history ? [...history] : [{ role: 'user', content: user }];
   if (!maxUses) {
