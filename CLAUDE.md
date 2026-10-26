@@ -60,6 +60,7 @@ Aufgabe (auch Idee) · **Projekt-Bausteine** (`lib/blocks.js`, `project.blocks`:
 - Start als Web-App (Option C), später evtl. native iOS-App (Option B) für Apple Health/Garmin, Siri, Widgets.
 - KI-Assistent in der App: Mateo spricht/tippt, die KI macht **Vorschläge**, gespeichert wird erst nach **Bestätigung** (seit v0.11 optional „Direkt ausführen“ mit Rückgängig). Der Assistent darf Einträge anlegen/ändern, aber nie die Grundordnung oder den Code. Kern funktioniert immer ohne KI.
 - Mateo hat Claude **Pro** (API wird separat bezahlt). Plan: Haiku für Alltagsbefehle, Sonnet für Planung.
+- Pro-Abo statt API? Eigene Apps dürfen das Claude-Abo nicht nutzen (seit Anfang 2026 ausdrücklich verboten) → App braucht API-Schlüssel. **Umgekehrter Weg geplant:** nach der Cloud einen „Custom Connector“ (Remote-MCP-Server auf Supabase) bauen, damit Mateo in der Claude-App (Pro-Abo) direkt mit seinen Life-Daten arbeiten kann; der tägliche Coach bleibt über die API.
 - Schnittstellen: WhatsApp nur Chat öffnen (kein Auslesen möglich); Garmin nur über Apple Health in nativer App (Garmin-Entwicklerprogramm pausiert, Strava-API kostenpflichtig); Kalender/E-Mail später.
 
 ## Stand und Fahrplan
