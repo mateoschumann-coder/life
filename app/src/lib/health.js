@@ -396,20 +396,24 @@ const SPORT_EVENT_TOOL = {
   },
 };
 // sportIds: eine oder mehrere Sportarten (leer = alle); jedes Event bekommt seine Sportart
-export async function searchSportEvents(s, sportIds, query, { web = false } = {}) {
+export async function searchSportEvents(s, sportIds, query, { web = false, regions = [] } = {}) {
   const ids = (Array.isArray(sportIds) ? sportIds : [sportIds]).filter(Boolean);
   const sports = ids.length ? s.sports.filter((x) => ids.includes(x.id)) : s.sports;
   if (!sports.length) throw new Error('Füg zuerst eine Sportart hinzu.');
   const t = today();
   const names = sports.map((x) => x.name);
   const goals = sports.filter((x) => x.goal).map((x) => `${x.name}: ${x.goal}`);
+  const where = regions.length ? regions.join(', ') : 'Buenos Aires und Umgebung';
+  const named = String(query || '').trim();
   const system = `Du findest für Mateo (lebt in Buenos Aires) Sport-Events: Wettkämpfe, Rennen, Turniere, offene Trainings, Lauftreffs, Clubs. Heute ist ${fmtLong(t)} (${t}).
-Sportarten: ${JSON.stringify(names)}${goals.length ? `. Ziele: ${JSON.stringify(goals)}` : ''}. Schon notiert: ${JSON.stringify((s.sportEvents || []).map((e) => e.name))}
-${web ? 'Suche höchstens 2-mal gezielt (gern auf Spanisch, z.B. Kalender-Seiten mit vielen Terminen) und gib nur echte Events aus den Suchergebnissen mit Link zurück.' : 'Ohne Internet: nenne bekannte, regelmäßig stattfindende Events und Angebote aus deinem Wissen (z.B. jährliche Rennen mit ungefährem Monat), ohne erfundene Daten oder Links; sag im hinweis, dass Mateo für aktuelle Termine „Mit Internet“ wählen kann.'}
-Gib 4–8 Events (bei mehreren Sportarten gemischt) mit "events_zeigen" zurück, sortiert nach Datum; "sportart" genau wie in der Liste. Deutsch, kurz.`;
+Sportarten: ${JSON.stringify(names)}${goals.length ? `. Ziele: ${JSON.stringify(goals)}` : ''}.
+Region: ${where} – suche nur dort (bei „Argentinien“ im ganzen Land, bei einer Provinz in der ganzen Provinz).
+${named ? `Mateos Suchwunsch: „${named}“. Wenn das wie der Name eines konkreten Rennens/Events klingt, finde GENAU dieses Event zuerst (nächste Ausgabe mit Datum, Ort, Anmelde-Link) und gib es auf jeden Fall als erstes zurück; danach ähnliche Events.` : 'Gib einen möglichst vollständigen Überblick über die kommenden Events (nächste 6 Monate).'}
+${web ? 'Suche gezielt, höchstens 4-mal: zuerst nach dem genannten Namen (falls vorhanden), dann Kalender-Seiten mit vielen Terminen (auf Spanisch, z.B. „calendario carreras 2026 2027 <Region>“). Gib nur echte Events aus den Suchergebnissen mit Link zurück.' : 'Ohne Internet: nenne bekannte, regelmäßig stattfindende Events aus deinem Wissen (z.B. jährliche Rennen mit ungefährem Monat), ohne erfundene Daten oder Links; sag im hinweis, dass Mateo für aktuelle Termine „Mit Internet“ wählen kann.'}
+Gib bis zu 12 Events (bei mehreren Sportarten gemischt) mit "events_zeigen" zurück, sortiert nach Datum – auch solche, die Mateo sich schon gemerkt hat. "sportart" genau wie in der Liste. Deutsch, kurz.`;
   const tool = JSON.parse(JSON.stringify(SPORT_EVENT_TOOL));
   tool.input_schema.properties.events.items.properties.sportart = { type: 'string', enum: names };
-  const r = await searchWithTool({ system, user: query || `Welche Events gibt es in den nächsten Monaten (${names.join(', ')})?`, tool, maxUses: web ? 2 : 0, label: 'Sport-Events suchen' });
+  const r = await searchWithTool({ system, user: query || `Welche Events gibt es in den nächsten Monaten (${names.join(', ')})?`, tool, maxUses: web ? 4 : 0, label: 'Sport-Events suchen' });
   return {
     hint: r.hinweis || '',
     events: (r.events || []).filter((e) => e && e.name).map((e, i) => ({
@@ -465,3 +469,7 @@ export async function importRecipe(s, input, category) {
   if (!x || !x.titel || /kein rezept/i.test(x.titel)) throw new Error('Im Text war kein Rezept zu erkennen. Am besten den ganzen Rezepttext (Zutaten + Zubereitung) einfügen.');
   return { ...toRecipe(x, 0, category), url: onlyUrl ? text : /^https?:\/\//.test(x.url || '') ? x.url : '' };
 }
+
+// Regionen für die Sport-Event-Suche (frei änderbar)
+export const sportRegions = (s) => s.profile?.sportRegions || ['Buenos Aires', 'Argentinien'];
+export const setSportRegions = (list) => store.update((s) => { s.profile = { ...(s.profile || {}), sportRegions: list }; });

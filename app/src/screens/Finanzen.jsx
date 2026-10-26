@@ -4,6 +4,7 @@ import { addLine, budgetOf, calc, catOf, COST_CATS, convert, CURRENCIES, fetchRa
 import { Back, Icon, Segmented, TabBar, toast } from '../components/ui';
 
 const GREEN = '#2FA36B';
+const fmtRate = (v) => (v >= 100 ? Math.round(v).toLocaleString('de-DE') : (Math.round(v * 1000) / 1000).toLocaleString('de-DE'));
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
 function Amount({ value, currency, onChange, onCurrency, label }) {
@@ -45,6 +46,25 @@ export default function Finanzen() {
           <b style={{ fontSize: 34, color: r.free < 0 ? 'var(--danger)' : 'var(--text)' }}>{money(r.perDay, b.base)}</b>
           <span className="sub">≈ {money(convert(b, r.perDay, b.base, other), other)} · pro Woche {money(r.perWeek, b.base)}</span>
           <span className="tiny">Frei im Monat: {money(r.free, b.base)} = Einnahmen {money(r.income, b.base)} − Fixkosten {money(r.fixed, b.base)} − Sparen {money(r.save, b.base)}</span>
+        </section>
+
+        <section className="card" style={{ gap: 6 }}>
+          <div className="sec-h" style={{ padding: 0 }}>
+            <span className="label" style={{ padding: 0 }}>Wechselkurse</span>
+            <button type="button" className="link-btn" onClick={loadRates} disabled={busy}>{busy ? '…' : 'Aktuell holen'}</button>
+          </div>
+          {[
+            { id: 'usdars', left: '1 US$', right: 'ARS', value: b.rates.ARS, set: (v) => setRate('ARS', v) },
+            { id: 'eurars', left: '1 €', right: 'ARS', value: b.rates.ARS / b.rates.EUR, set: (v) => setRate('EUR', b.rates.ARS / v) },
+            { id: 'eurusd', left: '1 €', right: 'US$', value: 1 / b.rates.EUR, set: (v) => setRate('EUR', 1 / v) },
+          ].map((x) => (
+            <label key={x.id} className="row" style={{ minHeight: 46 }}>
+              <span className="row-main"><span className="row-title plain">{x.left} =</span></span>
+              <input className="input" style={{ width: 120, textAlign: 'right' }} inputMode="decimal" defaultValue={fmtRate(x.value)} key={fmtRate(x.value)} onBlur={(e) => { const v = Number(String(e.target.value).replace(/\./g, '').replace(',', '.')); if (v > 0 && fmtRate(v) !== fmtRate(x.value)) x.set(v); }} aria-label={`Kurs ${x.left} in ${x.right}`} />
+              <b style={{ width: 40 }}>{x.right}</b>
+            </label>
+          ))}
+          <span className="tiny">„Aktuell holen“ nimmt den offiziellen Kurs{b.ratesAt ? ` (zuletzt ${new Date(b.ratesAt).toLocaleDateString('de-DE')})` : ''}. Für den Blue-Kurs einfach die Peso-Werte selbst eintragen – die anderen passen sich an.</span>
         </section>
 
         <section className="card" style={{ gap: 8 }}>
@@ -122,20 +142,6 @@ export default function Finanzen() {
           </div>
         </section>
 
-        <section className="card" style={{ gap: 8 }}>
-          <div className="sec-h" style={{ padding: 0 }}>
-            <span className="label" style={{ padding: 0 }}>Wechselkurse (pro 1 US$)</span>
-            <button type="button" className="link-btn" onClick={loadRates} disabled={busy}>{busy ? '…' : 'Aktuell holen'}</button>
-          </div>
-          {['EUR', 'ARS'].map((c) => (
-            <label key={c} className="row" style={{ minHeight: 48 }}>
-              <span className="row-main"><span className="row-title plain">1 US$ =</span></span>
-              <input className="input" style={{ width: 120, textAlign: 'right' }} inputMode="decimal" defaultValue={b.rates[c]} key={b.rates[c]} onBlur={(e) => setRate(c, String(e.target.value).replace(',', '.'))} aria-label={`Kurs ${c}`} />
-              <b style={{ width: 40 }}>{c}</b>
-            </label>
-          ))}
-          <span className="tiny">„Aktuell holen“ nimmt den offiziellen Kurs{b.ratesAt ? ` (zuletzt ${new Date(b.ratesAt).toLocaleDateString('de-DE')})` : ''}. Wenn du mit dem Blue-Kurs rechnest, trag ihn bei ARS einfach selbst ein.</span>
-        </section>
       </main>
       <TabBar active="bereiche" />
     </>

@@ -3,7 +3,7 @@ import { useStore } from '../lib/store';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addProject, addTask } from '../lib/actions';
 import {
-  addSession, addSport, addSportEvent, deleteSession, removeSportEvent, searchSportEvents, sportCoach, SPORT_EVENT_STATUS, updateSportEvent, fmtDuration, fmtPace, guessSportName, hasDistance, lastAnalysis, parseDuration, parseGarminCsv,
+  addSession, addSport, addSportEvent, deleteSession, removeSportEvent, searchSportEvents, sportRegions, setSportRegions, sportCoach, SPORT_EVENT_STATUS, updateSportEvent, fmtDuration, fmtPace, guessSportName, hasDistance, lastAnalysis, parseDuration, parseGarminCsv,
   removeSport, SPORT_PRESETS, updateSport, weekStats,
 } from '../lib/health';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -120,6 +120,10 @@ const when = (d, t) => (d ? `${fmtShort(d)}${d >= t ? ` · in ${diffDays(t, d)} 
 function SportsPage({ s }) {
   const t = today();
   const [pick, setPick] = useState([]); // leer = alle
+  const regions = sportRegions(s);
+  const [regPick, setRegPick] = useState(() => [sportRegions(s)[0]].filter(Boolean));
+  const [editReg, setEditReg] = useState(false);
+  const [newReg, setNewReg] = useState('');
   const [editSports, setEditSports] = useState(false);
   const [newSport, setNewSport] = useState('');
   const [q, setQ] = useState('');
@@ -141,7 +145,7 @@ function SportsPage({ s }) {
     setBusy(web ? 'web' : 'ki');
     setErr(null);
     try {
-      setRes(await searchSportEvents(s, pick, q.trim(), { web }));
+      setRes(await searchSportEvents(s, pick, q.trim(), { web, regions: regPick.filter((r) => regions.includes(r)) }));
     } catch (e) {
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
     } finally {
@@ -211,12 +215,27 @@ function SportsPage({ s }) {
             </>
           )}
           {s.sports.length === 0 && !editSports && <span className="sub">Tippe auf den Stift und füg deine Sportarten hinzu.</span>}
-          <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „10K oder Halbmarathon bis März“ (optional)" aria-label="Wonach suchen" />
+          <span className="tiny" style={{ marginBottom: -4 }}>Wo?</span>
+          <div className="chips">
+            {regions.map((r) => (
+              <button key={r} type="button" className={editReg ? 'chip editing' : regPick.includes(r) ? 'chip on' : 'chip'} onClick={() => (editReg ? (setSportRegions(regions.filter((x) => x !== r)), setRegPick(regPick.filter((x) => x !== r))) : setRegPick(regPick.includes(r) ? regPick.filter((x) => x !== r) : [...regPick, r]))}>
+                📍 {r}{editReg && <Icon name="x" size={11} />}
+              </button>
+            ))}
+            <button type="button" className="chip" onClick={() => setEditReg(!editReg)} aria-label="Regionen bearbeiten">{editReg ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+          </div>
+          {editReg && (
+            <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); const r = newReg.trim(); if (r && !regions.includes(r)) { setSportRegions([...regions, r]); setRegPick([...regPick, r]); } setNewReg(''); }}>
+              <input className="input" value={newReg} onChange={(ev) => setNewReg(ev.target.value)} placeholder="z.B. Córdoba, Mendoza, Uruguay" aria-label="Neue Region" />
+              <button type="submit" className="btn small" disabled={!newReg.trim()}>+</button>
+            </form>
+          )}
+          <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" />
           <div className="search-row">
             <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
             <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
           </div>
-          <span className="tiny">Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link (ca. 2–3 Cent).</span>
+          <span className="tiny">Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link – ein Renn-Name wird gezielt gesucht (ca. 3–5 Cent).</span>
           {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Termine …' : 'Ich überlege …'}</span></div>}
           {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
           {!busy && res?.hint && <span className="sub">{res.hint}</span>}
