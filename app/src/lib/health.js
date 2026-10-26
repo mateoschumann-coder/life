@@ -395,15 +395,30 @@ const SPORT_EVENT_TOOL = {
     required: ['events'],
   },
 };
-export async function searchSportEvents(s, sportId, query, { web = false } = {}) {
-  const sport = s.sports.find((x) => x.id === sportId);
+// sportIds: eine oder mehrere Sportarten (leer = alle); jedes Event bekommt seine Sportart
+export async function searchSportEvents(s, sportIds, query, { web = false } = {}) {
+  const ids = (Array.isArray(sportIds) ? sportIds : [sportIds]).filter(Boolean);
+  const sports = ids.length ? s.sports.filter((x) => ids.includes(x.id)) : s.sports;
+  if (!sports.length) throw new Error('Füg zuerst eine Sportart hinzu.');
   const t = today();
-  const system = `Du findest für Mateo (lebt in Buenos Aires) Events zur Sportart „${sport.name}“: Wettkämpfe, Rennen, Turniere, offene Trainings, Lauftreffs, Clubs. Heute ist ${fmtLong(t)} (${t}).
-Sein Ziel: ${sport.goal || '(keins angegeben)'}. Schon notiert: ${JSON.stringify((s.sportEvents || []).filter((e) => e.sportId === sportId).map((e) => e.name))}
+  const names = sports.map((x) => x.name);
+  const goals = sports.filter((x) => x.goal).map((x) => `${x.name}: ${x.goal}`);
+  const system = `Du findest für Mateo (lebt in Buenos Aires) Sport-Events: Wettkämpfe, Rennen, Turniere, offene Trainings, Lauftreffs, Clubs. Heute ist ${fmtLong(t)} (${t}).
+Sportarten: ${JSON.stringify(names)}${goals.length ? `. Ziele: ${JSON.stringify(goals)}` : ''}. Schon notiert: ${JSON.stringify((s.sportEvents || []).map((e) => e.name))}
 ${web ? 'Suche höchstens 2-mal gezielt (gern auf Spanisch, z.B. Kalender-Seiten mit vielen Terminen) und gib nur echte Events aus den Suchergebnissen mit Link zurück.' : 'Ohne Internet: nenne bekannte, regelmäßig stattfindende Events und Angebote aus deinem Wissen (z.B. jährliche Rennen mit ungefährem Monat), ohne erfundene Daten oder Links; sag im hinweis, dass Mateo für aktuelle Termine „Mit Internet“ wählen kann.'}
-Gib 4–8 Events mit "events_zeigen" zurück, sortiert nach Datum. Deutsch, kurz.`;
-  const r = await searchWithTool({ system, user: query || `Welche ${sport.name}-Events gibt es in den nächsten Monaten?`, tool: SPORT_EVENT_TOOL, maxUses: web ? 2 : 0, label: 'Sport-Events suchen' });
-  return { hint: r.hinweis || '', events: (r.events || []).filter((e) => e && e.name).map((e, i) => ({ id: 'se' + i + Date.now().toString(36), name: e.name, date: /^\d{4}-\d{2}-\d{2}$/.test(e.datum || '') ? e.datum : '', place: e.ort || '', note: [e.details, e.warum].filter(Boolean).join(' · '), url: /^https?:\/\//.test(e.url || '') ? e.url : '' })) };
+Gib 4–8 Events (bei mehreren Sportarten gemischt) mit "events_zeigen" zurück, sortiert nach Datum; "sportart" genau wie in der Liste. Deutsch, kurz.`;
+  const tool = JSON.parse(JSON.stringify(SPORT_EVENT_TOOL));
+  tool.input_schema.properties.events.items.properties.sportart = { type: 'string', enum: names };
+  const r = await searchWithTool({ system, user: query || `Welche Events gibt es in den nächsten Monaten (${names.join(', ')})?`, tool, maxUses: web ? 2 : 0, label: 'Sport-Events suchen' });
+  return {
+    hint: r.hinweis || '',
+    events: (r.events || []).filter((e) => e && e.name).map((e, i) => ({
+      id: 'se' + i + Date.now().toString(36),
+      sportId: (sports.find((x) => norm(x.name) === norm(e.sportart)) || sports[0]).id,
+      name: e.name, date: /^\d{4}-\d{2}-\d{2}$/.test(e.datum || '') ? e.datum : '', place: e.ort || '',
+      note: [e.details, e.warum].filter(Boolean).join(' · '), url: /^https?:\/\//.test(e.url || '') ? e.url : '',
+    })),
+  };
 }
 
 const SPORT_COACH_TOOL = {

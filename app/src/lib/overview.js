@@ -49,7 +49,7 @@ export function collectItems(s) {
   }
   // Vorgemerkte Events (Ausgehen) und Sport-Events
   for (const e of s.events.filter((e) => e.date && e.date >= t && e.date <= soon && e.stage !== 'besucht' && e.stage !== 'entdeckt')) add({ ref: `event:${e.id}`, kind: 'event', text: e.name, area: 'Ausgehen', date: e.date, info: `${when(e.date, t)} · ${e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'}`, link: '#/ausgehen' });
-  for (const e of (s.sportEvents || []).filter((e) => e.date && e.date >= t && e.date <= addDays(t, 60) && e.status !== 'dabei')) add({ ref: `sport:${e.id}`, kind: 'sport', text: e.name, area: 'Sport-Event', date: e.date, info: `${when(e.date, t)} · ${e.status === 'angemeldet' ? 'angemeldet' : 'interessiert – anmelden?'}`, link: `#/sport/${e.sportId}` });
+  for (const e of (s.sportEvents || []).filter((e) => e.date && e.date >= t && e.date <= addDays(t, 60) && e.status !== 'dabei')) add({ ref: `sport:${e.id}`, kind: 'sport', text: e.name, area: 'Sport-Event', date: e.date, info: `${when(e.date, t)} · ${e.status === 'angemeldet' ? 'angemeldet' : 'interessiert – anmelden?'}`, link: '#/sport' });
   // Reisen in den nächsten 45 Tagen
   for (const tr of (s.trips || []).filter((tr) => tr.status !== 'idee' && tr.from && tr.from >= t && tr.from <= addDays(t, 45))) {
     const open = tr.todo.filter((x) => !x.done).length;

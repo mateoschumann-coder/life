@@ -1,7 +1,7 @@
 // Eigene Werkzeuge (zugeschnittene Seiten) pro Lebensbereich und Unterbereich
 export const AREA_TOOLS = {
   koerper: [
-    { sub: 'Sport', href: '#/sport', icon: 'run', title: 'Sport', text: 'Sportarten mit Coach-Chat, Events, Einheiten und Zeitrechner' },
+    { sub: 'Sport', href: '#/sport', icon: 'run', title: 'Sport-Events', text: 'Events für alle Sportarten finden, merken und teilnehmen' },
     { sub: 'Ernährung', href: '#/kueche', icon: 'pot', title: 'Küche', text: 'Rezepte (z.B. Airfryer), Einkaufsliste und Küchen-Chat' },
     { sub: 'Vorsorge', href: '#/vorsorge', icon: 'medical', title: 'Vorsorge', text: 'Arzttermine, Routinen und Verletzungen mit Erinnerung' },
     { sub: 'Schlaf', icon: 'moon', title: 'Schlaf', text: 'Kommt, sobald Schlafdaten von der Uhr verfügbar sind (iPhone-App)', soon: true },
@@ -14,7 +14,7 @@ export const AREA_TOOLS = {
     { sub: 'Kleidung', href: '#/zuhause/kleidung', icon: 'shirt', title: 'Kleidung', text: 'Was du brauchst und was weg kann – mit KI-Ideen' },
   ],
   freizeit: [
-    { sub: 'Hobbys', href: '#/hobbys', icon: 'sparkle', title: 'Hobbys', text: 'Deine Hobbys mit Ideen: Songs, Videos, Bücher, Übungen' },
+    { sub: 'Hobbys', href: '#/hobbys', icon: 'sparkle', title: 'Hobbys', text: 'Pro Hobby eine Liste: noch offen und geschafft (z.B. Songs), plus Ideen-Chat' },
     { sub: 'Reisen', href: '#/reisen', icon: 'plane', title: 'Reisen', text: 'Jede Reise mit eigenem Dashboard: To-dos, Packliste, Ideen, Budget' },
   ],
   erlebnisse: [

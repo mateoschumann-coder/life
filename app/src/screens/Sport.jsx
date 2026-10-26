@@ -24,54 +24,6 @@ function weekSummary(s, sport) {
   return [hasDistance(sport) && w.value ? `${String(w.value).replace('.', ',')} km` : null, `${w.count} ${w.count === 1 ? 'Einheit' : 'Einheiten'}`, w.minutes ? fmtDuration(w.minutes) + ' h' : null].filter(Boolean).join(' · ');
 }
 
-// ---------- Übersicht: Sportarten ----------
-function SportList({ s }) {
-  const [edit, setEdit] = useState(false);
-  const [text, setText] = useState('');
-  const missing = SPORT_PRESETS.filter((p) => !s.sports.some((x) => x.name === p.name));
-  return (
-    <>
-      <main className="screen">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
-          <div className="sec-h" style={{ padding: 0 }}>
-            <h1 className="h1">Sport</h1>
-            {s.sports.length > 0 && <button type="button" className="link-btn" onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
-          </div>
-        </div>
-        {s.sports.length === 0 && <div className="notice">Füg deine Sportarten hinzu. Pro Sportart findest du passende Events (Rennen, Turniere, Lauftreffs) und merkst dir, wo du mitmachst.</div>}
-        <div className="list">
-          {s.sports.map((sp) => (
-            <div key={sp.id} className="row" style={{ minHeight: 64 }}>
-              <span className="block-icon" style={{ background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: GREEN }}><Icon name={sp.icon || 'heart'} size={17} /></span>
-              <a href={`#/sport/${sp.id}`} className="row-main">
-                <span className="row-title strong">{sp.name}</span>
-                <span className="row-meta">{(() => { const ev = (s.sportEvents || []).filter((e) => e.sportId === sp.id && e.status !== 'dabei'); const next = ev.filter((e) => e.date).sort((a, b) => (a.date < b.date ? -1 : 1))[0]; return ev.length ? `${ev.length} Events${next ? ` · nächstes ${fmtShort(next.date)}` : ''}` : 'Noch keine Events'; })()}</span>
-              </a>
-              {edit ? (
-                <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`„${sp.name}“ entfernen? Die Einheiten bleiben gespeichert.`) && removeSport(sp.id)}>Entfernen</button>
-              ) : <Chevron />}
-            </div>
-          ))}
-        </div>
-        <section className="card" style={{ gap: 10 }}>
-          <span className="label" style={{ padding: 0 }}>Sportart hinzufügen</span>
-          {missing.length > 0 && (
-            <div className="chips">
-              {missing.map((p) => <button key={p.name} type="button" className="chip soft" onClick={() => { addSport(p.name); toast(`${p.name} hinzugefügt`); }}>+ {p.name}</button>)}
-            </div>
-          )}
-          <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (addSport(text)) toast('Hinzugefügt'); setText(''); }}>
-            <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Eigene, z.B. Klettern" aria-label="Eigene Sportart" />
-            <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
-          </form>
-        </section>
-      </main>
-      <TabBar active="bereiche" />
-    </>
-  );
-}
-
 // ---------- Eine Sportart ----------
 function SessionForm({ sport }) {
   const [f, setF] = useState({ date: today(), distance: '', time: '', hr: '', notes: '' });
@@ -157,126 +109,171 @@ function applyCoach(sport, sel) {
   for (const x of sel.events || []) addSportEvent({ sportId: sport.id, name: x.name, date: x.datum, place: x.ort, url: x.url });
 }
 
-// ---------- Events dieser Sportart: notieren und suchen ----------
-const NEXT_STATUS = { interessiert: 'angemeldet', angemeldet: 'dabei', dabei: 'interessiert' };
-function SportEvents({ s, sport }) {
+// ---------- Sport = eine Event-Seite für alle Sportarten (Mateo, v0.30) ----------
+// Oben suchen (eine, mehrere oder alle Sportarten), darunter: Gemerkt (nach Sportart), Ich nehme teil, Vorbei
+function SportTag({ s, id }) {
+  const sp = s.sports.find((x) => x.id === id);
+  return sp ? <span className="link-tag" style={{ background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: GREEN }}>{sp.name}</span> : null;
+}
+const when = (d, t) => (d ? `${fmtShort(d)}${d >= t ? ` · in ${diffDays(t, d)} Tagen` : ''}` : 'Datum offen');
+
+function SportsPage({ s }) {
   const t = today();
-  const [adding, setAdding] = useState(false);
-  const [f, setF] = useState({ name: '', date: '', place: '', url: '' });
+  const [pick, setPick] = useState([]); // leer = alle
+  const [editSports, setEditSports] = useState(false);
+  const [newSport, setNewSport] = useState('');
   const [q, setQ] = useState('');
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
-  const list = (s.sportEvents || []).filter((e) => e.sportId === sport.id).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
-  const upcoming = list.filter((e) => e.status !== 'dabei' && (!e.date || e.date >= t));
-  const past = list.filter((e) => e.status === 'dabei' || (e.date && e.date < t));
+  const [adding, setAdding] = useState(false);
+  const [f, setF] = useState({ name: '', date: '', place: '', url: '', sportId: '' });
+  const [showPast, setShowPast] = useState(false);
+  const all = (s.sportEvents || []).filter((e) => s.sports.some((x) => x.id === e.sportId)).sort((a, b) => ((a.date || '9') < (b.date || '9') ? -1 : 1));
+  const isPast = (e) => e.status === 'dabei' || (e.date && e.date < t);
+  const liked = all.filter((e) => e.status === 'interessiert' && !isPast(e));
+  const going = all.filter((e) => e.status === 'angemeldet' && !isPast(e));
+  const past = all.filter(isPast).reverse();
+  const missing = SPORT_PRESETS.filter((p) => !s.sports.some((x) => x.name === p.name));
+  const toggle = (id) => setPick(pick.includes(id) ? pick.filter((x) => x !== id) : [...pick, id]);
+
   const search = async (web) => {
     setBusy(web ? 'web' : 'ki');
     setErr(null);
     try {
-      setRes(await searchSportEvents(s, sport.id, q.trim(), { web }));
+      setRes(await searchSportEvents(s, pick, q.trim(), { web }));
     } catch (e) {
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
     } finally {
       setBusy(false);
     }
   };
-  const save = () => {
-    if (addSportEvent({ sportId: sport.id, ...f })) toast('Event notiert');
-    setF({ name: '', date: '', place: '', url: '' });
-    setAdding(false);
+  const done = (e) => {
+    const r = prompt('Wie lief es? (z.B. Zeit oder Platz – optional)', e.result || '');
+    updateSportEvent(e.id, { status: 'dabei', ...(r !== null ? { result: r } : {}) });
+    toast('Stark!');
   };
-  const Row = ({ e }) => (
+  const Row = ({ e, children }) => (
     <div className="row" style={{ minHeight: 60 }}>
       <span className="row-main">
         <span className="row-title strong">{e.name}</span>
-        <span className="row-meta">{[e.date ? `${fmtShort(e.date)}${e.date >= t ? ` · in ${diffDays(t, e.date)} Tagen` : ''}` : 'Datum offen', e.place, e.result && `Ergebnis: ${e.result}`, e.note].filter(Boolean).join(' · ')}</span>
+        <span className="row-meta">{[when(e.date, t), e.place, e.result && `Ergebnis: ${e.result}`, e.note].filter(Boolean).join(' · ')}</span>
       </span>
       {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-      <button type="button" className={e.status === 'interessiert' ? 'pill' : 'pill on'} onClick={() => {
-        const next = NEXT_STATUS[e.status];
-        const patch = { status: next };
-        if (next === 'dabei') { const r = prompt('Wie lief es? (z.B. Zeit oder Platz – optional)', e.result || ''); if (r !== null) patch.result = r; }
-        updateSportEvent(e.id, patch);
-      }}>{SPORT_EVENT_STATUS[e.status]}</button>
-      <button type="button" className="x-btn" aria-label="Löschen" onClick={() => confirm(`„${e.name}“ löschen?`) && removeSportEvent(e.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+      {children}
+      <button type="button" className="x-btn" aria-label={`${e.name} löschen`} onClick={() => confirm(`„${e.name}“ löschen?`) && removeSportEvent(e.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
     </div>
   );
-  return (
-    <section className="group">
-      <section className="card" style={{ gap: 10 }}>
-        <span className="label" style={{ padding: 0 }}>Events finden</span>
-        <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder={sport.kind === 'laufen' ? 'z.B. „10K oder Halbmarathon bis März“' : `z.B. „${sport.name} Turniere für Anfänger“`} aria-label="Wonach suchen" />
-        <div className="search-row">
-          <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
-          <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => search(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
-        </div>
-        <span className="tiny">Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link (ca. 2–3 Cent).</span>
-        {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Termine …' : 'Ich überlege …'}</span></div>}
-        {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-        {!busy && res?.hint && <span className="sub">{res.hint}</span>}
-        {!busy && res?.events.map((e) => (
-          <div key={e.id} className="option" style={{ alignItems: 'center' }}>
-            <span className="row-main">
-              <span style={{ fontSize: 15, fontWeight: 600 }}>{e.name}</span>
-              <span className="tiny">{[e.date && fmtShort(e.date), e.place, e.note].filter(Boolean).join(' · ')}</span>
-            </span>
-            {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-            <button type="button" className="pill on" onClick={() => { addSportEvent({ sportId: sport.id, ...e }); setRes({ ...res, events: res.events.filter((x) => x.id !== e.id) }); toast('Notiert'); }}>Merken</button>
-          </div>
-        ))}
-      </section>
-      <div className="sec-h">
-        <h2 className="h2" style={{ fontSize: 19 }}>Meine Events</h2>
-        <button type="button" className="link-btn" onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Notieren'}</button>
-      </div>
-      {adding && (
-        <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); save(); }}>
-          <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder={sport.kind === 'laufen' ? 'z.B. 21K de Buenos Aires' : 'z.B. Turnier im Club'} aria-label="Name" autoFocus />
-          <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
-          <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
-          <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
-          <button type="submit" className="btn small" disabled={!f.name.trim()}>Notieren</button>
-        </form>
-      )}
-      <div className="list">
-        {upcoming.length === 0 && <div className="empty">Noch keine Events. Notier dir Rennen, Turniere oder Lauftreffs – oder such unten nach neuen.</div>}
-        {upcoming.map((e) => <Row key={e.id} e={e} />)}
-      </div>
-      {past.length > 0 && (
-        <>
-          <span className="label" style={{ padding: '4px 4px 0' }}>Vorbei</span>
-          <div className="list">{[...past].reverse().map((e) => <Row key={e.id} e={e} />)}</div>
-        </>
-      )}
-    </section>
-  );
-}
+  const likedBySport = s.sports.map((sp) => ({ sp, list: liked.filter((e) => e.sportId === sp.id) })).filter((g) => g.list.length);
 
-// Eine Sportart: nur noch Events (Mateo, v0.29) – Einheiten, Coach und Zeitrechner sind ausgeblendet
-function SportDetail({ s, sport }) {
   return (
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/sport" label="Sport" />
-          <div className="title-row">
-            <span className="block-icon" style={{ width: 40, height: 40, borderRadius: 12, background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: GREEN }}><Icon name={sport.icon || 'heart'} size={22} /></span>
-            <h1 className="h1 sm">{sport.name}</h1>
+          <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
+          <div className="sec-h" style={{ padding: 0 }}>
+            <h1 className="h1">Sport-Events</h1>
+            <button type="button" className="link-btn" onClick={() => { setAdding(!adding); setF({ ...f, sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>{adding ? 'Abbrechen' : '+ Notieren'}</button>
           </div>
-          <input className="input goal-input" defaultValue={sport.goal} key={sport.id} placeholder="Dein Ziel (hilft bei der Event-Suche), z.B. Marathon unter 3:20" onBlur={(e) => e.target.value !== sport.goal && updateSport(sport.id, { goal: e.target.value })} aria-label="Ziel" />
         </div>
-        <SportEvents s={s} sport={sport} />
+
+        {adding && (
+          <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f })) toast('Notiert'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
+            <div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}</div>
+            <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder="z.B. 21K de Buenos Aires" aria-label="Name" autoFocus />
+            <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
+            <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
+            <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
+            <button type="submit" className="btn small" disabled={!f.name.trim() || !f.sportId}>Notieren</button>
+          </form>
+        )}
+
+        <section className="card checkin" style={{ gap: 10 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
+            <span className="spark"><Icon name="search" size={15} color="currentColor" /></span> Events finden
+          </span>
+          <div className="chips">
+            <button type="button" className={!pick.length ? 'chip on' : 'chip'} onClick={() => setPick([])}>Alle</button>
+            {s.sports.map((sp) => (
+              <button key={sp.id} type="button" className={editSports ? 'chip editing' : pick.includes(sp.id) ? 'chip on' : 'chip'} onClick={() => (editSports ? confirm(`„${sp.name}“ entfernen? Die Events dazu bleiben gespeichert, werden aber ausgeblendet.`) && removeSport(sp.id) : toggle(sp.id))}>
+                {sp.name}{editSports && <Icon name="x" size={11} />}
+              </button>
+            ))}
+            <button type="button" className="chip" onClick={() => setEditSports(!editSports)} aria-label="Sportarten bearbeiten">{editSports ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+          </div>
+          {editSports && (
+            <>
+              {missing.length > 0 && <div className="chips">{missing.map((p) => <button key={p.name} type="button" className="chip soft" onClick={() => addSport(p.name)}>+ {p.name}</button>)}</div>}
+              <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); addSport(newSport); setNewSport(''); }}>
+                <input className="input" value={newSport} onChange={(ev) => setNewSport(ev.target.value)} placeholder="Eigene Sportart, z.B. Klettern" aria-label="Eigene Sportart" />
+                <button type="submit" className="btn small" disabled={!newSport.trim()}>+</button>
+              </form>
+            </>
+          )}
+          {s.sports.length === 0 && !editSports && <span className="sub">Tippe auf den Stift und füg deine Sportarten hinzu.</span>}
+          <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „10K oder Halbmarathon bis März“ (optional)" aria-label="Wonach suchen" />
+          <div className="search-row">
+            <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
+            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
+          </div>
+          <span className="tiny">Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link (ca. 2–3 Cent).</span>
+          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Termine …' : 'Ich überlege …'}</span></div>}
+          {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
+          {!busy && res?.hint && <span className="sub">{res.hint}</span>}
+          {!busy && res?.events.map((e) => (
+            <div key={e.id} className="option" style={{ alignItems: 'center' }}>
+              <span className="row-main">
+                <span style={{ fontSize: 15, fontWeight: 600 }}><SportTag s={s} id={e.sportId} />{e.name}</span>
+                <span className="tiny">{[e.date && fmtShort(e.date), e.place, e.note].filter(Boolean).join(' · ')}</span>
+              </span>
+              {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+              <button type="button" className="pill on" onClick={() => { addSportEvent({ ...e }); setRes({ ...res, events: res.events.filter((x) => x.id !== e.id) }); toast('Gemerkt'); }}>Merken</button>
+            </div>
+          ))}
+        </section>
+
+        <section className="group">
+          <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Ich nehme teil</h2><span className="tiny">{going.length}</span></div>
+          <div className="list">
+            {going.length === 0 && <div className="empty">Noch nichts. Bei einem gemerkten Event auf „Anmelden“ tippen, sobald du dabei bist.</div>}
+            {going.map((e) => (
+              <Row key={e.id} e={e}>
+                <span style={{ flexShrink: 0 }}><SportTag s={s} id={e.sportId} /></span>
+                {e.date && e.date <= t ? <button type="button" className="pill on" onClick={() => done(e)}>Dabei ✓</button> : <button type="button" className="pill" onClick={() => updateSportEvent(e.id, { status: 'interessiert' })} aria-label="Doch nicht angemeldet">↩</button>}
+              </Row>
+            ))}
+          </div>
+        </section>
+
+        <section className="group">
+          <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Gemerkt</h2><span className="tiny">{liked.length}</span></div>
+          {likedBySport.length === 0 && <div className="list"><div className="empty">Noch nichts gemerkt. Such oben nach Events und tippe auf „Merken“.</div></div>}
+          {likedBySport.map(({ sp, list }) => (
+            <div key={sp.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span className="label" style={{ padding: '0 4px', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name={sp.icon || 'heart'} size={14} color={GREEN} />{sp.name} ({list.length})</span>
+              <div className="list">{list.map((e) => <Row key={e.id} e={e}><button type="button" className="pill on" onClick={() => { updateSportEvent(e.id, { status: 'angemeldet' }); toast('Unter „Ich nehme teil“'); }}>Anmelden</button></Row>)}</div>
+            </div>
+          ))}
+        </section>
+
+        {past.length > 0 && (
+          <section className="group">
+            <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', padding: 4 }} onClick={() => setShowPast(!showPast)}>{showPast ? 'Vorbei ausblenden' : `Vorbei (${past.length})`}</button>
+            {showPast && <div className="list">{past.map((e) => (
+              <Row key={e.id} e={e}>
+                <span style={{ flexShrink: 0 }}><SportTag s={s} id={e.sportId} /></span>
+                {e.status !== 'dabei' && <button type="button" className="pill" onClick={() => done(e)}>War dabei</button>}
+              </Row>
+            ))}</div>}
+          </section>
+        )}
       </main>
       <TabBar active="bereiche" />
     </>
   );
 }
 
-export default function Sport({ id }) {
+export default function Sport() {
   const s = useStore();
-  if (!id) return <SportList s={s} />;
-  const sport = s.sports.find((x) => x.id === id);
-  if (!sport) return <Missing />;
-  return <SportDetail s={s} sport={sport} />;
+  return <SportsPage s={s} />;
 }

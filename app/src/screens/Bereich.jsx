@@ -52,7 +52,7 @@ export default function Bereich({ id }) {
     return null;
   }
   // Körperliche Gesundheit und Lernen & Wissen: nur Kategorien (Werkzeuge), Projekte, Aufgaben und Ideen
-  if (['koerper', 'mental', 'karriere', 'entwicklung'].includes(id)) {
+  if (['koerper', 'mental', 'karriere', 'entwicklung', 'freizeit'].includes(id)) {
     return (
       <>
         <main className="screen">
