@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LEVEL_COLOR } from '../lib/logic';
 
 const PATHS = {
@@ -153,8 +154,10 @@ export function Sheet({ open, title, onClose, children }) {
     };
   }, [open]);
   if (!open) return null;
-  return (
-    <div className="sheet-bg" onClick={onClose}>
+  // Als Portal direkt in <body>: so stören umgebende Felder (z.B. ein <label>) nicht, und ein Kalender-Fenster
+  // innerhalb eines anderen Fensters lässt sich normal schließen
+  return createPortal(
+    <div className="sheet-bg" onClick={(e) => { e.stopPropagation(); onClose(); }}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-h">
           <h2 className="h2">{title}</h2>
@@ -164,7 +167,8 @@ export function Sheet({ open, title, onClose, children }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

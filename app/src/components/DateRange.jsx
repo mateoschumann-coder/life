@@ -56,14 +56,14 @@ export function DateRangeField({ from, to, onChange, placeholder = 'Zeitraum wä
   const show = () => { setV({ from, to }); setOpen(true); };
   return (
     <>
-      <button type="button" className="input date-field" onClick={show}>
+      <button type="button" className="input date-field" onClick={(e) => { e.preventDefault(); show(); }}>
         <Icon name="calendar" size={17} color="var(--muted)" />
         <span style={{ flex: 1, textAlign: 'left', color: from ? 'var(--text)' : 'var(--muted)' }}>{from ? (single ? fmtShort(from) : rangeText(from, to)) : placeholder}</span>
       </button>
       <Sheet open={open} title={title} onClose={() => setOpen(false)}>
         <RangeCalendar from={v.from} to={v.to} single={single} onChange={setV} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <button type="button" className="btn tint" style={{ flex: 1 }} onClick={() => { onChange({ from: '', to: '' }); setOpen(false); }}>Löschen</button>
+          <button type="button" className="btn tint" style={{ flex: 1 }} onClick={() => { onChange({ from: '', to: '' }); setOpen(false); }}>{single ? 'Kein Datum' : 'Kein Zeitraum'}</button>
           <button type="button" className="btn" style={{ flex: 2 }} disabled={!v.from} onClick={() => { onChange(v); setOpen(false); }}>Übernehmen</button>
         </div>
       </Sheet>
