@@ -27,4 +27,4 @@ export const AREA_TOOLS = {
 export const toolsFor = (areaId, subName) => (AREA_TOOLS[areaId] || []).filter((t) => !subName || t.sub === subName);
 
 // In diesen Bereichen ersetzen die Werkzeuge die allgemeine Unterbereichs-Liste
-export const TOOL_AREAS = new Set(['koerper', 'mental', 'zuhause', 'freizeit', 'erlebnisse']);
+export const TOOL_AREAS = new Set(['koerper', 'mental', 'zuhause', 'freizeit', 'erlebnisse', 'familie', 'freunde', 'neue']);

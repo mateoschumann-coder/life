@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { today } from '../lib/dates';
-import { areaStatus, pillarOf, projectProgress } from '../lib/logic';
+import { areaStatus, pillarOf, projectProgress, upcomingBirthdays } from '../lib/logic';
 import { AreaIcon, Back, Chevron, Dot, TabBar } from '../components/ui';
 import { NewProjectSheet } from '../components/sheets';
 import { TOOL_AREAS, toolsFor } from '../lib/tools';
@@ -38,7 +38,13 @@ export default function Saeule({ id }) {
               </a>
               <div style={{ padding: '0 16px 14px 0' }}>
                 <span className="chips" style={{ paddingLeft: 44 }}>
-                  {TOOL_AREAS.has(a.id)
+                  {a.peopleCategory
+                    ? (() => {
+                      const n = s.people.filter((p) => p.category === a.peopleCategory).length;
+                      const b = upcomingBirthdays(s, t, 30).filter((x) => x.person.category === a.peopleCategory).length;
+                      return [<span key="n" className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{n} {n === 1 ? 'Person' : 'Personen'}</span>, b > 0 && <span key="b" className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>🎂 {b} bald</span>];
+                    })()
+                    : TOOL_AREAS.has(a.id)
                     ? toolsFor(a.id).filter((x) => x.href).map((x) => <a key={x.title} href={x.href} className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{x.title}</a>)
                     : a.subs.map((sub) => (
                       <a key={sub.id} href={`#/unterbereich/${a.id}/${sub.id}`} className="tag" style={{ fontSize: 13, padding: '6px 10px' }}>{sub.name}</a>
@@ -49,6 +55,7 @@ export default function Saeule({ id }) {
           );
         })}
 
+        {id !== 'sozial' && (
         <section className="group">
           <div className="sec-h">
             <h2 className="h2">Aktive Projekte</h2>
@@ -69,6 +76,7 @@ export default function Saeule({ id }) {
             })}
           </div>
         </section>
+        )}
       </main>
       <NewProjectSheet s={s} open={newOpen} onClose={() => setNewOpen(false)} pillarId={id} />
       <TabBar active="bereiche" />

@@ -9,6 +9,7 @@ import { Heatmap, HeatLegend } from '../components/Heatmap';
 import AreaContent from '../components/AreaContent';
 import { CoachBox } from '../components/Coach';
 import ToolCards from '../components/ToolCards';
+import PeopleArea from '../components/PeopleArea';
 import { TOOL_AREAS } from '../lib/tools';
 import { Missing } from './Saeule';
 
@@ -41,6 +42,50 @@ export default function Bereich({ id }) {
       0
     );
   const close = () => setSheet(null);
+
+  // Sozial: Familie/Freunde/Neue Kontakte zeigen nur die Menschen; Gemeinsame Erlebnisse nur Treffen & Ausgehen
+  if (area.peopleCategory || id === 'erlebnisse') {
+    const upcoming = s.gatherings.filter((g) => !g.date || g.date >= t).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+    const events = s.events.filter((e) => e.stage !== 'besucht' && e.stage !== 'entdeckt' && e.date && e.date >= t).sort((a, b) => (a.date < b.date ? -1 : 1));
+    return (
+      <>
+        <main className="screen">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Back href={`#/saeule/${pillar.id}`} label={pillar.name} />
+            <div className="title-row">
+              <AreaIcon icon={area.icon} color={pillar.color} size={40} />
+              <h1 className="h1 sm">{area.name}</h1>
+            </div>
+          </div>
+          <CoachBox s={s} areaId={id} />
+          {area.peopleCategory ? <PeopleArea s={s} area={area} /> : (
+            <>
+              <ToolCards areaId={id} />
+              <section className="group">
+                <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Als Nächstes</h2></div>
+                <div className="list">
+                  {upcoming.length + events.length === 0 && <div className="empty">Nichts geplant. Organisier ein eigenes Treffen oder such dir ein Event unter „Ausgehen“.</div>}
+                  {upcoming.map((g) => (
+                    <a key={g.id} href={`#/treffen/${g.id}`} className="row">
+                      <span className="row-main"><span className="row-title plain">{g.name}</span><span className="row-meta">Dein Treffen · {g.date ? fmtShort(g.date) : 'Datum offen'} · {g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen</span></span>
+                      <Chevron />
+                    </a>
+                  ))}
+                  {events.slice(0, 5).map((e) => (
+                    <a key={e.id} href="#/ausgehen" className="row">
+                      <span className="row-main"><span className="row-title plain">{e.name}</span><span className="row-meta">Event · {fmtShort(e.date)} · {e.stage === 'zugesagt' ? 'dabei' : 'interessiert'}</span></span>
+                      <Chevron />
+                    </a>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+        </main>
+        <TabBar active="bereiche" />
+      </>
+    );
+  }
 
   return (
     <>

@@ -22,7 +22,14 @@ export default function Person({ id, metAt }) {
   const [form, setForm] = useState(() =>
     existing
       ? { ...existing }
-      : { name: '', category: metAt ? 'neu' : 'freunde', phone: '', birthday: '', contactEvery: metAt ? null : 30, metAt: metAt || '', followUp: '', notes: '' }
+      : (() => {
+        let cat = metAt ? 'neu' : 'freunde';
+        try {
+          cat = sessionStorage.getItem('life-new-person-cat') || cat;
+          sessionStorage.removeItem('life-new-person-cat');
+        } catch {}
+        return { name: '', category: cat, phone: '', birthday: '', contactEvery: cat === 'neu' ? null : cat === 'familie' ? 14 : 30, metAt: metAt || '', followUp: '', notes: '' };
+      })()
   );
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? e.target.value : e }));
 
@@ -30,7 +37,8 @@ export default function Person({ id, metAt }) {
     const data = { ...form, contactEvery: form.contactEvery ? Number(form.contactEvery) : null, followUp: form.followUp || null };
     savePerson(existing ? { ...data, id } : data);
     toast('Gespeichert');
-    go('/menschen');
+    const area = s.areas.find((a) => a.peopleCategory === data.category);
+    go(area && !existing ? `/bereich/${area.id}` : '/menschen');
   };
   const current = existing || form;
   const wa = waLink(form);
@@ -70,12 +78,11 @@ export default function Person({ id, metAt }) {
               {RHYTHMS.map((r) => <option key={r.label} value={r.v}>{r.label}</option>)}
             </select>
           </Field>
-          <Field label="Kennengelernt bei (optional)">
-            <input className="input" value={form.metAt || ''} onChange={set('metAt')} placeholder="z.B. Startup-Meetup Palermo" />
-          </Field>
-          <Field label="Nachfassen am (optional)">
-            <input className="input" type="date" value={form.followUp || ''} onChange={set('followUp')} />
-          </Field>
+          {form.category === 'neu' && (
+            <Field label="Kennengelernt bei (optional)">
+              <input className="input" value={form.metAt || ''} onChange={set('metAt')} placeholder="z.B. Startup-Meetup Palermo" />
+            </Field>
+          )}
           <Field label="Notizen">
             <textarea className="input" value={form.notes || ''} onChange={set('notes')} placeholder="Interessen, Geschenkideen, worüber ihr gesprochen habt …" />
           </Field>
