@@ -20,6 +20,8 @@ export const AREA_TOOLS = {
   erlebnisse: [
     { sub: 'Treffen planen', href: '#/treffen', icon: 'users', title: 'Eigene Events', text: 'Selbst organisieren: Einladung, Gäste, Zu-/Absagen, Einkauf, To-dos – danach abhaken' },
   ],
+  karriere: [{ href: '#/karriere', icon: 'briefcase', title: 'Jobsuche', text: 'Mehrere Suchen, neue Angebote, Bewerbungs-Trichter, Analyse der Anzeige und Unterlagen' }],
+  entwicklung: [{ href: '#/skills', icon: 'bulb', title: 'Täglich dranbleiben', text: 'Sprachen, Python & Co.: kleine Impulse jeden Tag, Sprechen mit der KI' }],
   informiert: [{ href: '#/radar', icon: 'radar', title: 'Radar', text: 'Deine Themen, Leseliste und Fundstücke' }],
 };
 const LIB_TEXT = { bibliothek: 'Bücher, Artikel, Videos und Kurse zu deinen Themen', podcasts: 'Podcasts zu deinen Themen – entdecken, hören, merken' };
@@ -29,4 +31,4 @@ export const toolsFor = (areaId, subName, s) => {
 };
 
 // In diesen Bereichen ersetzen die Werkzeuge die allgemeine Unterbereichs-Liste
-export const TOOL_AREAS = new Set(['koerper', 'mental', 'zuhause', 'freizeit', 'erlebnisse', 'familie', 'freunde', 'neue']);
+export const TOOL_AREAS = new Set(['koerper', 'mental', 'zuhause', 'freizeit', 'erlebnisse', 'familie', 'freunde', 'neue', 'karriere', 'entwicklung']);

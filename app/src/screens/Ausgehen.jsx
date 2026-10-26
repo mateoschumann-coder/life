@@ -3,8 +3,9 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, setEventStage, updatePlace } from '../lib/actions';
 import {
-  discoverPlaces, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, lastEventSearch, lastPlaceSearch, locate, PLACE_CHIPS, saveEventSearch, savePlaceSearch, searchEvents,
+  discoverPlaces, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, lastEventSearch, lastPlaceSearch, locate, PLACE_CHIPS, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
+import LinkList from '../components/LinkList';
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
 import { Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
@@ -89,16 +90,19 @@ function Events({ s }) {
   const t = today();
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(lastEventSearch);
+  const [links, setLinks] = useState(lastEventLinks);
+  const [mode, setMode] = useState(() => (lastEventLinks()?.at || '') > (lastEventSearch()?.at || '') ? 'links' : 'web');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
 
-  const run = async (query) => {
+  // web = konkrete Events per Websuche (ca. 3–5 Cent); sonst Such-Links (unter 0,5 Cent)
+  const run = async (query, web = false) => {
     if (!query.trim() || busy) return;
-    setBusy(true);
+    setBusy(web ? 'web' : 'links');
     setErr(null);
     try {
-      setSearch(await searchEvents(s, query.trim()));
+      if (web) { setSearch(await searchEvents(s, query.trim())); setMode('web'); } else { setLinks(await eventLinks(s, query.trim())); setMode('links'); }
       setQ('');
     } catch (e) {
       setErr(errText(e));
@@ -127,20 +131,31 @@ function Events({ s }) {
     <>
       <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Was ist los in Buenos Aires?</span>
-        <form className="block-add" onSubmit={(e) => { e.preventDefault(); run(q); }}>
+        <form onSubmit={(e) => { e.preventDefault(); run(q); }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Techno am Samstag, Laufevents …" aria-label="Wonach suchen" />
-          <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>
+          <div className="search-row">
+            <button type="submit" className="btn tint small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey}>{busy === 'links' ? '…' : 'Such-Links'}</button>
+            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey} onClick={() => run(q, true)}>{busy === 'web' ? '…' : '🔍 Konkrete Events'}</button>
+          </div>
         </form>
-        <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={busy || !hasKey} onPick={run} />
+        <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={!!busy || !hasKey} onPick={(c) => run(c)} />
+        <span className="tiny">Such-Links: die KI baut gezielte Suchen bei Google Events, Instagram, Eventbrite & Meetup – du tippst und siehst alles Aktuelle (unter 0,5 Cent). Konkrete Events: die KI sucht selbst im Internet (ca. 3–5 Cent). Die Vorschläge laufen als Such-Links.</span>
         <Prefs s={s} />
         {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
         {busy && (
-          <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche auf Passline, Eventbrite, Meetup & Co. … (ca. 20–30 Sek.)</span></div>
+          <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche auf Passline, Eventbrite, Meetup & Co. … (ca. 20–30 Sek.)' : 'Ich überlege gezielte Suchen … (ca. 5 Sek.)'}</span></div>
         )}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       </section>
 
-      {!busy && search && (
+      {!busy && mode === 'links' && links && (
+        <section className="card" style={{ gap: 10 }}>
+          <h2 className="h2" style={{ fontSize: 19 }}>Such-Links: „{links.query}“</h2>
+          <LinkList links={links.links} hint={links.hint} />
+        </section>
+      )}
+
+      {!busy && mode === 'web' && search && (
         <section className="group">
           <div className="sec-h">
             <h2 className="h2" style={{ fontSize: 19 }}>„{search.query}“</h2>

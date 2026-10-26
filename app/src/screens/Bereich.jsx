@@ -45,7 +45,7 @@ export default function Bereich({ id }) {
   const close = () => setSheet(null);
 
   // Körperliche Gesundheit und Lernen & Wissen: nur Kategorien (Werkzeuge), Projekte, Aufgaben und Ideen
-  if (id === 'koerper' || id === 'mental') {
+  if (['koerper', 'mental', 'karriere', 'entwicklung'].includes(id)) {
     return (
       <>
         <main className="screen">

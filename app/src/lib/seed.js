@@ -37,6 +37,8 @@ export const DEFAULT_TEMPLATES = [
   { id: 'reise', name: 'Reise', tasks: ['Ziel und Zeitraum festlegen', 'Budget planen', 'Anreise buchen', 'Unterkunft buchen', 'Packliste'] },
 ];
 
+export const CAREER_DOCS = ['Lebenslauf (Englisch) aktuell', 'Lebenslauf (Spanisch)', 'LinkedIn-Profil aktuell', 'Anschreiben-Vorlage', 'GitHub / Portfolio mit 2–3 Projekten', 'Referenzen (2 Personen gefragt)', 'Zeugnisse als PDF', 'Elevator Pitch (30 Sek.)'];
+
 export function seed() {
   return {
     version: 4,
@@ -78,6 +80,10 @@ export function seed() {
     reminders: [], // Regelmäßige Erinnerungen (Miete, WLAN …)
     hobbies: [], // Hobbys mit Ideen
     trips: [], // Reisen mit eigenem Dashboard
+    jobSearches: [], // Karriere: Jobsuchen (z.B. „VC Analyst“)
+    jobs: [], // Karriere: Bewerbungs-Funnel
+    careerDocs: CAREER_DOCS.map((text, i) => ({ id: 'doc' + i, text, done: false })), // Unterlagen-Checkliste
+    skills: [], // Weiterentwicklung: Skills mit täglichen Impulsen
     sportEvents: [], // Events pro Sportart (Rennen, Turniere, Lauftreffs …)
     libCats: [ // Kategorien in „Lernen & Wissen“ (z.B. Bibliothek, Podcasts) – frei erweiterbar
       { id: 'bibliothek', name: 'Bibliothek', kind: '', icon: 'book' },

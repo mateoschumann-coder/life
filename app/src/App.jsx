@@ -19,6 +19,8 @@ import Ausgehen from './screens/Ausgehen';
 import Sport from './screens/Sport';
 import Kueche from './screens/Kueche';
 import Vorsorge from './screens/Vorsorge';
+import Karriere from './screens/Karriere';
+import Skills from './screens/Skills';
 import Wissen from './screens/Wissen';
 import Zuhause from './screens/Zuhause';
 import Hobbys from './screens/Hobbys';
@@ -44,6 +46,8 @@ export default function App() {
     case 'sport': screen = <Sport key={a || 'liste'} id={a} />; break;
     case 'kueche': screen = <Kueche />; break;
     case 'vorsorge': screen = <Vorsorge />; break;
+    case 'karriere': screen = <Karriere key={(a || '') + (b || '')} view={a} id={b} />; break;
+    case 'skills': screen = <Skills key={a || 'liste'} id={a} />; break;
     case 'wissen': screen = <Wissen key={a || 'bibliothek'} catId={a} />; break;
     case 'zuhause': screen = <Zuhause tab={a} />; break;
     case 'hobbys': screen = <Hobbys key={a || 'liste'} id={a} />; break;

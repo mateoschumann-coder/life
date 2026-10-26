@@ -2,6 +2,7 @@
 import { addDays, fmtLong, today } from './dates';
 import { explainError, getAi, MODELS, setCostLabel, trackUsage } from './ai';
 const SMART_MODEL = 'claude-sonnet-5-5';
+import { aiLinks } from './links';
 
 const SEARCH_KEY = 'life-app-eventsearch';
 const PLACE_KEY = 'life-app-placesearch';
@@ -240,4 +241,21 @@ export async function locate(name, address) {
     } catch {}
   }
   return null;
+}
+
+// Günstige Event-Suche: gezielte Such-Links (Google Events, Instagram, Eventbrite, Meetup) statt Websuche
+const LINKS_KEY = 'life-app-eventlinks';
+export const lastEventLinks = () => load(LINKS_KEY);
+export async function eventLinks(s, query) {
+  const prefs = s.profile?.eventPrefs || [];
+  const r = await aiLinks({
+    system: `Du bist Mateos Event-Scout in Buenos Aires. Heute ist ${fmtLong(today())}. Seine Vorlieben: ${prefs.join(', ') || '(keine angegeben)'}. Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
+Mische: Google Events (Suchbegriff mit Zeitraum, z.B. „recitales rock buenos aires este fin de semana“), Instagram-Hashtags/Konten von Locations, Kollektiven und Kultur-Medien (z.B. Agenda-Accounts), Eventbrite und Meetup für Workshops/Tech/Sport.`,
+    user: `Anfrage: ${query}`,
+    platforms: ['google_events', 'google', 'instagram_tag', 'instagram_konto', 'eventbrite', 'meetup'],
+    label: 'Events: Such-Links',
+  });
+  const v = { query, at: new Date().toISOString(), ...r };
+  save(LINKS_KEY, v);
+  return v;
 }

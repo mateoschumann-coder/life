@@ -1,5 +1,5 @@
 // KI-Planer im Gespräch: sprechen oder tippen → Antwort + Vorschläge zum Abhaken und Übernehmen
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getAi } from '../lib/ai';
 import { useDictation } from '../lib/dictate';
 import { Icon, toast } from './ui';
@@ -22,7 +22,7 @@ const savePrefs = (k, v) => {
 };
 
 // groups: [{ key, label, title: (x) => string, meta?: (x) => string }]
-export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein' }) {
+export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -32,7 +32,22 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
   const { web = false, smart = false } = prefs;
   const setPref = (patch) => { const next = { ...prefs, ...patch }; setPrefs(next); savePrefs(prefKey, next); };
   const [searching, setSearching] = useState(false);
-  const mic = useDictation(text, setText);
+  const mic = useDictation(text, setText, lang);
+  const sentAuto = useRef(false);
+  useEffect(() => {
+    if (autoSend && !sentAuto.current && hasKey) { sentAuto.current = true; send(autoSend); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSend]);
+  const say = (t) => {
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(t.split('💡')[0]);
+      u.lang = lang;
+      const v = speechSynthesis.getVoices().find((x) => x.lang?.replace('_', '-').startsWith(lang.slice(0, 2)));
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch {}
+  };
   const hasKey = !!getAi().apiKey;
 
   const send = async (msg, forceWeb = false) => {
@@ -94,7 +109,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
             <div key={m.id} className="bubble me" style={{ fontSize: 15 }}>{m.text}</div>
           ) : (
             <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div className="bubble ai" style={{ fontSize: 15, maxWidth: '100%' }}>{m.shown || m.text}</div>
+              <div className="bubble ai" style={{ fontSize: 15, maxWidth: '100%' }}>{m.shown || m.text}{lang !== 'de-DE' && <button type="button" className="say-btn" onClick={() => say(m.shown || m.text)} aria-label="Vorlesen"><Icon name="speaker" size={14} /></button>}</div>
               {Object.keys(m.proposal || {}).length > 0 && (
                 <div className="proposal">
                   {groups.filter((g) => m.proposal[g.key]).map((g) => (
@@ -131,11 +146,11 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
           {chips.map((c) => <button key={c} type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
         </div>
       )}
-      <div className="ai-toggles">
+      {!hideToggles && <div className="ai-toggles">
         <button type="button" className={web ? 'chip on' : 'chip soft'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })}>🔍 Internet {web ? 'an' : 'aus'}</button>
         <button type="button" className={smart ? 'chip on' : 'chip soft'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
         <span className="tiny" style={{ flex: 1, minWidth: 140 }}>{[web ? 'Internet: aktuelle Infos & Links, ca. 1–3 Cent mehr' : 'Ohne Internet: aus KI-Wissen, günstig', smart ? 'Gründlich: besseres Modell, ca. 20× teurer' : null].filter(Boolean).join(' · ')}</span>
-      </div>
+      </div>}
       <form className="block-add" style={{ alignItems: 'flex-end' }} onSubmit={(e) => { e.preventDefault(); send(); }}>
         <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören beenden' : 'Sprechen'} disabled={busy}>
           <Icon name={mic.on ? 'stop' : 'mic'} size={18} />

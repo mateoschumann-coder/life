@@ -389,3 +389,11 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .ai-toggles .chip { min-height: 32px; font-size: 14px; padding: 0 12px; }
 .search-row { display: flex; gap: 6px; }
 .search-row .btn.small { white-space: nowrap; padding: 0 12px; }
+.link-tag { display: inline-block; font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-bg); border-radius: 6px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
+.say-btn { border: 0; background: var(--fill); border-radius: 12px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; margin-left: 8px; vertical-align: middle; color: var(--accent); }
+.funnel-row { display: flex; align-items: center; gap: 8px; }
+.funnel-bar { flex: 1; height: 12px; border-radius: 6px; background: var(--fill); overflow: hidden; }
+.funnel-bar span { display: block; height: 100%; border-radius: 6px; }
+.week-dots { display: inline-flex; gap: 4px; }
+.week-dots i { width: 9px; height: 9px; border-radius: 5px; background: var(--fill); display: inline-block; }
+.week-dots i.on { background: #3B6FE0; }

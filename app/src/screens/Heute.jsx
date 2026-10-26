@@ -9,6 +9,7 @@ import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
 import Coach from '../components/Coach';
+import { ImpulseRow, useImpulses } from './Skills';
 import { doneHealthItem } from '../lib/health';
 import { doneReminder, EVERY } from '../lib/home';
 const fmtShortDays = (d, t) => { const n = diffDays(d, t); return `${n} ${n === 1 ? 'Tag' : 'Tagen'}`; };
@@ -235,6 +236,7 @@ export default function Heute() {
         )}
 
         <Coach s={s} />
+        <LearnToday s={s} />
 
         {/* Wochenleiste */}
         <section className="card" style={{ gap: 10, padding: '12px 12px 14px' }}>
@@ -344,5 +346,25 @@ export default function Heute() {
       </main>
       <TabBar active="heute" />
     </>
+  );
+}
+
+// Kleine Lern-Impulse für heute (Weiterentwicklung): einmal am Tag automatisch, ohne Internet
+function LearnToday({ s }) {
+  const imp = useImpulses(s);
+  if (!(s.skills || []).length) return null;
+  const open = imp.items.filter((x) => !x.done);
+  if (!imp.busy && imp.items.length && !open.length) return null;
+  return (
+    <section className="card" style={{ gap: 8 }}>
+      <a href="#/skills" className="sec-h" style={{ padding: 0, color: 'inherit' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}><Icon name="bulb" size={17} color="#3B6FE0" /> Heute dranbleiben</span>
+        <Chevron />
+      </a>
+      {imp.busy && <span className="sub">Ich überlege dir kleine Impulse …</span>}
+      {imp.err && <span className="sub" style={{ color: 'var(--danger)' }}>{imp.err}</span>}
+      {!imp.busy && open.map((x) => <ImpulseRow key={x.id} s={s} x={x} onDone={imp.done} />)}
+      {!imp.busy && !imp.items.length && !imp.err && <button type="button" className="btn tint small" onClick={imp.refresh} disabled={!getAi().apiKey}>Impulse für heute holen</button>}
+    </section>
   );
 }

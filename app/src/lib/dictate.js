@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 const SR = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 export const canDictate = !!SR;
 
-export function useDictation(text, setText) {
+export function useDictation(text, setText, lang = 'de-DE') {
   const [on, setOn] = useState(false);
   const [error, setError] = useState(null);
   const ref = useRef({ rec: null, want: false, until: 0, base: '' });
@@ -18,7 +18,7 @@ export function useDictation(text, setText) {
       st.rec?.abort?.();
     } catch {}
     const rec = new SR();
-    rec.lang = 'de-DE';
+    rec.lang = lang;
     rec.interimResults = true;
     rec.continuous = true;
     st.base = textRef.current.trim() ? textRef.current.trim() + ' ' : '';
