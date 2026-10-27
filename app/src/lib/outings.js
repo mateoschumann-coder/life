@@ -90,7 +90,9 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
   const model = smart ? SMART_MODEL : undefined;
   const messages = history ? [...history] : [{ role: 'user', content: user }];
   if (!maxUses) {
-    const d = await post({ model, max_tokens: maxTokens, system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages });
+    let d = await post({ model, max_tokens: maxTokens, system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages });
+    // Antwort abgeschnitten (v0.59: v.a. beim gründlicheren Modell) → einmal mit mehr Platz wiederholen statt halbe Daten zu nehmen
+    if (d.stop_reason === 'max_tokens') d = await post({ model, max_tokens: Math.min(16000, maxTokens * 3), system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages });
     const f = d.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
     if (!f) throw new Error('Keine Antwort erhalten. Bitte noch einmal versuchen.');
     return f.input || {};

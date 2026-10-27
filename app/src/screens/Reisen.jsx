@@ -260,42 +260,44 @@ function DirectLinks({ s, tr, setup }) {
     </div>
   );
 }
-// In der Idee: dieselben drei Zahlen, antippen zeigt Details + Links
+// Pro Startort eine Zeile (pro Person): Reise | Unterkunft | Gesamt; mit „Details“ steht die Erklärung direkt unter der jeweiligen Zeile
+function OriginGrid({ p, detail }) {
+  const rows = perOrigin(p);
+  if (!rows.length) return null;
+  const one = rows.length === 1;
+  return (
+    <div className="origin-grid">
+      <span className="h">{one ? 'Pro Person' : 'Pro Person ab'}</span><span className="h">Reise</span><span className="h">Unterkunft</span><span className="h">Gesamt</span>
+      {rows.map((x, i) => {
+        const src = (p.anreise || [])[i];
+        return (
+          <Fragment key={i}>
+            <span className="o">{one ? (x.von ? `ab ${x.von}` : '') : x.von || 'alle'}{x.count > 1 ? ` (${x.count})` : ''}</span>
+            <span>{x.travel != null ? fmtN(x.travel) : '–'}</span>
+            <span>{x.stay ? fmtN(x.stay) : '–'}</span>
+            <span className="sum">{p.est ? '≈' : '~'}{fmtN(x.sum)} {curSign0(x.cur)}</span>
+            {detail && (src?.details || src?.preis) && <span className="d">{src.preis ? `Anreise ${src.preis} hin & zurück` : ''}{src.details ? `${src.preis ? ' · ' : ''}${src.details}` : ''}</span>}
+          </Fragment>
+        );
+      })}
+      {detail && p.stayNight && <span className="d">Unterkunft: {p.stayNight}/Nacht × {p.nights} N. ÷ {p.people || 1} {p.people === 1 ? 'Person' : 'Personen'}{rows[0].stay ? ` = ${fmtN(rows[0].stay)} ${curSign0(rows[0].cur)} p. P.` : ''}{p.unterkunft ? ` · ${p.unterkunft}` : ''}</span>}
+    </div>
+  );
+}
+// In der Idee: Preise pro Person je Startort, „Details“ klappt die Erklärung je Zeile auf
 function CostCard({ s, tr, onSearch }) {
   const [open, setOpen] = useState(false);
   const p = tr.prices;
-  const [a, u, g] = three(p);
-  const has = a || u || g;
-  const pp = has ? perOrigin(p) : [];
+  const has = perOrigin(p).length > 0 || !!three(p)[2];
   return (
     <section className="card" style={{ gap: 8, padding: '12px 14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {has ? <span style={{ flex: 1, minWidth: 0 }}><PriceRow p={p} detail /></span> : <span className="tiny" style={{ flex: 1 }}>Preise schätzen oder direkt nachsehen:</span>}
-        <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 10px', whiteSpace: 'nowrap' }} onClick={onSearch}>{has ? '↻' : 'Schätzen'}</button>
+      {has ? (perOrigin(p).length ? <OriginGrid p={p} detail={open} /> : <PriceRow p={p} detail />) : null}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {has ? <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => setOpen(!open)}>Details {open ? '▴' : '▾'}</button> : <span className="tiny" style={{ flex: 1 }}>Preise schätzen oder direkt nachsehen:</span>}
+        {has && p.total && <span className="tiny" style={{ flex: 1, textAlign: 'right' }}>Ganze Reise: {p.est ? '≈' : ''}{three(p)[2].replace(/^~\s*/, p.est ? '' : '~')}</span>}
+        <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 10px', whiteSpace: 'nowrap' }} onClick={onSearch}>{has ? '↻ Neu' : 'Schätzen'}</button>
       </div>
-      {has && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setOpen(!open)}>Details {open ? '▴' : '▾'}</button>}
-      {open && has && (
-        <div className="cost-details">
-          {pp.length > 0 && (
-            <div className="origin-grid">
-              <span className="h">Pro Person ab</span><span className="h">Reise</span><span className="h">Unterkunft</span><span className="h">Gesamt</span>
-              {pp.map((x, i) => (
-                <Fragment key={i}>
-                  <span className="o">{x.von || 'alle'}{x.count > 1 ? ` (${x.count})` : ''}</span>
-                  <span>{x.travel != null ? fmtN(x.travel) : '–'}</span>
-                  <span>{x.stay ? fmtN(x.stay) : '–'}</span>
-                  <span className="sum">{p.est ? '≈' : '~'}{fmtN(x.sum)} {curSign0(x.cur)}</span>
-                </Fragment>
-              ))}
-            </div>
-          )}
-          {(p.anreise || []).filter((x) => x.details).map((x, i) => <span key={i}>{String(x.von || x.person || '').replace(/\s*\(.*?\)/g, '')}: {x.details}</span>)}
-          {!p.anreise && p.flug && <span>Flug: {p.flug}</span>}
-          {p.stayNight && <span>Unterkunft: {p.stayNight}/Nacht für alle{p.unterkunft ? ` · ${p.unterkunft}` : ''}</span>}
-          {p.people > 0 && p.nights && <span>{p.people} {p.people === 1 ? 'Person' : 'Personen'} · {p.nights} Nächte</span>}
-          {p.checked && <span className="tiny">Stand {fmtShort(p.checked)}{p.when ? ` · ${rangeText(...p.when.split('|'))}` : ''}{p.est ? ' · geschätzt' : ''}</span>}
-        </div>
-      )}
+      {open && has && p.checked && <span className="tiny">Stand {fmtShort(p.checked)}{p.when ? ` · ${rangeText(...p.when.split('|'))}` : ''}{p.est ? ' · geschätzt' : ''}</span>}
       <span className="tiny" style={{ marginTop: 2 }}>Direkt nachsehen (kostenlos):</span>
       <DirectLinks s={s} tr={tr} />
     </section>

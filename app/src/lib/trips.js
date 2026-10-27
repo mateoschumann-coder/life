@@ -461,11 +461,11 @@ Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: 
   const sys = web
     ? `Du recherchierst aktuelle Reisepreise. ${base}\nSuche höchstens 3-mal im Internet und bündle alles in wenige Suchen (z.B. eine Suche für alle Flüge eines Startorts, eine für Unterkünfte aller Ziele). Links nur aus Suchergebnissen. Dann "preise_zeigen".`
     : `Du schätzt Reisepreise aus deinem Wissen (ohne Internet, keine Links). ${base}\nSetze geschaetzt=true. Dann "preise_zeigen".`;
-  const r = await searchWithTool({ system: sys, user: 'Bitte Preise vergleichen.', tool: PRICE2, maxUses: web ? 3 : 0, maxTokens: 3000, smart: !!st0.smart, label: 'Reisepreise vergleichen' });
+  const r = await searchWithTool({ system: sys, user: 'Bitte Preise vergleichen.', tool: PRICE2, maxUses: web ? 3 : 0, maxTokens: st0.smart ? 6000 : 3000, smart: !!st0.smart, label: 'Reisepreise vergleichen' });
   let rows = (r.vergleich || []).filter((v) => v && v.ziel);
   const missing = ziele.filter((z) => !rows.some((v) => norm(v.ziel) === norm(z) || norm(z).startsWith(norm(v.ziel)) || norm(v.ziel).startsWith(norm(z).split(',')[0])));
   if (missing.length) {
-    const r2 = await searchWithTool({ system: `Du schätzt Reisepreise aus deinem Wissen (ohne Internet). ${base.replace(zieleText, JSON.stringify(trips.filter((x) => missing.includes(x.dest || x.name)).map((x) => (x.dest || x.name) + routeOf(x))))}\nSetze geschaetzt=true.`, user: 'Bitte schätzen.', tool: PRICE2, maxUses: 0, maxTokens: 2000, smart: !!st0.smart, label: 'Reisepreise vergleichen' });
+    const r2 = await searchWithTool({ system: `Du schätzt Reisepreise aus deinem Wissen (ohne Internet). ${base.replace(zieleText, JSON.stringify(trips.filter((x) => missing.includes(x.dest || x.name)).map((x) => (x.dest || x.name) + routeOf(x))))}\nSetze geschaetzt=true.`, user: 'Bitte schätzen.', tool: PRICE2, maxUses: 0, maxTokens: st0.smart ? 6000 : 3000, smart: !!st0.smart, label: 'Reisepreise vergleichen' });
     rows = [...rows, ...(r2.vergleich || []).filter((v) => v && v.ziel).map((v) => ({ ...v, geschaetzt: true }))];
   }
   rows = rows.map((v) => ({
@@ -476,6 +476,7 @@ Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: 
     }),
     url_unterkunft: okUrl(v.url_unterkunft) || (st0.stayType === 'airbnb' ? airbnbUrl(v.ziel, st0.from, st0.to) : `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(v.ziel)}${st0.from ? `&checkin=${st0.from}&checkout=${st0.to}` : ''}&group_adults=${people}`),
   }));
+  if (!rows.length) throw new Error('Keine Preise erhalten – bitte noch einmal versuchen.');
   store.update((st) => {
     for (const x of st.trips) if (trips.some((y) => y.id === x.id)) x.priceSetup = st0;
     for (const v of rows) {
