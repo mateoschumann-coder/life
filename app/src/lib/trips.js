@@ -444,8 +444,10 @@ const PRICE2 = {
   },
 };
 // web = mit Internet (genauer, ca. 5 Cent) oder nur Schätzung aus KI-Wissen (unter 1 Cent)
-export async function comparePrices(s, trips, setup, { web = true } = {}) {
-  const st0 = fixSetup(setup || defaultSetup(s, trips[0]));
+export async function comparePrices(s, trips, setup) {
+  // v0.61 (Mateo): nur noch schnelle Schätzung ohne Internet mit Haiku – Internet/Sonnet kosteten viel und brachten wenig; echte Preise über die Direkt-Links
+  const web = false;
+  const st0 = { ...fixSetup(setup || defaultSetup(s, trips[0])), smart: false };
   // Rundreisen: gewählte (oder erste) Routen-Variante mitgeben, damit Unterkunft/Inlandsstrecken für alle Stationen geschätzt werden
   const routeOf = (x) => { const v = (x.variants || []).find((y) => y.chosen) || (x.variants || [])[0]; return v && v.stops.length > 1 ? ` (Rundreise: ${v.stops.map((y) => `${y.name}${y.nights ? ` ${y.nights}N` : ''}`).join(' → ')})` : ''; };
   const ziele = trips.map((x) => x.dest || x.name);

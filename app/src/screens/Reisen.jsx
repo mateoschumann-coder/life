@@ -155,15 +155,10 @@ function PriceSheet({ s, trips, title, onClose }) {
           <div className="list">{trips.map((x) => <div key={x.id} className="row" style={{ minHeight: 44 }}><span className="row-main"><span className="row-title strong">{x.name}</span><DirectLinks s={s} tr={x} setup={f} /></span></div>)}</div>
         </>
       )}
-      <label className="row" style={{ minHeight: 44, padding: '4px 0', border: 0, gap: 10 }}>
-        <input type="checkbox" style={{ width: 20, height: 20, accentColor: COLOR }} checked={!!f.smart} onChange={() => setF({ ...f, smart: !f.smart })} />
-        <span className="row-main"><span className="row-title">🧠 Genauer schätzen</span><span className="row-meta">stärkeres Modell, ca. 2 Cent statt unter 1 Cent</span></span>
-      </label>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" className="btn sec" style={{ flex: 1, background: 'var(--card-2)' }} onClick={() => run(false)} disabled={!!busy || !getAi().apiKey || !nightsOf(f) || f.travelers.some((x) => !x.start.trim())}>{busy === 'quick' ? 'Schätze …' : 'Schnell schätzen'}</button>
-        <button type="button" className="btn" style={{ flex: 1 }} onClick={() => run(true)} disabled={!!busy || !getAi().apiKey || !nightsOf(f) || f.travelers.some((x) => !x.start.trim())}>{busy === 'web' ? 'Suche … (ca. 30 Sek.)' : '🔍 Mit Internet'}</button>
+        <button type="button" className="btn" style={{ flex: 1 }} onClick={() => run(false)} disabled={!!busy || !getAi().apiKey || !nightsOf(f) || f.travelers.some((x) => !x.start.trim())}>{busy ? 'Schätze …' : 'Schnell schätzen'}</button>
       </div>
-      <span className="tiny">Schätzungen sind Richtwerte (meist ±20–30 %). Echte Preise: Skyscanner/Airbnb-Links – kostenlos. Geschätztes ist mit ≈ markiert.</span>
+      <span className="tiny">Grobe Schätzung zum Vergleichen der Ziele (unter 1 Cent). Echte Preise zeigen die Links oben – kostenlos.</span>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {res && (
         <>
