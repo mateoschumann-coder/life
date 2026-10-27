@@ -504,3 +504,6 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .tl-ctrl button, .tl-x { border: 0; background: var(--card-2); color: var(--text); width: 28px; height: 28px; border-radius: 8px; font-size: 14px; cursor: pointer; padding: 0; }
 .tl-ctrl button:disabled { opacity: .3; }
 .tl-x { color: var(--chev); font-size: 12px; }
+
+.tl-grip { width: 24px; height: 36px; display: inline-flex; align-items: center; justify-content: center; color: var(--chev); font-size: 16px; font-weight: 700; letter-spacing: -2px; touch-action: none; cursor: grab; flex-shrink: 0; user-select: none; -webkit-user-select: none; }
+.tl-drop { height: 3px; background: var(--accent); border-radius: 2px; margin: 2px 0 2px 34px; }

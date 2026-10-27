@@ -922,3 +922,11 @@ export function removeStop(tripId, id) {
   store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (!t) return; t.stops = t.stops.filter((x) => x.id !== id); t.places.forEach((p) => { if (p.stopId === id) p.stopId = ''; }); });
   syncAutoTransport(tripId);
 }
+
+// v0.78: Ziehen & Ablegen in der Zeitleiste
+export function reorderStop(tripId, from, to) {
+  if (from === to) return;
+  store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (!t) return; const [x] = t.stops.splice(from, 1); t.stops.splice(to, 0, x); });
+  syncAutoTransport(tripId);
+}
+export const reorderVariantStop = (tripId, vid, from, to) => from !== to && editV(tripId, vid, (v) => { const [x] = v.stops.splice(from, 1); v.stops.splice(to, 0, x); });
