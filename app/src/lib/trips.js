@@ -201,7 +201,7 @@ const VERGLEICH = {
   },
 };
 // Abflughafen: pro Reise einstellbar (tr.airport), sonst Standard aus dem Profil (v0.44)
-export const airportsOf = (s, tr) => tr?.airport || s.profile?.airports || 'Buenos Aires (EZE oder AEP)';
+export const airportsOf = (s, tr) => tr?.priceSetup?.travelers?.[0]?.start || tr?.airport || s.profile?.airports || 'Buenos Aires (EZE oder AEP)';
 export const airbnbUrl = (ziel, from, to) => `https://www.airbnb.com/s/${encodeURIComponent(ziel)}/homes${from && to ? `?checkin=${from}&checkout=${to}` : ''}`;
 // fehlende Links ergänzen, damit man die echten Preise mit einem Tipp sieht
 export function fixVergleich(rows, s, tr) {

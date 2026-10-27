@@ -97,7 +97,7 @@ function PriceSheet({ s, trips, title, onClose }) {
   const setT = (i, patch) => setF({ ...f, travelers: f.travelers.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const run = async (web) => {
     setBusy(web ? 'web' : 'quick'); setErr(null);
-    try { setRes(await comparePrices(s, trips, f, { web })); } catch (e) { setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
+    try { await comparePrices(s, trips, f, { web }); toast(web ? 'Preise gesucht und gespeichert' : 'Geschätzt und gespeichert'); onClose(); } catch (e) { setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
   };
   return (
     <Sheet open={!!trips} title={title || 'Preise nachsehen'} onClose={onClose}>
@@ -152,6 +152,11 @@ function PriceSheet({ s, trips, title, onClose }) {
     </Sheet>
   );
 }
+// „✈️ ab Buenos Aires (2) · ✈️ Frankfurt · 🚌 Montevideo“ – aus den Preis-Einstellungen der Idee
+const startsText = (s, tr) => {
+  const st = fixSetup(tr.priceSetup || defaultSetup(s, tr));
+  return st.travelers.map((x, i) => `${TRAVEL_MODES[x.mode]?.slice(0, 2) || '✈️'} ${i === 0 ? 'ab ' : ''}${String(x.start || '?').replace(/\s*\(.*?\)/g, '')}${x.count > 1 ? ` (${x.count})` : ''}`).join(' · ');
+};
 // Kurzer Preis aus den gespeicherten Angaben (ältere Einträge: Zahl aus dem Text holen)
 const PRICE_RE = /~?\s*(?:ca\.?\s*)?(?:ab\s*)?\d[\d.,]*\s*(?:USD|US\$|\$|€|EUR|ARS|R\$)/i;
 const shortP = (main, text) => (main || ((text || '').match(PRICE_RE)?.[0] || '')).replace(/^ab\s*/i, '~').replace(/\s*\/\s*Nacht/i, '').replace(/^ca\.?\s*/i, '~').trim();
@@ -187,8 +192,9 @@ function CostCard({ s, tr, onSearch }) {
     <section className="card" style={{ gap: 8, padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {has ? <button type="button" style={{ flex: 1, minWidth: 0, border: 0, background: 'none', padding: 0, textAlign: 'left' }} onClick={() => setOpen(!open)} aria-label="Preis-Details"><PriceRow p={p} /></button> : <span className="tiny" style={{ flex: 1 }}>Preise schätzen oder direkt nachsehen:</span>}
-        <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 10px', whiteSpace: 'nowrap' }} onClick={onSearch}>{has ? '↻ Schätzen' : 'Schätzen'}</button>
+        <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 10px', whiteSpace: 'nowrap' }} onClick={onSearch}>{has ? '↻' : 'Schätzen'}</button>
       </div>
+      <span className="tiny" style={{ marginTop: 2 }}>Direkt nachsehen (kostenlos):</span>
       <DirectLinks s={s} tr={tr} />
       {open && has && (
         <div className="cost-details">
@@ -633,7 +639,7 @@ function TripDetail({ s, tr }) {
           <input className="input title-input" defaultValue={tr.name} key={tr.id + 'n'} onBlur={(e) => e.target.value.trim() && e.target.value !== tr.name && updateTrip(tr.id, { name: e.target.value.trim() })} aria-label="Name" />
           <span className="tiny">{isIdea ? '💡 Idee' : '✈️ Festgelegt'}{tr.dest && tr.dest !== tr.name ? ` · ${tr.dest}` : ''}{tr.group ? ` · 📁 ${tr.group}` : ''}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <Airport s={s} tr={tr} key={tr.id + 'ap'} />
+            <button type="button" className="link-btn" style={{ fontSize: 14, textAlign: 'left', flex: 1, minWidth: 0 }} onClick={() => setPriceFor(tr.group ? s.trips.filter((x) => x.group === tr.group) : [tr])}>{startsText(s, tr)} ✎</button>
             {isIdea && <button type="button" className="pill on" style={{ marginLeft: 'auto', fontSize: 13 }} onClick={() => setCommit(true)}>Reise festlegen</button>}
           </div>
         </div>
