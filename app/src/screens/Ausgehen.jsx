@@ -587,8 +587,8 @@ function Orte({ s, city }) {
                 <button type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => setSel(sel === p.id ? null : p.id)}>
                   <span className="cat-dot" style={{ background: CAT_COLOR[p.category] }} />
                   <span className="row-main">
-                    <span className="row-title plain">{p.fav ? <span style={{ color: '#E8475A' }}>♥ </span> : null}{p.name}</span>
-                    <span className="row-meta">{[p.subcat || p.category, p.hood, p.price ? '$'.repeat(p.price) : '', p.status === 'war' ? (p.rating ? '★'.repeat(p.rating) : 'War da') : 'Will hin'].filter(Boolean).join(' · ')}</span>
+                    <span className="row-title plain">{p.name}</span>
+                    <span className="row-meta">{[p.subcat || p.category, p.hood].filter(Boolean).join(' · ')}</span>
                   </span>
                   <span className="tiny">{sel === p.id ? '▴' : '▾'}</span>
                 </button>

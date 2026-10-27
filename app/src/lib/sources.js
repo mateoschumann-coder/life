@@ -133,6 +133,7 @@ const TAILOR_TOOL = {
       eventbrite_ort: { type: 'string', description: 'Eventbrite-Ort im Format „land--stadt“ auf Englisch, klein, z.B. „argentina--buenos-aires“, „germany--frankfurt“' },
       land_code: { type: 'string', description: '2-Buchstaben-Ländercode, klein, z.B. „ar“, „de“' },
       hashtag: { type: 'string', description: 'ein real genutzter Instagram-Hashtag ohne #, der IMMER den Ort enthält (Instagram kennt keinen Standort-Filter), z.B. „cafesbuenosaires“, „jazzbuenosaires“, „frankfurtcafe“' },
+      hashtags: { type: 'array', items: { type: 'string' }, description: '3–4 weitere, wirklich oft genutzte Hashtags ohne #, von breit nach speziell, mit Ort (auch Kurzformen wie „bsas“, „baires“), in der Landessprache, z.B. für Konzerte in Buenos Aires: „recitalesbuenosaires“, „agendaculturalbsas“, „musicaenvivobsas“, „buenosairesrock“' },
       seiten: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, begriff: { type: 'string' } }, required: ['id', 'begriff'] } },
     },
     required: ['gedanke', 'seiten'],
@@ -148,7 +149,7 @@ Mateo schreibt frei, z.B. „Was kann ich dieses Wochenende machen?“. Mach dar
   const user = JSON.stringify({ text: q, bereich: area, seiten: list.map((x) => ({ id: x.id, name: x.name, sprache: x.lang || 'passend', eigene_suche: !!(x.build || x.tpl) })) });
   const r = await searchWithTool({ system: sys, user, tool: TAILOR_TOOL, maxUses: 0, maxTokens: 800, label: 'Links zuschneiden' });
   const ok = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '');
-  const t = { gedanke: r.gedanke || '', from: ok(r.von), to: ok(r.bis), eb: /^[a-z-]+--[a-z-]+$/.test(r.eventbrite_ort || '') ? r.eventbrite_ort : '', cc: /^[a-z]{2}$/.test(r.land_code || '') ? r.land_code : '', hashtag: tag(r.hashtag), terms: Object.fromEntries((r.seiten || []).filter((x) => x?.id && x.begriff).map((x) => [x.id, x.begriff])) };
+  const t = { gedanke: r.gedanke || '', from: ok(r.von), to: ok(r.bis), eb: /^[a-z-]+--[a-z-]+$/.test(r.eventbrite_ort || '') ? r.eventbrite_ort : '', cc: /^[a-z]{2}$/.test(r.land_code || '') ? r.land_code : '', hashtag: tag(r.hashtag), hashtags: [...new Set([tag(r.hashtag), ...(r.hashtags || []).map(tag)].filter(Boolean))].slice(0, 5), terms: Object.fromEntries((r.seiten || []).filter((x) => x?.id && x.begriff).map((x) => [x.id, x.begriff])) };
   cache.set(key, t);
   return t;
 }
@@ -171,3 +172,12 @@ export function addSource(key, name, link, city) {
 export function restoreSources(key) {
   save(key, (p) => ({ ...p, hidden: [] }));
 }
+
+// v0.76: mehrere Instagram-Hashtags (ein einzelner war oft leer) – ohne KI: einfache Varianten mit Ort
+export function instaTags(q, city, t) {
+  if (t?.hashtags?.length) return t.hashtags;
+  const c = tag(city || ''), short = { buenosaires: 'bsas' }[c] || '';
+  const w = tag(q || '');
+  return [...new Set([w && c && w + c, w && short && w + short, c && `agenda${short || c}`, w].filter(Boolean))].slice(0, 4);
+}
+export const instaUrl = (h) => `https://www.instagram.com/explore/tags/${h}/`;

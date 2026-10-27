@@ -497,3 +497,5 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .tl-plus { border: 0; background: none; color: var(--accent); font-size: 18px; width: 28px; cursor: pointer; }
 .tl-detail { margin-left: 13px; padding: 4px 0 12px 23px; display: flex; flex-direction: column; gap: 8px; border-left: 2px solid transparent; }
 .tl-detail.line { border-left: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.tl-auto { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13.5px; background: var(--card-2); border-radius: 12px; padding: 8px 10px; margin: 2px 0 6px; }

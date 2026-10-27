@@ -4,7 +4,7 @@ import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
-  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks } from '../lib/trips';
+  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes } from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -509,12 +509,24 @@ function LegDetail({ tr, a, b }) {
 function Route({ tr }) {
   const [tf, setTf] = useState({ from: '', to: '', mode: 'flug' });
   const stops = tr.stops;
+  const startKey = JSON.stringify([stops[0]?.name, stops[stops.length - 1]?.name, tr.priceSetup?.travelers?.[0]?.start, tr.priceSetup?.travelers?.[0]?.mode, tr.from, tr.to]);
+  useEffect(() => { syncAutoTransport(tr.id); }, [startKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hin = tr.transport.find((x) => x.auto === 'hin');
+  const rueck = tr.transport.find((x) => x.auto === 'rueck');
+  const autoLine = (x, label) => x && (
+    <div className="tl-auto">
+      <span style={{ flex: 1, minWidth: 0 }}><b>{MODE_ICON[x.mode] || '➡️'} {label}:</b> {x.from} → {x.to}{x.date ? ` · ${fmtShort(x.date)}` : ''}</span>
+      {x.url && <a className="pill" style={{ fontSize: 12 }} href={x.url} target="_blank" rel="noreferrer">{x.mode === 'flug' ? 'Flüge ↗' : 'Suchen ↗'}</a>}
+      <button type="button" className={x.status === 'gebucht' ? 'pill on' : 'pill'} style={{ fontSize: 12 }} onClick={() => updateEntry(tr.id, 'transport', x.id, { status: x.status === 'gebucht' ? 'option' : 'gebucht' })}>{x.status === 'gebucht' ? '✓ Gebucht' : 'Offen'}</button>
+    </div>
+  );
   const inTimeline = (x) => stops.some((st, i) => i < stops.length - 1 && x.from?.toLowerCase() === st.name.toLowerCase() && x.to?.toLowerCase() === stops[i + 1].name.toLowerCase());
-  const other = tr.transport.filter((x) => !inTimeline(x));
+  const other = tr.transport.filter((x) => !inTimeline(x) && !x.auto);
   return (
     <>
       <section className="card" style={{ gap: 6 }}>
         <span className="label" style={{ padding: 0 }}>{tripKind(tr) === 'ort' ? 'Ziel' : 'Finale Route'}</span>
+        {autoLine(hin, 'Anreise')}
         <Timeline
           items={stops}
           name={(st) => st.name}
@@ -525,6 +537,8 @@ function Route({ tr }) {
           onInsert={(name, at) => insertStop(tr.id, name, at)}
           addPlaceholder="Station hinzufügen, z.B. Garopaba"
         />
+        {autoLine(rueck, 'Rückreise')}
+        {(hin || rueck) && <span className="tiny">An- und Rückreise kommen aus dem Startort (✎ oben) und passen sich an, wenn sich die erste oder letzte Station ändert.</span>}
         {!stops.length && tripKind(tr) !== 'ort' && <span className="tiny">Tipp: Unter „Varianten“ ganze Routen oder einzelne Orte hierher übernehmen.</span>}
       </section>
       <section className="group">
@@ -861,6 +875,7 @@ function VariantStopSheet({ s, tr, v, i, onClose }) {
   const [url, setUrl] = useState('');
   const [kind, setKind] = useState('unterkunft');
   const [moving, setMoving] = useState(null); // gewählte Position
+  useEffect(() => { if (i === 0 && v?.stops[0] && getAi().apiKey) ensureIataCodes(s, [tr.priceSetup?.travelers?.[0]?.start || 'Buenos Aires', v.stops[0].name]).catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const x = v?.stops[i];
   if (!x) return <Sheet open={false} onClose={onClose} />;
   const items = x.items || [];

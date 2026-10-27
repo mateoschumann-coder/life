@@ -3,6 +3,7 @@
 import { store, uid } from './store';
 import { addDays, diffDays, fmtLong, today } from './dates';
 import { searchWithTool } from './outings';
+import { getAi } from './ai';
 import { normalizeTrip } from './normalize';
 
 const norm = (x) => String(x || '').trim().toLowerCase();
@@ -850,9 +851,55 @@ export function stopLinks(s, tr, v, i) {
   ];
   if (type === 'hostel' || level === 'guenstig') stay.push({ label: '🛏 Hostelworld', url: `https://www.hostelworld.com/search?search_keywords=${encodeURIComponent(where)}` });
   const prev = i > 0 ? v.stops[i - 1].name : cleanPlace(st.travelers[0]?.start) || 'Buenos Aires';
+  const firstMode = MODES[st.travelers[0]?.mode] ? st.travelers[0].mode : 'flug';
+  if (i === 0 && firstMode === 'flug') return { stay, travel: [{ label: `✈️ Flug ${prev} → ${name} (Skyscanner)`, url: skyUrl(s, prev, name, checkin, '', people) }, { label: '🧭 Alle Verbindungen (Rome2rio)', url: rome2rio(prev, where) }], prev, checkin, checkout, people, level: LEVELS[level], type: STAY_TYPES[type] };
   const travel = [
     { label: `🚌 ${prev} → ${name} (Rome2rio)`, url: rome2rio(prev, where) },
     { label: '🗺 Google Maps (ÖPNV)', url: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(prev)}&destination=${encodeURIComponent(where)}&travelmode=transit` },
   ];
   return { stay, travel, prev, checkin, checkout, people, level: LEVELS[level], type: STAY_TYPES[type] };
 }
+
+// ---------- v0.76: An- und Abreise automatisch (Startort aus den Preis-Einstellungen → erste Station, letzte → zurück) ----------
+const homeOf = (s, tr) => { const tv = setupOf(s, tr).travelers[0]; return { home: cleanPlace(tv?.start) || 'Buenos Aires', mode: MODES[tv?.mode] ? tv.mode : 'flug', count: tv?.count || 1 }; };
+export function skyUrl(s, from, to, date = '', back = '', people = 1) {
+  const a = iataOf(s, from), b = iataOf(s, to);
+  const ymd = (d) => d.slice(2).replace(/-/g, '');
+  if (a && b) return `https://${skyOf(s).host}/transport/flights/${a}/${b}/${date ? `${ymd(date)}/${back ? `${ymd(back)}/` : ''}` : ''}?adultsv2=${people}&rtn=${back ? 1 : 0}${skyOf(s).q}`;
+  return rome2rio(from, to);
+}
+export function legUrl(s, tr, from, to, mode, date = '') {
+  if (mode === 'flug') return skyUrl(s, from, to, date, '', homeOf(s, tr).count);
+  if (mode === 'auto') return `https://www.google.com/maps/dir/${encodeURIComponent(from)}/${encodeURIComponent(to)}`;
+  return rome2rio(from, to);
+}
+const iataTried = new Set();
+const askIata = (s, names, tripId) => { const todo = names.filter((n) => n && !iataOf(s, n) && !iataTried.has(norm(n))); if (!todo.length || !getAi().apiKey) return; todo.forEach((n) => iataTried.add(norm(n))); ensureIata(s, todo).then(() => syncAutoTransport(tripId)).catch(() => {}); };
+export function syncAutoTransport(tripId) {
+  const s = store.get();
+  const tr = s.trips.find((x) => x.id === tripId);
+  if (!tr || !tr.stops.length) return;
+  const { home, mode } = homeOf(s, tr);
+  const first = tr.stops[0].name, last = tr.stops[tr.stops.length - 1].name;
+  const want = [
+    norm(home) !== norm(first) && { auto: 'hin', from: home, to: first, date: tr.from || '' },
+    norm(home) !== norm(last) && { auto: 'rueck', from: last, to: home, date: tr.to || '' },
+  ].filter(Boolean).map((w) => ({ ...w, mode, url: legUrl(s, tr, w.from, w.to, mode, w.date) }));
+  const same = (x, w) => x && x.from === w.from && x.to === w.to && x.mode === w.mode && x.url === w.url;
+  const missingIata = mode === 'flug' && [home, first, last].some((n) => !iataOf(s, n));
+  if (want.every((w) => { const x = tr.transport.find((y) => y.auto === w.auto); return x && (x.status === 'gebucht' || same(x, w)); }) && !tr.transport.some((y) => y.auto && !want.some((w) => w.auto === y.auto) && y.status !== 'gebucht')) {
+    if (missingIata) askIata(s, [home, first, last], tripId);
+    return;
+  }
+  store.update((st) => {
+    const t = st.trips.find((x) => x.id === tripId);
+    t.transport = t.transport.filter((y) => !y.auto || y.status === 'gebucht' || want.some((w) => w.auto === y.auto));
+    for (const w of want) {
+      const x = t.transport.find((y) => y.auto === w.auto);
+      if (!x) t.transport.push({ id: uid(), auto: w.auto, from: w.from, to: w.to, mode: w.mode, date: w.date, time: '', note: w.auto === 'hin' ? 'Anreise – passt sich der Route an' : 'Rückreise – passt sich der Route an', url: w.url, status: 'option' });
+      else if (x.status !== 'gebucht') Object.assign(x, { from: w.from, to: w.to, mode: w.mode, url: w.url, date: x.date || w.date });
+    }
+  });
+  if (missingIata) askIata(s, [home, first, last], tripId);
+}
+export const tripHome = homeOf;
