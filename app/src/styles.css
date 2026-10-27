@@ -429,3 +429,10 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .city-chip { display: inline-flex; align-items: center; gap: 2px; padding-right: 6px; white-space: nowrap; }
 .city-chip > button { border: 0; background: none; color: inherit; font: inherit; padding: 0; }
 .city-chip .city-x { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 4px; border-radius: 50%; opacity: 0.7; }
+.price-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+.price-chip { font-size: 12.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, #2FA36B 13%, transparent); color: #1f7a4f; white-space: nowrap; }
+.price-chip.sum { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+@media (prefers-color-scheme: dark) { .price-chip { color: #7fd6a8; } }
+.cost-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 0.5px solid var(--line); }
+.cost-ico { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, #2FA36B 13%, transparent); font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.cost-row b { white-space: nowrap; }

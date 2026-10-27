@@ -189,9 +189,11 @@ const VERGLEICH = {
       ziel: { type: 'string' },
       land: { type: 'string' },
       ab: { type: 'string', description: 'Abflughafen, z.B. EZE' },
-      flug: { type: 'string', description: 'z.B. „ab ca. 420 USD hin & zurück, LATAM, 2 h 40, Stand Suche“' },
-      unterkunft: { type: 'string', description: 'z.B. „Airbnb ab ca. 45 USD/Nacht, Hotel ab 70“' },
-      gesamt: { type: 'string', description: 'grobe Summe für die Reise pro Person, wenn Dauer bekannt' },
+      flug_preis: { type: 'string', description: 'NUR der Preis hin & zurück pro Person, z.B. „~420 USD“' },
+      flug: { type: 'string', description: 'Details: z.B. „LATAM direkt, 2 h 40, für 10.–17.1., Stand Suche“' },
+      unterkunft_preis: { type: 'string', description: 'NUR der Preis pro Nacht, z.B. „~45 USD/Nacht“' },
+      unterkunft: { type: 'string', description: 'Details: z.B. „Airbnb-Apartment in Lagoa; Hotel ab 70 USD“' },
+      gesamt: { type: 'string', description: 'NUR die grobe Summe pro Person, z.B. „~750 USD“' },
       url_flug: { type: 'string', description: 'Link aus Suchergebnissen' },
       url_unterkunft: { type: 'string', description: 'Link aus Suchergebnissen' },
     },
@@ -321,7 +323,7 @@ export function groupIdeas(ids, name) {
 export const ungroup = (g) => store.update((s) => { for (const x of s.trips) if (x.group === g) x.group = ''; });
 export const renameGroup = (g, name) => store.update((s) => { for (const x of s.trips) if (x.group === g) x.group = String(name || '').trim(); });
 // Preise (aus einem Vergleich) an einer Reise speichern
-const priceOf = (v) => Object.fromEntries(Object.entries({ flug: v.flug, unterkunft: v.unterkunft, gesamt: v.gesamt, urlFlug: okUrl(v.url_flug), urlStay: okUrl(v.url_unterkunft), ab: v.ab }).filter(([, x]) => x));
+const priceOf = (v) => Object.fromEntries(Object.entries({ flugPreis: v.flug_preis, stayPreis: v.unterkunft_preis, flug: v.flug, unterkunft: v.unterkunft, gesamt: v.gesamt, urlFlug: okUrl(v.url_flug), urlStay: okUrl(v.url_unterkunft), ab: v.ab }).filter(([, x]) => x));
 const sameDest = (tr, ziel) => [tr.name, tr.dest, (tr.dest || '').split(',')[0]].some((x) => norm(x) === norm(ziel));
 // Preise nachsehen (v0.46, Mateo): Knopf an einer Gruppe oder Idee – Flug hin & zurück + Unterkunft pro Nacht für jedes Ziel, mit Websuche
 const PRICE_TOOL = {
@@ -335,7 +337,7 @@ export async function comparePrices(s, trips, { from = '', to = '', airport = ''
   const nights = from && to ? Math.max(1, diffDays(from, to)) : null;
   const system = `Du recherchierst für Mateo aktuelle Reisepreise. Heute ist ${fmtLong(today())}.
 Ziele: ${JSON.stringify(ziele)}. Abflug ab: ${ab}. Zeitraum: ${from && to ? `${from} bis ${to} (${nights} Nächte)` : 'flexibel – nimm einen typischen Zeitraum in den nächsten 2–3 Monaten und nenne ihn'}. Personen: ${people}.
-Suche höchstens 4-mal im Internet, bündle die Ziele (z.B. „vuelos Buenos Aires Florianópolis Salvador ${from ? from.slice(0, 7) : ''} precio“, „airbnb Florianópolis precio noche“). Dann rufe "preise_zeigen" auf: genau eine Zeile pro Ziel (gleiche Schreibweise wie oben) mit Flug hin & zurück pro Person (Airline/Direktflug?, Dauer, für welches Datum), Unterkunft pro Nacht (Airbnb und ggf. Hotel/Pousada), Summe pro Person${nights ? ` für ${nights} Nächte` : ''}. Preise als „ca. … USD (Stand Suche)“. Links nur aus Suchergebnissen, nie erfinden. Deutsch, kurz.`;
+Suche höchstens 4-mal im Internet, bündle die Ziele (z.B. „vuelos Buenos Aires Florianópolis Salvador ${from ? from.slice(0, 7) : ''} precio“, „airbnb Florianópolis precio noche“). Dann rufe "preise_zeigen" auf: genau eine Zeile pro Ziel (gleiche Schreibweise wie oben) mit flug_preis (nur der Preis hin & zurück pro Person) + flug (Details: Airline, Direktflug?, Dauer, Datum), unterkunft_preis (nur Preis pro Nacht) + unterkunft (Details: Airbnb/Hotel/Pousada, Lage), gesamt (nur die Summe pro Person${nights ? ` für ${nights} Nächte` : ''}. Preise kurz als „~… USD“. Links nur aus Suchergebnissen, nie erfinden. Deutsch, kurz.`;
   const r = await searchWithTool({ system, user: 'Bitte Preise vergleichen.', tool: PRICE_TOOL, maxUses: 4, label: 'Reisepreise vergleichen' });
   const rows = fixVergleich(r.vergleich, s, { from, to, airport: ab });
   store.update((st) => {
