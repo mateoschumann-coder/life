@@ -163,7 +163,7 @@ function SportsPage({ s }) {
       setF({ name: r.name || '', date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : '', place: r.ort || '', dist: r.distanz || '', url: url || '', sportId: sp?.id || sportId });
       setAdding(true); setPaste('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      toast('Bitte kurz prüfen und „Notieren“ tippen');
+      toast(r.name ? 'Bitte kurz prüfen und „Notieren“ tippen' : 'Konnte von der Seite nichts lesen – bitte Name selbst eintragen (Link ist übernommen)');
     } catch (e) { toast(e.message); } finally { setPBusy(false); }
   };
   const search = async (web) => {
@@ -270,10 +270,10 @@ function SportsPage({ s }) {
               <span style={{ fontWeight: 650, fontSize: 14 }}>Etwas gefunden? Hier übernehmen</span>
               <textarea className="input" style={{ minHeight: 64 }} value={paste} onChange={(ev) => setPaste(ev.target.value)} placeholder="Link oder Text vom Rennen einfügen (Name, Datum, Ort …)" aria-label="Link oder Text einfügen" />
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || pBusy} onClick={takeOver}>{pBusy ? 'Ich lese …' : '✨ Übernehmen'}</button>
+                <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || pBusy} onClick={takeOver}>{pBusy ? 'Ich lese die Seite …' : '✨ Übernehmen'}</button>
                 <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => { setAdding(true); setF({ ...f, sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Selbst eintragen</button>
               </div>
-              <span className="tiny">Die KI liest Name, Datum, Ort und Distanz aus Link oder Text (ohne Internet, ca. 0,02 Cent). Du prüfst und speicherst.</span>
+              <span className="tiny">Bei einem Link öffnet die KI die Seite und liest Name, Datum, Ort und Distanz (ca. 0,1 Cent). Du prüfst und speicherst.</span>
             </div>
           )}
           {smode === 'ki' && <>
@@ -387,5 +387,8 @@ function RegionSheet({ open, onClose, regions, pick, setPick }) {
 
 const PARSE_RACE = { name: 'rennen_lesen', description: 'Daten eines Rennens', input_schema: { type: 'object', properties: { name: { type: 'string' }, datum: { type: 'string', description: 'YYYY-MM-DD, nur wenn erkennbar' }, ort: { type: 'string' }, distanz: { type: 'string', description: 'z.B. „21 km“ oder „10K, 21K“' }, sportart: { type: 'string' } }, required: ['name'] } };
 async function parseSportText(s, text) {
-  return searchWithTool({ system: `Lies aus Mateos eingefügtem Link oder Text die Daten eines Sport-Events (Rennen). Bei einem Link: nutze die Wörter in der Adresse (z.B. „maraton-de-buenos-aires-2027“). Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()}. Sportarten: ${s.sports.map((x) => x.name).join(', ')}.`, user: text, tool: PARSE_RACE, maxUses: 0, maxTokens: 400, label: 'Rennen übernehmen' });
+  const hasUrl = /https?:\/\//.test(text);
+  const base = { system: `Lies die Daten eines Sport-Events (Rennen) aus Mateos Nachricht.${hasUrl ? ' Enthält sie einen Link, öffne ihn mit web_fetch und lies Name, Datum, Ort und Distanzen von der Seite. Klappt das nicht, nutze die Wörter in der Adresse.' : ''} Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()}. Sportarten: ${s.sports.map((x) => x.name).join(', ')}. Antworte mit "rennen_lesen".`, user: text, tool: PARSE_RACE, maxUses: 0, maxTokens: 1500, label: 'Rennen übernehmen' };
+  if (!hasUrl) return searchWithTool(base);
+  try { return await searchWithTool({ ...base, fetch: true }); } catch { return searchWithTool(base); }
 }

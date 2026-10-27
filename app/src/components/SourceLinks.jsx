@@ -1,6 +1,6 @@
 // Karte „Meine Seiten“: Suchbegriff eintippen → Seite antippen → öffnet direkt mit der Suche (kostenlos, keine KI)
 import { useState } from 'react';
-import { addSource, isNative, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
+import { addSource, forgetSearch, isNative, learnSearch, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
 import { getAi } from '../lib/ai';
 import { Icon } from './ui';
 
@@ -34,6 +34,9 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [showTerms, setShowTerms] = useState(false);
+  const [teach, setTeach] = useState(null); // Seite, deren Suche gerade eingerichtet wird
+  const [teachUrl, setTeachUrl] = useState('');
+  const [teachErr, setTeachErr] = useState('');
   const list = sourcesOf(s, area, city);
   const hidden = (s.profile?.sources?.[area]?.hidden || []).length;
   const fresh = res && res.q === q.trim() && res.city === city;
@@ -70,6 +73,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
           {list.map((x) => (
             <span key={x.id} className="src-chip">
               <a className="link-chip" style={isNative(x) ? undefined : { background: 'var(--card-2)', color: 'var(--text)' }} href={sourceUrl(x, fresh ? res.q : q, city, fresh ? res.t : null)} target="_blank" rel="noreferrer" title={fresh && res.t?.terms?.[x.id] ? res.t.terms[x.id] : ''}>{x.name}{isNative(x) ? '' : ' · G'} ↗</a>
+              {edit && !x.build && <button type="button" className="city-x" style={x.tpl ? { background: 'var(--accent)', color: '#fff' } : undefined} onClick={() => { setTeach(x); setTeachUrl(''); setTeachErr(''); }} aria-label={`Direkte Suche für ${x.name} einrichten`}>🔧</button>}
               {edit && <button type="button" className="city-x" onClick={() => removeSource(area, x.id)} aria-label={`${x.name} entfernen`}><Icon name="x" size={10} /></button>}
             </span>
           ))}
@@ -81,6 +85,18 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
           {list.map((x) => <span key={x.id}><b>{x.name}</b> {sourceTerm(x, res.q, city, res.t)}</span>)}
         </div>
       )}
+      {edit && teach && (
+        <div className="take-box">
+          <span style={{ fontWeight: 650, fontSize: 14 }}>🔧 Direkte Suche für {teach.name}</span>
+          <span className="tiny" style={{ color: 'var(--text)' }}>1. <a href={teach.home || `https://${teach.domain}`} target="_blank" rel="noreferrer">{teach.name} öffnen ↗</a> · 2. dort im Suchfeld nach <b>test</b> suchen · 3. die Adresse der Ergebnisseite kopieren und hier einfügen.</span>
+          <form className="block-add" onSubmit={(e) => { e.preventDefault(); const er = learnSearch(area, teach.id, teachUrl); setTeachErr(er); if (!er) setTeach(null); }}>
+            <input className="input" value={teachUrl} onChange={(e) => setTeachUrl(e.target.value)} placeholder="https://… (mit test in der Adresse)" aria-label="Adresse der Ergebnisseite" />
+            <button type="submit" className="btn small" disabled={!teachUrl.trim()}>OK</button>
+          </form>
+          {teachErr && <span className="tiny" style={{ color: 'var(--danger)' }}>{teachErr}</span>}
+          {teach.tpl && <button type="button" className="link-btn" style={{ fontSize: 12.5, alignSelf: 'flex-start' }} onClick={() => { forgetSearch(area, teach.id); setTeach(null); }}>Wieder über Google suchen</button>}
+        </div>
+      )}
       {edit && (
         <>
           <form className="block-add" onSubmit={add}>
@@ -88,7 +104,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
             <input className="input" style={{ flex: '2 1 120px', minWidth: 0 }} value={link} onChange={(e) => setLink(e.target.value)} placeholder="Link, z.B. paulinacocina.net" aria-label="Link der Seite" />
             <button type="submit" className="btn small" disabled={!link.trim()}>+</button>
           </form>
-          <span className="tiny">Eigene Seiten werden über Google nur auf dieser Seite durchsucht.{cfg.perCity && city ? ` Neue Seiten gelten für ${city}.` : ''}{hidden ? ' ' : ''}{hidden ? <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => restoreSources(area)}>Entfernte Standard-Seiten zurückholen ({hidden})</button> : null}</span>
+          <span className="tiny">🔧 = direkte Suche einrichten (sonst Google, nur auf dieser Seite).{cfg.perCity && city ? ` Neue Seiten gelten für ${city}.` : ''}{hidden ? ' ' : ''}{hidden ? <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => restoreSources(area)}>Entfernte Standard-Seiten zurückholen ({hidden})</button> : null}</span>
         </>
       )}
       {!edit && <span className="tiny">{fresh ? 'Blaue Knöpfe öffnen die Suche direkt auf der Seite bzw. in der App. Grau (· G) = Google, nur auf dieser Seite.' : `Schreib frei, was du suchst. Die KI macht daraus pro Seite den passenden Suchbegriff${cfg.perCity && city ? ` für ${city}` : ''} (ohne Internet, ca. 0,03 Cent).`}</span>}

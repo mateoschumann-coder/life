@@ -71,9 +71,23 @@ export function sourcesOf(s, key, city) {
   const area = SOURCE_AREAS[key];
   const p = prefsOf(s, key);
   const okCity = (x) => !area.perCity || !x.city || x.city === city;
-  return [...area.defaults.filter((x) => !(p.hidden || []).includes(x.id)), ...(p.added || [])].filter(okCity);
+  const tpl = p.searchTpl || {};
+  return [...area.defaults.filter((x) => !(p.hidden || []).includes(x.id)), ...(p.added || [])].filter(okCity).map((x) => (tpl[x.id] ? { ...x, tpl: tpl[x.id] } : x));
 }
-export const isNative = (src) => !!src.build;
+// Suche einer Seite „beibringen“ (v0.68): Mateo sucht dort nach „test“ und fügt die Adresse ein → „test“ wird zum Platzhalter
+export function learnSearch(key, id, url) {
+  const u = String(url || '').trim();
+  if (!/^https?:\/\//.test(u)) return 'Bitte die ganze Adresse einfügen (beginnt mit https://).';
+  const i = u.toLowerCase().indexOf('test');
+  if (i < 0) return 'In der Adresse kommt das Wort „test“ nicht vor – bitte auf der Seite genau nach test suchen.';
+  const tpl = u.slice(0, i) + '{q}' + u.slice(i + 4);
+  save(key, (p) => ({ ...p, searchTpl: { ...(p.searchTpl || {}), [id]: tpl } }));
+  return '';
+}
+export function forgetSearch(key, id) {
+  save(key, (p) => { const x = { ...(p.searchTpl || {}) }; delete x[id]; return { ...p, searchTpl: x }; });
+}
+export const isNative = (src) => !!(src.build || src.tpl);
 // Was tatsächlich gesucht wird (zum Prüfen in der Liste)
 export function sourceTerm(src, q, city, t) {
   const u = decodeURIComponent(sourceUrl(src, q, city, t));
@@ -92,6 +106,7 @@ export function sourceUrl(src, q, city = '', t = null) {
   const cityKey = String(city || '').toLowerCase().split(/[ ,]/)[0];
   const withCity = cityKey && !['eventbrite', 'meetup'].includes(src.id) && !term.toLowerCase().includes(cityKey) ? `${term} ${city}` : term;
   const hashtag = t?.hashtag && cityKey && !t.hashtag.includes(tag(cityKey)) ? t.hashtag + tag(city) : t?.hashtag;
+  if (src.tpl) return src.tpl.replace('{q}', enc(term));
   if (src.build) return src.build({ q: withCity, city, from: t?.from, to: t?.to, eb: t?.eb, cc: t?.cc, hashtag });
   return siteSearch(src.domain, withCity);
 }
@@ -121,7 +136,7 @@ export async function tailorQueries(s, area, q, city, list) {
   const prefs = area === 'events' ? (s.profile?.eventPrefs || []).join(', ') : '';
   const sys = `Du baust Suchbegriffe für Webseiten. Heute ist ${fmtLong(today())} (${today()}). Ort: ${city || 'nicht wichtig'}.${prefs ? ` Mateos Vorlieben: ${prefs}.` : ''}
 Mateo schreibt frei, z.B. „Was kann ich dieses Wochenende machen?“. Mach daraus für JEDE Seite einen kurzen, wirksamen Suchbegriff (2–6 Wörter) in der Sprache der Seite – so, wie man ihn dort ins Suchfeld tippen würde. Füllwörter weglassen, Absicht erkennen (z.B. „Wochenende“ → passende Event-Arten + Datum), Den Ort (Stadt, ggf. Viertel) in JEDEN Begriff einbauen – außer bei Eventbrite und Meetup, die den Ort schon über die Adresse bekommen. Der Instagram-Hashtag muss den Ort enthalten. Zeitangaben in von/bis als Datum umrechnen. Antworte mit "suchen_zuschneiden".`;
-  const user = JSON.stringify({ text: q, bereich: area, seiten: list.map((x) => ({ id: x.id, name: x.name, sprache: x.lang || 'passend', eigene_suche: !!x.build })) });
+  const user = JSON.stringify({ text: q, bereich: area, seiten: list.map((x) => ({ id: x.id, name: x.name, sprache: x.lang || 'passend', eigene_suche: !!(x.build || x.tpl) })) });
   const r = await searchWithTool({ system: sys, user, tool: TAILOR_TOOL, maxUses: 0, maxTokens: 800, label: 'Links zuschneiden' });
   const ok = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '');
   const t = { gedanke: r.gedanke || '', from: ok(r.von), to: ok(r.bis), eb: /^[a-z-]+--[a-z-]+$/.test(r.eventbrite_ort || '') ? r.eventbrite_ort : '', cc: /^[a-z]{2}$/.test(r.land_code || '') ? r.land_code : '', hashtag: tag(r.hashtag), terms: Object.fromEntries((r.seiten || []).filter((x) => x?.id && x.begriff).map((x) => [x.id, x.begriff])) };
@@ -132,7 +147,7 @@ Mateo schreibt frei, z.B. „Was kann ich dieses Wochenende machen?“. Mach dar
 const save = (key, fn) => store.update((d) => {
   const all = d.profile?.sources || {};
   const cur = all[key] || { hidden: [], added: [] };
-  d.profile = { ...d.profile, sources: { ...all, [key]: fn({ hidden: [...(cur.hidden || [])], added: [...(cur.added || [])] }) } };
+  d.profile = { ...d.profile, sources: { ...all, [key]: fn({ ...cur, hidden: [...(cur.hidden || [])], added: [...(cur.added || [])] }) } };
 });
 export function removeSource(key, id) {
   save(key, (p) => (SOURCE_AREAS[key].defaults.some((x) => x.id === id) ? { ...p, hidden: [...p.hidden, id] } : { ...p, added: p.added.filter((x) => x.id !== id) }));

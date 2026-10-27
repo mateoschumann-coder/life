@@ -107,7 +107,8 @@ async function post(body) {
 // Websuche + ein Werkzeug, das die Ergebnisse strukturiert zurückgibt
 // maxUses = 0: ohne Websuche (viel günstiger) – die KI antwortet aus ihrem eigenen Wissen
 // smart = true: gründlicheres Modell (Sonnet) statt des eingestellten
-export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false, city }) {
+// fetch = true: die KI darf Links aus Mateos Nachricht lesen (web_fetch, nur Text-Kosten, keine Suchgebühr; v0.68)
+export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false, city, fetch: canFetch = false }) {
   if (label) setCostLabel(label);
   // Chats mit Vorschlägen (Mateo, v0.35): kurze Antwort, die Vorschläge erscheinen als Häkchen-Liste darunter
   if (history && tool?.input_schema?.properties?.antwort) {
@@ -124,7 +125,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     maxTokens = Math.max(maxTokens * 2, 8000);
   }
   const messages = history ? [...history] : [{ role: 'user', content: user }];
-  if (!maxUses) {
+  if (!maxUses && !canFetch) {
     let d = await post({ model, max_tokens: maxTokens, system, tools: [tool], tool_choice: force, messages });
     // Antwort abgeschnitten → einmal mit mehr Platz wiederholen statt halbe Daten zu nehmen
     if (d.stop_reason === 'max_tokens') d = await post({ model, max_tokens: Math.min(32000, maxTokens * 2), system, tools: [tool], tool_choice: force, messages });
@@ -136,7 +137,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     if (!f) throw new Error('Keine Antwort erhalten. Bitte noch einmal versuchen.');
     return f.input || {};
   }
-  const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: locOf(city) }, tool];
+  const tools = [...(maxUses ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: locOf(city) }] : []), ...(canFetch ? [{ type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 2, max_content_tokens: 8000 }] : []), tool];
   let data;
   let found;
   const complete = (d) => {
@@ -354,6 +355,44 @@ export async function geocode(q, city = HOME_CITY) {
   if (!res.ok) throw new Error('Adresssuche nicht erreichbar');
   const list = await res.json();
   return list.map((r) => ({ lat: Number(r.lat), lon: Number(r.lon), label: r.display_name }));
+}
+
+// Zweiter Dienst (v0.68): Photon (komoot, OSM-Daten, verzeiht Tippfehler besser)
+async function photon(q, near) {
+  const bias = near ? `&lat=${near.lat}&lon=${near.lon}` : '';
+  const res = await fetch(`https://photon.komoot.io/api/?limit=5&q=${encodeURIComponent(q)}${bias}`);
+  if (!res.ok) return [];
+  const j = await res.json();
+  return (j.features || []).map((f) => {
+    const p = f.properties || {};
+    const street = [p.street, p.housenumber].filter(Boolean).join(' ');
+    const label = [p.name, street, p.district || p.locality, p.city, p.country].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join(', ');
+    return { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], label };
+  });
+}
+const far = (a, b) => b && (Math.abs(a.lat - b.lat) > 1.5 || Math.abs(a.lon - b.lon) > 1.5);
+// Adresse für das Ort-Formular finden: mehrere Schreibweisen, dann Photon (v0.68)
+export async function findPlace(s, name, address, city = HOME_CITY) {
+  const near = cityPos(s, city);
+  const tries = [...new Set([address && `${address}, ${city}`, address && name && `${name}, ${address}, ${city}`, name && `${name}, ${city}`, address && address.replace(/\s*\d+.*$/, '') !== address && `${address.replace(/\s*\d+.*$/, '')}, ${city}`].filter(Boolean))];
+  let reached = false;
+  for (const q of tries) {
+    try {
+      const r = (await geocode(q, city)).filter((x) => !far(x, near));
+      reached = true;
+      if (r.length) return r;
+    } catch {}
+    await new Promise((ok) => setTimeout(ok, 1100)); // Nominatim: höchstens 1 Anfrage pro Sekunde
+  }
+  for (const q of tries.slice(0, 3)) {
+    try {
+      const r = (await photon(q, near)).filter((x) => !far(x, near));
+      reached = true;
+      if (r.length) return r;
+    } catch {}
+  }
+  if (!reached) throw new Error('Adresssuche gerade nicht erreichbar');
+  return [];
 }
 
 // Erst mit Adresse, dann nur mit Namen versuchen

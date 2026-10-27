@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, setEventStage, updatePlace } from '../lib/actions';
 import {
-  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
+  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
@@ -334,9 +334,8 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
     setBusy(true);
     try {
       const c = f.city || city || HOME_CITY;
-      const r = await geocode(`${f.address || f.name}, ${c}`, c);
+      const r = await findPlace(s, f.name, f.address, c);
       setHits(r);
-      if (!r.length) toast('Nichts gefunden – Adresse genauer eingeben');
     } catch (e) {
       toast(e.message);
     } finally {
@@ -371,6 +370,9 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
           <button type="button" className="btn small" onClick={find} disabled={busy || !(f.address || f.name).trim()}>{busy ? '…' : 'Finden'}</button>
         </div>
         {f.lat != null && <span className="tiny" style={{ paddingLeft: 4, color: 'var(--accent)' }}>Auf der Karte gefunden</span>}
+        {hits && hits.length === 0 && f.lat == null && (
+          <span className="tiny" style={{ paddingLeft: 4 }}>Nichts gefunden (auch nicht beim zweiten Dienst). Tipp: Straße + Hausnummer ohne Zusätze. <a href={mapsUrl(f.name, f.address, f.city || city || HOME_CITY)} target="_blank" rel="noreferrer">In Google Maps suchen ↗</a></span>
+        )}
         {hits && hits.length > 0 && f.lat == null && (
           <div className="list">
             {hits.map((h, i) => (
