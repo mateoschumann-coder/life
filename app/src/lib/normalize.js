@@ -11,6 +11,7 @@ export function normalizeTrip(tr) {
     tr.ideen.forEach((x) => tr.places.push({ id: x.id || nid(), name: x.text, kind: 'aktivitaet', note: x.note || '', url: x.url || '', address: '', stopId: '', status: x.done ? 'fest' : 'option' }));
   }
   delete tr.ideen;
+  tr.variants.forEach((v) => { (v.legs || []).forEach((l) => { if (!l.id) l.id = nid(); }); });
   tr.idea = tr.idea || '';
   tr.currency = tr.currency || 'USD';
   return tr;

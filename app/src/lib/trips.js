@@ -192,7 +192,7 @@ export function chooseVariant(tripId, id) {
       itemsToPlaces(t, x, nid, v.stops[k - 1]?.name);
       return { id: nid, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
     });
-    for (const l of v.legs || []) if (!t.transport.some((y) => norm(y.from) === norm(l.from) && norm(y.to) === norm(l.to))) t.transport.push({ id: uid(), from: l.from, to: l.to, mode: l.mode, date: '', time: '', note: [l.dur, l.price, l.note].filter(Boolean).join(' · '), url: rome2rio(l.from, l.to), status: 'option' });
+    legsToTransport(t, v);
   });
   (async () => { for (const sid of added) await locateEntry(tripId, 'stops', sid); })();
 }
@@ -747,8 +747,8 @@ export async function variantTransport(s, tr, vid) {
     maxTokens: 2000,
     label: 'Reise: Transport schätzen',
   });
-  const legs = (r.strecken || []).map((x) => ({ from: x.von, to: x.nach, mode: MODES[x.art] ? x.art : 'sonstiges', dur: x.dauer || '', price: x.preis || '', note: x.notiz || '' }));
-  store.update((st) => { const t = st.trips.find((x) => x.id === tr.id); const vv = t?.variants.find((x) => x.id === vid); if (vv) vv.legs = [...legs, ...(vv.legs || []).filter((o) => !legs.some((l) => norm(l.from) === norm(o.from) && norm(l.to) === norm(o.to)))]; });
+  const legs = (r.strecken || []).map((x) => ({ id: uid(), est: true, from: x.von, to: x.nach, mode: MODES[x.art] ? x.art : 'sonstiges', dur: x.dauer || '', price: x.preis || '', note: x.notiz || '', text: `KI-Schätzung: ${[MODES[x.art] || '', x.notiz].filter(Boolean).join(', ')}` }));
+  store.update((st) => { const t = st.trips.find((x) => x.id === tr.id); const vv = t?.variants.find((x) => x.id === vid); if (vv) vv.legs = [...(vv.legs || []).filter((o) => !(o.est || !o.id) || !legs.some((l) => norm(l.from) === norm(o.from) && norm(l.to) === norm(o.to))), ...legs]; });
   return legs;
 }
 // Teile einer Variante an die finale Route anhängen (+ geschätzte Strecken als Transport-Optionen)
@@ -767,13 +767,7 @@ export function appendFromVariant(tripId, vid, idxs, at = null) {
       added.push(id);
       itemsToPlaces(t, x, id, t.stops[t.stops.findIndex((y) => y.id === id) - 1]?.name);
     }
-    const names = t.stops.map((x) => norm(x.name));
-    for (const l of v.legs || []) {
-      const a = names.indexOf(norm(l.from)), b = names.indexOf(norm(l.to));
-      if (a < 0 || b !== a + 1) continue;
-      if (t.transport.some((y) => norm(y.from) === norm(l.from) && norm(y.to) === norm(l.to))) continue;
-      t.transport.push({ id: uid(), from: l.from, to: l.to, mode: l.mode, date: '', time: '', note: [l.dur, l.price, l.note].filter(Boolean).join(' · '), url: rome2rio(l.from, l.to), status: 'option' });
-    }
+    legsToTransport(t, v);
   });
   (async () => { for (const id of added) await locateEntry(tripId, 'stops', id); })();
   return added.length;
@@ -790,7 +784,8 @@ export function addVariantStop(tripId, vid, name, at = null) {
 export const removeVariantStop = (tripId, vid, i) => editV(tripId, vid, (v) => { v.stops.splice(i, 1); });
 export const moveVariantStop = (tripId, vid, i, d) => editV(tripId, vid, (v) => { const j = i + d; if (j < 0 || j >= v.stops.length) return; const [x] = v.stops.splice(i, 1); v.stops.splice(j, 0, x); });
 export const updateVariantStop = (tripId, vid, i, patch) => editV(tripId, vid, (v) => { if (v.stops[i]) Object.assign(v.stops[i], patch); });
-export const legOf = (legs, a, b) => (legs || []).find((l) => norm(l.from) === norm(a) && norm(l.to) === norm(b));
+export const legsOf = (legs, a, b) => (legs || []).filter((l) => norm(l.from) === norm(a) && norm(l.to) === norm(b));
+export const legOf = (legs, a, b) => { const l = legsOf(legs, a, b); return l.find((x) => x.picked) || l.find((x) => !x.est) || l[0]; };
 export function setVariantLeg(tripId, vid, from, to, patch) {
   editV(tripId, vid, (v) => {
     v.legs = v.legs || [];
@@ -922,7 +917,7 @@ export function syncAutoTransport(tripId) {
     norm(home) !== norm(first) && { auto: 'hin', from: home, to: first, date: tr.from || '' },
     norm(home) !== norm(last) && { auto: 'rueck', from: last, to: home, date: tr.to || '' },
   ].filter(Boolean).map((w) => ({ ...w, mode, url: legUrl(s, tr, w.from, w.to, mode, w.date) }));
-  const same = (x, w) => x && x.from === w.from && x.to === w.to && x.mode === w.mode && x.url === w.url;
+  const same = (x, w) => x && x.from === w.from && x.to === w.to && x.mode === w.mode && x.url === w.url && (x.date || '') === (w.date || '');
   const missingIata = mode === 'flug' && [home, first, last].some((n) => !iataOf(s, n));
   if (want.every((w) => { const x = tr.transport.find((y) => y.auto === w.auto); return x && (x.status === 'gebucht' || same(x, w)); }) && !tr.transport.some((y) => y.auto && !want.some((w) => w.auto === y.auto) && y.status !== 'gebucht')) {
     if (missingIata) askIata(s, [home, first, last], tripId);
@@ -934,7 +929,7 @@ export function syncAutoTransport(tripId) {
     for (const w of want) {
       const x = t.transport.find((y) => y.auto === w.auto);
       if (!x) t.transport.push({ id: uid(), auto: w.auto, from: w.from, to: w.to, mode: w.mode, date: w.date, time: '', note: w.auto === 'hin' ? 'Anreise – passt sich der Route an' : 'Rückreise – passt sich der Route an', url: w.url, status: 'option' });
-      else if (x.status !== 'gebucht') Object.assign(x, { from: w.from, to: w.to, mode: w.mode, url: w.url, date: x.date || w.date });
+      else if (x.status !== 'gebucht') Object.assign(x, { from: w.from, to: w.to, mode: w.mode, url: w.url, date: w.date });
     }
   });
   if (missingIata) askIata(s, [home, first, last], tripId);
@@ -967,3 +962,55 @@ export function reorderStop(tripId, from, to) {
   syncAutoTransport(tripId);
 }
 export const reorderVariantStop = (tripId, vid, from, to) => from !== to && editV(tripId, vid, (v) => { const [x] = v.stops.splice(from, 1); v.stops.splice(to, 0, x); });
+
+// ---------- v0.85: mehrere Verbindungen pro Strecke (Varianten) + Übernahme in die finale Route ----------
+const durRe = /(\d+(?:[.,]\d+)?\s*(?:h|std\.?|stunden?|min\.?|minuten?)(?:\s*\d+\s*min)?)/i;
+const priceRe = /(?:ca\.?\s*|~\s*)?\d[\d.,]*\s*(?:€|eur|euro|usd|us\$|\$|ars|r\$|cny|¥)|(?:€|us\$|\$)\s*\d[\d.,]*/i;
+export function parseLegText(text) {
+  const t = String(text || '');
+  return { dur: (t.match(durRe) || [])[1] || '', price: (t.match(priceRe) || [])[0] || '' };
+}
+export function legsToTransport(t, v) {
+  const names = t.stops.map((x) => norm(x.name));
+  const home = norm(cleanPlace(t.priceSetup?.travelers?.[0]?.start) || 'Buenos Aires');
+  for (const l of v.legs || []) {
+    const a = names.indexOf(norm(l.from)), b = names.indexOf(norm(l.to));
+    const ok = (a >= 0 && b === a + 1) || (norm(l.from) === home && b === 0) || (norm(l.to) === home && a === names.length - 1);
+    if (!ok) continue;
+    const note = l.text || [l.dur, l.price, l.note].filter(Boolean).join(' · ');
+    if (t.transport.some((y) => !y.auto && norm(y.from) === norm(l.from) && norm(y.to) === norm(l.to) && norm(y.note) === norm(note))) continue;
+    t.transport.push({ id: uid(), from: l.from, to: l.to, mode: l.mode || 'sonstiges', date: '', time: '', note, dur: l.dur || '', price: l.price || '', url: okUrl(l.url) || rome2rio(l.from, l.to), status: l.picked ? 'gebucht' : 'option' });
+  }
+}
+export const addVariantLeg = (tripId, vid, leg) => editV(tripId, vid, (v) => { v.legs = [...(v.legs || []), { id: uid(), mode: 'bus', dur: '', price: '', note: '', ...leg, url: okUrl(leg.url) }]; });
+export const updateVariantLeg = (tripId, vid, id, patch) => editV(tripId, vid, (v) => { const l = (v.legs || []).find((x) => x.id === id); if (l) Object.assign(l, patch, patch.url !== undefined ? { url: okUrl(patch.url) } : {}); });
+export const removeVariantLeg = (tripId, vid, id) => editV(tripId, vid, (v) => { v.legs = (v.legs || []).filter((x) => x.id !== id); });
+
+// ---------- v0.85: Daten und Startort überall gleich halten ----------
+export function setTripDates(tripId, { from, to }) {
+  store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (!t) return; t.from = from || ''; t.to = to || ''; if (t.priceSetup) { t.priceSetup.from = from || ''; t.priceSetup.to = to || ''; } });
+  syncAutoTransport(tripId);
+}
+// Neuer Startort bei einer Rundreise: bisherige finale Route samt Gesammeltem als Variante sichern, finale Route beginnt neu
+export function restartFinalRoute(tripId, label) {
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === tripId);
+    if (!t || !t.stops.length) return;
+    const nb = (a, b) => (a && b ? Math.max(0, diffDays(a, b)) : null);
+    const ITEM = { unterkunft: 'unterkunft', restaurant: 'essen', sehenswuerdigkeit: 'sehen', aktivitaet: 'tun', sonstiges: 'tun' };
+    const stops = t.stops.map((st) => ({ name: st.name, nights: nb(st.from, st.to), note: st.note || '', items: t.places.filter((p) => p.stopId === st.id).map((p) => ({ id: uid(), text: p.name, kind: ITEM[p.kind] || 'sehen', url: p.url || '', price: p.price || '', note: p.note || '', reserve: !!p.reserve, picked: p.status === 'fest' })) }));
+    const legs = t.transport.filter((x) => !x.auto).map((x) => ({ id: uid(), from: x.from, to: x.to, mode: x.mode, text: x.note || '', dur: x.dur || '', price: x.price || '', url: x.url || '', picked: x.status === 'gebucht' }));
+    t.variants.unshift({ id: uid(), name: label, summary: 'automatisch gesichert', stops, legs, chosen: false });
+    t.variants.forEach((v) => { v.chosen = false; });
+    const ids = new Set(t.stops.map((x) => x.id));
+    t.places = t.places.filter((p) => !ids.has(p.stopId));
+    t.transport = t.transport.filter((x) => x.status === 'gebucht' && !x.auto);
+    t.stops = [];
+    t.ortStopId = '';
+  });
+}
+export function saveTripSetup(trips, setup) {
+  const st0 = fixSetup(setup);
+  store.update((s) => { for (const x of s.trips) if (trips.some((y) => y.id === x.id)) { x.priceSetup = st0; if (st0.from) { x.from = st0.from; x.to = st0.to || x.to; } } });
+  for (const x of trips) syncAutoTransport(x.id);
+}
