@@ -70,7 +70,8 @@ function JobRow({ j, s, showSearch = false }) {
 // v0.73: Allgemeine Dokumente (für alle Bewerbungen) – habe ich / fehlt
 function Docs({ s }) {
   const [text, setText] = useState('');
-  const [open, setOpen] = useState(true);
+  const [open, setOpenRaw] = useState(() => { try { return localStorage.getItem('life-app-docs-open') !== '0'; } catch { return true; } });
+  const setOpen = (v) => { setOpenRaw(v); try { localStorage.setItem('life-app-docs-open', v ? '1' : '0'); } catch {} };
   const done = s.careerDocs.filter((d) => d.done).length;
   return (
     <section className="group">
@@ -230,7 +231,10 @@ function SearchPage({ s, search }) {
           {imp !== null && !adding && (
             <div className="take-box">
               <span className="tiny" style={{ color: 'var(--text)' }}>Einen oder <b>mehrere Links</b> (je eine Zeile) oder Anzeigentexte einfügen. Die KI legt pro Stelle einen Steckbrief an: Firma, Ort, Remote, Gehalt, Aufgaben, Anforderungen.</span>
-              <textarea className="input" style={{ minHeight: 90 }} value={imp} onChange={(e) => setImp(e.target.value)} placeholder="https://… oder Text der Anzeige" aria-label="Link oder Anzeigentext" />
+              <div style={{ position: 'relative' }}>
+                <textarea className="input" style={{ minHeight: 90, paddingRight: 36, width: '100%' }} value={imp} onChange={(e) => setImp(e.target.value)} placeholder="https://… oder Text der Anzeige" aria-label="Link oder Anzeigentext" />
+                {imp && <button type="button" className="x-btn" style={{ position: 'absolute', top: 6, right: 6 }} onClick={() => { setImp(''); setFound(null); }} aria-label="Feld leeren"><Icon name="x" size={13} color="var(--chev)" /></button>}
+              </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button type="button" className="btn small" style={{ flex: 1 }} onClick={runImport} disabled={impBusy || !imp.trim() || !getAi().apiKey}>{impBusy ? 'Ich lese die Anzeigen …' : '✨ Erkennen'}</button>
                 <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={async () => { try { const t = await navigator.clipboard.readText(); if (t) setImp(t); } catch { toast('Lange ins Feld tippen → Einsetzen'); } }}>📋 Einfügen</button>
@@ -246,7 +250,9 @@ function SearchPage({ s, search }) {
                         <span style={{ fontWeight: 600, fontSize: 15 }}>{j.title}{j.company ? ` · ${j.company}` : ''}</span>
                         <span className="tiny">{[j.location, WORK_MODES[j.mode], j.salary].filter(Boolean).join(' · ') || 'Keine weiteren Infos gefunden'}</span>
                         {j.reqs.length > 0 && <span className="tiny" style={{ color: 'var(--text)' }}>{j.reqs.slice(0, 3).join(' · ')}</span>}
+                        {!j.description && !j.reqs.length && <span className="tiny" style={{ color: 'var(--danger)' }}>Seite nicht lesbar – nur der Titel aus dem Link. Besser: Anzeigentext kopieren und einfügen.</span>}
                       </span>
+                      <button type="button" className="x-btn" onClick={(e) => { e.preventDefault(); const next = found.filter((_, k) => k !== i); setFound(next.length ? next : null); setPick(Object.fromEntries(next.map((_, k) => [k, true]))); }} aria-label={`${j.title} verwerfen`}><Icon name="x" size={12} color="var(--chev)" /></button>
                     </label>
                   ))}
                   <button type="button" className="btn small" disabled={!Object.values(pick).some(Boolean)} onClick={() => { let n = 0; found.forEach((j, i) => { if (pick[i] && addJob({ searchId: search.id, ...j, status: 'interessiert' })) n++; }); setFound(null); setImp(null); toast(n ? `${n} ${n === 1 ? 'Stelle' : 'Stellen'} im Trichter (Interessiert)` : 'Schon vorhanden'); }}>{Object.values(pick).filter(Boolean).length} übernehmen</button>

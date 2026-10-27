@@ -68,7 +68,7 @@ export default function App() {
   return (
     <div className="app">
       {screen}
-      {page !== 'assistent' && <FloatingAssistant />}
+      {page !== 'assistent' && !(page === 'reisen' && a) && <FloatingAssistant />}
       <Toaster />
     </div>
   );

@@ -4,7 +4,7 @@ import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
-  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio } from '../lib/trips';
+  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, addEmptyVariant, insertStop, editVariant } from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -445,78 +445,94 @@ function TripList({ s }) {
 }
 
 // ---------- Route: Stationen + Transport ----------
-function Route({ tr }) {
-  const [name, setName] = useState('');
-  const [openId, setOpenId] = useState(null);
-  const [tf, setTf] = useState({ from: '', to: '', mode: 'bus' });
-  const addStop = () => {
-    const id = addEntry(tr.id, 'stops', { name: name.trim(), from: '', to: '', note: '' });
-    setName('');
-    locateEntry(tr.id, 'stops', id);
-  };
-  const move = (i, d) => {
-    const list = [...tr.stops];
-    const [x] = list.splice(i, 1);
-    list.splice(i + d, 0, x);
-    updateTrip(tr.id, { stops: list });
-  };
+function StopDetail({ tr, st, i }) {
+  const [pname, setPname] = useState('');
+  const [pkind, setPkind] = useState('unterkunft');
+  const places = tr.places.filter((p) => p.stopId === st.id);
+  const move = (d) => { const list = [...tr.stops]; const [x] = list.splice(i, 1); list.splice(i + d, 0, x); updateTrip(tr.id, { stops: list }); };
   return (
     <>
-      <section className="group">
-        <h2 className="label" style={{ padding: '0 4px' }}>Stationen</h2>
-        <div className="list">
-          {tr.stops.length === 0 && <div className="empty">Noch keine Route. Wähle unter „Routen“ eine Variante oder trag Stationen selbst ein.</div>}
-          {tr.stops.map((st, i) => {
-            const n = tr.places.filter((p) => p.stopId === st.id).length;
-            const stay = tr.places.find((p) => p.stopId === st.id && p.kind === 'unterkunft' && p.status === 'fest');
-            return (
-              <div key={st.id} style={{ display: 'flex', flexDirection: 'column' }}>
-                <button type="button" className="row" style={{ minHeight: 58 }} onClick={() => setOpenId(openId === st.id ? null : st.id)}>
-                  <span className="step-no">{i + 1}</span>
-                  <span className="row-main">
-                    <span className="row-title strong">{st.name}</span>
-                    <span className="row-meta">{[st.from && rangeText(st.from, st.to), stay ? `🏠 ${stay.name}` : null, n && `${n} Orte`, st.note].filter(Boolean).join(' · ') || 'Antippen zum Bearbeiten'}</span>
-                  </span>
-                  <Chevron />
-                </button>
-                {openId === st.id && (
-                  <div className="stop-edit">
-                    <DateRangeField from={st.from} to={st.to} onChange={(v) => updateEntry(tr.id, 'stops', st.id, v)} placeholder="Wann bist du dort?" />
-                    <input className="input" defaultValue={st.note} key={st.id + 'n'} placeholder="Notiz, z.B. „2 Nächte, Strandtag“" onBlur={(e) => e.target.value !== st.note && updateEntry(tr.id, 'stops', st.id, { note: e.target.value })} aria-label="Notiz" />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" className="pill" disabled={i === 0} onClick={() => move(i, -1)}>↑ Früher</button>
-                      <button type="button" className="pill" disabled={i === tr.stops.length - 1} onClick={() => move(i, 1)}>↓ Später</button>
-                      <span style={{ flex: 1 }} />
-                      <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Station „${st.name}“ löschen?`) && removeEntry(tr.id, 'stops', st.id)}>Löschen</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          <form className="inline-add" onSubmit={(e) => { e.preventDefault(); addStop(); }}>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Neue Station, z.B. Garopaba" aria-label="Neue Station" />
-            <button type="submit" className="btn small" disabled={!name.trim()}>+</button>
-          </form>
+      <DateRangeField from={st.from} to={st.to} onChange={(v) => updateEntry(tr.id, 'stops', st.id, v)} placeholder="Wann bist du dort?" />
+      <input className="input" defaultValue={st.note} key={st.id + 'n' + (st.note || '')} placeholder="Notiz, z.B. „2 Nächte, Strandtag“" onBlur={(e) => e.target.value !== st.note && updateEntry(tr.id, 'stops', st.id, { note: e.target.value })} aria-label="Notiz" />
+      <span className="label" style={{ padding: 0 }}>Hier sammeln</span>
+      {places.map((p) => (
+        <div key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 14.5, flex: 1 }}>{p.status === 'fest' ? '✓ ' : ''}{PLACE_KINDS[p.kind] ? `${PLACE_KINDS[p.kind]}: ` : ''}{p.name}</span>
+          <button type="button" className={p.status === 'fest' ? 'pill on' : 'pill'} style={{ fontSize: 12 }} onClick={() => updateEntry(tr.id, 'places', p.id, { status: p.status === 'fest' ? 'option' : 'fest' })}>{p.status === 'fest' ? 'Fest' : 'Option'}</button>
+          <button type="button" className="x-btn" aria-label={`${p.name} entfernen`} onClick={() => removeEntry(tr.id, 'places', p.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
         </div>
+      ))}
+      <div className="chips">{Object.entries(PLACE_KINDS).filter(([k]) => k !== 'sonstiges').map(([k, l]) => <button key={k} type="button" className={pkind === k ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5, padding: '4px 9px' }} onClick={() => setPkind(k)}>{l}</button>)}</div>
+      <form className="block-add" onSubmit={(e) => { e.preventDefault(); const id = addEntry(tr.id, 'places', { name: pname.trim(), kind: pkind, stopId: st.id, note: '', address: '', url: '', status: 'option' }); setPname(''); locateEntry(tr.id, 'places', id); }}>
+        <input className="input" value={pname} onChange={(e) => setPname(e.target.value)} placeholder="Name" aria-label="Ort sammeln" />
+        <button type="submit" className="btn small" disabled={!pname.trim()}>+</button>
+      </form>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button type="button" className="pill" disabled={i === 0} onClick={() => move(-1)}>↑</button>
+        <button type="button" className="pill" disabled={i === tr.stops.length - 1} onClick={() => move(1)}>↓</button>
+        <span style={{ flex: 1 }} />
+        <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Station „${st.name}“ löschen?`) && removeEntry(tr.id, 'stops', st.id)}>Löschen</button>
+      </div>
+    </>
+  );
+}
+const between = (tr, a, b) => tr.transport.filter((x) => x.from?.toLowerCase() === a.toLowerCase() && x.to?.toLowerCase() === b.toLowerCase());
+function TransportRow({ tr, x }) {
+  return (
+    <div className="row" style={{ minHeight: 52, padding: '6px 0' }}>
+      <span className="row-main">
+        <span className="row-title strong" style={{ fontSize: 14.5 }}>{MODE_ICON[x.mode] || '➡️'} {x.from} → {x.to}</span>
+        <span className="row-meta">{[MODES[x.mode], x.date && fmtShort(x.date), x.note].filter(Boolean).join(' · ')}</span>
+      </span>
+      {x.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+      <button type="button" className={x.status === 'gebucht' ? 'pill on' : 'pill'} onClick={() => updateEntry(tr.id, 'transport', x.id, { status: x.status === 'gebucht' ? 'option' : 'gebucht' })}>{x.status === 'gebucht' ? '✓ Gebucht' : 'Option'}</button>
+      <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeEntry(tr.id, 'transport', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+    </div>
+  );
+}
+function LegDetail({ tr, a, b }) {
+  const [mode, setMode] = useState('bus');
+  const [note, setNote] = useState('');
+  const list = between(tr, a, b);
+  return (
+    <>
+      {list.map((x) => <TransportRow key={x.id} tr={tr} x={x} />)}
+      <div className="chips">{Object.entries(MODES).map(([k, l]) => <button key={k} type="button" className={mode === k ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5, padding: '4px 9px' }} onClick={() => setMode(k)}>{MODE_ICON[k]} {l}</button>)}</div>
+      <form className="block-add" onSubmit={(e) => { e.preventDefault(); addEntry(tr.id, 'transport', { from: a, to: b, mode, date: '', time: '', note: note.trim(), url: rome2rio(a, b), status: 'option' }); setNote(''); }}>
+        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Dauer, Preis, Anbieter …" aria-label="Transport-Notiz" />
+        <button type="submit" className="btn small">+ Option</button>
+      </form>
+      <a className="link-btn" style={{ fontSize: 13, alignSelf: 'flex-start' }} href={rome2rio(a, b)} target="_blank" rel="noreferrer">Echte Verbindungen auf Rome2rio ↗</a>
+    </>
+  );
+}
+function Route({ tr }) {
+  const [tf, setTf] = useState({ from: '', to: '', mode: 'flug' });
+  const stops = tr.stops;
+  const inTimeline = (x) => stops.some((st, i) => i < stops.length - 1 && x.from?.toLowerCase() === st.name.toLowerCase() && x.to?.toLowerCase() === stops[i + 1].name.toLowerCase());
+  const other = tr.transport.filter((x) => !inTimeline(x));
+  return (
+    <>
+      <section className="card" style={{ gap: 6 }}>
+        <span className="label" style={{ padding: 0 }}>{tripKind(tr) === 'ort' ? 'Ziel' : 'Finale Route'}</span>
+        <Timeline
+          items={stops}
+          name={(st) => st.name}
+          meta={(st) => { const n = tr.places.filter((p) => p.stopId === st.id).length; const stay = tr.places.find((p) => p.stopId === st.id && p.kind === 'unterkunft' && p.status === 'fest'); return [st.from && rangeText(st.from, st.to), stay ? `🏠 ${stay.name}` : null, n && `${n} gesammelt`, st.note].filter(Boolean).join(' · '); }}
+          leg={(i) => { const l = between(tr, stops[i].name, stops[i + 1].name); if (!l.length) return null; const b = l.find((x) => x.status === 'gebucht') || l[0]; return { icon: MODE_ICON[b.mode] || '➡️', text: [b.status === 'gebucht' ? '✓ gebucht' : `${l.length} Option${l.length > 1 ? 'en' : ''}`, b.note].filter(Boolean).join(' · ') }; }}
+          renderDetail={(st, i) => <StopDetail tr={tr} st={st} i={i} />}
+          renderLeg={(i) => <LegDetail tr={tr} a={stops[i].name} b={stops[i + 1].name} />}
+          onInsert={(name, at) => insertStop(tr.id, name, at)}
+          addPlaceholder="Station hinzufügen, z.B. Garopaba"
+        />
+        {!stops.length && tripKind(tr) !== 'ort' && <span className="tiny">Tipp: Unter „Varianten“ ganze Routen oder einzelne Orte hierher übernehmen.</span>}
       </section>
       <section className="group">
-        <h2 className="label" style={{ padding: '0 4px' }}>Transport</h2>
-        <div className="list">
-          {tr.transport.length === 0 && <div className="empty">Wie kommst du hin und zwischen den Stationen weiter? Optionen sammeln, dann als „gebucht“ markieren.</div>}
-          {tr.transport.map((x) => (
-            <div key={x.id} className="row" style={{ minHeight: 58 }}>
-              <span className="block-icon" style={tint}><Icon name={x.mode === 'flug' ? 'plane' : x.mode === 'auto' ? 'pin' : 'refresh'} size={15} /></span>
-              <span className="row-main">
-                <span className="row-title strong">{x.from} → {x.to}</span>
-                <span className="row-meta">{[MODES[x.mode], x.date && fmtShort(x.date), x.note].filter(Boolean).join(' · ')}</span>
-              </span>
-              {x.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-              <button type="button" className={x.status === 'gebucht' ? 'pill on' : 'pill'} onClick={() => updateEntry(tr.id, 'transport', x.id, { status: x.status === 'gebucht' ? 'option' : 'gebucht' })}>{x.status === 'gebucht' ? '✓ Gebucht' : 'Option'}</button>
-              <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeEntry(tr.id, 'transport', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
-            </div>
-          ))}
-          <form className="stop-edit" onSubmit={(e) => { e.preventDefault(); addEntry(tr.id, 'transport', { from: tf.from.trim(), to: tf.to.trim(), mode: tf.mode, date: '', time: '', note: '', url: '', status: 'option' }); setTf({ from: tf.to, to: '', mode: tf.mode }); }}>
+        <h2 className="label" style={{ padding: '0 4px' }}>An- & Abreise / weitere Verbindungen</h2>
+        <div className="list" style={{ padding: '0 16px' }}>
+          {other.length === 0 && <div className="empty" style={{ padding: '12px 0' }}>z.B. Flug Buenos Aires → erste Station.</div>}
+          {other.map((x) => <TransportRow key={x.id} tr={tr} x={x} />)}
+          <form className="stop-edit" style={{ padding: '8px 0' }} onSubmit={(e) => { e.preventDefault(); addEntry(tr.id, 'transport', { from: tf.from.trim(), to: tf.to.trim(), mode: tf.mode, date: '', time: '', note: '', url: '', status: 'option' }); setTf({ from: tf.to, to: '', mode: tf.mode }); }}>
             <div style={{ display: 'flex', gap: 8 }}>
               <input className="input" value={tf.from} onChange={(e) => setTf({ ...tf, from: e.target.value })} placeholder="Von" aria-label="Von" />
               <input className="input" value={tf.to} onChange={(e) => setTf({ ...tf, to: e.target.value })} placeholder="Nach" aria-label="Nach" />
@@ -775,74 +791,173 @@ function Pool({ s, tr, onVariants }) {
   );
 }
 
-function Variants({ s, tr, onChosen, onCommit }) {
+
+// ---------- v0.74: Zeitleiste wie bei Google Maps – Ort, Linie mit Transport, nächster Ort ----------
+function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, addPlaceholder = 'Ort hinzufügen, z.B. Garopaba' }) {
+  const [openStop, setOpenStop] = useState(null);
+  const [openLeg, setOpenLeg] = useState(null);
+  const [insertAt, setInsertAt] = useState(null);
   const [text, setText] = useState('');
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(null);
-  const [part, setPart] = useState({}); // { variantId: [indices] }
-  const vs = tr.variants || [];
-  const legs = async (v) => {
-    setBusy(v.id);
-    try { await variantTransport(s, tr, v.id); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); }
-  };
-  const togPart = (vid, i) => { const cur = part[vid] || []; setPart({ ...part, [vid]: cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i] }); };
+  const n = items.length;
+  const add = (at) => { onInsert(text, at); setText(''); setInsertAt(null); };
+  const insertForm = (at) => (
+    <form className="tl-detail" onSubmit={(e) => { e.preventDefault(); add(at); }}>
+      <div className="block-add">
+        <input className="input" autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={addPlaceholder} aria-label="Ort einfügen" />
+        <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
+      </div>
+    </form>
+  );
+  return (
+    <div className="tl">
+      {n === 0 && <span className="tiny" style={{ padding: '4px 0' }}>Noch keine Orte – unten den ersten hinzufügen.</span>}
+      {items.map((x, i) => {
+        const l = i < n - 1 ? leg(i) : null;
+        return (
+          <Fragment key={i + name(x)}>
+            <div className="tl-node">
+              <button type="button" className="tl-dot" onClick={() => setOpenStop(openStop === i ? null : i)} aria-label={`${name(x)} öffnen`}>{i + 1}</button>
+              <button type="button" className="tl-main" onClick={() => setOpenStop(openStop === i ? null : i)}>
+                <span style={{ fontWeight: 650, fontSize: 15.5 }}>{name(x)}</span>
+                {meta(x, i) && <span className="tiny">{meta(x, i)}</span>}
+              </button>
+              <span className="tiny">{openStop === i ? '▴' : '▾'}</span>
+            </div>
+            {openStop === i && <div className={i < n - 1 ? 'tl-detail line' : 'tl-detail'}>{renderDetail(x, i)}</div>}
+            {i < n - 1 && (
+              <div className="tl-link">
+                <button type="button" className="tl-leg" onClick={() => setOpenLeg(openLeg === i ? null : i)}>{l ? `${l.icon} ${l.text}` : '＋ Transport'}</button>
+                <button type="button" className="tl-plus" onClick={() => { setInsertAt(insertAt === i + 1 ? null : i + 1); setText(''); }} aria-label="Ort dazwischen einfügen">＋</button>
+              </div>
+            )}
+            {i < n - 1 && openLeg === i && <div className="tl-detail line">{renderLeg(i)}</div>}
+            {i < n - 1 && insertAt === i + 1 && insertForm(i + 1)}
+          </Fragment>
+        );
+      })}
+      <form className="tl-node" onSubmit={(e) => { e.preventDefault(); if (insertAt === null || insertAt >= n) add(n); }}>
+        <span className="tl-dot add">＋</span>
+        <input className="input" value={insertAt === null || insertAt >= n ? text : ''} onFocus={() => setInsertAt(null)} onChange={(e) => setText(e.target.value)} placeholder={addPlaceholder} aria-label="Ort am Ende hinzufügen" />
+        <button type="submit" className="btn small" disabled={!text.trim() || (insertAt !== null && insertAt < n)}>+</button>
+      </form>
+    </div>
+  );
+}
+
+const ITEM_KINDS = { unterkunft: '🏠', essen: '🍽', sehen: '👀', tun: '🎯' };
+const ITEM_LABEL = { unterkunft: 'Unterkunft', essen: 'Essen', sehen: 'Sehen', tun: 'Tun' };
+function Nights({ value, onChange }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <button type="button" className="pill" onClick={() => onChange(Math.max(0, (value || 0) - 1) || null)} aria-label="Eine Nacht weniger">−</button>
+      <b style={{ minWidth: 60, textAlign: 'center' }}>{value ? `${value} ${value === 1 ? 'Nacht' : 'Nächte'}` : 'Nächte?'}</b>
+      <button type="button" className="pill" onClick={() => onChange((value || 0) + 1)} aria-label="Eine Nacht mehr">+</button>
+    </span>
+  );
+}
+function VariantStopDetail({ tr, v, x, i }) {
+  const [text, setText] = useState('');
+  const [kind, setKind] = useState('sehen');
+  const items = x.items || [];
   return (
     <>
-      <div className="list">
-        {vs.length === 0 && <div className="empty">Noch keine Varianten. Sammle unter „Orte sammeln“ Orte und bau daraus Varianten – oder lass dir unten von der KI Routen skizzieren.</div>}
-        {vs.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>Orte antippen = auswählen, um nur Teile an die finale Route anzuhängen. Oder die ganze Variante übernehmen.</span>}
-        {vs.map((v, vi) => {
-          const nights = v.stops.reduce((n, x) => n + (x.nights || 0), 0);
-          return (
-            <div key={v.id} className="variant">
-              <span className="eyebrow" style={{ fontSize: 11 }}>Variante {vi + 1}</span>
-              <div className="sec-h" style={{ padding: 0 }}>
-                <span style={{ fontWeight: 700, fontSize: 16 }}>{v.chosen ? '✓ ' : ''}{v.name}</span>
-                <span className="tiny">{v.stops.length} Abschnitte{nights ? ` · ${nights} Nächte` : ''}</span>
-              </div>
-              {v.summary && <span className="tiny">{v.summary}</span>}
-              <div className="variant-steps">
-                {v.stops.map((x, i) => {
-                  const on = (part[v.id] || []).includes(i);
-                  const leg = (v.legs || []).find((l) => l.from && l.to && l.from.toLowerCase() === x.name.toLowerCase() && v.stops[i + 1] && l.to.toLowerCase() === v.stops[i + 1].name.toLowerCase()) || (v.legs || [])[i];
-                  return (
-                    <Fragment key={i}>
-                      <button type="button" className="variant-step" style={{ border: 0, background: on ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'none', borderRadius: 8, textAlign: 'left', cursor: 'pointer', padding: '2px 4px' }} onClick={() => togPart(v.id, i)} aria-pressed={on}>
-                        <span className="step-no" style={{ width: 20, height: 20, fontSize: 11, background: on ? 'var(--accent)' : undefined, color: on ? '#fff' : undefined }}>{on ? '✓' : i + 1}</span>
-                        <span><b>{x.name}</b>{x.nights ? ` · ${x.nights} N.` : ''}{x.note ? <span className="tiny"> · {x.note}</span> : null}</span>
-                      </button>
-                      {i < v.stops.length - 1 && leg && (
-                        <span className="tiny" style={{ paddingLeft: 30, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                          {MODE_ICON[leg.mode] || '➡️'} {[leg.dur, leg.price, leg.note].filter(Boolean).join(' · ')}
-                          <a href={rome2rio(x.name, v.stops[i + 1].name)} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>prüfen ↗</a>
-                        </span>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </div>
-              {v.stops.length > 1 && (
-                <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => legs(v)} disabled={!!busy || !getAi().apiKey}>{busy === v.id ? 'Ich schätze die Strecken …' : v.legs?.length ? '↻ Transport neu schätzen' : '🚌 Transport zwischen den Orten schätzen'}</button>
-              )}
-              {(part[v.id] || []).length > 0 && (
-                <button type="button" className="btn small" onClick={() => { const n = appendFromVariant(tr.id, v.id, part[v.id]); setPart({ ...part, [v.id]: [] }); toast(n ? `${n} ${n === 1 ? 'Ort' : 'Orte'} an die finale Route angehängt` : 'Schon in der Route'); }}>{(part[v.id] || []).length} ausgewählte an die finale Route anhängen</button>
-              )}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" className={v.chosen ? 'pill on' : 'pill'} onClick={() => { chooseVariant(tr.id, v.id); toast(`„${v.name}“ ist jetzt deine finale Route`); onChosen?.(); }}>{v.chosen ? 'Ist die Route' : 'Ganze Variante als Route'}</button>
-                {onCommit && <button type="button" className="pill on" onClick={() => { chooseVariant(tr.id, v.id); onCommit(); }}>Zur Reise machen</button>}
-                <span style={{ flex: 1 }} />
-                <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Variante „${v.name}“ löschen?`) && removeVariant(tr.id, v.id)}>Löschen</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <form className="card" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); addVariant(tr.id, { name: name.trim(), stops: text.split(/→|->|,|\n/).map((x) => x.trim()).filter(Boolean).map((x) => { const m = x.match(/^(.*?)\s*\(?(\d+)\s*(n|nächte|nights)?\)?$/i); return m && m[2] ? { name: m[1], nights: Number(m[2]) } : { name: x }; }) }); setText(''); setName(''); }}>
-        <span className="label" style={{ padding: 0 }}>Eigene Variante</span>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, z.B. Küste entspannt" aria-label="Name der Variante" />
-        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Orte mit Komma, z.B. Floripa 3, Garopaba 2, Imbituba 2" aria-label="Abschnitte" />
-        <button type="submit" className="btn small" disabled={!text.trim()}>Variante speichern</button>
+      <Nights value={x.nights} onChange={(nv) => updateVariantStop(tr.id, v.id, i, { nights: nv })} />
+      <input className="input" defaultValue={x.note || ''} key={v.id + i + 'n' + (x.note || '')} placeholder="Notiz, z.B. Strände, Lagoa" onBlur={(e) => e.target.value !== (x.note || '') && updateVariantStop(tr.id, v.id, i, { note: e.target.value })} aria-label="Notiz" />
+      <span className="label" style={{ padding: 0 }}>Hier sammeln</span>
+      {items.map((it) => (
+        <div key={it.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 14.5, flex: 1 }}>{ITEM_KINDS[it.kind] || '•'} {it.text}</span>
+          <button type="button" className="x-btn" aria-label={`${it.text} entfernen`} onClick={() => removeVariantItem(tr.id, v.id, i, it.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
+        </div>
+      ))}
+      <div className="chips">{Object.entries(ITEM_LABEL).map(([k, l]) => <button key={k} type="button" className={kind === k ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5, padding: '4px 9px' }} onClick={() => setKind(k)}>{ITEM_KINDS[k]} {l}</button>)}</div>
+      <form className="block-add" onSubmit={(e) => { e.preventDefault(); addVariantItem(tr.id, v.id, i, text, kind); setText(''); }}>
+        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'unterkunft' ? 'z.B. Pousada am Strand' : kind === 'essen' ? 'z.B. Ostras in Ribeirão' : kind === 'tun' ? 'z.B. Surfkurs' : 'z.B. Lagoa da Conceição'} aria-label="Etwas sammeln" />
+        <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
       </form>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <button type="button" className="pill" disabled={i === 0} onClick={() => moveVariantStop(tr.id, v.id, i, -1)}>↑</button>
+        <button type="button" className="pill" disabled={i === v.stops.length - 1} onClick={() => moveVariantStop(tr.id, v.id, i, 1)}>↓</button>
+        <button type="button" className="pill on" onClick={() => { const nAdd = appendFromVariant(tr.id, v.id, [i]); toast(nAdd ? `${x.name} an die finale Route angehängt` : 'Ist schon in der finalen Route'); }}>→ In finale Route</button>
+        <span style={{ flex: 1 }} />
+        <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => removeVariantStop(tr.id, v.id, i)}>Entfernen</button>
+      </div>
+    </>
+  );
+}
+function VariantLegDetail({ tr, v, a, b }) {
+  const l = legOf(v.legs, a, b) || {};
+  const set = (patch) => setVariantLeg(tr.id, v.id, a, b, patch);
+  return (
+    <>
+      <span className="tiny">{a} → {b}</span>
+      <div className="chips">{Object.entries(MODES).map(([k, lab]) => <button key={k} type="button" className={l.mode === k ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5, padding: '4px 9px' }} onClick={() => set({ mode: k })}>{MODE_ICON[k]} {lab}</button>)}</div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input className="input" defaultValue={l.dur || ''} key={a + b + 'd' + (l.dur || '')} placeholder="Dauer, z.B. 3 h" onBlur={(e) => e.target.value !== (l.dur || '') && set({ dur: e.target.value })} aria-label="Dauer" />
+        <input className="input" defaultValue={l.price || ''} key={a + b + 'p' + (l.price || '')} placeholder="Preis" onBlur={(e) => e.target.value !== (l.price || '') && set({ price: e.target.value })} aria-label="Preis" />
+      </div>
+      <input className="input" defaultValue={l.note || ''} key={a + b + 'n' + (l.note || '')} placeholder="Notiz, z.B. Anbieter, Abfahrt" onBlur={(e) => e.target.value !== (l.note || '') && set({ note: e.target.value })} aria-label="Notiz" />
+      <a className="link-btn" style={{ fontSize: 13, alignSelf: 'flex-start' }} href={rome2rio(a, b)} target="_blank" rel="noreferrer">Echte Verbindungen auf Rome2rio ↗</a>
+    </>
+  );
+}
+const legChip = (l) => (l ? { icon: MODE_ICON[l.mode] || '➡️', text: [l.dur, l.price].filter(Boolean).join(' · ') || MODES[l.mode] || 'Transport' } : null);
+
+function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
+  const [busy, setBusy] = useState(null);
+  const [wish, setWish] = useState('');
+  const nights = v.stops.reduce((n, x) => n + (x.nights || 0), 0);
+  const legs = async () => { setBusy('legs'); try { await variantTransport(s, tr, v.id); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); } };
+  const ai = async () => { if (!wish.trim()) return; setBusy('ai'); try { await editVariant(s, tr, v.id, wish.trim()); setWish(''); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); } };
+  return (
+    <section className="card" style={{ gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="eyebrow" style={{ fontSize: 11, flex: 1 }}>Variante {vi + 1}{v.chosen ? ' · ✓ ist die finale Route' : ''}</span>
+        <span className="tiny">{v.stops.length} Orte{nights ? ` · ${nights} N.` : ''}</span>
+      </div>
+      <input className="input title-input" style={{ fontSize: 19 }} defaultValue={v.name} key={v.id + v.name} onBlur={(e) => e.target.value.trim() && e.target.value !== v.name && updateVariant(tr.id, v.id, { name: e.target.value.trim() })} aria-label="Name der Variante" />
+      {(v.aiNote || v.summary) && <span className="tiny" style={{ color: 'var(--text)' }}>{v.aiNote ? `✨ ${v.aiNote}` : v.summary}</span>}
+      <Timeline
+        items={v.stops}
+        name={(x) => x.name}
+        meta={(x) => [x.nights && `${x.nights} N.`, (x.items || []).length && `${x.items.length} gesammelt`, x.note].filter(Boolean).join(' · ')}
+        leg={(i) => legChip(legOf(v.legs, v.stops[i].name, v.stops[i + 1].name))}
+        renderDetail={(x, i) => <VariantStopDetail tr={tr} v={v} x={x} i={i} />}
+        renderLeg={(i) => <VariantLegDetail tr={tr} v={v} a={v.stops[i].name} b={v.stops[i + 1].name} />}
+        onInsert={(name, at) => addVariantStop(tr.id, v.id, name, at)}
+      />
+      {v.stops.length > 1 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={legs} disabled={!!busy || !getAi().apiKey}>{busy === 'legs' ? 'Ich schätze die Strecken …' : v.legs?.length ? '↻ Transport neu schätzen (KI)' : '🚌 Transport zwischen allen Orten schätzen (KI)'}</button>}
+      <form className="block-add" onSubmit={(e) => { e.preventDefault(); ai(); }}>
+        <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder="✨ KI: z.B. „mehr Strand“, „2 Nächte weniger“" aria-label={`KI für Variante ${vi + 1}`} />
+        <button type="submit" className="btn small" disabled={!wish.trim() || !!busy || !getAi().apiKey}>{busy === 'ai' ? '…' : '✨'}</button>
+      </form>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" className={v.chosen ? 'pill on' : 'pill'} disabled={!v.stops.length} onClick={() => { chooseVariant(tr.id, v.id); toast(`„${v.name}“ ist jetzt die finale Route`); onChosen?.(); }}>{v.chosen ? 'Ist die finale Route' : 'Ganze Variante als finale Route'}</button>
+        {isIdea && <button type="button" className="pill on" disabled={!v.stops.length} onClick={() => { chooseVariant(tr.id, v.id); onCommit(); }}>Zur Reise machen</button>}
+        <span style={{ flex: 1 }} />
+        <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Variante „${v.name}“ löschen?`) && removeVariant(tr.id, v.id)}>Löschen</button>
+      </div>
+    </section>
+  );
+}
+function Variants({ s, tr, onChosen, onCommit }) {
+  const [wish, setWish] = useState('');
+  const [busy, setBusy] = useState(false);
+  const vs = tr.variants || [];
+  const build = async () => { setBusy(true); try { const n = await buildVariants(s, tr, wish.trim()); setWish(''); toast(`${n} Varianten erstellt`); } catch (e) { toast(errMsg(e)); } finally { setBusy(false); } };
+  return (
+    <>
+      <section className="card" style={{ gap: 8 }}>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>✨ Varianten erstellen</span>
+        <form className="block-add" onSubmit={(e) => { e.preventDefault(); build(); }}>
+          <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder={`z.B. „eine entspannt, eine mit viel Kultur“`} aria-label="Wunsch für die Varianten" />
+          <button type="submit" className="btn small" disabled={busy || !getAi().apiKey}>{busy ? '…' : '✨'}</button>
+        </form>
+        <span className="tiny">Die KI baut 2 Varianten{(tr.pool || []).length ? ' aus deinen gesammelten Orten' : ''}. Oder selbst: <button type="button" className="link-btn" style={{ fontSize: 12.5 }} onClick={() => addEmptyVariant(tr.id)}>+ Leere Variante</button></span>
+      </section>
+      {vs.length === 0 && <div className="list"><div className="empty">Noch keine Variante. Lass dir oben welche bauen oder leg eine leere an und füg Orte hinzu.</div></div>}
+      {vs.map((v, vi) => <VariantCard key={v.id} s={s} tr={tr} v={v} vi={vi} isIdea={!!onCommit} onChosen={onChosen} onCommit={onCommit} />)}
+      {vs.length > 0 && <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => addEmptyVariant(tr.id)}>+ Weitere Variante</button>}
     </>
   );
 }
@@ -902,9 +1017,11 @@ function TripDetail({ s, tr }) {
 
 
         <div className="seg full" role="group" aria-label="Art der Reise">
-          <button type="button" className={kind === 'ort' ? 'on' : ''} aria-pressed={kind === 'ort'} onClick={() => { updateTrip(tr.id, { kind: 'ort' }); setTab(null); }}>📍 An einem Ort</button>
-          <button type="button" className={kind === 'rundreise' ? 'on' : ''} aria-pressed={kind === 'rundreise'} onClick={() => { updateTrip(tr.id, { kind: 'rundreise' }); setTab(null); }}>🗺 Rundreise</button>
+          <button type="button" className={kind === 'ort' ? 'on' : ''} aria-pressed={kind === 'ort'} onClick={() => { if (kind === 'ort') return; updateTrip(tr.id, { kind: 'ort' }); setTab(null); toast('Umgestellt – deine Rundreise-Planung bleibt gespeichert'); }}>📍 An einem Ort</button>
+          <button type="button" className={kind === 'rundreise' ? 'on' : ''} aria-pressed={kind === 'rundreise'} onClick={() => { if (kind === 'rundreise') return; updateTrip(tr.id, { kind: 'rundreise' }); setTab(null); toast('Umgestellt – nichts geht verloren'); }}>🗺 Rundreise</button>
         </div>
+        {kind === 'ort' && ((tr.pool || []).length > 0 || (tr.variants || []).length > 0) && <span className="tiny" style={{ padding: '0 4px', marginTop: -6 }}>🗺 Gespeichert bleibt deine Rundreise-Planung ({[(tr.pool || []).length && `${tr.pool.length} Orte`, (tr.variants || []).length && `${tr.variants.length} Varianten`].filter(Boolean).join(', ')}) – mit „Rundreise“ ist alles wieder da.</span>}
+        {kind === 'rundreise' && (tr.spots || []).length > 0 && <span className="tiny" style={{ padding: '0 4px', marginTop: -6 }}>📍 Gespeichert bleiben {tr.spots.length} Orte zum Vergleichen – unter „An einem Ort“.</span>}
         <div className="box-tabs main-tabs">
           {tabs.map(([k, l]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{count[k] ? ` ${count[k]}` : ''}</button>)}
         </div>

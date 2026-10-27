@@ -154,6 +154,11 @@ export function addVariant(tripId, { name, summary = '', stops = [] }) {
 }
 export const removeVariant = (tripId, id) => store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (t) t.variants = t.variants.filter((v) => v.id !== id); });
 // Variante wählen: ihre Abschnitte werden die Stationen der Route (vorhandene gleiche Stationen bleiben samt Orten erhalten)
+// In der Variante Gesammeltes (🏠/🍽/👀/🎯) wird beim Übernehmen zu Orten der Station
+const ITEM_TO_PLACE = { unterkunft: 'unterkunft', essen: 'restaurant', sehen: 'sehenswuerdigkeit', tun: 'aktivitaet' };
+function itemsToPlaces(t, x, stopId) {
+  for (const it of x.items || []) if (!t.places.some((p) => norm(p.name) === norm(it.text) && p.stopId === stopId)) t.places.push({ id: uid(), name: it.text, kind: ITEM_TO_PLACE[it.kind] || 'sonstiges', stopId, note: '', address: '', url: '', status: 'option' });
+}
 export function chooseVariant(tripId, id) {
   const added = [];
   store.update((s) => {
@@ -171,6 +176,7 @@ export function chooseVariant(tripId, id) {
       if (old) return { ...old, note: old.note || [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
       const nid = uid();
       added.push(nid);
+      itemsToPlaces(t, x, nid);
       return { id: nid, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
     });
     for (const l of v.legs || []) if (!t.transport.some((y) => norm(y.from) === norm(l.from) && norm(y.to) === norm(l.to))) t.transport.push({ id: uid(), from: l.from, to: l.to, mode: l.mode, date: '', time: '', note: [l.dur, l.price, l.note].filter(Boolean).join(' · '), url: rome2rio(l.from, l.to), status: 'option' });
@@ -701,10 +707,11 @@ export async function suggestSpots(s, tr, { wish = '' } = {}) {
   return (r.orte || []).filter((x) => x.name && !have.some((h) => norm(h) === norm(x.name)));
 }
 const BUILD_TOOL = { name: 'varianten_bauen', description: 'Routen-Varianten.', input_schema: { type: 'object', properties: { varianten: PLAN_TOOL.input_schema.properties.varianten } }, required: ['varianten'] };
-export async function buildVariants(s, tr) {
+export async function buildVariants(s, tr, wish = '') {
+  const pool = tr.pool || [];
   const r = await searchWithTool({
-    system: `Baue aus Mateos gesammelten Orten 2 unterschiedliche Routen-Varianten für eine Rundreise in „${tr.region || tr.dest || tr.name}“ (z.B. „entspannt“ vs. „viel sehen“, oder unterschiedliche Schwerpunkte${(tr.focus || []).length ? `: ${tr.focus.join(', ')}` : ''}). Logische Reihenfolge (kurze Wege), Nächte pro Ort${tr.from && tr.to ? `, insgesamt passend zu ${diffDays(tr.from, tr.to)} Nächten` : ''}. Nutze vor allem die gesammelten Orte, höchstens 1 zusätzlicher. Notiz pro Abschnitt ganz kurz. Vorhandene Varianten nicht wiederholen: ${JSON.stringify((tr.variants || []).map((v) => v.stops.map((x) => x.name).join(' → ')))}. Antworte mit "varianten_bauen".`,
-    user: `Gesammelte Orte: ${JSON.stringify((tr.pool || []).map((x) => `${x.name}${x.nights ? ` (${x.nights} N.)` : ''}${x.note ? ` – ${x.note}` : ''}`))}`,
+    system: `Baue für Mateo 2 unterschiedliche Routen-Varianten für eine Rundreise in „${tr.region || tr.dest || tr.name}“ (z.B. „entspannt“ vs. „viel sehen“, oder unterschiedliche Schwerpunkte${(tr.focus || []).length ? `: ${tr.focus.join(', ')}` : ''}). Logische Reihenfolge (kurze Wege), Nächte pro Ort${tr.from && tr.to ? `, insgesamt passend zu ${diffDays(tr.from, tr.to)} Nächten` : ''}. ${pool.length ? 'Nutze vor allem die gesammelten Orte, höchstens 1 zusätzlicher.' : 'Wähle passende Orte selbst.'} Notiz pro Abschnitt ganz kurz. Vorhandene Varianten nicht wiederholen: ${JSON.stringify((tr.variants || []).map((v) => v.stops.map((x) => x.name).join(' → ')))}. Antworte mit "varianten_bauen".`,
+    user: [wish && `Wunsch: ${wish}`, pool.length && `Gesammelte Orte: ${JSON.stringify(pool.map((x) => `${x.name}${x.nights ? ` (${x.nights} N.)` : ''}${x.note ? ` – ${x.note}` : ''}`))}`].filter(Boolean).join('\n') || 'Bitte zwei Varianten.',
     tool: BUILD_TOOL,
     maxUses: 0,
     maxTokens: 2500,
@@ -728,7 +735,7 @@ export async function variantTransport(s, tr, vid) {
     label: 'Reise: Transport schätzen',
   });
   const legs = (r.strecken || []).map((x) => ({ from: x.von, to: x.nach, mode: MODES[x.art] ? x.art : 'sonstiges', dur: x.dauer || '', price: x.preis || '', note: x.notiz || '' }));
-  store.update((st) => { const t = st.trips.find((x) => x.id === tr.id); const vv = t?.variants.find((x) => x.id === vid); if (vv) vv.legs = legs; });
+  store.update((st) => { const t = st.trips.find((x) => x.id === tr.id); const vv = t?.variants.find((x) => x.id === vid); if (vv) vv.legs = [...legs, ...(vv.legs || []).filter((o) => !legs.some((l) => norm(l.from) === norm(o.from) && norm(l.to) === norm(o.to)))]; });
   return legs;
 }
 // Teile einer Variante an die finale Route anhängen (+ geschätzte Strecken als Transport-Optionen)
@@ -744,6 +751,7 @@ export function appendFromVariant(tripId, vid, idxs) {
       const id = uid();
       t.stops.push({ id, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') });
       added.push(id);
+      itemsToPlaces(t, x, id);
     }
     const names = t.stops.map((x) => norm(x.name));
     for (const l of v.legs || []) {
@@ -755,4 +763,61 @@ export function appendFromVariant(tripId, vid, idxs) {
   });
   (async () => { for (const id of added) await locateEntry(tripId, 'stops', id); })();
   return added.length;
+}
+
+// ---------- v0.74: Zeitleiste – Orte und Strecken bearbeiten (Varianten und finale Route) ----------
+const editV = (tripId, vid, fn) => store.update((s) => { const t = s.trips.find((x) => x.id === tripId); const v = t?.variants.find((x) => x.id === vid); if (v) fn(v, t); });
+export const updateVariant = (tripId, vid, patch) => editV(tripId, vid, (v) => Object.assign(v, patch));
+export function addVariantStop(tripId, vid, name, at = null) {
+  const n = String(name || '').trim();
+  if (!n) return;
+  editV(tripId, vid, (v) => { const x = { name: n, nights: null, note: '', items: [] }; if (at === null || at >= v.stops.length) v.stops.push(x); else v.stops.splice(at, 0, x); });
+}
+export const removeVariantStop = (tripId, vid, i) => editV(tripId, vid, (v) => { v.stops.splice(i, 1); });
+export const moveVariantStop = (tripId, vid, i, d) => editV(tripId, vid, (v) => { const j = i + d; if (j < 0 || j >= v.stops.length) return; const [x] = v.stops.splice(i, 1); v.stops.splice(j, 0, x); });
+export const updateVariantStop = (tripId, vid, i, patch) => editV(tripId, vid, (v) => { if (v.stops[i]) Object.assign(v.stops[i], patch); });
+export const legOf = (legs, a, b) => (legs || []).find((l) => norm(l.from) === norm(a) && norm(l.to) === norm(b));
+export function setVariantLeg(tripId, vid, from, to, patch) {
+  editV(tripId, vid, (v) => {
+    v.legs = v.legs || [];
+    const l = legOf(v.legs, from, to);
+    if (l) Object.assign(l, patch); else v.legs.push({ from, to, mode: 'bus', dur: '', price: '', note: '', ...patch });
+  });
+}
+export function addVariantItem(tripId, vid, i, text, kind = 'sehen') {
+  const t = String(text || '').trim();
+  if (!t) return;
+  editV(tripId, vid, (v) => { const st = v.stops[i]; if (st) st.items = [...(st.items || []), { id: uid(), text: t, kind }]; });
+}
+export const removeVariantItem = (tripId, vid, i, id) => editV(tripId, vid, (v) => { const st = v.stops[i]; if (st) st.items = (st.items || []).filter((x) => x.id !== id); });
+export function addEmptyVariant(tripId) { return addVariant(tripId, { name: `Variante ${(store.get().trips.find((x) => x.id === tripId)?.variants || []).length + 1}`, stops: [] }); }
+// Finale Route: Station an einer Stelle einfügen
+export function insertStop(tripId, name, at = null) {
+  const n = String(name || '').trim();
+  if (!n) return;
+  const id = uid();
+  store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (!t) return; const x = { id, name: n, from: '', to: '', note: '' }; if (at === null || at >= t.stops.length) t.stops.push(x); else t.stops.splice(at, 0, x); });
+  locateEntry(tripId, 'stops', id);
+  return id;
+}
+// KI an EINER Variante: Mateo sagt, was anders sein soll → neue Abschnitte (Gesammeltes bleibt bei gleichen Orten)
+const EDIT_TOOL = { name: 'variante_aendern', description: 'Überarbeitete Variante.', input_schema: { type: 'object', properties: { antwort: { type: 'string', description: '1–2 Sätze: was geändert wurde / Einschätzung' }, name: { type: 'string' }, abschnitte: { type: 'array', items: { type: 'object', properties: { ort: { type: 'string' }, naechte: { type: 'integer' }, notiz: { type: 'string' } }, required: ['ort'] } } }, required: ['antwort', 'abschnitte'] } };
+export async function editVariant(s, tr, vid, wish) {
+  const v = (tr.variants || []).find((x) => x.id === vid);
+  if (!v) return null;
+  const r = await searchWithTool({
+    system: `Du überarbeitest für Mateo EINE Routen-Variante einer Rundreise in „${tr.region || tr.dest || tr.name}“${tr.from && tr.to ? ` (${diffDays(tr.from, tr.to)} Nächte)` : ''}. Setze seinen Wunsch um, behalte den Rest bei, logische Reihenfolge. Gibt er nur eine Frage ein (z.B. „lohnt sich X?“), beantworte sie und gib die Abschnitte unverändert zurück. Antworte mit "variante_aendern". Deutsch, kurz.`,
+    user: `Variante „${v.name}“: ${v.stops.map((x) => `${x.name}${x.nights ? ` (${x.nights} N.)` : ''}`).join(' → ') || '(noch leer)'}\nWunsch: ${wish}`,
+    tool: EDIT_TOOL,
+    maxUses: 0,
+    maxTokens: 2000,
+    label: 'Reise: Variante bearbeiten',
+  });
+  editV(tr.id, vid, (vv) => {
+    const old = vv.stops;
+    vv.stops = (r.abschnitte || []).filter((x) => x.ort).map((x) => { const o = old.find((y) => norm(y.name) === norm(x.ort)); return { name: x.ort, nights: x.naechte || o?.nights || null, note: x.notiz || o?.note || '', items: o?.items || [] }; });
+    if (r.name) vv.name = r.name;
+    vv.aiNote = r.antwort || '';
+  });
+  return r.antwort;
 }

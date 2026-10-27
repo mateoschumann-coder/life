@@ -485,3 +485,15 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .terms-list { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); padding: 6px 10px; background: var(--card-2); border-radius: 10px; }
 .terms-list b { color: var(--text); font-weight: 600; margin-right: 4px; }
 .take-box { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--card-2); }
+
+/* v0.74 Zeitleiste (Route/Varianten) */
+.tl { display: flex; flex-direction: column; }
+.tl-node { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.tl-dot { width: 28px; height: 28px; border-radius: 14px; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; border: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.tl-dot.add { background: var(--card-2); color: var(--accent); cursor: default; }
+.tl-main { flex: 1; border: 0; background: none; text-align: left; padding: 4px 0; display: flex; flex-direction: column; color: inherit; min-width: 0; cursor: pointer; }
+.tl-link { margin-left: 13px; border-left: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent); padding: 6px 0 6px 18px; display: flex; align-items: center; gap: 8px; }
+.tl-leg { border: 0; background: var(--card-2); border-radius: 10px; padding: 6px 10px; font-size: 13px; color: var(--text); text-align: left; flex: 1; min-width: 0; cursor: pointer; }
+.tl-plus { border: 0; background: none; color: var(--accent); font-size: 18px; width: 28px; cursor: pointer; }
+.tl-detail { margin-left: 13px; padding: 4px 0 12px 23px; display: flex; flex-direction: column; gap: 8px; border-left: 2px solid transparent; }
+.tl-detail.line { border-left: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent); }
