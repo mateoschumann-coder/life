@@ -110,6 +110,8 @@ async function post(body) {
 // fetch = true: die KI darf Links aus Mateos Nachricht lesen (web_fetch, nur Text-Kosten, keine Suchgebühr; v0.68)
 export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false, city, fetch: canFetch = false, fetchMax = 2 }) {
   if (label) setCostLabel(label);
+  // Sicherheitsnetz: „required“ gehört in input_schema (sonst lehnt die API das Werkzeug ab)
+  if (tool && tool.required) { const { required, ...rest } = tool; tool = { ...rest, input_schema: { ...rest.input_schema, required: rest.input_schema?.required || required } }; }
   // Chats mit Vorschlägen (Mateo, v0.35): kurze Antwort, die Vorschläge erscheinen als Häkchen-Liste darunter
   if (history && tool?.input_schema?.properties?.antwort) {
     tool = JSON.parse(JSON.stringify(tool));

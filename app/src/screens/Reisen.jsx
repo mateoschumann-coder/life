@@ -4,7 +4,7 @@ import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
-  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, updateVariantItem, spotLinks, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes, toOutings, moveStop, removeStop, reorderStop, reorderVariantStop } from '../lib/trips';
+  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, updateVariantItem, spotLinks, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes, toOutings, moveStop, removeStop, reorderStop, reorderVariantStop, tripHome, skyUrl, legUrl } from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -483,13 +483,23 @@ function Route({ s, tr }) {
   useEffect(() => { syncAutoTransport(tr.id); }, [startKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const hin = tr.transport.find((x) => x.auto === 'hin');
   const rueck = tr.transport.find((x) => x.auto === 'rueck');
-  const autoLine = (x, label) => x && (
-    <div className="tl-auto">
-      <span style={{ flex: 1, minWidth: 0 }}><b>{MODE_ICON[x.mode] || '➡️'} {label}:</b> {x.from} → {x.to}{x.date ? ` · ${fmtShort(x.date)}` : ''}</span>
-      {x.url && <a className="pill" style={{ fontSize: 12 }} href={x.url} target="_blank" rel="noreferrer">{x.mode === 'flug' ? 'Flüge ↗' : 'Suchen ↗'}</a>}
-      <button type="button" className={x.status === 'gebucht' ? 'pill on' : 'pill'} style={{ fontSize: 12 }} onClick={() => updateEntry(tr.id, 'transport', x.id, { status: x.status === 'gebucht' ? 'option' : 'gebucht' })}>{x.status === 'gebucht' ? '✓ Gebucht' : 'Offen'}</button>
-    </div>
-  );
+  // An-/Rückreise: nur Such-Link + die selbst gespeicherten Verbindungen (keine Platzhalter-Buchung)
+  const autoLine = (x, label) => {
+    if (!x) return null;
+    const back = x.auto === 'rueck';
+    const st = back ? stops[stops.length - 1] : stops[0];
+    const own = tr.transport.filter((y) => !y.auto && (back ? y.from?.toLowerCase() === x.from.toLowerCase() && y.to?.toLowerCase() === x.to.toLowerCase() : y.to?.toLowerCase() === x.to.toLowerCase()));
+    const booked = own.find((y) => y.status === 'gebucht');
+    return (
+      <div className="tl-auto">
+        <button type="button" className="tl-main" style={{ flex: 1, minWidth: 0, padding: 0 }} onClick={() => st && setOpenSt(st.id)}>
+          <span><b>{MODE_ICON[x.mode] || '➡️'} {label}:</b> {x.from} → {x.to}{x.date ? ` · ${fmtShort(x.date)}` : ''}</span>
+          <span className="tiny">{booked ? `✓ gebucht: ${booked.note || MODES[booked.mode]}` : own.length ? `${own.length} gespeichert – antippen` : 'Noch nichts gespeichert – antippen zum Eintragen'}</span>
+        </button>
+        {x.url && <a className="pill" style={{ fontSize: 12 }} href={x.url} target="_blank" rel="noreferrer">{x.mode === 'flug' ? 'Flüge ↗' : 'Suchen ↗'}</a>}
+      </div>
+    );
+  };
   const inTimeline = (x) => stops.some((st, i) => i < stops.length - 1 && x.from?.toLowerCase() === st.name.toLowerCase() && x.to?.toLowerCase() === stops[i + 1].name.toLowerCase());
   const other = tr.transport.filter((x) => !inTimeline(x) && !x.auto);
   return (
@@ -896,14 +906,15 @@ function Nights({ value, onChange }) {
 }
 // v0.79: Ort-Seite – alles für einen Ort an einer Stelle (Variante und finale Route)
 const SECS = [
-  { key: 'anreise', icon: '✈️', label: 'Anreise', ph: 'z.B. LATAM 14:05, direkt, 13 h', pick: ['Option', '✓ Gebucht'] },
+  { key: 'anreise', icon: '✈️', label: 'Anreise', ph: 'Gefundenen Flug eintragen, z.B. LATAM 14:05, direkt', pick: ['Option', '✓ Gebucht'] },
+  { key: 'rueck', icon: '🛫', label: 'Rückreise', ph: 'Gefundenen Rückflug eintragen, z.B. LATAM 22:10', pick: ['Option', '✓ Gebucht'] },
   { key: 'unterkunft', icon: '🏠', label: 'Unterkünfte', place: 'unterkunft', ph: 'Name oder Link einfügen', pick: ['Option', '✓ Gebucht'] },
   { key: 'sehen', icon: '👀', label: 'Sehenswürdigkeiten', place: 'sehenswuerdigkeit', ph: 'z.B. Verbotene Stadt', pick: ['Vielleicht', '✓ Fest'], reserve: true, out: true },
   { key: 'essen', icon: '🍽', label: 'Restaurants', place: 'restaurant', ph: 'z.B. Din Tai Fung', pick: ['Vielleicht', '✓ Fest'], reserve: true, out: true },
   { key: 'tun', icon: '🚐', label: 'Tagesausflüge & Aktivitäten', place: 'aktivitaet', ph: 'z.B. Große Mauer Mutianyu', pick: ['Vielleicht', '✓ Fest'], reserve: true, out: true },
 ];
 const PLACE_SEC = { unterkunft: 'unterkunft', sehenswuerdigkeit: 'sehen', restaurant: 'essen', aktivitaet: 'tun', sonstiges: 'tun' };
-const itemSec = (it) => (it.kind === 'anreise' ? 'anreise' : ITEM_LABEL[it.kind] ? it.kind : 'sehen');
+const itemSec = (it) => (it.kind === 'anreise' || it.kind === 'rueck' ? it.kind : ITEM_LABEL[it.kind] ? it.kind : 'sehen');
 const fromLink = (text, url) => { const t0 = text.trim(); if (/^https?:\/\//.test(t0) && !url.trim()) { let h = t0; try { h = new URL(t0).hostname.replace(/^www\./, ''); } catch {} return { text: h, url: t0 }; } return { text: t0, url: url.trim() }; };
 const nightsBetween = (a, b) => (a && b ? Math.max(0, diffDays(a, b)) : null);
 
@@ -919,12 +930,15 @@ function stopApi(tr, v, i) {
     };
   }
   const st = tr.stops[i];
+  const home = (tr.priceSetup?.travelers?.[0]?.start || 'Buenos Aires').replace(/\s*\(.*?\)/g, '').split(',')[0].trim();
   const prev = i > 0 ? tr.stops[i - 1].name : (tr.priceSetup?.travelers?.[0]?.start || 'Buenos Aires').replace(/\s*\(.*?\)/g, '').split(',')[0].trim();
   return {
     list: (key) => key === 'anreise'
-      ? tr.transport.filter((x) => x.to?.toLowerCase() === st.name.toLowerCase() || (x.auto === 'rueck' && x.from?.toLowerCase() === st.name.toLowerCase())).map((x) => ({ id: x.id, text: (!x.auto && x.note) || `${MODES[x.mode] || 'Transport'} ${x.from} → ${x.to}`, sub: x.auto === 'rueck' ? `${MODE_ICON[x.mode] || '➡️'} Rückreise · automatisch` : `${MODE_ICON[x.mode] || '➡️'} ab ${x.from}${x.auto ? ' · automatisch' : ''}`, url: x.url, price: x.price, picked: x.status === 'gebucht', auto: x.auto }))
+      ? tr.transport.filter((x) => !x.auto && x.to?.toLowerCase() === st.name.toLowerCase()).map((x) => ({ id: x.id, text: (!x.auto && x.note) || `${MODES[x.mode] || 'Transport'} ${x.from} → ${x.to}`, sub: x.auto === 'rueck' ? `${MODE_ICON[x.mode] || '➡️'} Rückreise · automatisch` : `${MODE_ICON[x.mode] || '➡️'} ab ${x.from}${x.auto ? ' · automatisch' : ''}`, url: x.url, price: x.price, picked: x.status === 'gebucht', auto: x.auto }))
+      : key === 'rueck' ? tr.transport.filter((x) => !x.auto && x.from?.toLowerCase() === st.name.toLowerCase() && x.to?.toLowerCase() === home.toLowerCase()).map((x) => ({ id: x.id, text: x.note || `${MODES[x.mode] || 'Transport'} ${x.from} → ${x.to}`, sub: `${MODE_ICON[x.mode] || '➡️'} nach ${x.to}`, url: x.url, price: x.price, picked: x.status === 'gebucht' }))
       : tr.places.filter((p) => p.stopId === st.id && (PLACE_SEC[p.kind] || 'tun') === key).map((p) => ({ id: p.id, text: p.name, url: p.url, price: p.price, note: p.note, reserve: p.reserve, picked: p.status === 'fest' })),
     add: (key, d) => {
+      if (key === 'rueck') { addEntry(tr.id, 'transport', { from: st.name, to: home, mode: (tr.priceSetup?.travelers?.[0]?.mode || 'flug'), date: tr.to || '', time: '', note: d.text, price: d.price || '', url: /^https?:\/\//.test(d.url) ? d.url : '', status: 'option' }); return; }
       if (key === 'anreise') { const mode = i === 0 && (tr.priceSetup?.travelers?.[0]?.mode || 'flug') === 'flug' ? 'flug' : 'bus'; addEntry(tr.id, 'transport', { from: prev, to: st.name, mode, date: '', time: '', note: d.text, price: d.price || '', url: /^https?:\/\//.test(d.url) ? d.url : '', status: 'option' }); return; }
       const id = addEntry(tr.id, 'places', { name: d.text, kind: SECS.find((s0) => s0.key === key).place, stopId: st.id, note: '', address: '', url: /^https?:\/\//.test(d.url) ? d.url : '', price: d.price || '', reserve: false, status: 'option' });
       locateEntry(tr.id, 'places', id);
@@ -1022,6 +1036,12 @@ function StopBody({ s, tr, v, i, inline, only, ort, onClose }) {
     essen: <StopSection key="essen" {...secProps('essen')} extraLinks={links.essen} />,
     tun: <StopSection key="tun" {...secProps('tun')} extraLinks={links.tun} />,
   };
+  const isLast = v ? i === v.stops.length - 1 : (ort || i === tr.stops.length - 1);
+  const H = tripHome(s, tr);
+  const backDate = v ? (L.checkout || tr.to || '') : (x.to || (one ? tr.to : '') || '');
+  const backLinks = H.mode === 'flug' ? [{ label: `✈️ Rückflug ${x.name} → ${H.home} (Skyscanner)`, url: skyUrl(s, x.name, H.home, backDate, '', L.people) }, { label: '🧭 Rome2rio', url: rome2rio(x.name, H.home) }] : [{ label: `🧭 ${x.name} → ${H.home} (Rome2rio)`, url: rome2rio(x.name, H.home) }];
+  SECX.rueck = isLast ? <StopSection key="rueck" {...secProps('rueck')} extraLinks={backLinks} hint={`zurück nach ${H.home} – Verbindungen ansehen, gute Optionen hier speichern`} /> : null;
+  if (only === 'anreise') return <>{SECX.anreise}{SECX.rueck}</>;
   if (only) return SECX[only] || null;
   return (
     <>
@@ -1030,7 +1050,7 @@ function StopBody({ s, tr, v, i, inline, only, ort, onClose }) {
         {v ? <Nights value={x.nights} onChange={(nv) => updateVariantStop(tr.id, v.id, i, { nights: nv })} /> : <div style={{ flex: 1, minWidth: 200 }}>{inline && one ? <DateRangeField from={tr.from} to={tr.to} onChange={(val) => updateTrip(tr.id, val)} title="Reisezeitraum" placeholder="Wann bist du dort?" /> : <DateRangeField from={x.from} to={x.to} onChange={(val) => updateEntry(tr.id, 'stops', x.id, val)} placeholder="Wann bist du dort?" />}</div>}
         {!inline && <span className="tiny">{v ? `${v.name} · ` : ''}Ort {i + 1} von {total}{inFinal ? ' · ✓ in finaler Route' : ''}</span>}
       </div>
-      {['anreise', 'unterkunft', 'sehen', 'essen', 'tun'].map((k) => SECX[k])}
+      {['anreise', 'unterkunft', 'sehen', 'essen', 'tun', 'rueck'].map((k) => SECX[k])}
       <section className="stop-sec">
         <span className="stop-sec-head" style={{ cursor: 'default' }}><span>📝 Notizen</span></span>
         <textarea className="input" rows={3} defaultValue={x.note || ''} key={(v ? v.id : 'f') + i + 'n' + (x.note || '')} placeholder="z.B. Viertel zum Wohnen, Wetter, was man nicht verpassen darf" onBlur={(e) => e.target.value !== (x.note || '') && (v ? updateVariantStop(tr.id, v.id, i, { note: e.target.value }) : updateEntry(tr.id, 'stops', x.id, { note: e.target.value }))} aria-label="Notiz" />
@@ -1133,7 +1153,7 @@ function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
   const [openI, setOpenI] = useState(null);
   const nights = v.stops.reduce((n, x) => n + (x.nights || 0), 0);
   const legs = async () => { setBusy('legs'); try { await variantTransport(s, tr, v.id); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); } };
-  const ai = async () => { if (!wish.trim()) return; setBusy('ai'); try { await editVariant(s, tr, v.id, wish.trim()); setWish(''); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); } };
+  const ai = async () => { if (!wish.trim()) return; setBusy('ai'); try { const a = await editVariant(s, tr, v.id, wish.trim()); setWish(''); toast(a ? `✨ ${a}` : 'Variante angepasst'); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); } };
   return (
     <section className="card" style={{ gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1142,6 +1162,7 @@ function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
       </div>
       <input className="input title-input" style={{ fontSize: 19 }} defaultValue={v.name} key={v.id + v.name} onBlur={(e) => e.target.value.trim() && e.target.value !== v.name && updateVariant(tr.id, v.id, { name: e.target.value.trim() })} aria-label="Name der Variante" />
       {(v.aiNote || v.summary) && <span className="tiny" style={{ color: 'var(--text)' }}>{v.aiNote ? `✨ ${v.aiNote}` : v.summary}</span>}
+      {v.stops.length > 0 && (() => { const H = tripHome(s, tr); const a = v.stops[0].name; return H.home.toLowerCase() !== a.toLowerCase() && <div className="tl-auto"><span style={{ flex: 1, minWidth: 0 }}><b>{MODE_ICON[H.mode] || '➡️'} Anreise:</b> {H.home} → {a}{tr.from ? ` · ${fmtShort(tr.from)}` : ''}</span><a className="pill" style={{ fontSize: 12 }} href={legUrl(s, tr, H.home, a, H.mode, tr.from || '')} target="_blank" rel="noreferrer">{H.mode === 'flug' ? 'Flüge ↗' : 'Suchen ↗'}</a></div>; })()}
       <Timeline
         items={v.stops}
         name={(x) => x.name}
@@ -1154,10 +1175,11 @@ function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
         renderLeg={(i) => <VariantLegDetail tr={tr} v={v} a={v.stops[i].name} b={v.stops[i + 1].name} />}
         onInsert={(name, at) => addVariantStop(tr.id, v.id, name, at)}
       />
+      {v.stops.length > 0 && (() => { const H = tripHome(s, tr); const z = v.stops[v.stops.length - 1].name; return H.home.toLowerCase() !== z.toLowerCase() && <div className="tl-auto"><span style={{ flex: 1, minWidth: 0 }}><b>{MODE_ICON[H.mode] || '➡️'} Rückreise:</b> {z} → {H.home}{tr.to ? ` · ${fmtShort(tr.to)}` : ''}</span><a className="pill" style={{ fontSize: 12 }} href={legUrl(s, tr, z, H.home, H.mode, tr.to || '')} target="_blank" rel="noreferrer">{H.mode === 'flug' ? 'Flüge ↗' : 'Suchen ↗'}</a></div>; })()}
       {v.stops.length > 1 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={legs} disabled={!!busy || !getAi().apiKey}>{busy === 'legs' ? 'Ich schätze die Strecken …' : v.legs?.length ? '↻ Transport neu schätzen (KI)' : '🚌 Transport zwischen allen Orten schätzen (KI)'}</button>}
       <form className="block-add" onSubmit={(e) => { e.preventDefault(); ai(); }}>
         <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder="✨ KI: z.B. „mehr Strand“, „2 Nächte weniger“" aria-label={`KI für Variante ${vi + 1}`} />
-        <button type="submit" className="btn small" disabled={!wish.trim() || !!busy || !getAi().apiKey}>{busy === 'ai' ? '…' : '✨'}</button>
+        <button type="submit" className="btn small" style={{ whiteSpace: 'nowrap' }} disabled={!wish.trim() || !!busy || !getAi().apiKey}>{busy === 'ai' ? '…' : '✨ Ändern'}</button>
       </form>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button type="button" className={v.chosen ? 'pill on' : 'pill'} disabled={!v.stops.length || v.chosen} onClick={() => { if (tr.stops.length && !confirm(`Die finale Route (${tr.stops.map((x) => x.name).join(' → ')}) wird durch „${v.name}“ ersetzt. Die bisherige wird als Variante „Bisherige Route“ gesichert. Weiter?`)) return; chooseVariant(tr.id, v.id); toast(`Finale Route = „${v.name}“`); onChosen?.(); }}>{v.chosen ? '✓ Ist die finale Route' : 'Als finale Route übernehmen'}</button>
@@ -1180,8 +1202,9 @@ function Variants({ s, tr, onChosen, onCommit }) {
         <span style={{ fontWeight: 700, fontSize: 16 }}>✨ Varianten erstellen</span>
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); build(); }}>
           <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder={`z.B. „eine entspannt, eine mit viel Kultur“`} aria-label="Wunsch für die Varianten" />
-          <button type="submit" className="btn small" disabled={busy || !getAi().apiKey}>{busy ? '…' : '✨'}</button>
+          <button type="submit" className="btn small" style={{ whiteSpace: 'nowrap' }} disabled={busy || !getAi().apiKey}>{busy ? 'Baue …' : '✨ Erstellen'}</button>
         </form>
+        {!getAi().apiKey && <span className="tiny" style={{ color: 'var(--danger)' }}>Für die KI braucht es einen API-Schlüssel (Einstellungen).</span>}
         <span className="tiny">Die KI baut 2 Varianten{(tr.pool || []).length ? ' aus deinen gesammelten Orten' : ''}. Oder selbst: <button type="button" className="link-btn" style={{ fontSize: 12.5 }} onClick={() => addEmptyVariant(tr.id)}>+ Leere Variante</button></span>
       </section>
       {vs.length === 0 && <div className="list"><div className="empty">Noch keine Variante. Lass dir oben welche bauen oder leg eine leere an und füg Orte hinzu.</div></div>}
@@ -1219,7 +1242,7 @@ function TripDetail({ s, tr }) {
   const spent = tr.expenses.reduce((n, x) => n + x.amount, 0);
   const ortSt = kind === 'ort' ? ortStopOf(tr) : null;
   const ortApi = ortSt ? stopApi(tr, null, tr.stops.indexOf(ortSt)) : null;
-  const count = { ...(ortApi ? Object.fromEntries(['anreise', 'unterkunft', 'sehen', 'essen', 'tun'].map((k) => [k, ortApi.list(k).length])) : {}), sammeln: (tr.pool || []).length, vergleich: (tr.spots || []).length, varianten: (tr.variants || []).length, todo: tr.todo.filter((x) => !x.done).length, packen: tr.packen.filter((x) => !x.done).length, orte: tr.places.length, route: tr.stops.length, docs: tr.docs.length };
+  const count = { ...(ortApi ? Object.fromEntries(['anreise', 'unterkunft', 'sehen', 'essen', 'tun'].map((k) => [k, ortApi.list(k).length + (k === 'anreise' ? ortApi.list('rueck').length : 0)])) : {}), sammeln: (tr.pool || []).length, vergleich: (tr.spots || []).length, varianten: (tr.variants || []).length, todo: tr.todo.filter((x) => !x.done).length, packen: tr.packen.filter((x) => !x.done).length, orte: tr.places.length, route: tr.stops.length, docs: tr.docs.length };
   return (
     <>
       <main className="screen">
