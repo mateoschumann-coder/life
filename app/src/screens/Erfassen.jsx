@@ -11,7 +11,7 @@ import { addJob, addSearch, STAGES } from '../lib/career';
 import { addMaterial, ensureTopic, KINDS } from '../lib/library';
 import { addReminder, EVERY } from '../lib/home';
 import { addSource } from '../lib/news';
-import { addLine, COST_CATS, CURRENCIES } from '../lib/budget';
+import { addLine, budgetOf, costCatsOf, CURRENCIES } from '../lib/budget';
 import { applyActions, describe } from '../lib/apply';
 import { buildSystem, getAi, TOOL } from '../lib/ai';
 import { locate, searchWithTool } from '../lib/outings';
@@ -269,7 +269,7 @@ function SortSheet({ s, item, onClose, onDone }) {
             <input className="input" style={{ flex: 1 }} value={f.amount} onChange={(e) => set({ amount: e.target.value })} placeholder="Betrag pro Monat" inputMode="decimal" aria-label="Betrag" />
             <select className="input" style={{ width: 84 }} value={f.currency} onChange={(e) => set({ currency: e.target.value })} aria-label="Währung">{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select>
           </div>
-          <Chips list={COST_CATS.map((c) => [c.id, c.label])} value={f.costCat} onChange={(v) => set({ costCat: v })} />
+          <Chips list={costCatsOf(budgetOf(store.get())).map((c) => [c.id, c.label])} value={f.costCat} onChange={(v) => set({ costCat: v })} />
         </>
       )}
       {as === 'quelle' && !isUrl && <input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Link, z.B. stratechery.com" inputMode="url" aria-label="Link" />}

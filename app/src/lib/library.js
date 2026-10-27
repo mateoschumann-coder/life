@@ -198,6 +198,14 @@ export function addNote(id, text) {
     if (m) m.notes = [...(m.notes || []), { id: uid(), text: t, at: today() }];
   });
 }
+export function updateNote(id, noteId, text) {
+  const t = String(text || '').trim();
+  store.update((s) => {
+    const m = s.library.find((x) => x.id === id);
+    if (!m) return;
+    m.notes = t ? (m.notes || []).map((n) => (n.id === noteId ? { ...n, text: t } : n)) : (m.notes || []).filter((n) => n.id !== noteId);
+  });
+}
 export function removeNote(id, noteId) {
   store.update((s) => {
     const m = s.library.find((x) => x.id === id);

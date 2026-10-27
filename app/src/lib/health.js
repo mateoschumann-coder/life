@@ -227,24 +227,65 @@ export function setRecipeCats(list) {
   });
 }
 
-// Einkaufs-Kategorien (v0.69): Standard-Reihenfolge wie im Supermarkt; Zuordnung per Stichwort (Deutsch/Spanisch/Englisch),
-// von Hand geänderte Zuordnung wird pro Artikel gemerkt (s.shopping.catMap)
-export const SHOP_CATS = [
-  { id: 'obst', label: 'Obst & Gemüse', emoji: '🥦', words: 'apfel äpfel banane birne orange zitrone limette traube beere erdbeere heidelbeere himbeere mango ananas kiwi melone avocado tomate gurke paprika salat spinat rucola zwiebel knoblauch kartoffel süßkartoffel karotte möhre brokkoli zucchini aubergine pilz champignon lauch sellerie kürbis mais kräuter petersilie basilikum ingwer obst gemüse manzana banana pera naranja limón uva frutilla fresa arándano palta tomate pepino morrón lechuga espinaca cebolla ajo papa batata zanahoria brócoli zapallito berenjena hongo champiñón puerro apio calabaza choclo perejil albahaca jengibre verdura fruta fruit vegetable' },
-  { id: 'brot', label: 'Brot & Backwaren', emoji: '🥖', words: 'brot brötchen toast baguette croissant wrap tortilla fladenbrot pan tostada medialuna factura pita bagel' },
-  { id: 'milch', label: 'Milch, Käse & Eier', emoji: '🧀', words: 'milch joghurt quark käse butter sahne frischkäse mozzarella parmesan feta skyr kefir ei eier leche yogur queso manteca crema huevo huevos ricota cheese egg' },
-  { id: 'fleisch', label: 'Fleisch & Fisch', emoji: '🥩', words: 'fleisch hähnchen huhn hühnchen pute rind hack hackfleisch steak schwein schinken salami wurst speck lachs thunfisch fisch garnele shrimp carne pollo pechuga milanesa bife vacío asado cerdo jamón salame chorizo panceta salmón atún pescado langostino chicken beef' },
-  { id: 'vorrat', label: 'Nudeln, Reis & Vorrat', emoji: '🍝', words: 'nudeln pasta spaghetti reis haferflocken müsli granola mehl zucker linsen bohnen kichererbsen dose konserve quinoa couscous cornflakes fideos arroz avena harina azúcar lentejas porotos garbanzos lata polenta' },
-  { id: 'wuerze', label: 'Öl, Gewürze & Saucen', emoji: '🧂', words: 'öl olivenöl essig salz pfeffer gewürz paprikapulver curry zimt senf ketchup mayo mayonnaise sojasauce sauce soße pesto brühe honig marmelade erdnussbutter aceite vinagre sal pimienta especia mostaza salsa miel mermelada dulce de leche caldo' },
-  { id: 'tk', label: 'Tiefkühl', emoji: '🧊', words: 'tiefkühl tk gefroren pizza eis eiscreme congelado helado' },
-  { id: 'getraenke', label: 'Getränke', emoji: '🥤', words: 'wasser saft cola bier wein sprudel limonade kaffee tee mate yerba energy agua jugo gaseosa cerveza vino café té soda' },
-  { id: 'snacks', label: 'Snacks & Süßes', emoji: '🍫', words: 'schokolade chips nüsse mandeln kekse riegel proteinriegel gummibärchen popcorn cracker chocolate galletitas galletas maní almendras nueces barrita alfajor snack' },
-  { id: 'drogerie', label: 'Drogerie & Haushalt', emoji: '🧴', words: 'shampoo duschgel seife zahnpasta zahnbürste deo rasierer klopapier toilettenpapier küchenrolle spülmittel waschmittel müllbeutel schwamm putzmittel tücher taschentücher desodorante jabón pasta dental papel higiénico detergente lavandina esponja bolsas' },
-  { id: 'sonstiges', label: 'Sonstiges', emoji: '🛒', words: '' },
+// Einkaufs-Kategorien (v0.88, Mateos Liste): Hauptgruppe → Unterkategorie → Katalog-Artikel (zum Antippen).
+// Zuordnung freier Einträge per Stichwort (Deutsch/Spanisch/Englisch) + Katalog-Namen; von Hand geänderte Zuordnung
+// wird pro Artikel gemerkt (s.shopping.catMap). Artikel mit „?“ am Ende sind optional (im Katalog heller).
+export const SHOP_GROUPS = [
+  { id: 'essen', label: 'Essen', emoji: '🍽' },
+  { id: 'kueche', label: 'Küchenartikel', emoji: '🍳' },
+  { id: 'bad', label: 'Badeartikel', emoji: '🧴' },
+  { id: 'anderes', label: 'Anderes', emoji: '📦' },
 ];
+export const SHOP_CATS = [
+  { id: 'obst', group: 'essen', label: 'Obst', emoji: '🍎', items: 'Äpfel|Birnen?|Bananen|Orangen?|Mandarinen/Clementinen?|Zitronen|Grapefruit?|Kaki (Persimone)?|Granatapfel?|Kiwi?|Avocados?|Beeren (TK oder Import)?', words: 'apfel äpfel banane birne orange zitrone limette traube beere erdbeere heidelbeere himbeere mango ananas kiwi melone avocado mandarine clementine grapefruit kaki granatapfel obst manzana banana pera naranja limón mandarina pomelo uva frutilla fresa arándano palta kiwi granada fruta fruit' },
+  { id: 'salat', group: 'essen', label: 'Gemüse – Salate', emoji: '🥬', items: 'Mischsalat?|Rucola?', words: 'salat rucola spinat feldsalat eisberg lechuga rúcula espinaca' },
+  { id: 'gemuese', group: 'essen', label: 'Gemüse – Anderes', emoji: '🥕', items: 'Karotten|Paprika (rot/gelb/grün)|Tomaten|Zucchini?|Gurken|Zwiebeln', words: 'tomate tomaten gurke gurken paprika zwiebel zwiebeln knoblauch kartoffel kartoffeln süßkartoffel karotte karotten möhre brokkoli zucchini aubergine pilz pilze champignon lauch sellerie kürbis mais kräuter petersilie basilikum ingwer gemüse pepino morrón cebolla ajo papa batata zanahoria brócoli zapallito berenjena hongo champiñón puerro apio calabaza choclo perejil albahaca jengibre verdura vegetable' },
+  { id: 'fleisch', group: 'essen', label: 'Fleisch & Fisch', emoji: '🥩', items: 'Hähnchenbrust|Fischfilets (z. B. Lachs/Kabeljau)?|Garnelen?', words: 'fleisch hähnchen hähnchenbrust huhn hühnchen pute rind hack hackfleisch steak schwein schinken salami wurst speck lachs kabeljau thunfisch fisch fischfilet garnele garnelen shrimp carne pollo pechuga milanesa bife vacío asado cerdo jamón salame chorizo panceta salmón atún pescado langostino chicken beef' },
+  { id: 'veggie', group: 'essen', label: 'Vegetarische Proteine & Hülsenfrüchte', emoji: '🫘', items: 'Kichererbsen?|Schwarze Bohnen?', words: 'kichererbsen bohnen linsen tofu tempeh seitan hummus garbanzos porotos lentejas' },
+  { id: 'milch', group: 'essen', label: 'Milchalternativen, Milchprodukte & Eier', emoji: '🥛', items: 'Hafermilch|Joghurt|Eier', words: 'milch hafermilch mandelmilch sojamilch joghurt quark käse butter sahne frischkäse mozzarella parmesan feta skyr kefir ei eier leche yogur queso manteca crema huevo huevos ricota cheese egg' },
+  { id: 'brot', group: 'essen', label: 'Brot & Backwaren', emoji: '🥖', items: 'Anderes (z. B. Fladenbrot)?', words: 'brot brötchen toast baguette croissant wrap tortilla fladenbrot pan tostada medialuna factura pita bagel' },
+  { id: 'pasta', group: 'essen', label: 'Pasta & Reis', emoji: '🍝', items: 'Pasta', words: 'nudeln pasta spaghetti penne reis quinoa couscous fideos arroz' },
+  { id: 'vorrat', group: 'essen', label: 'Vorratsprodukte & Konserven', emoji: '🥫', items: 'Stückige Tomaten (Dose)|Tomatenmark?|Kokosmilch?', words: 'dose konserve tomatenmark kokosmilch mehl zucker brühe passata lata harina azúcar caldo' },
+  { id: 'wuerze', group: 'essen', label: 'Gewürze & Würzmittel', emoji: '🧂', items: 'Salz|Pfeffer|Senf', words: 'öl olivenöl essig salz pfeffer gewürz paprikapulver curry zimt senf ketchup mayo mayonnaise sojasauce sauce soße pesto aceite vinagre sal pimienta especia mostaza salsa' },
+  { id: 'fruehstueck', group: 'essen', label: 'Frühstück & Aufstriche', emoji: '🥣', items: 'Müsli/Granola', words: 'müsli granola haferflocken cornflakes honig marmelade erdnussbutter nutella aufstrich avena miel mermelada dulce de leche' },
+  { id: 'snacks', group: 'essen', label: 'Snacks & Süßes', emoji: '🍫', items: 'Salzstangen?|Popcorn?', words: 'schokolade chips nüsse mandeln kekse riegel proteinriegel gummibärchen popcorn salzstangen cracker chocolate galletitas galletas maní almendras nueces barrita alfajor snack' },
+  { id: 'getraenke', group: 'essen', label: 'Getränke', emoji: '🥤', items: 'Mineralwasser|Saft', words: 'wasser mineralwasser saft cola bier wein sprudel limonade kaffee tee mate yerba energy agua jugo gaseosa cerveza vino café té soda fernet' },
+  { id: 'tk', group: 'essen', label: 'Tiefkühl', emoji: '🧊', items: 'TK-Beeren?|TK-Erbsen?|TK-Kräuter?', words: 'tiefkühl tk gefroren pizza eis eiscreme congelado helado' },
+  { id: 'lagern', group: 'kueche', label: 'Lagerung & Zubereitung', emoji: '🥡', items: 'Frischhaltedosen', words: 'frischhaltedosen frischhaltefolie alufolie backpapier gefrierbeutel dosen tupper papel aluminio film' },
+  { id: 'reinigung', group: 'kueche', label: 'Reinigung', emoji: '🧽', items: 'Spülmittel', words: 'spülmittel waschmittel müllbeutel schwamm putzmittel küchenrolle spültabs weichspüler detergente lavandina esponja bolsas residuos' },
+  { id: 'koerper', group: 'bad', label: 'Körperpflege', emoji: '🧼', items: 'Duschgel|Seife|Rasierklingen', words: 'shampoo duschgel seife deo rasierer rasierklingen creme bodylotion sonnencreme haargel desodorante jabón champú' },
+  { id: 'zahn', group: 'bad', label: 'Zahnpflege', emoji: '🪥', items: 'Zahnpasta|Zahnbürste', words: 'zahnpasta zahnbürste zahnseide mundspülung pasta dental cepillo' },
+  { id: 'hygiene', group: 'bad', label: 'Hygiene', emoji: '🧻', items: 'Feuchttücher|Wattestäbchen', words: 'feuchttücher wattestäbchen klopapier toilettenpapier wattepads papel higiénico' },
+  { id: 'papier', group: 'anderes', label: 'Papierwaren', emoji: '🗒', items: 'Taschentücher', words: 'taschentücher servietten pañuelos servilletas' },
+  { id: 'buero', group: 'anderes', label: 'Bürobedarf & Schreibwaren', emoji: '✏️', items: 'Stifte (Kuli, Marker)', words: 'stifte kuli kugelschreiber marker papier block heft lapicera cuaderno' },
+  { id: 'technik', group: 'anderes', label: 'Technik & Sonstiges', emoji: '🔋', items: 'Batterien (AA/AAA)|Glühbirnen', words: 'batterien batterie glühbirne glühbirnen kabel ladekabel pilas lamparita' },
+  { id: 'sonstiges', group: 'anderes', label: 'Sonstiges', emoji: '🛒', items: '', words: '' },
+];
+const LEGACY_CAT = { drogerie: 'koerper', obst: 'obst' };
+const catalogOf = (c) => (c.items ? c.items.split('|') : []).map((x) => ({ name: x.replace(/\?$/, ''), optional: x.endsWith('?') }));
+// Katalog einer Kategorie inkl. eigener Artikel (s.shopping.catalog[catId])
+export const shopCatalog = (s, catId) => {
+  const c = SHOP_CATS.find((x) => x.id === catId);
+  const own = (s.shopping.catalog?.[catId] || []).map((name) => ({ name, own: true }));
+  return [...(c ? catalogOf(c) : []), ...own];
+};
+export const addCatalogItem = (catId, name) => store.update((s) => {
+  const n = String(name || '').trim();
+  if (!n) return;
+  s.shopping.catalog = { ...(s.shopping.catalog || {}) };
+  const list = s.shopping.catalog[catId] || [];
+  if (!list.some((x) => norm(x) === norm(n))) s.shopping.catalog[catId] = [...list, n];
+  s.shopping.catMap = { ...(s.shopping.catMap || {}), [norm(n)]: catId };
+});
+export const removeCatalogItem = (catId, name) => store.update((s) => {
+  if (!s.shopping.catalog?.[catId]) return;
+  s.shopping.catalog = { ...s.shopping.catalog, [catId]: s.shopping.catalog[catId].filter((x) => norm(x) !== norm(name)) };
+});
+const ITEM_CAT = Object.fromEntries(SHOP_CATS.flatMap((c) => catalogOf(c).map((x) => [norm(x.name), c.id])));
 const WORDS = SHOP_CATS.map((c) => [c.id, c.words.split(' ').filter(Boolean)]);
 export function guessShopCat(name) {
   const n = norm(name);
+  if (ITEM_CAT[n]) return ITEM_CAT[n];
   const toks = n.split(/[^a-zäöüßñáéíóú]+/).filter(Boolean);
   if (toks.length > 1 && WORDS.find(([, ws]) => ws.includes(n))) return WORDS.find(([, ws]) => ws.includes(n))[0]; // ganze Wortgruppe, z.B. „papel higiénico“
   for (const [id, ws] of WORDS) if (ws.some((w) => toks.includes(w))) return id;
@@ -254,7 +295,8 @@ export function guessShopCat(name) {
   if (best) return best[0];
   return 'sonstiges';
 }
-export const shopCatOf = (s, it) => it.cat || s.shopping.catMap?.[norm(it.name)] || guessShopCat(it.name);
+const validCat = (c) => (c && SHOP_CATS.some((x) => x.id === c) ? c : LEGACY_CAT[c] || null);
+export const shopCatOf = (s, it) => validCat(it.cat) || validCat(s.shopping.catMap?.[norm(it.name)]) || (s.shopping.catalog && Object.entries(s.shopping.catalog).find(([, l]) => l.some((x) => norm(x) === norm(it.name)))?.[0]) || guessShopCat(it.name);
 export function setShoppingCat(id, cat) {
   store.update((s) => {
     const it = s.shopping.items.find((x) => x.id === id);

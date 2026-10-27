@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort } from '../lib/dates';
-import { addLibCat, addMaterial, addNote, deleteMaterial, ensureTopic, fillMaterial, findTopic, KINDS, libChat, linkFor, removeNote, removeTopic, STATUS, structureNotes, summarizeMaterial, topicsOf, updateMaterial } from '../lib/library';
+import { addLibCat, addMaterial, addNote, deleteMaterial, ensureTopic, fillMaterial, findTopic, KINDS, libChat, linkFor, removeNote, updateNote, removeTopic, STATUS, structureNotes, summarizeMaterial, topicsOf, updateMaterial } from '../lib/library';
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
 import { canDictate, useDictation } from '../lib/dictate';
+import { tidyText } from '../lib/fieldtools';
 import PlanChat from '../components/PlanChat';
 import { Missing } from './Saeule';
 import { LibCatsSheet } from './Bereich';
@@ -19,6 +20,46 @@ function Stars({ value, onChange }) {
         <button key={n} type="button" onClick={() => onChange(value === n ? 0 : n)} aria-label={`${n} Sterne`} style={{ border: 0, background: 'none', padding: 0, fontSize: 24, color: n <= value ? '#F5B225' : 'var(--line)' }}>★</button>
       ))}
     </span>
+  );
+}
+
+// v0.88: Text mit KI ordnen (mit Rückgängig) – für Notizen
+function TidyPill({ value, onChange, disabled }) {
+  const [busy, setBusy] = useState(false);
+  const [prev, setPrev] = useState(null);
+  if (!getAi().apiKey) return null;
+  if (prev !== null && value !== prev) {
+    return <button type="button" className="pill" onClick={() => { onChange(prev); setPrev(null); }}>↶ Rückgängig</button>;
+  }
+  return (
+    <button type="button" className="pill" disabled={disabled || busy || value.trim().length < 10} onClick={async () => {
+      setBusy(true);
+      try { const out = await tidyText(value, 'Notiz zu einem Buch'); if (out) { setPrev(value); onChange(out); } } catch (e) { toast(e.message); } finally { setBusy(false); }
+    }}>{busy ? 'Ordne …' : '✨ Ordnen'}</button>
+  );
+}
+function NoteItem({ m, n }) {
+  const [edit, setEdit] = useState(null);
+  const dict = useDictation(edit || '', (v) => setEdit(typeof v === 'function' ? v(edit || '') : v));
+  if (edit === null) {
+    return (
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        <button type="button" onClick={() => setEdit(n.text)} style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', flex: 1, fontSize: 14, lineHeight: 1.4, color: 'var(--text)', whiteSpace: 'pre-wrap' }} aria-label="Notiz bearbeiten">{n.text.startsWith('•') ? n.text : `• ${n.text}`}</button>
+        <button type="button" className="x-btn" aria-label="Notiz entfernen" onClick={() => removeNote(m.id, n.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <textarea className="input" rows={5} value={edit} onChange={(e) => setEdit(e.target.value)} aria-label="Notiz bearbeiten" autoFocus />
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {canDictate && <button type="button" className={dict.on ? 'pill on' : 'pill'} onClick={dict.toggle}>{dict.on ? '■ Stopp' : '🎙'}</button>}
+        <TidyPill value={edit} onChange={setEdit} />
+        <span style={{ flex: 1 }} />
+        <button type="button" className="pill" onClick={() => { dict.on && dict.toggle(); setEdit(null); }}>Abbrechen</button>
+        <button type="button" className="btn small" onClick={() => { dict.on && dict.toggle(); updateNote(m.id, n.id, edit); setEdit(null); }}>Speichern</button>
+      </div>
+    </div>
   );
 }
 
@@ -41,6 +82,7 @@ function MaterialExtras({ s, m }) {
       <div className="take-box">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontWeight: 650, fontSize: 15, flex: 1 }}>✨ KI-Zusammenfassung (kurz)</span>
+          {sm && <button type="button" className="pill" onClick={() => run('sum')} disabled={!!busy || !hasKey}>{busy === 'sum' ? '…' : '↻ Neu'}</button>}
           {sm && <button type="button" className="link-btn" style={{ fontSize: 12.5 }} onClick={() => setOpenSum(!openSum)}>{openSum ? 'Einklappen' : 'Zeigen'}</button>}
         </div>
         {!sm && <button type="button" className="btn small" onClick={() => run('sum')} disabled={!!busy || !hasKey}>{busy === 'sum' ? 'Ich fasse zusammen …' : 'Von der KI zusammenfassen lassen'}</button>}
@@ -50,23 +92,18 @@ function MaterialExtras({ s, m }) {
             <span style={{ fontSize: 14.5, lineHeight: 1.45 }}>{sm.kern}</span>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.45 }}>{sm.punkte.map((x, i) => <li key={i}>{x}</li>)}</ul>
             {sm.fuerDich && <span className="tiny" style={{ color: 'var(--text)' }}>🎯 {sm.fuerDich}</span>}
-            <button type="button" className="link-btn" style={{ fontSize: 12.5, alignSelf: 'flex-start' }} onClick={() => run('sum')} disabled={!!busy}>{busy === 'sum' ? '…' : '↻ Neu zusammenfassen'}</button>
           </>
         )}
         {!sm && <span className="tiny">Ohne Internet aus dem Wissen der KI (bei Artikeln/Videos mit Link liest sie die Seite), unter 0,1 Cent.</span>}
       </div>
       <div className="take-box">
         <span style={{ fontWeight: 650, fontSize: 15 }}>📝 Meine Notizen</span>
-        <span className="tiny">Frei schreiben oder einsprechen – auch unsortiert. Die KI macht daraus unten deine eigene Zusammenfassung.</span>
-        {notes.map((n) => (
-          <div key={n.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <span style={{ fontSize: 14, lineHeight: 1.4, flex: 1 }}>• {n.text}</span>
-            <button type="button" className="x-btn" aria-label="Notiz entfernen" onClick={() => removeNote(m.id, n.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
-          </div>
-        ))}
+        <span className="tiny">Frei schreiben oder einsprechen – auch unsortiert. „✨ Ordnen“ räumt den Text auf, Notiz antippen = bearbeiten. Unten macht die KI daraus deine eigene Zusammenfassung.</span>
+        {notes.map((n) => <NoteItem key={n.id} m={m} n={n} />)}
         <textarea className="input" rows={4} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Gedanken, Zitate, was du mitnimmst …" aria-label="Neue Notiz" />
         <div style={{ display: 'flex', gap: 8 }}>
           {canDictate && <button type="button" className={dict.on ? 'pill on' : 'pill'} onClick={dict.toggle} aria-label="Einsprechen">{dict.on ? '■ Stopp' : '🎙 Einsprechen'}</button>}
+          <TidyPill value={note} onChange={setNote} />
           <span style={{ flex: 1 }} />
           <button type="button" className="btn small" disabled={!note.trim()} onClick={() => { dict.on && dict.toggle(); addNote(m.id, note); setNote(''); }}>Speichern</button>
         </div>

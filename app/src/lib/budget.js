@@ -16,7 +16,9 @@ export const COST_CATS = [
   { id: 'kredit', label: 'Kredite & Raten', icon: 'wallet' },
   { id: 'sonstiges', label: 'Sonstiges', icon: 'circle' },
 ];
-export const catOf = (id) => COST_CATS.find((c) => c.id === id) || COST_CATS[COST_CATS.length - 1];
+// v0.88: eigene Kategorien (s.budget.cats = [{id, label}]) – stehen vor „Sonstiges“
+export const costCatsOf = (b) => [...COST_CATS.slice(0, -1), ...((b && b.cats) || []).map((c) => ({ ...c, icon: 'circle', own: true })), COST_CATS[COST_CATS.length - 1]];
+export const catOf = (id, b) => costCatsOf(b).find((c) => c.id === id) || COST_CATS[COST_CATS.length - 1];
 
 const DEFAULT = () => ({
   base: 'ARS', // Anzeige-Währung
@@ -30,6 +32,22 @@ export const budgetOf = (s) => ({ ...DEFAULT(), ...(s.budget || {}) });
 const upd = (fn) => store.update((s) => { s.budget = budgetOf(s); fn(s.budget); });
 
 export const setBudget = (patch) => upd((b) => Object.assign(b, patch));
+export function addCostCat(label) {
+  const l = String(label || '').trim();
+  if (!l) return null;
+  let id = null;
+  upd((b) => {
+    const ex = costCatsOf(b).find((c) => c.label.toLowerCase() === l.toLowerCase());
+    if (ex) { id = ex.id; return; }
+    id = `c_${uid()}`;
+    b.cats = [...(b.cats || []), { id, label: l }];
+  });
+  return id;
+}
+export const removeCostCat = (id) => upd((b) => {
+  b.cats = (b.cats || []).filter((c) => c.id !== id);
+  b.costs.forEach((x) => { if (x.cat === id) x.cat = 'sonstiges'; });
+});
 export const setRate = (cur, val) => upd((b) => { b.rates = { ...b.rates, [cur]: Number(val) || b.rates[cur] }; });
 export const addLine = (list, line) => upd((b) => { b[list].push({ id: uid(), name: '', amount: 0, currency: b.base, ...line }); });
 export const updateLine = (list, id, patch) => upd((b) => Object.assign(b[list].find((x) => x.id === id) || {}, patch));
@@ -53,7 +71,7 @@ export function calc(b, date = new Date()) {
   const free = income - fixed - save;
   const days = daysInMonth(date);
   const left = days - date.getDate() + 1;
-  const byCat = COST_CATS.map((c) => ({ ...c, sum: b.costs.filter((x) => (x.cat || 'sonstiges') === c.id).reduce((n, x) => n + convert(b, x.amount, x.currency), 0) })).filter((c) => c.sum > 0).sort((a, b2) => b2.sum - a.sum);
+  const byCat = costCatsOf(b).map((c) => ({ ...c, sum: b.costs.filter((x) => (x.cat || 'sonstiges') === c.id).reduce((n, x) => n + convert(b, x.amount, x.currency), 0) })).filter((c) => c.sum > 0).sort((a, b2) => b2.sum - a.sum);
   return { income, fixed, save, free, days, left, perDay: free / days, perWeek: (free / days) * 7, byCat };
 }
 

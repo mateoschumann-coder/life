@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addGathering, addGuest, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, SHOP_CATS, TODO_TEMPLATES, updateGathering, updateItem, VENUE_STATUS,
+  addGathering, addGuest, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, setOccasion, occasionsFor, OCCASIONS, todoCats, SHOP_CATS, TODO_TEMPLATES, updateGathering, updateItem, VENUE_STATUS,
 } from '../lib/gather';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
@@ -17,10 +17,10 @@ const COLOR = '#E8775A';
 const NEXT = { offen: 'eingeladen', eingeladen: 'zugesagt', zugesagt: 'abgesagt', abgesagt: 'offen' };
 const STATUS_COLOR = { offen: 'var(--muted)', eingeladen: 'var(--accent)', zugesagt: '#2FA36B', abgesagt: 'var(--danger)' };
 const VENUE_NEXT = { idee: 'angefragt', angefragt: 'reserviert', reserviert: 'abgelehnt', abgelehnt: 'idee' };
-const EMPTY = { name: '', date: '', time: '', place: '', kind: 'zuhause', expected: '' };
+const EMPTY = { name: '', date: '', time: '', place: '', kind: 'zuhause', expected: '', type: '' };
 
 // ---------- Events von anderen (v0.42): Einladungen eintragen ----------
-const INV_EMPTY = { name: '', host: '', date: '', time: '', place: '', bring: '', note: '', status: 'eingeladen', url: '' };
+const INV_EMPTY = { name: '', host: '', date: '', time: '', place: '', bring: '', guests: '', note: '', status: 'eingeladen', url: '' };
 const INV_NEXT = { eingeladen: 'zugesagt', zugesagt: 'vielleicht', vielleicht: 'abgesagt', abgesagt: 'eingeladen' };
 function InviteSheet({ open, invite, onClose }) {
   const [f, setF] = useState(INV_EMPTY);
@@ -47,6 +47,7 @@ function InviteSheet({ open, invite, onClose }) {
         <span>Status</span>
         <div className="chips">{Object.entries(INVITE_STATUS).map(([s, l]) => <button key={s} type="button" className={f.status === s ? 'chip on' : 'chip soft'} onClick={() => set({ status: s })}>{l}</button>)}</div>
       </div>
+      <Field label="Wer ist noch dabei?"><input className="input" value={f.guests || ''} onChange={(e) => set({ guests: e.target.value })} placeholder="z.B. Juan, Sofi, Pedro" /></Field>
       <Field label="Ich bringe mit"><input className="input" value={f.bring} onChange={(e) => set({ bring: e.target.value })} placeholder="z.B. Geschenk, Wein, Salat" /></Field>
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} placeholder="z.B. Dresscode, Geschenk-Idee, wer noch kommt" /></Field>
       <Field label="Link (optional)"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Einladung, Instagram, Karte …" /></Field>
@@ -67,7 +68,7 @@ function Invites({ s, sheet, setSheet }) {
       <Check on={!!x.done} color={COLOR} onClick={() => updateInvite(x.id, { done: !x.done })} label={`${x.name} ${x.done ? 'wieder öffnen' : 'abhaken'}`} />
       <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => setSheet(x)}>
         <span className={x.done ? 'row-title strong done' : 'row-title strong'}>{x.name}</span>
-        <span className="row-meta">{[x.host && `von ${x.host}`, x.date ? `${fmtShort(x.date)}${x.time ? `, ${x.time}` : ''}` : 'Datum offen', x.date && x.date >= t && `in ${diffDays(t, x.date)} Tagen`, x.place, x.bring && `🎁 ${x.bring}`].filter(Boolean).join(' · ')}</span>
+        <span className="row-meta">{[x.host && `von ${x.host}`, x.date ? `${fmtShort(x.date)}${x.time ? `, ${x.time}` : ''}` : 'Datum offen', x.date && x.date >= t && `in ${diffDays(t, x.date)} Tagen`, x.place, x.bring && `🎁 ${x.bring}`, x.guests && `👥 ${x.guests}`].filter(Boolean).join(' · ')}</span>
       </button>
       {!x.done && <button type="button" className="pill" style={{ color: INVITE_COLOR[x.status], whiteSpace: 'nowrap' }} onClick={() => updateInvite(x.id, { status: INV_NEXT[x.status] || 'eingeladen' })} aria-label={`Status ${INVITE_STATUS[x.status]}, antippen zum Ändern`}>{INVITE_STATUS[x.status]}</button>}
     </div>
@@ -121,7 +122,7 @@ export function EventsList({ s }) {
       <div className="row" style={{ minHeight: 62 }}>
         <Check on={!!g.done} color={COLOR} onClick={() => { updateGathering(g.id, { done: !g.done }); if (!g.done) toast('Abgehakt – hoffentlich war es schön!'); }} label={`${g.name} ${g.done ? 'wieder öffnen' : 'abhaken'}`} />
         <a href={`#/treffen/${g.id}`} className="row-main">
-          <span className={g.done ? 'row-title strong done' : 'row-title strong'}>{g.kind === 'auswaerts' ? '📍 ' : '🏠 '}{g.name}</span>
+          <span className={g.done ? 'row-title strong done' : 'row-title strong'}>{OCCASIONS[g.type]?.emoji || (g.kind === 'auswaerts' ? '📍' : '🏠')} {g.name}</span>
           <span className="row-meta">{[g.date ? `${fmtShort(g.date)}${g.time ? `, ${g.time}` : ''}` : 'Datum offen', g.date && g.date >= t && `in ${diffDays(t, g.date)} Tagen`, g.guests.length ? `${yes}/${g.guests.length} zugesagt` : g.expected && `ca. ${g.expected} Gäste`].filter(Boolean).join(' · ')}</span>
         </a>
         <Chevron />
@@ -161,7 +162,11 @@ export function EventsList({ s }) {
       </main>
       <Sheet open={open} title="Neues Event" onClose={() => setOpen(false)}>
         <div className="seg-mini">
-          {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, kind: k })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
+          {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, kind: k, type: OCCASIONS[f.type]?.kind && OCCASIONS[f.type].kind !== k ? '' : f.type })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
+        </div>
+        <div className="field">
+          <span>Anlass – bringt passende To-dos{f.kind === 'zuhause' ? ' und Einkaufsliste' : ''} mit</span>
+          <div className="chips">{occasionsFor(f.kind).map(([k, o]) => <button key={k} type="button" className={f.type === k ? 'chip on' : 'chip'} onClick={() => setF({ ...f, type: f.type === k ? '' : k, name: f.name || (k !== 'sonstiges' ? o.label.split(' /')[0] : '') })}>{o.emoji} {o.label}</button>)}</div>
         </div>
         <span className="tiny">{f.kind === 'zuhause' ? 'Bei dir: Menü, Getränke, Einkauf, Mitbringen, Vorbereitung.' : 'Woanders: Ort finden, reservieren, Gästen Adresse schicken.'}</span>
         <Field label="Was? (darf noch offen sein)"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={f.kind === 'zuhause' ? 'z.B. Asado bei mir' : 'z.B. Geburtstagsessen'} /></Field>
@@ -248,6 +253,7 @@ function Detail({ s, g }) {
           <div className="seg-mini">
             {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={g.kind === k ? 'chip on' : 'chip soft'} onClick={() => setKind(g.id, k)}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
           </div>
+          <div className="box-tabs">{occasionsFor(g.kind).map(([k, o]) => <button key={k} type="button" className={g.type === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setOccasion(g.id, k); toast(`${o.label}: Vorlage ergänzt`); }}>{o.emoji} {o.label}</button>)}</div>
         </div>
         <section className="card" style={{ gap: 8 }}>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -288,7 +294,7 @@ function Detail({ s, g }) {
           {tabs.map(([k, l, n]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{n ? ` ${n}` : ''}</button>)}
         </div>
 
-        {cur === 'todos' && <GroupedChecklist items={g.todos} cats={Object.keys(TODO_TEMPLATES[g.kind])} color={COLOR} onAdd={(text, cat) => addItem(g.id, 'todos', { text: text.trim(), cat })} onToggle={(id) => updateItem(g.id, 'todos', id, { done: !g.todos.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'todos', id)} placeholder="Neues To-do" />}
+        {cur === 'todos' && <GroupedChecklist items={g.todos} cats={todoCats(g)} color={COLOR} onAdd={(text, cat) => text.split(/,|\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => addItem(g.id, 'todos', { text: x, cat }))} onToggle={(id) => updateItem(g.id, 'todos', id, { done: !g.todos.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'todos', id)} placeholder="Neues To-do" />}
         {cur === 'gaeste' && (
           <>
             <div className="list">
@@ -310,7 +316,7 @@ function Detail({ s, g }) {
             {suggestions.length > 0 && <div className="chips">{suggestions.map((p) => <button key={p.id} type="button" className="chip soft" onClick={() => addGuest(g.id, { name: p.name, personId: p.id })}>+ {p.name}</button>)}</div>}
           </>
         )}
-        {cur === 'einkauf' && <GroupedChecklist items={g.shopping} cats={SHOP_CATS} color={COLOR} onAdd={(text, cat) => addItem(g.id, 'shopping', { text: text.trim(), cat, who: '' })} onToggle={(id) => updateItem(g.id, 'shopping', id, { done: !g.shopping.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'shopping', id)} placeholder="Einkaufen" />}
+        {cur === 'einkauf' && <GroupedChecklist items={g.shopping} cats={SHOP_CATS} color={COLOR} onAdd={(text, cat) => text.split(/,|\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => addItem(g.id, 'shopping', { text: x, cat, who: '' }))} onToggle={(id) => updateItem(g.id, 'shopping', id, { done: !g.shopping.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'shopping', id)} placeholder="Einkaufen" />}
         {cur === 'orte' && <Venues g={g} />}
         {cur === 'mitbringen' && (
           <>

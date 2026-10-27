@@ -11,14 +11,42 @@ const okUrl = (u) => (/^https?:\/\//.test(u || '') ? u : '');
 const okDate = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '');
 
 export const PACK_TEMPLATE = {
-  Kleidung: ['T-Shirts', 'Hosen / Shorts', 'Unterwäsche', 'Socken', 'Pullover / Jacke', 'Schlafsachen', 'Bequeme Schuhe'],
+  Kleidung: ['T-Shirts', 'Hosen / Shorts', 'Unterwäsche', 'Socken', 'Pullover / Jacke', 'Schlafsachen', 'Bequeme Schuhe', 'Gürtel', 'Cap / Mütze'],
   Sportkleidung: ['Laufschuhe', 'Laufshirt und -hose', 'Sportsocken', 'Sportuhr + Ladekabel'],
   Badekleidung: ['Badehose', 'Strandtuch', 'Sonnenbrille', 'Flip-Flops'],
   Elektronik: ['Handy-Ladekabel', 'Powerbank', 'Kopfhörer', 'Reisestecker / Adapter', 'Laptop + Ladegerät'],
-  'Bad & Pflege': ['Zahnbürste und Zahnpasta', 'Deo', 'Duschgel / Shampoo', 'Sonnencreme', 'Rasierer', 'Reiseapotheke', 'Pflaster'],
+  'Bad & Pflege': ['Zahnbürste und Zahnpasta', 'Deo', 'Duschgel / Shampoo', 'Sonnencreme', 'Rasierer', 'Taschentücher', 'Feuchttücher', 'Wattestäbchen', 'Reiseapotheke', 'Pflaster'],
   Reisedokumente: ['Reisepass / Ausweis', 'Tickets (offline gespeichert)', 'Buchungsbestätigung Unterkunft', 'Kreditkarte + etwas Bargeld', 'Reiseversicherung', 'Führerschein (falls Mietwagen)'],
-  Kleinigkeiten: ['Trinkflasche', 'Kleiner Rucksack', 'Snacks für unterwegs', 'Ohrstöpsel und Schlafmaske', 'Regenjacke / Schirm', 'Beutel für Schmutzwäsche'],
+  Kleinigkeiten: ['Trinkflasche', 'Kleiner Rucksack', 'Snacks für unterwegs', 'Ohrstöpsel und Schlafmaske', 'Regenjacke / Schirm', 'Beutel für Schmutzwäsche', 'Kugelschreiber'],
 };
+// v0.88: fehlende Standard-Punkte ergänzen und KI fragen, was für diese Reise noch fehlt
+export const missingPack = (tr) => items(PACK_TEMPLATE).filter((x) => !tr.packen.some((y) => norm(y.text) === norm(x.text)));
+export function fillPackTemplate(tripId) {
+  let n = 0;
+  store.update((s) => {
+    const tr = s.trips.find((x) => x.id === tripId);
+    if (!tr) return;
+    for (const x of missingPack(tr)) { tr.packen.push(x); n++; }
+  });
+  return n;
+}
+const PACK_TOOL = {
+  name: 'packliste_ergaenzen',
+  description: 'Was für diese Reise noch auf die Packliste gehört.',
+  input_schema: { type: 'object', properties: { punkte: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: 'kurz, 1–4 Wörter' }, kategorie: { type: 'string', enum: [...Object.keys(PACK_TEMPLATE), 'Sonstiges'] }, warum: { type: 'string', description: 'sehr kurz, z.B. „Regenzeit“' } }, required: ['text', 'kategorie'] } } }, required: ['punkte'] },
+};
+export async function packSuggest(s, tr) {
+  const stops = (tr.stops || []).map((x) => x.name).join(', ');
+  const r = await searchWithTool({
+    system: `Du hilfst Mateo beim Packen. Schlag 6–10 Dinge vor, die für DIESE Reise auf die Packliste gehören und noch fehlen (Klima/Jahreszeit am Ziel, Aktivitäten, Dauer, Einreise). Nichts, was schon auf der Liste steht, keine Selbstverständlichkeiten doppelt. Antworte nur mit "packliste_ergaenzen".`,
+    user: JSON.stringify({ reise: tr.name, ziel: tr.dest, orte: stops || undefined, von: tr.from || 'offen', bis: tr.to || 'offen', art: tr.kind, notizen: (tr.idea || '').slice(0, 400) || undefined, schon_auf_der_liste: tr.packen.map((x) => x.text) }),
+    tool: PACK_TOOL,
+    maxUses: 0,
+    maxTokens: 1200,
+    label: 'Packliste',
+  });
+  return (r?.punkte || []).filter((x) => x.text && !tr.packen.some((y) => norm(y.text) === norm(x.text)));
+}
 export const TODO_TEMPLATE = {
   Buchen: ['Hin- und Rückreise buchen', 'Unterkunft buchen', 'Transport zwischen den Stationen klären', 'Aktivitäten mit Reservierung buchen', 'Reiseversicherung prüfen'],
   'Vor der Reise': ['Einreise und Dokumente prüfen (Pass gültig?)', 'Kreditkarte fürs Ausland prüfen', 'Bargeld / Währung besorgen', 'Offline-Karten herunterladen', 'Wetter checken', 'Wohnung / Haustier versorgen'],

@@ -1,8 +1,10 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
+import { installFieldTools } from './lib/fieldtools';
 
 createRoot(document.getElementById('root')).render(<App />);
+installFieldTools();
 
 // Offline-Fähigkeit (nur in der fertigen Version)
 if (!__DEV__ && 'serviceWorker' in navigator) {

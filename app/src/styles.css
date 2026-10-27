@@ -532,3 +532,10 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .link-chips { min-width: 0; max-width: 100%; }
 
 .cal-sel { appearance: none; -webkit-appearance: none; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text); font: inherit; font-weight: 650; font-size: 15px; padding: 6px 12px; border-radius: 10px; }
+
+/* v0.88: ✕ zum Leeren und ✨ zum Ordnen in Eingabefeldern (lib/fieldtools.js) */
+.field-tool { position: fixed; z-index: 10050; width: 26px; height: 26px; border-radius: 13px; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--card-2, #EEF0F3); color: var(--chev, #8A8F98); font-size: 12px; line-height: 1; cursor: pointer; box-shadow: 0 0 0 1px var(--line, #E5E7EB); }
+.field-tool[hidden] { display: none; }
+.field-tool.ft-tidy { font-size: 13px; color: var(--accent); }
+input.ft-on { padding-right: 36px !important; }
+textarea.ft-on { padding-right: 70px !important; }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
-import { addLine, budgetOf, calc, catOf, COST_CATS, convert, CURRENCIES, fetchRates, money, removeLine, setBudget, setRate, updateLine } from '../lib/budget';
-import { Back, Icon, Segmented, TabBar, toast } from '../components/ui';
+import { addCostCat, addLine, budgetOf, calc, catOf, costCatsOf, removeCostCat, convert, CURRENCIES, fetchRates, money, removeLine, setBudget, setRate, updateLine } from '../lib/budget';
+import { Back, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
 const GREEN = '#2FA36B';
 const fmtRate = (v) => (v >= 100 ? Math.round(v).toLocaleString('de-DE') : (Math.round(v * 1000) / 1000).toLocaleString('de-DE'));
@@ -23,6 +23,9 @@ export default function Finanzen() {
   const b = budgetOf(s);
   const r = calc(b);
   const [cat, setCat] = useState('miete');
+  const [newCat, setNewCat] = useState(null);
+  const [editCats, setEditCats] = useState(false);
+  const [moveCost, setMoveCost] = useState(null);
   const [busy, setBusy] = useState(false);
   const other = b.base === 'USD' ? 'EUR' : 'USD';
   const now = new Date();
@@ -98,15 +101,20 @@ export default function Finanzen() {
 
         <section className="group">
           <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Fixkosten pro Monat</h2><span className="tiny">{money(r.fixed, b.base)}</span></div>
-          <div className="chips">{COST_CATS.map((c) => <button key={c.id} type="button" className={cat === c.id ? 'chip on' : 'chip soft'} onClick={() => setCat(c.id)}>{c.label}</button>)}</div>
-          <button type="button" className="btn sec small" onClick={() => addLine('costs', { cat, name: catOf(cat).label })}>+ {catOf(cat).label} hinzufügen</button>
+          <div className="chips">
+            {costCatsOf(b).map((c) => <button key={c.id} type="button" className={cat === c.id ? 'chip on' : 'chip soft'} onClick={() => (editCats && c.own ? (confirm(`Kategorie „${c.label}“ entfernen? Einträge landen unter Sonstiges.`) && removeCostCat(c.id)) : setCat(c.id))}>{c.label}{editCats && c.own ? ' ✕' : ''}</button>)}
+            {newCat === null && <button type="button" className="chip soft" onClick={() => setNewCat('')}>+ Neue Kategorie</button>}
+            {(b.cats || []).length > 0 && <button type="button" className={editCats ? 'chip on' : 'chip soft'} onClick={() => setEditCats(!editCats)}>{editCats ? 'Fertig' : '✎'}</button>}
+          </div>
+          {newCat !== null && <form className="block-add" onSubmit={(e) => { e.preventDefault(); const id = addCostCat(newCat); if (id) setCat(id); setNewCat(null); }}><input className="input" autoFocus value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="z.B. Haustier, Spenden, Bildung" aria-label="Neue Kategorie" /><button type="submit" className="btn small">{newCat.trim() ? '+' : '✕'}</button></form>}
+          <button type="button" className="btn sec small" onClick={() => addLine('costs', { cat, name: catOf(cat, b).label })}>+ {catOf(cat, b).label} hinzufügen</button>
           <div className="list">
             {b.costs.length === 0 && <div className="empty">Wähl oben eine Kategorie und füg deine festen Kosten hinzu – jede in ihrer Währung (z.B. Miete in US$, Handy in ARS).</div>}
-            {COST_CATS.flatMap((c) => b.costs.filter((x) => (x.cat || 'sonstiges') === c.id)).map((x) => (
+            {costCatsOf(b).flatMap((c) => b.costs.filter((x) => (catOf(x.cat, b).id) === c.id)).map((x) => (
               <div key={x.id} className="row" style={{ minHeight: 56 }}>
                 <span className="row-main" style={{ gap: 0 }}>
-                  <input className="input" style={{ background: 'none', padding: 0, minHeight: 0, height: 24 }} defaultValue={x.name} placeholder={catOf(x.cat).label} onBlur={(e) => updateLine('costs', x.id, { name: e.target.value })} aria-label="Name der Fixkosten" />
-                  <span className="tiny">{catOf(x.cat).label}{x.currency !== b.base && x.amount ? ` · ≈ ${money(convert(b, x.amount, x.currency), b.base)}` : ''}</span>
+                  <input className="input" style={{ background: 'none', padding: 0, minHeight: 0, height: 24 }} defaultValue={x.name} placeholder={catOf(x.cat, b).label} onBlur={(e) => updateLine('costs', x.id, { name: e.target.value })} aria-label="Name der Fixkosten" />
+                  <button type="button" className="link-btn" style={{ fontSize: 12, padding: 0, alignSelf: 'flex-start' }} onClick={() => setMoveCost(x)} aria-label="Kategorie ändern">{catOf(x.cat, b).label} ▾</button><span className="tiny">{x.currency !== b.base && x.amount ? ` · ≈ ${money(convert(b, x.amount, x.currency), b.base)}` : ''}</span>
                 </span>
                 <Amount value={x.amount} currency={x.currency} label={x.name || 'Betrag'} onChange={(v) => updateLine('costs', x.id, { amount: v })} onCurrency={(c) => updateLine('costs', x.id, { currency: c })} />
                 <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeLine('costs', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
@@ -143,6 +151,9 @@ export default function Finanzen() {
         </section>
 
       </main>
+      <Sheet open={!!moveCost} title={moveCost ? `„${moveCost.name || 'Fixkosten'}“ einsortieren` : ''} onClose={() => setMoveCost(null)}>
+        <div className="chips">{costCatsOf(b).map((c) => <button key={c.id} type="button" className={moveCost && catOf(moveCost.cat, b).id === c.id ? 'chip on' : 'chip'} onClick={() => { updateLine('costs', moveCost.id, { cat: c.id }); setMoveCost(null); }}>{c.label}</button>)}</div>
+      </Sheet>
       <TabBar active="bereiche" />
     </>
   );

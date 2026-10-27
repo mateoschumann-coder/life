@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import {
-  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, SHOP_CATS, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
+  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, SHOP_CATS, SHOP_GROUPS, shopCatalog, addCatalogItem, removeCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -157,6 +157,65 @@ function Recipes({ s }) {
   );
 }
 
+const nrm = (x) => String(x || '').trim().toLowerCase();
+// v0.88: Katalog nach Mateos Kategorien – Gruppe wählen, Kategorie für Kategorie durchgehen, Artikel antippen = auf die Liste
+function ShopCatalog({ s }) {
+  const [open, setOpenState] = useState(() => { try { return localStorage.getItem('life-app-shopcat-open') !== '0'; } catch { return true; } });
+  const setOpen = (v) => { setOpenState(v); try { localStorage.setItem('life-app-shopcat-open', v ? '1' : '0'); } catch {} };
+  const [catId, setCatId] = useState('obst');
+  const [own, setOwn] = useState('');
+  const [edit, setEdit] = useState(false);
+  const cur = SHOP_CATS.find((c) => c.id === catId) || SHOP_CATS[0];
+  const cats = SHOP_CATS.filter((c) => c.group === cur.group);
+  const steps = SHOP_CATS.filter((c) => c.id !== 'sonstiges');
+  const next = steps[steps.findIndex((c) => c.id === cur.id) + 1];
+  const onList = new Map(s.shopping.items.filter((x) => !x.done).map((x) => [nrm(x.name), x.id]));
+  const list = shopCatalog(s, cur.id);
+  const toggle = (name) => {
+    const id = onList.get(nrm(name));
+    if (id) removeShopping(id);
+    else addShopping(name);
+  };
+  const countIn = (c) => shopCatalog(s, c.id).filter((x) => onList.has(nrm(x.name))).length;
+  return (
+    <section className="card" style={{ gap: 10 }}>
+      <button type="button" className="row-main" style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', flexDirection: 'row', alignItems: 'center', display: 'flex', gap: 8 }} onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span style={{ fontWeight: 650, fontSize: 15, flex: 1 }}>📋 Aus dem Katalog antippen</span>
+        <span className="tiny">{open ? 'Einklappen' : 'Öffnen'}</span>
+      </button>
+      {open && (<>
+        <div className="seg-mini">
+          {SHOP_GROUPS.map((g) => <button key={g.id} type="button" className={cur.group === g.id ? 'chip on' : 'chip soft'} onClick={() => setCatId(SHOP_CATS.find((c) => c.group === g.id).id)}>{g.emoji} {g.label}</button>)}
+        </div>
+        <div className="box-tabs">
+          {cats.map((c) => { const n = countIn(c); return <button key={c.id} type="button" className={c.id === cur.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCatId(c.id)}>{c.emoji} {c.label}{n ? ` · ${n}` : ''}</button>; })}
+        </div>
+        <div className="chips">
+          {list.length === 0 && <span className="tiny">Noch keine Artikel – füg unten eigene hinzu.</span>}
+          {list.map((x) => {
+            const on = onList.has(nrm(x.name));
+            return (
+              <button key={x.name} type="button" className={on ? 'chip on' : 'chip'} style={x.optional && !on ? { opacity: 0.7 } : undefined} onClick={() => (edit && x.own ? removeCatalogItem(cur.id, x.name) : toggle(x.name))} aria-pressed={on}>
+                {on ? '✓ ' : ''}{x.name}{edit && x.own ? ' ✕' : ''}
+              </button>
+            );
+          })}
+        </div>
+        <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (!own.trim()) return; addCatalogItem(cur.id, own); addShopping(own.trim()); setOwn(''); }}>
+          <input className="input" value={own} onChange={(e) => setOwn(e.target.value)} placeholder={`Eigener Artikel in „${cur.label}“`} aria-label="Eigenen Katalog-Artikel hinzufügen" />
+          <button type="submit" className="btn small" disabled={!own.trim()}>+</button>
+        </form>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {list.some((x) => x.own) && <button type="button" className={edit ? 'pill on' : 'pill'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Eigene entfernen'}</button>}
+          <span style={{ flex: 1 }} />
+          {next && <button type="button" className="btn small sec" onClick={() => setCatId(next.id)}>Weiter: {next.emoji} {next.label} ›</button>}
+        </div>
+        <span className="tiny">Antippen = auf die Liste (nochmal = wieder runter). Helle Artikel sind optional. Eigene Artikel merkt sich der Katalog.</span>
+      </>)}
+    </section>
+  );
+}
+
 function Shopping({ s }) {
   const [text, setText] = useState('');
   const [move, setMove] = useState(null);
@@ -177,6 +236,7 @@ function Shopping({ s }) {
       <button type="button" className="tell" style={{ alignSelf: 'flex-start' }} onClick={() => listen('Auf die Einkaufsliste: ')}>
         <Icon name="mic" size={16} /> Einkaufsliste einsprechen
       </button>
+      <ShopCatalog s={s} />
       {open.length === 0 && <div className="list"><div className="empty">Die Liste ist leer.</div></div>}
       {SHOP_CATS.map((c) => {
         const items = open.filter((x) => shopCatOf(s, x) === c.id);
@@ -208,9 +268,14 @@ function Shopping({ s }) {
       )}
       {open.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal).</span>}
       <Sheet open={!!move} title={move ? `„${move.name}“ einsortieren` : ''} onClose={() => setMove(null)}>
-        <div className="chips">
-          {SHOP_CATS.map((c) => <button key={c.id} type="button" className={move && shopCatOf(s, move) === c.id ? 'chip on' : 'chip'} onClick={() => { setShoppingCat(move.id, c.id); setMove(null); }}>{c.emoji} {c.label}</button>)}
-        </div>
+        {SHOP_GROUPS.map((g) => (
+          <div key={g.id} className="field">
+            <span>{g.emoji} {g.label}</span>
+            <div className="chips">
+              {SHOP_CATS.filter((c) => c.group === g.id).map((c) => <button key={c.id} type="button" className={move && shopCatOf(s, move) === c.id ? 'chip on' : 'chip'} onClick={() => { setShoppingCat(move.id, c.id); setMove(null); }}>{c.emoji} {c.label}</button>)}
+            </div>
+          </div>
+        ))}
       </Sheet>
       {done.length > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={clearBought}>Gekauftes entfernen ({done.length})</button>}
       {sugg.length > 0 && (

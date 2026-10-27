@@ -232,7 +232,7 @@ function SearchPage({ s, search }) {
             <div className="take-box">
               <span className="tiny" style={{ color: 'var(--text)' }}>Einen oder <b>mehrere Links</b> (je eine Zeile) oder Anzeigentexte einfügen. Die KI legt pro Stelle einen Steckbrief an: Firma, Ort, Remote, Gehalt, Aufgaben, Anforderungen.</span>
               <div style={{ position: 'relative' }}>
-                <textarea className="input" style={{ minHeight: 90, paddingRight: 36, width: '100%' }} value={imp} onChange={(e) => setImp(e.target.value)} placeholder="https://… oder Text der Anzeige" aria-label="Link oder Anzeigentext" />
+                <textarea className="input" style={{ minHeight: 90, paddingRight: 36, width: '100%' }} data-noclear="" value={imp} onChange={(e) => setImp(e.target.value)} placeholder="https://… oder Text der Anzeige" aria-label="Link oder Anzeigentext" />
                 {imp && <button type="button" className="x-btn" style={{ position: 'absolute', top: 6, right: 6 }} onClick={() => { setImp(''); setFound(null); }} aria-label="Feld leeren"><Icon name="x" size={13} color="var(--chev)" /></button>}
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

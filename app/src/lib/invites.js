@@ -6,13 +6,13 @@ export const INVITE_STATUS = { eingeladen: 'Eingeladen', vielleicht: 'Vielleicht
 export const INVITE_COLOR = { eingeladen: 'var(--accent)', vielleicht: '#D9A21B', zugesagt: '#2FA36B', abgesagt: 'var(--danger)' };
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-export function addInvite({ name, host = '', date = '', time = '', place = '', note = '', bring = '', status = 'eingeladen', url = '' }) {
+export function addInvite({ name, host = '', date = '', time = '', place = '', note = '', bring = '', guests = '', status = 'eingeladen', url = '' }) {
   const t = String(name || '').trim();
   if (!t) return null;
   const id = uid();
   store.update((s) => {
     s.invites = s.invites || [];
-    s.invites.push({ id, name: t, host: host.trim(), date, time, place: place.trim(), note, bring, status: INVITE_STATUS[status] ? status : 'eingeladen', url, done: false, createdAt: today() });
+    s.invites.push({ id, name: t, host: host.trim(), date, time, place: place.trim(), note, bring, guests, status: INVITE_STATUS[status] ? status : 'eingeladen', url, done: false, createdAt: today() });
   });
   return id;
 }

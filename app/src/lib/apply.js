@@ -8,7 +8,8 @@ import {
 } from './actions';
 import { store } from './store';
 import { locate } from './outings';
-import { addInvite } from './invites';
+import { addInvite, updateInvite } from './invites';
+import { findGathering, upsertGathering } from './gather';
 import { addMaterial, ensureTopic, KINDS } from './library';
 import { addHomeItem, addReminder, EVERY, LISTS } from './home';
 import { addGathering, addHobby, addHobbyItem, addTrip } from './leisure';
@@ -132,8 +133,11 @@ export function describe(s, raw) {
       return { ok: !!a.name, label: join(`Reise: ${a.name}`, isDate(a.datum) && date(a.datum), isDate(a.bis_datum) && `bis ${date(a.bis_datum)}`) };
     case 'einladung_eintragen':
       return { ok: !!a.name, label: join(`Einladung: ${a.name}`, a.gastgeber && `von ${a.gastgeber}`, isDate(a.datum) && date(a.datum), a.uhrzeit, a.ort, a.einladung_status === 'zugesagt' ? 'zugesagt' : a.einladung_status === 'abgesagt' ? 'abgesagt' : null) };
-    case 'treffen_anlegen':
-      return { ok: !!a.name, label: join(`Treffen: ${a.name}`, isDate(a.datum) && date(a.datum), a.uhrzeit, a.ort) };
+    case 'treffen_anlegen': {
+      const ex = findGathering(s, a.name);
+      const n = (a.gaeste || []).length;
+      return { ok: !!a.name, label: join(`${ex ? 'Event ergänzen' : 'Eigenes Event'}: ${ex?.name || a.name}`, isDate(a.datum) && date(a.datum), a.uhrzeit, a.ort, n && `Gäste: ${a.gaeste.join(', ')}`, !n && a.ungefaehre_gaeste && `ca. ${a.ungefaehre_gaeste} Gäste`, (a.artikel || []).length && `Einkauf: ${a.artikel.join(', ')}`, (a.aufgaben || []).length && `To-dos: ${a.aufgaben.join(', ')}`) };
+    }
     case 'material_anlegen':
       if (a.titel && (s.library || []).some((m) => norm(m.title) === norm(a.titel))) return { ok: false, reason: 'schon in der Bibliothek', label: `Bibliothek: ${a.titel}` };
       return { ok: !!a.titel, label: join(`${KINDS[a.material_art]?.label || 'Material'}: ${a.titel}`, a.autor, a.thema && `Thema ${a.thema}`) };
@@ -256,10 +260,20 @@ export function applyAction(s, raw) {
       return addHobbyItem(addHobby(a.hobby), { title: a.titel, kind: a.hobby_art || 'idee', url: a.url || '', why: a.notiz || '' });
     case 'reise_anlegen':
       return addTrip({ name: a.name, dest: a.ort || a.name, from: d(a.datum) || '', to: d(a.bis_datum) || '' });
-    case 'einladung_eintragen':
-      return addInvite({ name: a.name, host: a.gastgeber || '', date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', note: a.notiz || '', bring: a.mitbringen || '', status: a.einladung_status || 'eingeladen', url: a.url || '' });
+    case 'einladung_eintragen': {
+      const ex = (s.invites || []).find((x) => !x.done && norm(x.name) === norm(a.name));
+      const time = /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '';
+      const guests = (a.gaeste || []).join(', ');
+      if (ex) {
+        const patch = Object.fromEntries(Object.entries({ host: a.gastgeber, date: d(a.datum), time, place: a.ort, bring: a.mitbringen, status: a.einladung_status, url: a.url, note: a.notiz }).filter(([, v]) => v));
+        if (guests) patch.guests = [ex.guests, guests].filter(Boolean).join(', ');
+        updateInvite(ex.id, patch);
+        return ex.id;
+      }
+      return addInvite({ guests, name: a.name, host: a.gastgeber || '', date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', note: a.notiz || '', bring: a.mitbringen || '', status: a.einladung_status || 'eingeladen', url: a.url || '' });
+    }
     case 'treffen_anlegen':
-      return addGathering({ name: a.name, date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', desc: a.notiz || '' });
+      return upsertGathering(s, { name: a.name, date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', desc: a.notiz || '', kind: a.event_art, anlass: a.anlass, expected: a.ungefaehre_gaeste || '', guests: a.gaeste, shopping: a.artikel, todos: a.aufgaben, bring: a.mitbringen, motto: a.motto, diet: a.einschraenkungen, budget: a.budget });
     case 'material_anlegen':
       return addMaterial({ title: a.titel, kind: a.material_art || 'buch', subId: ensureTopic(a.thema || 'Allgemein'), author: a.autor || '', url: a.url || '', note: a.notiz || '' });
     case 'rezept_anlegen':

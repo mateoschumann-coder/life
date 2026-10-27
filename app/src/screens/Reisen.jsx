@@ -6,7 +6,7 @@ import {
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, updateVariantItem, spotLinks, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes, toOutings, moveStop, removeStop, reorderStop, reorderVariantStop, tripHome, skyUrl, legUrl, legsOf, fxText, fxPrices, addVariantLeg, updateVariantLeg, removeVariantLeg, parseLegText, setTripDates, restartFinalRoute, saveTripSetup } from '../lib/trips';
 import { getAi } from '../lib/ai';
-import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
+import { groupIdeas, groupsOf, renameGroup, ungroup, missingPack, fillPackTemplate, packSuggest } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
@@ -142,7 +142,7 @@ function PriceSheet({ s, trips, title, onClose }) {
       {f.travelers.map((tv, i) => (
         <div key={i} className="traveler">
           <div className="start-field">
-            <input className="input" value={tv.start} onChange={(e) => setT(i, { start: e.target.value })} placeholder="Startort, z.B. Frankfurt" aria-label="Startort" />
+            <input className="input" value={tv.start} onChange={(e) => setT(i, { start: e.target.value })} placeholder="Startort, z.B. Frankfurt" aria-label="Startort" data-noclear="" />
             {tv.start && <button type="button" className="clear-btn" onClick={() => setT(i, { start: '' })} aria-label="Startort löschen"><Icon name="x" size={12} /></button>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1378,7 +1378,7 @@ function TripDetail({ s, tr }) {
         {cur === 'route' && <Route s={s} tr={tr} />}
         {cur === 'orte' && <Places tr={tr} />}
         {cur === 'todo' && <GroupedChecklist items={tr.todo} cats={Object.keys(TODO_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'todo', text, cat)} onToggle={(id) => updateEntry(tr.id, 'todo', id, { done: !tr.todo.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'todo', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Neues To-do" />}
-        {cur === 'packen' && <GroupedChecklist items={tr.packen} cats={Object.keys(PACK_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'packen', text, cat)} onToggle={(id) => updateEntry(tr.id, 'packen', id, { done: !tr.packen.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'packen', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Einpacken" />}
+        {cur === 'packen' && <><GroupedChecklist items={tr.packen} cats={Object.keys(PACK_TEMPLATE)} onAdd={(text, cat) => text.split(/,|\n/).forEach((x) => addCheck(tr.id, 'packen', x, cat))} onToggle={(id) => updateEntry(tr.id, 'packen', id, { done: !tr.packen.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'packen', id)} onTemplate={() => fillPackTemplate(tr.id)} placeholder="Einpacken" /><PackHelper s={s} tr={tr} /></>}
         {cur === 'docs' && <Docs tr={tr} />}
         {cur === 'budget' && <Budget tr={tr} />}
         {cur === 'notizen' && isIdea && (kind !== 'ort' || ortSt) && (
@@ -1414,6 +1414,33 @@ function TripDetail({ s, tr }) {
       </Sheet>
       <TabBar active="bereiche" />
     </>
+  );
+}
+
+// v0.88: Standardliste ergänzen + KI fragt, was für diese Reise noch fehlt
+function PackHelper({ s, tr }) {
+  const [busy, setBusy] = useState(false);
+  const [sugg, setSugg] = useState(null);
+  const miss = missingPack(tr).length;
+  const ask = async () => {
+    setBusy(true);
+    try { setSugg(await packSuggest(s, tr)); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
+  };
+  const left = (sugg || []).filter((x) => !tr.packen.some((y) => y.text.toLowerCase() === x.text.toLowerCase()));
+  return (
+    <section className="card" style={{ gap: 10 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {miss > 0 && tr.packen.length > 0 && <button type="button" className="btn small sec" onClick={() => toast(`${fillPackTemplate(tr.id)} Standard-Punkte ergänzt`)}>+ Standardliste ergänzen ({miss})</button>}
+        <button type="button" className="btn small" onClick={ask} disabled={busy || !getAi().apiKey}>{busy ? 'Ich überlege …' : '✨ Was fehlt noch?'}</button>
+      </div>
+      {sugg && left.length === 0 && <span className="tiny">Nichts mehr – du hast an alles gedacht.</span>}
+      {left.length > 0 && (
+        <>
+          <span className="tiny">Antippen = auf die Packliste</span>
+          <div className="chips">{left.map((x) => <button key={x.text} type="button" className="chip" onClick={() => addCheck(tr.id, 'packen', x.text, x.kategorie || 'Sonstiges')} title={x.warum}>+ {x.text}{x.warum ? <span className="tiny"> · {x.warum}</span> : null}</button>)}</div>
+        </>
+      )}
+    </section>
   );
 }
 
