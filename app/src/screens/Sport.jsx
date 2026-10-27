@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../lib/store';
+import SourceLinks from '../components/SourceLinks';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addProject, addTask } from '../lib/actions';
 import {
@@ -311,6 +312,7 @@ function SportsPage({ s }) {
             ))}</div>}
           </section>
         )}
+        <SourceLinks s={s} area="rennen" />
         <section className="card" style={{ gap: 10 }}>
           <span className="label" style={{ padding: 0 }}>Zeitrechner</span>
           <PaceCalc />

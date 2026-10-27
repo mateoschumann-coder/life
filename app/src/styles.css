@@ -477,3 +477,5 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .ov-chip.plain { background: transparent; padding-left: 0; }
 .ov-hint { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
 .origin-grid > .d { grid-column: 1 / -1; text-align: left; white-space: normal; font-size: 12px; font-weight: 400; color: var(--muted); margin: -3px 0 4px; line-height: 1.35; }
+.src-chip { display: inline-flex; align-items: center; gap: 2px; }
+.src-chip .city-x { border: 0; background: var(--card-2); color: var(--muted); border-radius: 999px; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }

@@ -6,6 +6,7 @@ import {
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
+import SourceLinks from '../components/SourceLinks';
 import { listen } from '../components/Coach';
 import { Back, Check, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
@@ -266,6 +267,7 @@ export default function Kueche() {
         </div>
         <Segmented full options={[{ id: 'rezepte', label: 'Rezepte' }, { id: 'einkauf', label: `Einkaufsliste${openCount ? ` (${openCount})` : ''}` }]} value={tab} onChange={choose} label="Ansicht" />
         {tab === 'rezepte' ? <Recipes s={s} /> : <Shopping s={s} />}
+        {tab === 'rezepte' && <SourceLinks s={s} area="rezepte" />}
         <KitchenChat s={s} />
       </main>
       <TabBar active="bereiche" />

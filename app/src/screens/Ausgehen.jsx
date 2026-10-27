@@ -6,6 +6,7 @@ import {
   allCities, citiesOf, cityOf, countryOf, locateCountry, mapsUrl, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
+import SourceLinks from '../components/SourceLinks';
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
 import { Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
@@ -632,6 +633,7 @@ export default function Ausgehen() {
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
         <CityChips s={s} />
         {tab === 'events' ? <Events s={s} city={cityOf(s)} /> : <Orte s={s} city={cityOf(s)} />}
+        <SourceLinks key={tab + cityOf(s)} s={s} area={tab === 'events' ? 'events' : 'orte'} city={cityOf(s)} />
       </main>
       <TabBar active="ausgehen" />
     </>
