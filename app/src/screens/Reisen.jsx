@@ -4,7 +4,7 @@ import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
-  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes } from '../lib/trips';
+  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes, toOutings, moveStop, removeStop } from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -448,31 +448,30 @@ function TripList({ s }) {
 function StopDetail({ tr, st, i }) {
   const [pname, setPname] = useState('');
   const [pkind, setPkind] = useState('unterkunft');
+  const [purl, setPurl] = useState('');
   const places = tr.places.filter((p) => p.stopId === st.id);
-  const move = (d) => { const list = [...tr.stops]; const [x] = list.splice(i, 1); list.splice(i + d, 0, x); updateTrip(tr.id, { stops: list }); };
   return (
     <>
       <DateRangeField from={st.from} to={st.to} onChange={(v) => updateEntry(tr.id, 'stops', st.id, v)} placeholder="Wann bist du dort?" />
       <input className="input" defaultValue={st.note} key={st.id + 'n' + (st.note || '')} placeholder="Notiz, z.B. „2 Nächte, Strandtag“" onBlur={(e) => e.target.value !== st.note && updateEntry(tr.id, 'stops', st.id, { note: e.target.value })} aria-label="Notiz" />
       <span className="label" style={{ padding: 0 }}>Hier sammeln</span>
       {places.map((p) => (
-        <div key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 14.5, flex: 1 }}>{p.status === 'fest' ? '✓ ' : ''}{PLACE_KINDS[p.kind] ? `${PLACE_KINDS[p.kind]}: ` : ''}{p.name}</span>
+        <div key={p.id} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 14.5, flex: 1, minWidth: 120 }}>{p.status === 'fest' ? '✓ ' : ''}{PLACE_KINDS[p.kind] ? `${PLACE_KINDS[p.kind]}: ` : ''}{p.name}</span>
+          {p.url && <a className="x-btn" href={p.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
+          {p.kind !== 'unterkunft' && <button type="button" className="pill" style={{ fontSize: 11.5, padding: '3px 8px' }} onClick={() => toast(toOutings(p.name, p.kind, st.name, { url: p.url, note: p.note || `Von der Reise „${tr.name}“`, address: p.address }) ? `In Ausgehen → Orte (${st.name}) gespeichert` : 'Ist schon in Ausgehen')}>→ Ausgehen</button>}
           <button type="button" className={p.status === 'fest' ? 'pill on' : 'pill'} style={{ fontSize: 12 }} onClick={() => updateEntry(tr.id, 'places', p.id, { status: p.status === 'fest' ? 'option' : 'fest' })}>{p.status === 'fest' ? 'Fest' : 'Option'}</button>
           <button type="button" className="x-btn" aria-label={`${p.name} entfernen`} onClick={() => removeEntry(tr.id, 'places', p.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
         </div>
       ))}
       <div className="chips">{Object.entries(PLACE_KINDS).filter(([k]) => k !== 'sonstiges').map(([k, l]) => <button key={k} type="button" className={pkind === k ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5, padding: '4px 9px' }} onClick={() => setPkind(k)}>{l}</button>)}</div>
-      <form className="block-add" onSubmit={(e) => { e.preventDefault(); const id = addEntry(tr.id, 'places', { name: pname.trim(), kind: pkind, stopId: st.id, note: '', address: '', url: '', status: 'option' }); setPname(''); locateEntry(tr.id, 'places', id); }}>
+      <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const id = addEntry(tr.id, 'places', { name: pname.trim(), kind: pkind, stopId: st.id, note: '', address: '', url: /^https?:\/\//.test(purl.trim()) ? purl.trim() : '', status: 'option' }); setPname(''); setPurl(''); locateEntry(tr.id, 'places', id); }}>
         <input className="input" value={pname} onChange={(e) => setPname(e.target.value)} placeholder="Name" aria-label="Ort sammeln" />
-        <button type="submit" className="btn small" disabled={!pname.trim()}>+</button>
+        <div className="block-add">
+          <input className="input" value={purl} onChange={(e) => setPurl(e.target.value)} placeholder="Link (optional)" inputMode="url" aria-label="Link" />
+          <button type="submit" className="btn small" disabled={!pname.trim()}>+</button>
+        </div>
       </form>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button type="button" className="pill" disabled={i === 0} onClick={() => move(-1)}>↑</button>
-        <button type="button" className="pill" disabled={i === tr.stops.length - 1} onClick={() => move(1)}>↓</button>
-        <span style={{ flex: 1 }} />
-        <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Station „${st.name}“ löschen?`) && removeEntry(tr.id, 'stops', st.id)}>Löschen</button>
-      </div>
     </>
   );
 }
@@ -535,6 +534,8 @@ function Route({ tr }) {
           renderDetail={(st, i) => <StopDetail tr={tr} st={st} i={i} />}
           renderLeg={(i) => <LegDetail tr={tr} a={stops[i].name} b={stops[i + 1].name} />}
           onInsert={(name, at) => insertStop(tr.id, name, at)}
+          onMove={(i, d) => moveStop(tr.id, i, d)}
+          onRemove={(i) => { const st = stops[i]; const n = tr.places.filter((p) => p.stopId === st.id).length; if (!n || confirm(`„${st.name}“ entfernen? ${n} gesammelte Orte bleiben in der Reise erhalten.`)) removeStop(tr.id, st.id); }}
           addPlaceholder="Station hinzufügen, z.B. Garopaba"
         />
         {autoLine(rueck, 'Rückreise')}
@@ -807,7 +808,7 @@ function Pool({ s, tr, onVariants }) {
 
 
 // ---------- v0.74: Zeitleiste wie bei Google Maps – Ort, Linie mit Transport, nächster Ort ----------
-function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, onOpen, addPlaceholder = 'Ort hinzufügen, z.B. Garopaba' }) {
+function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, onOpen, onMove, onRemove, addPlaceholder = 'Ort hinzufügen, z.B. Garopaba' }) {
   const [openStop, setOpenStop] = useState(null);
   const [openLeg, setOpenLeg] = useState(null);
   const [insertAt, setInsertAt] = useState(null);
@@ -835,7 +836,12 @@ function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, o
                 <span style={{ fontWeight: 650, fontSize: 15.5 }}>{name(x)}</span>
                 {meta(x, i) && <span className="tiny">{meta(x, i)}</span>}
               </button>
-              {onOpen ? <Chevron /> : <span className="tiny">{openStop === i ? '▴' : '▾'}</span>}
+              {onMove && <span className="tl-ctrl">
+                <button type="button" disabled={i === 0} onClick={() => { onMove(i, -1); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} nach vorne`}>↑</button>
+                <button type="button" disabled={i === n - 1} onClick={() => { onMove(i, 1); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} nach hinten`}>↓</button>
+              </span>}
+              {onRemove && <button type="button" className="tl-x" onClick={() => { onRemove(i); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} entfernen`}>✕</button>}
+              {!onMove && !onRemove && (onOpen ? <Chevron /> : <span className="tiny">{openStop === i ? '▴' : '▾'}</span>)}
             </div>
             {!onOpen && openStop === i && <div className={i < n - 1 ? 'tl-detail line' : 'tl-detail'}>{renderDetail(x, i)}</div>}
             {i < n - 1 && (
@@ -906,6 +912,7 @@ function VariantStopSheet({ s, tr, v, i, onClose }) {
         <div key={it.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 14.5, flex: 1, minWidth: 0 }}>{ITEM_KINDS[it.kind] || '•'} {it.text}</span>
           {it.url && <a className="x-btn" href={it.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
+          {it.kind !== 'unterkunft' && <button type="button" className="pill" style={{ fontSize: 11.5, padding: '3px 8px' }} onClick={() => toast(toOutings(it.text, it.kind, x.name, { url: it.url, note: `Von der Reise „${tr.name}“` }) ? `In Ausgehen → Orte (${x.name}) gespeichert` : 'Ist schon in Ausgehen')}>→ Ausgehen</button>}
           <button type="button" className="x-btn" aria-label={`${it.text} entfernen`} onClick={() => removeVariantItem(tr.id, v.id, i, it.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
         </div>
       ))}
@@ -978,6 +985,8 @@ function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
         meta={(x) => [x.nights && `${x.nights} N.`, (x.items || []).length && `${x.items.length} gesammelt`, tr.stops.some((y) => y.name.toLowerCase() === x.name.toLowerCase()) && '✓ in finaler Route', x.note].filter(Boolean).join(' · ')}
         leg={(i) => legChip(legOf(v.legs, v.stops[i].name, v.stops[i + 1].name))}
         onOpen={(i) => setOpenI(i)}
+        onMove={(i, d) => moveVariantStop(tr.id, v.id, i, d)}
+        onRemove={(i) => removeVariantStop(tr.id, v.id, i)}
         renderDetail={() => null}
         renderLeg={(i) => <VariantLegDetail tr={tr} v={v} a={v.stops[i].name} b={v.stops[i + 1].name} />}
         onInsert={(name, at) => addVariantStop(tr.id, v.id, name, at)}
@@ -988,7 +997,7 @@ function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
         <button type="submit" className="btn small" disabled={!wish.trim() || !!busy || !getAi().apiKey}>{busy === 'ai' ? '…' : '✨'}</button>
       </form>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className={v.chosen ? 'pill on' : 'pill'} disabled={!v.stops.length} onClick={() => { chooseVariant(tr.id, v.id); toast(`„${v.name}“ ist jetzt die finale Route`); onChosen?.(); }}>{v.chosen ? 'Ist die finale Route' : 'Ganze Variante als finale Route'}</button>
+        <button type="button" className={v.chosen ? 'pill on' : 'pill'} disabled={!v.stops.length || v.chosen} onClick={() => { if (tr.stops.length && !confirm(`Die finale Route (${tr.stops.map((x) => x.name).join(' → ')}) wird durch „${v.name}“ ersetzt. Die bisherige wird als Variante „Bisherige Route“ gesichert. Weiter?`)) return; chooseVariant(tr.id, v.id); toast(`Finale Route = „${v.name}“`); onChosen?.(); }}>{v.chosen ? '✓ Ist die finale Route' : 'Als finale Route übernehmen'}</button>
         {isIdea && <button type="button" className="pill on" disabled={!v.stops.length} onClick={() => { chooseVariant(tr.id, v.id); onCommit(); }}>Zur Reise machen</button>}
         <span style={{ flex: 1 }} />
         <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Variante „${v.name}“ löschen?`) && removeVariant(tr.id, v.id)}>Löschen</button>

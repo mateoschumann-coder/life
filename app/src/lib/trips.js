@@ -903,3 +903,22 @@ export function syncAutoTransport(tripId) {
   if (missingIata) askIata(s, [home, first, last], tripId);
 }
 export const tripHome = homeOf;
+
+// ---------- v0.77: Gesammeltes einer Station in „Ausgehen → Orte“ übernehmen (Stadt = Station) ----------
+const TO_OUT = { restaurant: 'Restaurant', essen: 'Restaurant', sehenswuerdigkeit: 'Kultur', sehen: 'Kultur', aktivitaet: 'Sonstiges', tun: 'Sonstiges', unterkunft: 'Sonstiges', sonstiges: 'Sonstiges' };
+export function toOutings(name, kind, city, { url = '', note = '', address = '' } = {}) {
+  const s = store.get();
+  const c = cleanPlace(city) || city;
+  if (s.places.some((p) => norm(p.name) === norm(name) && norm(p.city) === norm(c))) return false;
+  store.update((st) => { st.places.push({ id: uid(), name: String(name).trim(), category: TO_OUT[kind] || 'Sonstiges', subcat: kind === 'unterkunft' ? 'Unterkunft' : '', note, rating: 0, status: 'will', lat: null, lon: null, address, url: okUrl(url), city: c, hood: '', tags: [], price: 0, fav: false, createdAt: new Date().toISOString() }); });
+  return true;
+}
+// Station der finalen Route verschieben (Transport-Strecken richten sich nach den Namen, An-/Rückreise passt sich automatisch an)
+export function moveStop(tripId, i, d) {
+  store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (!t) return; const j = i + d; if (j < 0 || j >= t.stops.length) return; const [x] = t.stops.splice(i, 1); t.stops.splice(j, 0, x); });
+  syncAutoTransport(tripId);
+}
+export function removeStop(tripId, id) {
+  store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (!t) return; t.stops = t.stops.filter((x) => x.id !== id); t.places.forEach((p) => { if (p.stopId === id) p.stopId = ''; }); });
+  syncAutoTransport(tripId);
+}
