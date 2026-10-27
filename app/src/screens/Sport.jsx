@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../lib/store';
-import SourceLinks from '../components/SourceLinks';
+import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addProject, addTask } from '../lib/actions';
 import {
@@ -132,6 +132,7 @@ function SportsPage({ s }) {
   const [editSports, setEditSports] = useState(false);
   const [newSport, setNewSport] = useState('');
   const [q, setQ] = useState('');
+  const [smode, setSmode] = useSearchMode('rennen');
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -251,16 +252,20 @@ function SportsPage({ s }) {
               <button type="submit" className="btn small" disabled={!newPer.trim()}>+</button>
             </form>
           )}
+          <ModeToggle mode={smode} onChange={setSmode} />
           <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" />
+          {smode === 'links' && <SourceLinks embedded s={s} area="rennen" query={[q, ...regPick].filter(Boolean).join(' ')} />}
+          {smode === 'ki' && <>
           <div className="search-row">
             <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
             <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
           </div>
           <span className="tiny">Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link – ein Renn-Name wird gezielt gesucht (ca. 3–5 Cent).</span>
+          </>}
           {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Termine …' : 'Ich überlege …'}</span></div>}
           {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-          {!busy && res?.hint && <span className="sub">{res.hint}</span>}
-          {!busy && res?.events.map((e) => (
+          {smode === 'ki' && !busy && res?.hint && <span className="sub">{res.hint}</span>}
+          {smode === 'ki' && !busy && res?.events.map((e) => (
             <div key={e.id} className="option" style={{ alignItems: 'center' }}>
               <span className="row-main">
                 <span style={{ fontSize: 15, fontWeight: 600 }}><SportTag s={s} id={e.sportId} />{e.name}</span>
@@ -312,7 +317,6 @@ function SportsPage({ s }) {
             ))}</div>}
           </section>
         )}
-        <SourceLinks s={s} area="rennen" />
         <section className="card" style={{ gap: 10 }}>
           <span className="label" style={{ padding: 0 }}>Zeitrechner</span>
           <PaceCalc />

@@ -248,11 +248,11 @@ export const PLACE_SUBCATS = {
   Laden: ['Kleidung', 'Buchladen', 'Markt', 'Feinkost'],
   Sonstiges: [],
 };
-export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '', city = '' }) {
+export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '', city = '', hood = '', tags = [] }) {
   if (!name || !name.trim()) return;
   const id = uid();
   store.update((s) => {
-    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, city: String(city || '').trim() || 'Buenos Aires', createdAt: now() });
+    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, city: String(city || '').trim() || 'Buenos Aires', hood: String(hood || '').trim(), tags: Array.isArray(tags) ? tags : [], createdAt: now() });
   });
   return id;
 }

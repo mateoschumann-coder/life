@@ -6,7 +6,7 @@ import {
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
-import SourceLinks from '../components/SourceLinks';
+import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { listen } from '../components/Coach';
 import { Back, Check, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
@@ -213,6 +213,17 @@ const MODES = {
   diktieren: { label: 'Rezept diktieren', intro: 'Tippe aufs Mikrofon und erzähl dein Rezept (Zutaten und wie du es machst) – ich schreibe es sauber auf, du speicherst es mit einem Tipp.', placeholder: 'Erzähl dein Rezept …', chips: [] },
 };
 
+// Neue Rezepte (v0.65): entweder kostenlose Links zu Rezeptseiten oder der KI-Küchen-Chat
+function RecipeFinder({ s }) {
+  const [mode, setMode] = useSearchMode('rezepte', 'ki');
+  return (
+    <>
+      <span className="label" style={{ padding: '4px 4px 0' }}>Neue Rezepte finden</span>
+      <ModeToggle mode={mode} onChange={setMode} />
+      {mode === 'links' ? <SourceLinks s={s} area="rezepte" /> : <KitchenChat s={s} />}
+    </>
+  );
+}
 function KitchenChat({ s }) {
   const [mode, setMode] = useState('neu');
   const [cat, setCat] = useState(s.recipeCats[0] || 'Airfryer');
@@ -267,8 +278,7 @@ export default function Kueche() {
         </div>
         <Segmented full options={[{ id: 'rezepte', label: 'Rezepte' }, { id: 'einkauf', label: `Einkaufsliste${openCount ? ` (${openCount})` : ''}` }]} value={tab} onChange={choose} label="Ansicht" />
         {tab === 'rezepte' ? <Recipes s={s} /> : <Shopping s={s} />}
-        {tab === 'rezepte' && <SourceLinks s={s} area="rezepte" />}
-        <KitchenChat s={s} />
+        <RecipeFinder s={s} />
       </main>
       <TabBar active="bereiche" />
     </>

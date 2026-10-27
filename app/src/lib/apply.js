@@ -147,7 +147,7 @@ export function describe(s, raw) {
       if (a.thema && s.radar.topics.some((t) => norm(t) === norm(a.thema))) return { ok: false, reason: 'schon vorhanden', label: `News-Thema: ${a.thema}` };
       return { ok: !!a.thema, label: `News-Thema: ${a.thema}` };
     case 'ort_anlegen':
-      return { ok: !!a.name, label: join(`Ort: ${a.name}`, a.ort_art, a.adresse, a.stadt && a.stadt !== 'Buenos Aires' && a.stadt, a.war_da ? (a.bewertung ? '★'.repeat(Math.min(5, a.bewertung)) : 'war da') : 'will hin') };
+      return { ok: !!a.name, label: join(`Ort: ${a.name}`, a.ort_art, a.viertel, a.adresse, a.stadt && a.stadt !== 'Buenos Aires' && a.stadt, a.war_da ? (a.bewertung ? '★'.repeat(Math.min(5, a.bewertung)) : 'war da') : 'will hin') };
     case 'sport_event_anlegen':
       return { ok: !!a.name, label: join(`Sport-Event: ${a.name}`, a.sportart || s.sports[0]?.name, isDate(a.datum) && date(a.datum), a.ort, a.sport_status === 'angemeldet' ? 'angemeldet' : a.sport_status === 'dabei' ? 'dabei gewesen' : 'gemerkt') };
     case 'skill_ziel':
@@ -268,7 +268,7 @@ export function applyAction(s, raw) {
       return addHealthItem({ title: a.titel, type: a.vorsorge_art || 'termin', date: d(a.datum), everyMonths: a.alle_monate || null, notes: a.notiz || '' });
     case 'ort_anlegen': {
       const city = (a.stadt || '').trim() || 'Buenos Aires';
-      const id = addPlace({ name: a.name, category: a.ort_art || 'Sonstiges', subcat: a.ort_unterart || '', note: a.notiz || '', address: a.adresse || '', status: a.war_da ? 'war' : 'will', rating: a.war_da ? Math.min(5, a.bewertung || 0) : 0, city });
+      const id = addPlace({ name: a.name, category: a.ort_art || 'Sonstiges', subcat: a.ort_unterart || '', note: a.notiz || '', address: a.adresse || '', hood: a.viertel || '', status: a.war_da ? 'war' : 'will', rating: a.war_da ? Math.min(5, a.bewertung || 0) : 0, city });
       // Kartenpunkt im Hintergrund suchen
       locate(a.name, a.adresse, city).then((pos) => pos && updatePlace(id, { lat: pos.lat, lon: pos.lon }));
       return id;

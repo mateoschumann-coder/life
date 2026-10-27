@@ -27,6 +27,15 @@ export const cityOf = (s) => {
   const all = allCities(s);
   return c && all.includes(c) ? c : citiesOf(s)[0];
 };
+// Tags für Orte (v0.65): danach lässt sich filtern
+export const PLACE_TAGS = {
+  Mahlzeit: ['Frühstück', 'Brunch', 'Mittagessen', 'Abendessen', 'Drinks', 'Snack'],
+  Küche: ['Argentinisch', 'Fleisch', 'Italienisch', 'Pizza', 'Japanisch', 'Asiatisch', 'Peruanisch', 'Mexikanisch', 'Spanisch', 'Burger', 'Fisch', 'Vegetarisch', 'Vegan', 'Café & Kuchen'],
+  Stimmung: ['Date', 'Mit Freunden', 'Zum Arbeiten', 'Terrasse', 'Günstig', 'Besonders'],
+};
+export const ALL_TAGS = Object.values(PLACE_TAGS).flat();
+// Stadtviertel einer Stadt: selbst angelegte + die aus gespeicherten Orten
+export const hoodsOf = (s, city) => [...new Set([...(s.profile?.hoods?.[city] || []), ...(s.places || []).filter((p) => placeCity(p) === city && p.hood).map((p) => p.hood)])].sort((a, b) => a.localeCompare(b, 'de'));
 export const countryOf = (s, c) => (c === HOME_CITY ? 'Argentinien' : s.profile?.cityCountry?.[c] || '');
 // Land einer Stadt einmal über OpenStreetMap nachsehen und merken
 export async function locateCountry(store, city) {
@@ -255,6 +264,8 @@ const PLACE_TOOL = {
             kategorie: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'] },
             unterart: { type: 'string', description: 'Genauer, z.B. „Rooftop / Sky Bar“, „Pub“, „Cocktailbar“, „Parrilla“, „Specialty Coffee“' },
             adresse: { type: 'string', description: 'Straße und Hausnummer, Viertel' },
+            viertel: { type: 'string', description: 'Stadtviertel, z.B. „Palermo“, „San Telmo“' },
+            tags: { type: 'array', items: { type: 'string' }, description: 'passende Tags aus dieser Liste: ' + ['Frühstück', 'Brunch', 'Mittagessen', 'Abendessen', 'Drinks', 'Snack', 'Argentinisch', 'Fleisch', 'Italienisch', 'Pizza', 'Japanisch', 'Asiatisch', 'Peruanisch', 'Mexikanisch', 'Spanisch', 'Burger', 'Fisch', 'Vegetarisch', 'Vegan', 'Café & Kuchen', 'Date', 'Mit Freunden', 'Zum Arbeiten', 'Terrasse', 'Günstig', 'Besonders'].join(', ') },
             warum: { type: 'string', description: '1 Satz: was ist besonders' },
             url: { type: 'string', description: 'Link aus den Suchergebnissen (Website, Instagram, Artikel), nie erfinden' },
           },
@@ -278,6 +289,8 @@ Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern in der Landess
     category: o.kategorie || 'Sonstiges',
     subcat: o.unterart || '',
     address: o.adresse || '',
+    hood: o.viertel || '',
+    tags: (o.tags || []).filter((x) => ALL_TAGS.includes(x)),
     why: o.warum || '',
     url: okUrl(o.url),
     status: 'neu',
@@ -295,18 +308,19 @@ const PARSE_TOOL = {
     name: { type: 'string' },
     kategorie: PLACE_TOOL.input_schema.properties.orte.items.properties.kategorie,
     unterart: { type: 'string' },
-    adresse: { type: 'string', description: 'nur wenn im Text oder sicher bekannt (Viertel reicht)' },
-    notiz: { type: 'string', description: 'Mateos eigene Worte/Bewertung zu diesem Ort, kurz' },
+    adresse: { type: 'string', description: 'nur wenn im Text oder sicher bekannt' },
+    viertel: { type: 'string', description: 'Stadtviertel, wenn im Text oder sicher bekannt (z.B. „Palermo“)' },
+    tags: { type: 'array', items: { type: 'string' }, description: 'passende Tags (Mahlzeit, Küche, Stimmung) nur aus: ' + ['Frühstück', 'Brunch', 'Mittagessen', 'Abendessen', 'Drinks', 'Snack', 'Argentinisch', 'Fleisch', 'Italienisch', 'Pizza', 'Japanisch', 'Asiatisch', 'Peruanisch', 'Mexikanisch', 'Spanisch', 'Burger', 'Fisch', 'Vegetarisch', 'Vegan', 'Café & Kuchen', 'Date', 'Mit Freunden', 'Zum Arbeiten', 'Terrasse', 'Günstig', 'Besonders'].join(', ') },
     war_da: { type: 'boolean', description: 'true, wenn er schon dort war' },
     erkannt: { type: 'string', description: '1 kurzer Satz, was das für ein Ort ist und woran du ihn erkannt hast (z.B. „Bekannte Parrilla in Palermo, sehr beliebt“). Wenn du den Ort nicht sicher kennst: „Nicht sicher – bitte auf Google Maps prüfen“.' },
   }, required: ['name', 'kategorie'] } } }, required: ['orte'] },
 };
 export async function parsePlaces(text, city = HOME_CITY) {
   const r = await searchWithTool({
-    system: `Mateo gibt dir einen Text (Liste, Notizen, Empfehlungen, Diktat) mit Orten in ${city}. Zieh JEDEN genannten Ort heraus (Cafés, Bars, Restaurants, Kultur …), ordne Kategorie und Unterart zu und übernimm seine Notizen. Nichts erfinden, keine Orte hinzufügen, die nicht im Text stehen. Schreib bei "erkannt" ehrlich, ob du den Ort kennst.`,
+    system: `Mateo gibt dir einen Text (Liste, Notizen, Empfehlungen, Diktat) mit Orten in ${city}. Zieh JEDEN genannten Ort heraus (Cafés, Bars, Restaurants, Kultur …), ordne Kategorie, Unterart, Viertel und passende Tags zu. Nichts erfinden, keine Orte hinzufügen, die nicht im Text stehen. Schreib bei "erkannt" ehrlich, ob du den Ort kennst.`,
     user: text, tool: PARSE_TOOL, maxUses: 0, label: 'Orte aus Text',
   });
-  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Sonstiges', subcat: o.unterart || '', address: o.adresse || '', note: o.notiz || '', info: o.erkannt || '', status: o.war_da ? 'war' : 'will' }));
+  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Sonstiges', subcat: o.unterart || '', address: o.adresse || '', hood: o.viertel || '', tags: (o.tags || []).filter((x) => ALL_TAGS.includes(x)), note: '', info: o.erkannt || '', status: o.war_da ? 'war' : 'will' }));
 }
 
 // Google-Maps-Suche zum Prüfen eines Ortes (kostenlos)
