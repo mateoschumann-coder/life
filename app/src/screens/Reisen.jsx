@@ -185,15 +185,36 @@ const PRICE_RE = /~?\s*(?:ca\.?\s*)?(?:ab\s*)?\d[\d.,]*\s*(?:USD|US\$|\$|€|EUR
 const shortP = (main, text) => (main || ((text || '').match(PRICE_RE)?.[0] || '')).replace(/^ab\s*/i, '~').replace(/\s*\/\s*Nacht/i, '').replace(/^ca\.?\s*/i, '~').trim();
 const three = (p) => p ? [shortP(p.anreiseSum || p.flugPreis, p.flug), shortP(p.stayNight || p.stayPreis, p.unterkunft), shortP(p.total || p.perPerson || p.gesamt, p.gesamt)] : ['', '', ''];
 // Drei Zahlen klein nebeneinander: Anreise · Unterkunft/Nacht · Gesamt p. P.
+// Zahl aus „~1.250 USD“ / „ca. 380 USD“ holen
+const num = (x) => { const m = String(x || '').replace(/(\d)[.,](\d{3})\b/g, '$1$2').match(/\d+(?:[.,]\d+)?/); return m ? Number(m[0].replace(',', '.')) : null; };
+const cur = (x) => (String(x || '').match(/USD|US\$|€|EUR|ARS|R\$/) || ['USD'])[0];
+// Pro Startort: Anreise pro Person + Anteil an der Unterkunft (Nacht × Nächte ÷ Personen)
+export function perPerson(p) {
+  if (!p?.anreise?.length || p.anreise.length < 2) return [];
+  const night = num(p.stayNight);
+  const share = night && p.nights && p.people ? (night * p.nights) / p.people : 0;
+  return p.anreise.map((x) => {
+    const t = num(x.preis);
+    return t == null ? null : { von: String(x.von || x.person || '').replace(/\s*\(.*?\)/g, ''), count: x.count || 1, sum: Math.round(t + share), cur: cur(x.preis) };
+  }).filter(Boolean);
+}
 function PriceRow({ p }) {
   const [a, u, g] = three(p);
   if (!a && !u && !g) return null;
+  const pp = perPerson(p);
   return (
+    <>
     <span className="price-row3">
       <span><i>{p.anreise?.some((x, i) => i > 0 || x.count > 1) || p.people > 1 ? 'Anreise' : 'Flug'}</i>{a || '–'}</span>
       <span><i>Nacht</i>{u || '–'}</span>
       <span className="sum"><i>Gesamt{p.nights ? ` · ${p.nights} N.` : ''}</i>{p.est && g ? `≈${g.replace(/^~\s*/, '')}` : g || '–'}</span>
     </span>
+    {pp.length > 0 && (
+      <span className="pp-row">
+        {pp.map((x) => <span key={x.von}><i>p. P. ab {x.von}{x.count > 1 ? ` (${x.count})` : ''}</i>{p.est ? '≈' : '~'}{x.sum.toLocaleString('de-DE')} {x.cur}</span>)}
+      </span>
+    )}
+    </>
   );
 }
 // Kostenlose Direkt-Links zum Vergleichen (Google Flights, Bus/Zug, Airbnb, Booking)

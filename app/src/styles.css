@@ -454,3 +454,6 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .stepper b { min-width: 26px; text-align: center; }
 .link-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
 .link-chip { font-size: 12.5px; font-weight: 600; padding: 4px 9px; border-radius: 999px; background: var(--accent-bg, color-mix(in srgb, var(--accent) 12%, transparent)); color: var(--accent); white-space: nowrap; text-decoration: none; }
+.pp-row { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+.pp-row > span { display: flex; flex-direction: column; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.pp-row i { font-style: normal; font-size: 11px; font-weight: 500; color: var(--muted); }

@@ -442,7 +442,7 @@ Reisegruppe (${people} Personen):
 ${who}
 Unterkunft gemeinsam für alle: ${STAY_TYPES[st0.stayType] || 'Airbnb'}, ${LEVELS[st0.stayLevel] || 'Normal'}. Zeitraum: ${st0.from && st0.to ? `${st0.from} bis ${st0.to}` : `Datum flexibel (typisch in den nächsten 2–3 Monaten), Dauer ${nights} Nächte`} (${nights} Nächte).
 Preisklassen: Günstig = Billigflug mit Umstieg/einfacher Bus; Normal = übliche Economy; Premium = Premium Economy/Business, Bus-Cama/1. Klasse.
-Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: realistische Schätzung mit geschaetzt=true. gesamt_reise = Anreise aller ${people} Personen + ${nights} Nächte Unterkunft. Preise kurz als „~… USD“. Texte sehr kurz.`;
+Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: realistische Schätzung mit geschaetzt=true. gesamt_reise = Anreise aller ${people} Personen + ${nights} Nächte Unterkunft. Schätze die Anreise für JEDEN Startort einzeln und realistisch (Preise ab verschiedenen Städten unterscheiden sich stark) – nie denselben Preis für alle übernehmen. Preise kurz als „~… USD“. Texte sehr kurz.`;
   const sys = web
     ? `Du recherchierst aktuelle Reisepreise. ${base}\nSuche höchstens 3-mal im Internet und bündle alles in wenige Suchen (z.B. eine Suche für alle Flüge eines Startorts, eine für Unterkünfte aller Ziele). Links nur aus Suchergebnissen. Dann "preise_zeigen".`
     : `Du schätzt Reisepreise aus deinem Wissen (ohne Internet, keine Links). ${base}\nSetze geschaetzt=true. Dann "preise_zeigen".`;
