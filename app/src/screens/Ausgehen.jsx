@@ -197,14 +197,15 @@ function Events({ s, city }) {
     setSearch(next);
   };
   const take = (r, stage) => {
-    addEvent({ name: r.name, date: r.date, place: r.place, stage, url: r.url, time: r.time, price: r.price, note: r.why, city: city === HOME_CITY ? '' : city });
+    addEvent({ name: r.name, date: r.date, place: r.place, stage, url: r.url, time: r.time, price: r.price, note: r.why, city: resCity === HOME_CITY ? '' : resCity });
     if (r.date) addTask({ title: `${stage === 'zugesagt' ? '' : 'Vielleicht: '}${r.name}`, areaId: 'erlebnisse', due: r.date, time: r.time || null, url: r.url || null });
     mark(r.id, stage);
     toast(stage === 'zugesagt' ? 'Zugesagt und im Kalender' : 'Gemerkt' + (r.date ? ' und am Tag eingetragen' : ''));
   };
 
   const mine = s.events.filter((e) => e.stage !== 'besucht' && !e.travel && eventCity(e) === city);
-  const shown = search && (search.city || HOME_CITY) === city ? search : null;
+  const shown = search || null; // v0.71: bleibt beim Stadtwechsel stehen, bis zur nächsten KI-Suche
+  const resCity = search?.city || HOME_CITY;
   const upcoming = mine.filter((e) => !e.date || e.date >= t).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
   const past = mine.filter((e) => e.date && e.date < t);
   const fresh = (shown?.results || []).filter((r) => r.status === 'neu');
@@ -246,7 +247,7 @@ function Events({ s, city }) {
       {!busy && smode === 'ki' && shown && (
         <section className="group">
           <div className="sec-h">
-            <h2 className="h2" style={{ fontSize: 19 }}>„{shown.query}“</h2>
+            <h2 className="h2" style={{ fontSize: 19 }}>„{shown.query}“{resCity !== city ? <span className="tiny" style={{ fontWeight: 500 }}> · in {resCity}</span> : null}</h2>
             <span className="tiny">{fresh.length} neu</span>
           </div>
           {shown.note && <span className="sub" style={{ padding: '0 4px' }}>{shown.note}</span>}
@@ -533,7 +534,8 @@ function Orte({ s, city }) {
   const subs = cat ? [...new Set(here.filter((p) => catOf(p) === cat && p.subcat).map((p) => p.subcat))] : [];
   const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => catOf(p) === c).sort((a, b) => (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
   const cats = [...new Set(here.map(catOf))];
-  const shown = search && (search.city || HOME_CITY) === city ? search : null;
+  const shown = search || null; // v0.71: bleibt beim Stadtwechsel stehen, bis zur nächsten KI-Suche
+  const resCity = search?.city || HOME_CITY;
   useEffect(() => { locateCity(store, city); setSel(null); resetAll(); }, [city]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async (query) => {
@@ -553,8 +555,9 @@ function Orte({ s, city }) {
     const next = { ...search, results: search.results.map((x) => (x.id === r.id ? { ...x, status: 'gemerkt' } : x)) };
     setSearch(next);
     savePlaceSearch(next);
-    const pos = await locate(r.name, r.address, city);
-    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, hood: r.hood || '', tags: r.tags || [], price: r.price || 0, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null, city });
+    const pos = await locate(r.name, r.address, resCity);
+    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, hood: r.hood || '', tags: r.tags || [], price: r.price || 0, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null, city: resCity });
+    if (resCity !== city) toast(`In deiner Liste für ${resCity} gemerkt`); else
     toast('In deiner Liste gemerkt');
   };
   const routeUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat != null ? `${p.lat},${p.lon}` : `${p.name} ${p.address} ${placeCity(p)}`)}`;
@@ -620,6 +623,7 @@ function Orte({ s, city }) {
         {pmode === 'links' && <SourceLinks embedded s={s} area="orte" city={city} query={q} />}
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Empfehlungen … (ca. 20 Sek.)</span></div>}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
+        {pmode === 'ki' && !busy && shown && resCity !== city && shown.results.some((r) => r.status === 'neu') && <span className="label" style={{ padding: 0 }}>Letzte KI-Vorschläge: „{shown.query}“ · {resCity}</span>}
         {pmode === 'ki' && !busy && shown && shown.results.filter((r) => r.status === 'neu').map((r) => (
           <div key={r.id} className="option" style={{ alignItems: 'center' }}>
             <span className="cat-dot" style={{ background: CAT_COLOR[r.category] || CAT_COLOR.Sonstiges }} />
