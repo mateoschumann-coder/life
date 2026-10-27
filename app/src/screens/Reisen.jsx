@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
-  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, TRAVEL_MODES, LEVELS, STAY_TYPES,
+  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, TRAVEL_MODES, LEVELS, STAY_TYPES,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
@@ -55,10 +55,12 @@ function Airport({ s, tr }) {
 function TargetSheet({ s, sel, onClose }) {
   const groups = groupsOf(s);
   const [name, setName] = useState('');
-  const done = (group) => { const n = applyGuide(sel, { group }); onClose(); toast(n ? `${n} ${n === 1 ? 'Idee' : 'Ideen'} gespeichert${group ? ` in „${group}“` : ''}` : 'Bei den Ideen aktualisiert'); };
+  const [time, setTime] = useState({ from: '', to: '', nights: 0 });
+  const done = (group) => { const n = applyGuide(sel, { group }); if (group && nightsOf(time)) setGroupTime(group, time); onClose(); toast(n ? `${n} ${n === 1 ? 'Idee' : 'Ideen'} gespeichert${group ? ` in „${group}“` : ''}` : 'Bei den Ideen aktualisiert'); };
   return (
     <Sheet open={!!sel} title="Als Ideen speichern" onClose={onClose}>
       <span className="sub">Jedes Ziel wird eine eigene Idee, in der du Orte und Routen planen kannst. Gehören sie zur selben Reise, pack sie in eine Gruppe – dann stehen sie unten zusammen.</span>
+      <TimeFields f={time} setF={setTime} />
       <form className="block-add" onSubmit={(e) => { e.preventDefault(); done(name.trim()); }}>
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Neue Gruppe, z.B. Strandurlaub Januar" aria-label="Name der Gruppe" />
         <button type="submit" className="btn small" disabled={!name.trim()}>Speichern</button>
@@ -85,6 +87,27 @@ function TargetSheet({ s, sel, onClose }) {
 function Seg({ options, value, onChange }) {
   return <div className="mini-seg">{Object.entries(options).map(([k, l]) => <button key={k} type="button" className={value === k ? 'on' : ''} onClick={() => onChange(k)}>{l}</button>)}</div>;
 }
+// Wann / wie lange? Datum (am besten) oder nur Anzahl Nächte – eins von beiden ist nötig
+function TimeFields({ f, setF }) {
+  const n = nightsOf(f);
+  return (
+    <div className="field">
+      <span>Wann und wie lange? <b style={{ color: n ? undefined : 'var(--danger)' }}>{n ? `${n} Nächte` : '(nötig)'}</b></span>
+      <DateRangeField from={f.from} to={f.to} onChange={(v) => setF({ ...f, ...v })} title="Reisezeitraum" />
+      {!(f.from && f.to) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="tiny">oder nur Dauer:</span>
+          <span className="stepper">
+            <button type="button" onClick={() => setF({ ...f, nights: Math.max(1, (Number(f.nights) || 7) - 1) })} aria-label="Weniger Nächte">−</button>
+            <b>{f.nights || '–'}</b>
+            <button type="button" onClick={() => setF({ ...f, nights: (Number(f.nights) || 6) + 1 })} aria-label="Mehr Nächte">+</button>
+          </span>
+          <span className="tiny">Nächte</span>
+        </div>
+      )}
+    </div>
+  );
+}
 function PriceSheet({ s, trips, title, onClose }) {
   const first = trips?.[0];
   const [f, setF] = useState(() => defaultSetup(s, first));
@@ -101,7 +124,7 @@ function PriceSheet({ s, trips, title, onClose }) {
   };
   return (
     <Sheet open={!!trips} title={title || 'Preise nachsehen'} onClose={onClose}>
-      <Field label="Zeitraum (optional)"><DateRangeField from={f.from} to={f.to} onChange={(v) => setF({ ...f, ...v })} title="Reisezeitraum" /></Field>
+      <TimeFields f={f} setF={setF} />
       <span className="label" style={{ padding: 0 }}>Wer reist von wo? ({f.travelers.reduce((n, x) => n + x.count, 0)} Personen)</span>
       {f.travelers.map((tv, i) => (
         <div key={i} className="traveler">
@@ -133,8 +156,8 @@ function PriceSheet({ s, trips, title, onClose }) {
         </>
       )}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" className="btn sec" style={{ flex: 1, background: 'var(--card-2)' }} onClick={() => run(false)} disabled={!!busy || !getAi().apiKey || f.travelers.some((x) => !x.start.trim())}>{busy === 'quick' ? 'Schätze …' : 'Schnell schätzen'}</button>
-        <button type="button" className="btn" style={{ flex: 1 }} onClick={() => run(true)} disabled={!!busy || !getAi().apiKey || f.travelers.some((x) => !x.start.trim())}>{busy === 'web' ? 'Suche … (ca. 30 Sek.)' : '🔍 Mit Internet'}</button>
+        <button type="button" className="btn sec" style={{ flex: 1, background: 'var(--card-2)' }} onClick={() => run(false)} disabled={!!busy || !getAi().apiKey || !nightsOf(f) || f.travelers.some((x) => !x.start.trim())}>{busy === 'quick' ? 'Schätze …' : 'Schnell schätzen'}</button>
+        <button type="button" className="btn" style={{ flex: 1 }} onClick={() => run(true)} disabled={!!busy || !getAi().apiKey || !nightsOf(f) || f.travelers.some((x) => !x.start.trim())}>{busy === 'web' ? 'Suche … (ca. 30 Sek.)' : '🔍 Mit Internet'}</button>
       </div>
       <span className="tiny">Schnell schätzen: aus KI-Wissen, unter 1 Cent. Mit Internet: aktuelle Preise, ca. 3–6 Cent. Geschätztes ist mit ≈ markiert.</span>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}

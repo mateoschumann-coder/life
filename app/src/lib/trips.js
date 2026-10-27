@@ -315,6 +315,12 @@ export function chooseOption(tripId, id) {
 }
 // Gruppen (v0.45, Mateo): Ideen für dieselbe Reise unter einer Überschrift sammeln – jede Idee bleibt eigenständig (Orte, Routen …)
 export const groupsOf = (s) => [...new Set(s.trips.filter((x) => x.status === 'idee' && x.group).map((x) => x.group))];
+// Zeitraum/Nächte für eine ganze Gruppe setzen (in den Preis-Einstellungen jeder Idee)
+export function setGroupTime(group, { from = '', to = '', nights = 0 }) {
+  store.update((s) => {
+    for (const x of s.trips) if (x.group === group) x.priceSetup = { ...(x.priceSetup || {}), from, to, nights: Number(nights) || 0 };
+  });
+}
 export function groupIdeas(ids, name) {
   const g = String(name || '').trim();
   if (!g) return;
@@ -362,6 +368,7 @@ export function directLinks(s, tr, setup) {
   return { travel, stay };
 }
 // ältere Einstellungen (mit Namen statt Anzahl) auf das neue Format bringen
+export const nightsOf = (st) => (st?.from && st?.to ? Math.max(1, diffDays(st.from, st.to)) : Number(st?.nights) || 0);
 export const fixSetup = (st) => ({ ...st, travelers: (st.travelers || []).map((x) => ({ start: x.start || '', count: Math.max(1, Number(x.count) || 1), mode: x.mode || 'flug', level: x.level || 'normal' })) });
 const PRICE2 = {
   name: 'preise_zeigen',
@@ -395,13 +402,13 @@ const PRICE2 = {
 export async function comparePrices(s, trips, setup, { web = true } = {}) {
   const st0 = fixSetup(setup || defaultSetup(s, trips[0]));
   const ziele = trips.map((x) => x.dest || x.name);
-  const nights = st0.from && st0.to ? Math.max(1, diffDays(st0.from, st0.to)) : 7;
+  const nights = nightsOf(st0) || 7;
   const people = st0.travelers.reduce((n, x) => n + x.count, 0);
   const who = st0.travelers.map((x) => `- ${x.count} ${x.count === 1 ? 'Person' : 'Personen'} ab ${x.start || 'Buenos Aires'}: ${TRAVEL_MODES[x.mode]?.slice(3) || 'Flug'}, ${LEVELS[x.level] || 'Normal'}`).join('\n');
   const base = `Heute ist ${fmtLong(today())}. Ziele: ${JSON.stringify(ziele)}.
 Reisegruppe (${people} Personen):
 ${who}
-Unterkunft gemeinsam für alle: ${STAY_TYPES[st0.stayType] || 'Airbnb'}, ${LEVELS[st0.stayLevel] || 'Normal'}. Zeitraum: ${st0.from && st0.to ? `${st0.from} bis ${st0.to}` : 'flexibel, typisch in den nächsten 2–3 Monaten'} (${nights} Nächte).
+Unterkunft gemeinsam für alle: ${STAY_TYPES[st0.stayType] || 'Airbnb'}, ${LEVELS[st0.stayLevel] || 'Normal'}. Zeitraum: ${st0.from && st0.to ? `${st0.from} bis ${st0.to}` : `Datum flexibel (typisch in den nächsten 2–3 Monaten), Dauer ${nights} Nächte`} (${nights} Nächte).
 Preisklassen: Günstig = Billigflug mit Umstieg/einfacher Bus; Normal = übliche Economy; Premium = Premium Economy/Business, Bus-Cama/1. Klasse.
 Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: realistische Schätzung mit geschaetzt=true. gesamt_reise = Anreise aller ${people} Personen + ${nights} Nächte Unterkunft. Preise kurz als „~… USD“. Texte sehr kurz.`;
   const sys = web
