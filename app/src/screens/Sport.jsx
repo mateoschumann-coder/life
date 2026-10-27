@@ -264,7 +264,7 @@ function SportsPage({ s }) {
           )}
           <ModeToggle mode={smode} onChange={setSmode} />
           <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" />
-          {smode === 'links' && <SourceLinks embedded s={s} area="rennen" instant query={[q, ...regPick].filter(Boolean).join(' ')} />}
+          {smode === 'links' && <SourceLinks embedded s={s} area="rennen" instant query={[q || 'carreras running', periodWords(period)].filter(Boolean).join(' ')} city={regPick.filter((r) => regions.includes(r)).join(', ')} siteQuery={q} />}
           {smode === 'links' && (
             <div className="take-box">
               <span style={{ fontWeight: 650, fontSize: 14 }}>Etwas gefunden? Hier übernehmen</span>
@@ -386,6 +386,21 @@ function RegionSheet({ open, onClose, regions, pick, setPick }) {
 }
 
 const PARSE_RACE = { name: 'rennen_lesen', description: 'Daten eines Rennens', input_schema: { type: 'object', properties: { name: { type: 'string' }, datum: { type: 'string', description: 'YYYY-MM-DD, nur wenn erkennbar' }, ort: { type: 'string' }, distanz: { type: 'string', description: 'z.B. „21 km“ oder „10K, 21K“' }, sportart: { type: 'string' } }, required: ['name'] } };
+// Zeitraum als Suchwörter für Google (v0.70): „Nächste 3 Monate“ → „noviembre OR diciembre OR enero 2027“
+const MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+function periodWords(p) {
+  if (!p) return '';
+  const d = new Date();
+  const months = (n) => { const out = []; for (let i = 0; i < n; i++) { const x = new Date(d.getFullYear(), d.getMonth() + i, 1); out.push(MES[x.getMonth()]); } const y = new Date(d.getFullYear(), d.getMonth() + n - 1, 1).getFullYear(); return `${out.join(' OR ')} ${y}`; };
+  const l = p.toLowerCase();
+  if (l.includes('diesen monat')) return months(1);
+  const m = l.match(/(\d+)\s*monat/);
+  if (m) return months(Math.min(+m[1], 6));
+  if (l.includes('nächstes jahr')) return String(d.getFullYear() + 1);
+  if (l.includes('dieses jahr')) return String(d.getFullYear());
+  return p;
+}
+
 async function parseSportText(s, text) {
   const hasUrl = /https?:\/\//.test(text);
   const base = { system: `Lies die Daten eines Sport-Events (Rennen) aus Mateos Nachricht.${hasUrl ? ' Enthält sie einen Link, öffne ihn mit web_fetch und lies Name, Datum, Ort und Distanzen von der Seite. Klappt das nicht, nutze die Wörter in der Adresse.' : ''} Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()}. Sportarten: ${s.sports.map((x) => x.name).join(', ')}. Antworte mit "rennen_lesen".`, user: text, tool: PARSE_RACE, maxUses: 0, maxTokens: 1500, label: 'Rennen übernehmen' };

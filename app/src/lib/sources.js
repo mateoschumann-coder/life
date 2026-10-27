@@ -14,6 +14,7 @@ export const siteSearch = (domain, q) => `https://www.google.com/search?q=${enc(
 export const SOURCE_AREAS = {
   rezepte: {
     title: 'Meine Rezeptseiten',
+    chips: ['Airfryer Hähnchen', 'Proteinreiches Frühstück', 'Schnelles Abendessen (20 Min)', 'Meal Prep für die Woche', 'Pasta', 'Gesunde Snacks', 'Vegetarisch', 'Empanadas', 'Bowl', 'Nach dem Laufen'],
     placeholder: 'z.B. schnelles Abendessen mit Hähnchen im Airfryer',
     defaults: [
       { id: 'chefkoch', name: 'Chefkoch', lang: 'de', build: (c) => `https://www.chefkoch.de/rs/s0/${enc(c.q)}/Rezepte.html` },
@@ -90,16 +91,19 @@ export function forgetSearch(key, id) {
 export const isNative = (src) => !!(src.build || src.tpl);
 export const isFixed = (src) => !!(src.tpl && !src.tpl.includes('{q}'));
 // Was tatsächlich gesucht wird (zum Prüfen in der Liste)
-export function sourceTerm(src, q, city, t) {
+export function sourceTerm(src, q, city, t, siteQ = null) {
+  if (src.tpl && src.tpl.includes('{q}')) return String(t?.terms?.[src.id] || (siteQ ?? q) || '').trim() || '(ohne Begriff)';
   if (src.tpl && !src.tpl.includes('{q}')) return '(feste Seite, ohne Suche)';
-  const u = decodeURIComponent(sourceUrl(src, q, city, t));
+  const u = decodeURIComponent(sourceUrl(src, q, city, t, siteQ));
   if (src.id === 'instagram') return '#' + (u.match(/tags\/([^/]+)/) || [])[1];
   if (src.id === 'eventbrite') return u.replace(/^.*\/d\//, '').replace(/\?/, ' · ').replace(/[/]/g, ' ').replace(/start_date=|end_date=/g, '').trim();
   const m = u.match(/[?&](?:q|search_query|keywords|s)=([^&]+)/) || u.match(/maps\/search\/([^?]+)/) || u.match(/rs\/s0\/([^/]+)/);
   return m ? m[1].replace(/\+/g, ' ') : '';
 }
 // Link für eine Seite: zugeschnittener Begriff (t.terms[id]) oder Mateos Text + Stadt
-export function sourceUrl(src, q, city = '', t = null) {
+export function sourceUrl(src, q, city = '', t = null, siteQ = null) {
+  // Eigene Suche einer Seite (🔧): nur der eigentliche Begriff, ohne Ort/Zeitraum – Seiten-Suchen finden sonst oft nichts (v0.70)
+  if (src.tpl && src.tpl.includes('{q}')) return src.tpl.replace('{q}', enc(String(t?.terms?.[src.id] || (siteQ ?? q) || '').trim()));
   const raw = String(q || '').trim();
   const anyTerm = t ? Object.values(t.terms || {})[0] : '';
   const term = (t?.terms?.[src.id] || '').trim() || (anyTerm ? (anyTerm.toLowerCase().includes(String(city).toLowerCase()) ? anyTerm : `${anyTerm} ${city}`.trim()) : [raw, city].filter(Boolean).join(' '));

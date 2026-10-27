@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { addSource, forgetSearch, isFixed, isNative, learnSearch, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
 import { getAi } from '../lib/ai';
+import { store } from '../lib/store';
 import { Icon } from './ui';
 
 // Umschalter „🔗 Links / ✨ KI-Suche“ (v0.65), gemerkt pro Bereich
@@ -23,7 +24,7 @@ export function ModeToggle({ mode, onChange }) {
 
 // embedded = ohne eigene Karte, Suchbegriff kommt von außen (query)
 // Ablauf (v0.66): Satz eintippen → „Links erstellen“ → KI macht pro Seite einen passenden Begriff → Knöpfe öffnen die Suche der Seite
-export default function SourceLinks({ s, area, city = '', defaultQuery = '', embedded = false, query, instant = false }) {
+export default function SourceLinks({ s, area, city = '', defaultQuery = '', embedded = false, query, instant = false, siteQuery = null }) {
   const cfg = SOURCE_AREAS[area];
   const [own, setQ] = useState(defaultQuery);
   const q = query !== undefined ? query : own;
@@ -37,6 +38,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
   const [teach, setTeach] = useState(null); // Seite, deren Suche gerade eingerichtet wird
   const [teachUrl, setTeachUrl] = useState('');
   const [teachErr, setTeachErr] = useState('');
+  const [teachOk, setTeachOk] = useState('');
   const list = sourcesOf(s, area, city);
   const hidden = (s.profile?.sources?.[area]?.hidden || []).length;
   const fresh = res && res.q === q.trim() && res.city === city;
@@ -60,6 +62,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>🔗 {cfg.title}{cfg.perCity && city ? <span className="tiny" style={{ fontWeight: 500 }}> · {city}</span> : null}</span>
         </div>
+        {query === undefined && cfg.chips && <div className="chips">{(cfg.chips).map((c) => <button key={c} type="button" className={q === c ? 'chip on' : 'chip soft'} style={{ padding: '6px 10px', fontSize: 13 }} onClick={() => setQ(c)}>{c}</button>)}</div>}
         {query === undefined && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') make(); }} placeholder={cfg.placeholder} aria-label={`Suchbegriff für ${cfg.title}`} />}
       </>}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -72,7 +75,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
         <div className="link-chips" style={{ marginTop: 0, alignItems: 'center' }}>
           {list.map((x) => (
             <span key={x.id} className="src-chip">
-              <a className="link-chip" style={isNative(x) ? undefined : { background: 'var(--card-2)', color: 'var(--text)' }} href={sourceUrl(x, fresh ? res.q : q, city, fresh ? res.t : null)} target="_blank" rel="noreferrer" title={fresh && res.t?.terms?.[x.id] ? res.t.terms[x.id] : ''}>{isFixed(x) ? '📌 ' : ''}{x.name}{isNative(x) ? '' : ' · G'} ↗</a>
+              <a className="link-chip" style={isNative(x) ? undefined : { background: 'var(--card-2)', color: 'var(--text)' }} href={sourceUrl(x, fresh ? res.q : q, city, fresh ? res.t : null, siteQuery)} target="_blank" rel="noreferrer" title={fresh && res.t?.terms?.[x.id] ? res.t.terms[x.id] : ''}>{isFixed(x) ? '📌 ' : ''}{x.name}{isNative(x) ? '' : ' · G'} ↗</a>
               {edit && !x.build && <button type="button" className="city-x" style={x.tpl ? { background: 'var(--accent)', color: '#fff' } : undefined} onClick={() => { setTeach(x); setTeachUrl(''); setTeachErr(''); }} aria-label={`Direkte Suche für ${x.name} einrichten`}>🔧</button>}
               {edit && <button type="button" className="city-x" onClick={() => removeSource(area, x.id)} aria-label={`${x.name} entfernen`}><Icon name="x" size={10} /></button>}
             </span>
@@ -82,15 +85,16 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
       {fresh && !edit && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 12.5 }} onClick={() => setShowTerms(!showTerms)}>Was genau gesucht wird {showTerms ? '▴' : '▾'}</button>}
       {fresh && !edit && showTerms && (
         <div className="terms-list">
-          {list.map((x) => <span key={x.id}><b>{x.name}</b> {sourceTerm(x, res.q, city, res.t)}</span>)}
+          {list.map((x) => <span key={x.id}><b>{x.name}</b> {sourceTerm(x, res.q, city, res.t, siteQuery)}</span>)}
         </div>
       )}
+      {teachOk && <span className="tiny" style={{ color: 'var(--text)', background: 'var(--card-2)', borderRadius: 10, padding: '8px 10px' }}>{teachOk} <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => setTeachOk('')}>OK</button></span>}
       {edit && teach && (
         <div className="take-box">
           <span style={{ fontWeight: 650, fontSize: 14 }}>🔧 Direkte Suche für {teach.name}</span>
           <span className="tiny" style={{ color: 'var(--text)' }}><b>Mit Suchfeld:</b> 1. <a href={teach.home || `https://${teach.domain}`} target="_blank" rel="noreferrer">{teach.name} öffnen ↗</a> · 2. dort nach <b>test</b> suchen · 3. Adresse der Ergebnisseite hier einfügen → der Knopf sucht künftig direkt dort.</span>
           <span className="tiny" style={{ color: 'var(--text)' }}><b>Ohne Suchfeld:</b> die passende Unterseite öffnen (z.B. Rennkalender) und deren Adresse einfügen → der Knopf öffnet immer diese Seite (📌).</span>
-          <form className="block-add" onSubmit={(e) => { e.preventDefault(); const er = learnSearch(area, teach.id, teachUrl); setTeachErr(er); if (!er) setTeach(null); }}>
+          <form className="block-add" onSubmit={(e) => { e.preventDefault(); const er = learnSearch(area, teach.id, teachUrl); setTeachErr(er); if (!er) { const tp = sourcesOf(store.get(), area, city).find((y) => y.id === teach.id)?.tpl || ''; setTeachOk(tp.includes('{q}') ? `✓ ${teach.name} sucht jetzt direkt auf der Seite. Test: der Knopf sucht dort nach deinem Begriff.` : `📌 Gespeichert als feste Seite (in der Adresse war kein „test“). Der Knopf öffnet immer diese Seite, ohne zu suchen. Wolltest du eine Suche: auf der Seite nach test suchen und die Adresse der Ergebnisseite einfügen. Bleibt die Adresse dabei gleich, kann die Seite nicht per Link durchsucht werden.`); setTeach(null); } }}>
             <input className="input" value={teachUrl} onChange={(e) => setTeachUrl(e.target.value)} placeholder="https://…" aria-label="Adresse der Ergebnisseite" />
             <button type="submit" className="btn small" disabled={!teachUrl.trim()}>OK</button>
           </form>
