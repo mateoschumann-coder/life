@@ -1,6 +1,7 @@
 // Karte „Meine Seiten“: Suchbegriff eintippen → Seite antippen → öffnet direkt mit der Suche (kostenlos, keine KI)
 import { useState } from 'react';
-import { addSource, allUrl, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceUrl } from '../lib/sources';
+import { addSource, isNative, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceUrl, tailorQueries } from '../lib/sources';
+import { getAi } from '../lib/ai';
 import { Icon } from './ui';
 
 // Umschalter „🔗 Links / ✨ KI-Suche“ (v0.65), gemerkt pro Bereich
@@ -21,6 +22,7 @@ export function ModeToggle({ mode, onChange }) {
 }
 
 // embedded = ohne eigene Karte, Suchbegriff kommt von außen (query)
+// Ablauf (v0.66): Satz eintippen → „Links erstellen“ → KI macht pro Seite einen passenden Begriff → Knöpfe öffnen die Suche der Seite
 export default function SourceLinks({ s, area, city = '', defaultQuery = '', embedded = false, query }) {
   const cfg = SOURCE_AREAS[area];
   const [own, setQ] = useState(defaultQuery);
@@ -28,8 +30,20 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
   const [edit, setEdit] = useState(false);
   const [name, setName] = useState('');
   const [link, setLink] = useState('');
+  const [res, setRes] = useState(null); // { q, city, t }
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
   const list = sourcesOf(s, area, city);
   const hidden = (s.profile?.sources?.[area]?.hidden || []).length;
+  const fresh = res && res.q === q.trim() && res.city === city;
+  const make = async () => {
+    const text = q.trim();
+    if (!text) return;
+    setErr(null);
+    if (!getAi().apiKey) { setRes({ q: text, city, t: null }); return; }
+    setBusy(true);
+    try { setRes({ q: text, city, t: await tailorQueries(s, area, text, city, list) }); } catch (e) { setErr(e.message === 'KEIN_SCHLUESSEL' ? null : e.message); setRes({ q: text, city, t: null }); } finally { setBusy(false); }
+  };
   const add = (e) => {
     e.preventDefault();
     addSource(area, name, link, city);
@@ -39,22 +53,27 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
   return (
     <Wrap className={embedded ? 'src-embed' : 'card'} style={{ gap: 8, display: 'flex', flexDirection: 'column' }}>
       {!embedded && <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>🔗 {cfg.title}{cfg.perCity && city ? <span className="tiny" style={{ fontWeight: 500 }}> · {city}</span> : null}</span>
-        <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Seiten bearbeiten'}>{edit ? <Icon name="check" size={14} /> : <Icon name="edit" size={13} />}</button>
-      </div>
-      {query === undefined && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={cfg.placeholder} aria-label={`Suchbegriff für ${cfg.title}`} />}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>🔗 {cfg.title}{cfg.perCity && city ? <span className="tiny" style={{ fontWeight: 500 }}> · {city}</span> : null}</span>
+        </div>
+        {query === undefined && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') make(); }} placeholder={cfg.placeholder} aria-label={`Suchbegriff für ${cfg.title}`} />}
       </>}
-      <div className="link-chips" style={{ marginTop: 0, alignItems: 'center' }}>
-        {list.map((x) => (
-          <span key={x.id} className="src-chip">
-            <a className="link-chip" href={sourceUrl(x, q, city)} target="_blank" rel="noreferrer">{x.name} ↗</a>
-            {edit && <button type="button" className="city-x" onClick={() => removeSource(area, x.id)} aria-label={`${x.name} entfernen`}><Icon name="x" size={10} /></button>}
-          </span>
-        ))}
-        {embedded && <button type="button" className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Seiten bearbeiten'}>{edit ? <Icon name="check" size={13} /> : <Icon name="edit" size={12} />}</button>}
-        {!edit && q.trim() && list.length > 1 && <a className="link-chip" style={{ background: 'var(--card-2)', color: 'var(--text)' }} href={allUrl(list, q, cfg.perCity ? city : '')} target="_blank" rel="noreferrer">🔎 Alle auf einmal (Google)</a>}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button type="button" className="btn small" style={{ flex: 1 }} onClick={make} disabled={!q.trim() || busy}>{busy ? 'Ich baue die Suchen …' : fresh ? '↻ Neu erstellen' : '🔗 Links erstellen'}</button>
+        <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Seiten bearbeiten'}>{edit ? <Icon name="check" size={13} /> : <Icon name="edit" size={13} />}</button>
       </div>
+      {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
+      {fresh && res.t?.gedanke && <span className="tiny" style={{ color: 'var(--text)' }}>🎯 {res.t.gedanke}</span>}
+      {(fresh || edit) && (
+        <div className="link-chips" style={{ marginTop: 0, alignItems: 'center' }}>
+          {list.map((x) => (
+            <span key={x.id} className="src-chip">
+              <a className="link-chip" style={isNative(x) ? undefined : { background: 'var(--card-2)', color: 'var(--text)' }} href={sourceUrl(x, fresh ? res.q : q, city, fresh ? res.t : null)} target="_blank" rel="noreferrer" title={fresh && res.t?.terms?.[x.id] ? res.t.terms[x.id] : ''}>{x.name}{isNative(x) ? '' : ' · G'} ↗</a>
+              {edit && <button type="button" className="city-x" onClick={() => removeSource(area, x.id)} aria-label={`${x.name} entfernen`}><Icon name="x" size={10} /></button>}
+            </span>
+          ))}
+        </div>
+      )}
       {edit && (
         <>
           <form className="block-add" onSubmit={add}>
@@ -65,7 +84,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
           <span className="tiny">Eigene Seiten werden über Google nur auf dieser Seite durchsucht.{cfg.perCity && city ? ` Neue Seiten gelten für ${city}.` : ''}{hidden ? ' ' : ''}{hidden ? <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => restoreSources(area)}>Entfernte Standard-Seiten zurückholen ({hidden})</button> : null}</span>
         </>
       )}
-      {!edit && <span className="tiny">{embedded ? 'Begriff oben eintippen, dann eine Seite antippen – sie öffnet sich direkt mit der Suche.' : 'Kostenlos – öffnet die Seite direkt mit deinem Suchbegriff. Ohne Begriff öffnet sich die Startseite.'}</span>}
+      {!edit && <span className="tiny">{fresh ? 'Blaue Knöpfe öffnen die Suche direkt auf der Seite bzw. in der App. Grau (· G) = Google, nur auf dieser Seite.' : `Schreib frei, was du suchst. Die KI macht daraus pro Seite den passenden Suchbegriff${cfg.perCity && city ? ` für ${city}` : ''} (ohne Internet, ca. 0,03 Cent).`}</span>}
     </Wrap>
   );
 }

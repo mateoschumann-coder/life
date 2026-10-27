@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, setEventStage, updatePlace } from '../lib/actions';
 import {
-  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
+  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
@@ -84,8 +84,19 @@ function AllCitiesSheet({ s, open, onClose, pick }) {
     store.update((d) => { d.profile = { ...d.profile, cities: (d.profile?.cities || []).filter((x) => x !== c), allCities: (d.profile?.allCities || []).filter((x) => x !== c) }; });
   };
   const choose = (c) => { setQ(''); pick(c); };
+  const [locBusy, setLocBusy] = useState(false);
+  const here = async () => {
+    setLocBusy(true);
+    try {
+      const r = await cityHere();
+      store.update((d) => { d.profile = { ...d.profile, cityCountry: { ...(d.profile?.cityCountry || {}), ...(r.country ? { [r.city]: r.country } : {}) }, cityPos: { ...(d.profile?.cityPos || {}), [r.city]: { lat: r.lat, lon: r.lon } } }; });
+      choose(r.city);
+      toast(`Standort: ${r.city}`);
+    } catch (e) { toast(e.message); } finally { setLocBusy(false); }
+  };
   return (
     <Sheet open={open} title="Stadt wählen" onClose={onClose}>
+      <button type="button" className="btn sec" style={{ background: 'var(--card-2)' }} disabled={!!locBusy} onClick={here}>{locBusy ? 'Suche deinen Standort …' : '📍 Mein Standort'}</button>
       <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Stadt suchen oder neu eingeben" aria-label="Stadt suchen" />
       {q.trim() && !exact && <button type="button" className="btn" onClick={() => choose(q.trim())}>+ „{q.trim()}“ als neue Stadt</button>}
       {lands.map((land) => (
@@ -306,7 +317,7 @@ function Stars({ value, onChange, size = 18 }) {
 }
 
 function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, defaultHood = '' }) {
-  const blank = { name: '', category: defaultCat || 'Café', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [] };
+  const blank = { name: '', category: defaultCat || 'Café', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [], price: 0 };
   const [tagText, setTagText] = useState('');
   const [f, setF] = useState(blank);
   const [hits, setHits] = useState(null);
@@ -395,6 +406,10 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
           <input className="input" value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="Eigener Tag, z.B. Live-Musik" aria-label="Eigener Tag" />
           <button type="submit" className="btn small" disabled={!tagText.trim()}>+</button>
         </form>
+      </div>
+      <div className="field">
+        <span>Preis</span>
+        <div className="chips">{Object.entries(PLACE_PRICES).map(([k, v]) => <button key={k} type="button" className={f.price === Number(k) ? 'chip on' : 'chip soft'} onClick={() => set({ price: f.price === Number(k) ? 0 : Number(k) })}>{v}</button>)}</div>
       </div>
       <Segmented full options={[{ id: 'will', label: 'Will ich hin' }, { id: 'war', label: 'War schon da' }]} value={f.status} onChange={(v) => set({ status: v })} label="Status" />
       {f.status === 'war' && <div className="field"><span>Wie fandest du es?</span><Stars value={f.rating} onChange={(v) => set({ rating: v })} size={26} /></div>}
@@ -485,9 +500,13 @@ function Orte({ s, city }) {
   const [cat, setCat] = useState(null);
   const [sub, setSub] = useState(null);
   const [hoodSel, setHoodSel] = useState([]);
-  const [minStars, setMinStars] = useState(0);
+  const [catSel, setCatSel] = useState([]);
+  const [subSel, setSubSel] = useState([]);
+  const [starSel, setStarSel] = useState([]);
+  const [priceSel, setPriceSel] = useState([]);
   const [tagSel, setTagSel] = useState([]);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [fsheet, setFsheet] = useState(null); // 'viertel' | 'art' | 'sterne' | 'mehr'
+  const [newHood, setNewHood] = useState('');
   const [sheet, setSheet] = useState(null); // null | 'neu' | place
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(lastPlaceSearch);
@@ -498,18 +517,22 @@ function Orte({ s, city }) {
   const here = s.places.filter((p) => placeCity(p) === city);
   const catOf = (p) => (PLACE_CATS.includes(p.category) ? p.category : 'Sonstiges');
   const hoods = hoodsOf(s, city);
-  const list = here.filter((p) => (status === 'alle' || p.status === status) && (!cat || catOf(p) === cat) && (!sub || p.subcat === sub)
-    && (!hoodSel.length || hoodSel.includes(p.hood)) && (!minStars || (p.rating || 0) >= minStars) && tagSel.every((x) => (p.tags || []).includes(x)));
-  const addHood = () => {
-    const v = prompt(`Neues Viertel in ${city}:`);
+  const tog = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+  const list = here.filter((p) => (status === 'alle' || p.status === status) && (!catSel.length || catSel.includes(catOf(p))) && (!subSel.length || subSel.includes(p.subcat))
+    && (!hoodSel.length || hoodSel.includes(p.hood)) && (!starSel.length || starSel.includes(p.rating || 0)) && (!priceSel.length || priceSel.includes(p.price || 0)) && tagSel.every((x) => (p.tags || []).includes(x)));
+  const addHood = (v) => {
     if (v && v.trim()) store.update((d) => { const h = d.profile?.hoods || {}; d.profile = { ...d.profile, hoods: { ...h, [city]: [...new Set([...(h[city] || []), v.trim()])] } }; });
   };
+  const nActive = hoodSel.length + catSel.length + subSel.length + starSel.length + priceSel.length + tagSel.length;
+  const resetAll = () => { setHoodSel([]); setCatSel([]); setSubSel([]); setStarSel([]); setPriceSel([]); setTagSel([]); };
+  const label = (base, sel) => (sel.length === 0 ? base : sel.length === 1 ? String(sel[0]) : `${sel[0]} +${sel.length - 1}`);
+  const subsAll = [...new Set(here.filter((p) => (!catSel.length || catSel.includes(catOf(p))) && p.subcat).map((p) => p.subcat))];
   const usedTags = [...new Set(here.flatMap((p) => p.tags || []))];
   const subs = cat ? [...new Set(here.filter((p) => catOf(p) === cat && p.subcat).map((p) => p.subcat))] : [];
   const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => catOf(p) === c).sort((a, b) => (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
   const cats = [...new Set(here.map(catOf))];
   const shown = search && (search.city || HOME_CITY) === city ? search : null;
-  useEffect(() => { locateCity(store, city); setCat(null); setSub(null); setSel(null); setHoodSel([]); setTagSel([]); }, [city]);
+  useEffect(() => { locateCity(store, city); setSel(null); resetAll(); }, [city]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async (query) => {
     if (!query.trim() || busy) return;
@@ -529,43 +552,30 @@ function Orte({ s, city }) {
     setSearch(next);
     savePlaceSearch(next);
     const pos = await locate(r.name, r.address, city);
-    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, hood: r.hood || '', tags: r.tags || [], url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null, city });
+    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, hood: r.hood || '', tags: r.tags || [], price: r.price || 0, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null, city });
     toast('In deiner Liste gemerkt');
   };
   const routeUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat != null ? `${p.lat},${p.lon}` : `${p.name} ${p.address} ${placeCity(p)}`)}`;
 
   return (
     <>
-      {/* v0.65 (Mateo): Stadtviertel (mehrere wählbar), darunter Art, Sterne und weitere Filter */}
-      <div className="box-tabs">
-        <button type="button" className={!hoodSel.length ? 'chip on' : 'chip soft'} onClick={() => setHoodSel([])}>Alle Viertel</button>
-        {hoods.map((h) => <button key={h} type="button" className={hoodSel.includes(h) ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setHoodSel(hoodSel.includes(h) ? hoodSel.filter((x) => x !== h) : [...hoodSel, h])}>🏘 {h} {here.filter((p) => p.hood === h).length}</button>)}
-        <button type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} onClick={addHood}>+ Viertel</button>
+      {/* v0.66 (Mateo): kompakt – vier Filter-Knöpfe, jeder öffnet eine Auswahl (mehrere möglich) */}
+      <div className="filter-row">
+        <button type="button" className={hoodSel.length ? 'chip on' : 'chip soft'} onClick={() => setFsheet('viertel')}>🏘 {label('Viertel', hoodSel)}</button>
+        <button type="button" className={catSel.length || subSel.length ? 'chip on' : 'chip soft'} onClick={() => setFsheet('art')}>🍽 {label('Art', [...catSel, ...subSel])}</button>
+        <button type="button" className={starSel.length ? 'chip on' : 'chip soft'} onClick={() => setFsheet('sterne')}>★ {starSel.length ? starSel.map((n) => n || 'ohne').join(', ') : 'Sterne'}</button>
+        <button type="button" className={priceSel.length || tagSel.length ? 'chip on' : 'chip soft'} onClick={() => setFsheet('mehr')}>⚙︎ Mehr{priceSel.length + tagSel.length ? ` (${priceSel.length + tagSel.length})` : ''}</button>
       </div>
-      <div className="box-tabs">
-        <button type="button" className={!cat ? 'chip on' : 'chip soft'} onClick={() => { setCat(null); setSub(null); }}>Alle {here.length}</button>
-        {PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setCat(cat === c ? null : c); setSub(null); }}>{c} {here.filter((p) => catOf(p) === c).length}</button>)}
-      </div>
-      {subs.length > 0 && (
-        <div className="chips">
-          <button type="button" className={!sub ? 'chip on' : 'chip soft'} onClick={() => setSub(null)}>Alle</button>
-          {subs.map((c) => <button key={c} type="button" className={sub === c ? 'chip on' : 'chip soft'} onClick={() => setSub(sub === c ? null : c)}>{c}</button>)}
-        </div>
-      )}
-      <div className="box-tabs">
-        {[0, 3, 4, 5].map((n) => <button key={n} type="button" className={minStars === n ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setMinStars(n)}>{n ? `★ ${n}${n < 5 ? '+' : ''}` : '★ Alle'}</button>)}
-        <button type="button" className={tagSel.length ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setMoreOpen(true)}>⚙︎ Weitere Filter{tagSel.length ? ` (${tagSel.length})` : ''}</button>
-      </div>
-      {tagSel.length > 0 && <div className="chips">{tagSel.map((x) => <button key={x} type="button" className="chip on" onClick={() => setTagSel(tagSel.filter((y) => y !== x))}>{x} ✕</button>)}</div>}
+      {nActive > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13, marginTop: -6 }} onClick={resetAll}>✕ Alle Filter zurücksetzen · {list.length} von {here.length} Orten</button>}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <Segmented options={[{ id: 'alle', label: 'Alle' }, { id: 'will', label: 'Will hin' }, { id: 'war', label: 'War da' }]} value={status} onChange={setStatus} label="Filter" />
         <button type="button" className="btn small sec" style={{ marginLeft: 'auto', background: 'var(--card-2)' }} onClick={() => setImportOpen(true)} aria-label="Orte per KI aus Text einfügen">✨ KI</button>
         <button type="button" className="btn small" onClick={() => setSheet('neu')}>+ Ort</button>
       </div>
-      {list.length === 0 && <div className="list"><div className="empty">Noch keine Orte{cat ? ` in „${cat}“` : ''} in {city}. Tipp auf „+ Ort“, füg mit „✨ KI“ gleich mehrere aus einem Text ein oder lass dir unten neue vorschlagen.</div></div>}
+      {list.length === 0 && <div className="list"><div className="empty">{nActive ? 'Keine Orte passen zu den Filtern.' : `Noch keine Orte in ${city}.`} Tipp auf „+ Ort“, füg mit „✨ KI“ gleich mehrere aus einem Text ein oder lass dir unten neue vorschlagen.</div></div>}
       {groups.map((g) => (
         <section key={g.c} className="group">
-          {!cat && <h2 className="label" style={{ padding: '0 4px' }}>{g.c} · {g.items.length}</h2>}
+          {catSel.length !== 1 && <h2 className="label" style={{ padding: '0 4px' }}>{g.c} · {g.items.length}</h2>}
           <div className="list">
             {g.items.map((p) => (
               <div key={p.id} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -573,7 +583,7 @@ function Orte({ s, city }) {
                   <span className="cat-dot" style={{ background: CAT_COLOR[p.category] }} />
                   <span className="row-main">
                     <span className="row-title plain">{p.name}</span>
-                    <span className="row-meta">{[p.subcat || p.category, p.hood, p.status === 'war' ? (p.rating ? '★'.repeat(p.rating) : 'War da') : 'Will hin'].filter(Boolean).join(' · ')}</span>
+                    <span className="row-meta">{[p.subcat || p.category, p.hood, p.price ? '$'.repeat(p.price) : '', p.status === 'war' ? (p.rating ? '★'.repeat(p.rating) : 'War da') : 'Will hin'].filter(Boolean).join(' · ')}</span>
                   </span>
                   <span className="tiny">{sel === p.id ? '▴' : '▾'}</span>
                 </button>
@@ -621,21 +631,42 @@ function Orte({ s, city }) {
           </div>
         ))}
       </section>
-      <Sheet open={moreOpen} title="Weitere Filter" onClose={() => setMoreOpen(false)}>
-        <span className="tiny">Es werden nur Orte gezeigt, die alle gewählten Tags haben.</span>
-        {[...Object.entries(PLACE_TAGS), ['Eigene', usedTags.filter((x) => !ALL_TAGS.includes(x))]].filter(([, l]) => l.length).map(([g, l]) => (
-          <div key={g} className="field">
-            <span>{g}</span>
-            <div className="chips">{l.map((x) => <button key={x} type="button" className={tagSel.includes(x) ? 'chip on' : usedTags.includes(x) ? 'chip' : 'chip soft'} onClick={() => setTagSel(tagSel.includes(x) ? tagSel.filter((y) => y !== x) : [...tagSel, x])}>{x}{usedTags.includes(x) ? ` ${here.filter((p) => (p.tags || []).includes(x)).length}` : ''}</button>)}</div>
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn sec" style={{ flex: 1, background: 'var(--card-2)' }} onClick={() => setTagSel([])}>Zurücksetzen</button>
-          <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setMoreOpen(false)}>{list.length} Orte zeigen</button>
-        </div>
+      <Sheet open={!!fsheet} title={{ viertel: 'Stadtviertel', art: 'Art', sterne: 'Sterne', mehr: 'Weitere Filter' }[fsheet] || ''} onClose={() => setFsheet(null)}>
+        {fsheet === 'viertel' && (
+          <>
+            <div className="chips">{hoods.map((h) => <button key={h} type="button" className={hoodSel.includes(h) ? 'chip on' : 'chip soft'} onClick={() => tog(hoodSel, setHoodSel, h)}>{h} {here.filter((p) => p.hood === h).length}</button>)}</div>
+            {!hoods.length && <span className="tiny">Noch keine Viertel – leg eins an oder trag es bei einem Ort ein.</span>}
+            <form className="block-add" onSubmit={(e) => { e.preventDefault(); addHood(newHood); setNewHood(''); }}>
+              <input className="input" value={newHood} onChange={(e) => setNewHood(e.target.value)} placeholder={`Neues Viertel in ${city}`} aria-label="Neues Viertel" />
+              <button type="submit" className="btn small" disabled={!newHood.trim()}>+</button>
+            </form>
+          </>
+        )}
+        {fsheet === 'art' && (
+          <>
+            <div className="chips">{PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={catSel.includes(c) ? 'chip on' : 'chip soft'} onClick={() => { tog(catSel, setCatSel, c); setSubSel([]); }}>{c} {here.filter((p) => catOf(p) === c).length}</button>)}</div>
+            {subsAll.length > 0 && <><span className="label" style={{ padding: 0 }}>Genauer</span><div className="chips">{subsAll.map((c) => <button key={c} type="button" className={subSel.includes(c) ? 'chip on' : 'chip soft'} onClick={() => tog(subSel, setSubSel, c)}>{c}</button>)}</div></>}
+          </>
+        )}
+        {fsheet === 'sterne' && (
+          <div className="chips">{[5, 4, 3, 2, 1, 0].map((n) => <button key={n} type="button" className={starSel.includes(n) ? 'chip on' : 'chip soft'} onClick={() => tog(starSel, setStarSel, n)}>{n ? '★'.repeat(n) : 'Noch ohne Bewertung'} {here.filter((p) => (p.rating || 0) === n).length}</button>)}</div>
+        )}
+        {fsheet === 'mehr' && (
+          <>
+            <div className="field"><span>Preis</span><div className="chips">{Object.entries(PLACE_PRICES).map(([k, v]) => <button key={k} type="button" className={priceSel.includes(Number(k)) ? 'chip on' : 'chip soft'} onClick={() => tog(priceSel, setPriceSel, Number(k))}>{v}</button>)}</div></div>
+            {[...Object.entries(PLACE_TAGS), ['Eigene', usedTags.filter((x) => !ALL_TAGS.includes(x))]].filter(([, l]) => l.length).map(([g, l]) => (
+              <div key={g} className="field">
+                <span>{g}</span>
+                <div className="chips">{l.map((x) => <button key={x} type="button" className={tagSel.includes(x) ? 'chip on' : 'chip soft'} style={usedTags.includes(x) ? undefined : { opacity: 0.6 }} onClick={() => tog(tagSel, setTagSel, x)}>{x}</button>)}</div>
+              </div>
+            ))}
+            <span className="tiny">Bei Tags werden nur Orte gezeigt, die alle gewählten Tags haben.</span>
+          </>
+        )}
+        <button type="button" className="btn" onClick={() => setFsheet(null)}>{list.length} {list.length === 1 ? 'Ort' : 'Orte'} zeigen</button>
       </Sheet>
       <PlaceImport open={importOpen} city={city} defaultStatus={status} onClose={() => setImportOpen(false)} />
-      <PlaceSheet s={s} city={city} defaultCat={cat} defaultHood={hoodSel.length === 1 ? hoodSel[0] : ''} defaultStatus={status} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
+      <PlaceSheet s={s} city={city} defaultCat={catSel.length === 1 ? catSel[0] : null} defaultHood={hoodSel.length === 1 ? hoodSel[0] : ''} defaultStatus={status} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
     </>
   );
 }

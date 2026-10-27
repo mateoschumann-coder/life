@@ -1,58 +1,66 @@
-// „Meine Seiten“ (v0.64): pro Bereich feste Lieblingsseiten – Suchbegriff eingeben, Seite öffnet sich direkt mit der Suche.
-// Kostenlos: die App baut nur Links (keine KI, keine Suchdienste). {q} = Suchbegriff, {city} = gewählte Stadt.
+// „Meine Seiten“ (v0.66): pro Bereich feste Seiten. Die KI (ohne Internet, ~0,03 Cent) macht aus Mateos Satz
+// passende Suchbegriffe pro Seite (Sprache der Seite, Stadt, Datum); die App baut daraus Links,
+// die direkt in der Suche der jeweiligen Seite/App landen. Seiten ohne eigene Such-Adresse: Google, nur auf dieser Seite.
 import { store } from './store';
+import { fmtLong, today } from './dates';
+import { searchWithTool } from './outings';
 
 const enc = encodeURIComponent;
-// Seiten ohne eigene Such-Adresse: Google-Suche nur auf dieser Seite
+const slug = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const tag = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 export const siteSearch = (domain, q) => `https://www.google.com/search?q=${enc(`${q} site:${domain}`.trim())}`;
 
+// build(c): c = { q (Begriff für diese Seite), city, from, to, eb (Eventbrite-Ort), cc (Ländercode), hashtag }
 export const SOURCE_AREAS = {
   rezepte: {
     title: 'Meine Rezeptseiten',
-    placeholder: 'z.B. Hähnchen Airfryer',
+    placeholder: 'z.B. schnelles Abendessen mit Hähnchen im Airfryer',
     defaults: [
-      { id: 'chefkoch', name: 'Chefkoch', domain: 'chefkoch.de', search: 'https://www.chefkoch.de/rs/s0/{q}/Rezepte.html' },
-      { id: 'paulina', name: 'Paulina Cocina', domain: 'paulinacocina.net', search: 'https://www.paulinacocina.net/?s={q}' },
-      { id: 'bbc', name: 'BBC Good Food', domain: 'bbcgoodfood.com', search: 'https://www.bbcgoodfood.com/search?q={q}' },
-      { id: 'allrecipes', name: 'Allrecipes', domain: 'allrecipes.com', search: 'https://www.allrecipes.com/search?q={q}' },
-      { id: 'yt', name: 'YouTube', domain: 'youtube.com', search: 'https://www.youtube.com/results?search_query={q}+rezept' },
+      { id: 'chefkoch', name: 'Chefkoch', lang: 'de', build: (c) => `https://www.chefkoch.de/rs/s0/${enc(c.q)}/Rezepte.html` },
+      { id: 'paulina', name: 'Paulina Cocina', lang: 'es', build: (c) => `https://www.paulinacocina.net/?s=${enc(c.q)}` },
+      { id: 'bbc', name: 'BBC Good Food', lang: 'en', build: (c) => `https://www.bbcgoodfood.com/search?q=${enc(c.q)}` },
+      { id: 'allrecipes', name: 'Allrecipes', lang: 'en', build: (c) => `https://www.allrecipes.com/search?q=${enc(c.q)}` },
+      { id: 'yt', name: 'YouTube', lang: 'de oder es', build: (c) => `https://www.youtube.com/results?search_query=${enc(c.q)}` },
     ],
   },
   events: {
     title: 'Meine Event-Seiten',
-    placeholder: 'z.B. Rock, Jazz, Stand-up',
+    placeholder: 'z.B. Was kann ich dieses Wochenende machen?',
     perCity: true,
     defaults: [
-      { id: 'gevents', name: 'Google Events', domain: 'google.com', search: 'https://www.google.com/search?q={q}+events+{city}&ibp=htl;events' },
-      { id: 'eventbrite', name: 'Eventbrite', domain: 'eventbrite.com', search: 'https://www.google.com/search?q={q}+{city}+site:eventbrite.com' },
-      { id: 'timeout', name: 'Time Out', domain: 'timeout.com', search: 'https://www.google.com/search?q={q}+{city}+site:timeout.com' },
-      { id: 'passline', name: 'Passline', domain: 'passline.com', city: 'Buenos Aires' },
-      { id: 'alternativa', name: 'Alternativa Teatral', domain: 'alternativateatral.com', city: 'Buenos Aires' },
-      { id: 'ticketek', name: 'Ticketek', domain: 'ticketek.com.ar', city: 'Buenos Aires' },
-      { id: 'allaccess', name: 'All Access', domain: 'allaccess.com.ar', city: 'Buenos Aires' },
+      { id: 'gevents', name: 'Google Events', lang: 'Landessprache', build: (c) => `https://www.google.com/search?q=${enc(c.q)}&ibp=htl;events` },
+      { id: 'eventbrite', name: 'Eventbrite', lang: 'en', build: (c) => `https://www.eventbrite.com/d/${c.eb || slug(c.city)}/${slug(c.q) || 'all-events'}/${c.from ? `?start_date=${c.from}&end_date=${c.to || c.from}` : ''}` },
+      { id: 'meetup', name: 'Meetup', lang: 'en', build: (c) => `https://www.meetup.com/find/?keywords=${enc(c.q)}&location=${enc(`${c.cc || ''}--${c.city}`)}&source=EVENTS` },
+      { id: 'instagram', name: 'Instagram #', lang: '–', build: (c) => `https://www.instagram.com/explore/tags/${tag(c.hashtag || c.q + c.city)}/` },
+      { id: 'timeout', name: 'Time Out', domain: 'timeout.com', lang: 'en' },
+      { id: 'passline', name: 'Passline', domain: 'passline.com', city: 'Buenos Aires', lang: 'es' },
+      { id: 'alternativa', name: 'Alternativa Teatral', domain: 'alternativateatral.com', city: 'Buenos Aires', lang: 'es' },
+      { id: 'ticketek', name: 'Ticketek', domain: 'ticketek.com.ar', city: 'Buenos Aires', lang: 'es' },
     ],
   },
   orte: {
     title: 'Meine Orte-Seiten',
-    placeholder: 'z.B. Brunch Palermo, Rooftop',
+    placeholder: 'z.B. gemütliches Café zum Arbeiten in Palermo',
     perCity: true,
     defaults: [
-      { id: 'gmaps', name: 'Google Maps', domain: 'google.com/maps', search: 'https://www.google.com/maps/search/{q}+{city}' },
-      { id: 'timeout', name: 'Time Out', domain: 'timeout.com', search: 'https://www.google.com/search?q={q}+{city}+site:timeout.com' },
-      { id: 'tripadvisor', name: 'Tripadvisor', domain: 'tripadvisor.com', search: 'https://www.google.com/search?q={q}+{city}+site:tripadvisor.com' },
-      { id: 'reddit', name: 'Reddit', domain: 'reddit.com', search: 'https://www.google.com/search?q={q}+{city}+site:reddit.com' },
-      { id: 'guiaoleo', name: 'Guía Óleo', domain: 'guiaoleo.com.ar', city: 'Buenos Aires' },
+      { id: 'gmaps', name: 'Google Maps', lang: 'Landessprache', build: (c) => `https://www.google.com/maps/search/${enc(c.q)}` },
+      { id: 'tripadvisor', name: 'Tripadvisor', lang: 'en', build: (c) => `https://www.tripadvisor.com/Search?q=${enc(c.q)}` },
+      { id: 'instagram', name: 'Instagram #', lang: '–', build: (c) => `https://www.instagram.com/explore/tags/${tag(c.hashtag || c.q + c.city)}/` },
+      { id: 'reddit', name: 'Reddit', lang: 'en', build: (c) => `https://www.reddit.com/search/?q=${enc(c.q)}` },
+      { id: 'timeout', name: 'Time Out', domain: 'timeout.com', lang: 'en' },
+      { id: 'guiaoleo', name: 'Guía Óleo', domain: 'guiaoleo.com.ar', city: 'Buenos Aires', lang: 'es' },
     ],
   },
   rennen: {
     title: 'Meine Renn-Seiten',
-    placeholder: 'z.B. 10K Buenos Aires, Halbmarathon März',
+    placeholder: 'z.B. Halbmarathon im Frühling in meiner Nähe',
     defaults: [
-      { id: 'ahotu', name: 'Ahotu', domain: 'ahotu.com' },
-      { id: 'worldsm', name: "World's Marathons", domain: 'worldsmarathons.com' },
-      { id: 'clubcorredores', name: 'Club de Corredores', domain: 'clubdecorredores.com' },
-      { id: 'raceid', name: 'RaceID', domain: 'raceid.com' },
-      { id: 'gcal', name: 'Google: Kalender', domain: 'google.com', search: 'https://www.google.com/search?q=calendario+carreras+{q}' },
+      { id: 'gsearch', name: 'Google', lang: 'Landessprache', build: (c) => `https://www.google.com/search?q=${enc(c.q)}` },
+      { id: 'ahotu', name: 'Ahotu', domain: 'ahotu.com', lang: 'en' },
+      { id: 'worldsm', name: "World's Marathons", domain: 'worldsmarathons.com', lang: 'en' },
+      { id: 'clubcorredores', name: 'Club de Corredores', domain: 'clubdecorredores.com', lang: 'es' },
+      { id: 'raceid', name: 'RaceID', domain: 'raceid.com', lang: 'en' },
+      { id: 'instagram', name: 'Instagram #', lang: '–', build: (c) => `https://www.instagram.com/explore/tags/${tag(c.hashtag || c.q)}/` },
     ],
   },
 };
@@ -65,18 +73,50 @@ export function sourcesOf(s, key, city) {
   const okCity = (x) => !area.perCity || !x.city || x.city === city;
   return [...area.defaults.filter((x) => !(p.hidden || []).includes(x.id)), ...(p.added || [])].filter(okCity);
 }
-export function sourceUrl(src, q, city = '') {
-  const query = String(q || '').trim();
-  if (!query) return src.home || `https://${src.domain}`;
-  if (!src.search) return siteSearch(src.domain, `${query}${city && src.city === undefined && src.domain.includes('.') ? '' : ''}`);
-  const slug = String(city || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-');
-  return src.search.replace('{q}', enc(query)).replace('{city}', enc(city)).replace('{citySlug}', enc(slug));
+export const isNative = (src) => !!src.build;
+// Link für eine Seite: zugeschnittener Begriff (t.terms[id]) oder Mateos Text + Stadt
+export function sourceUrl(src, q, city = '', t = null) {
+  const raw = String(q || '').trim();
+  const anyTerm = t ? Object.values(t.terms || {})[0] : '';
+  const term = (t?.terms?.[src.id] || '').trim() || (anyTerm ? (anyTerm.toLowerCase().includes(String(city).toLowerCase()) ? anyTerm : `${anyTerm} ${city}`.trim()) : [raw, city].filter(Boolean).join(' '));
+  if (!raw && !t) return src.home || (src.domain ? `https://${src.domain}` : src.build({ q: city, city }));
+  if (src.build) return src.build({ q: term, city, from: t?.from, to: t?.to, eb: t?.eb, cc: t?.cc, hashtag: t?.hashtag });
+  return siteSearch(src.domain, term);
 }
-// Eine Google-Suche über alle Seiten auf einmal (nur echte Domains)
-export function allUrl(list, q, city) {
-  const sites = list.map((x) => x.domain).filter((d) => d && !d.startsWith('google.') && !d.startsWith('youtube.'));
-  return `https://www.google.com/search?q=${enc(`${q} ${city || ''} ${sites.map((d) => `site:${d}`).join(' OR ')}`.replace(/\s+/g, ' ').trim())}`;
+
+// KI schneidet die Suche zu (Haiku, ohne Internet): Begriff pro Seite, Datum, Eventbrite-Ort, Hashtag
+const TAILOR_TOOL = {
+  name: 'suchen_zuschneiden',
+  description: 'Suchbegriffe pro Seite.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      gedanke: { type: 'string', description: '1 kurzer Satz auf Deutsch: wonach gesucht wird (z.B. „Konzerte und Bars in Buenos Aires am 31.10.–1.11.“)' },
+      von: { type: 'string', description: 'YYYY-MM-DD, nur wenn ein Zeitraum gemeint ist (z.B. „dieses Wochenende“)' },
+      bis: { type: 'string', description: 'YYYY-MM-DD' },
+      eventbrite_ort: { type: 'string', description: 'Eventbrite-Ort im Format „land--stadt“ auf Englisch, klein, z.B. „argentina--buenos-aires“, „germany--frankfurt“' },
+      land_code: { type: 'string', description: '2-Buchstaben-Ländercode, klein, z.B. „ar“, „de“' },
+      hashtag: { type: 'string', description: 'ein passender, real genutzter Instagram-Hashtag ohne #, z.B. „jazzbuenosaires“' },
+      seiten: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, begriff: { type: 'string' } }, required: ['id', 'begriff'] } },
+    },
+    required: ['gedanke', 'seiten'],
+  },
+};
+const cache = new Map();
+export async function tailorQueries(s, area, q, city, list) {
+  const key = [area, q, city, list.map((x) => x.id).join(',')].join('|');
+  if (cache.has(key)) return cache.get(key);
+  const prefs = area === 'events' ? (s.profile?.eventPrefs || []).join(', ') : '';
+  const sys = `Du baust Suchbegriffe für Webseiten. Heute ist ${fmtLong(today())} (${today()}). Ort: ${city || 'nicht wichtig'}.${prefs ? ` Mateos Vorlieben: ${prefs}.` : ''}
+Mateo schreibt frei, z.B. „Was kann ich dieses Wochenende machen?“. Mach daraus für JEDE Seite einen kurzen, wirksamen Suchbegriff (2–6 Wörter) in der Sprache der Seite – so, wie man ihn dort ins Suchfeld tippen würde. Füllwörter weglassen, Absicht erkennen (z.B. „Wochenende“ → passende Event-Arten + Datum), Stadt einbauen, wo die Seite keinen Ort kennt (Google, Google Maps, Tripadvisor, Reddit, Time Out, YouTube). Zeitangaben in von/bis als Datum umrechnen. Antworte mit "suchen_zuschneiden".`;
+  const user = JSON.stringify({ text: q, bereich: area, seiten: list.map((x) => ({ id: x.id, name: x.name, sprache: x.lang || 'passend', eigene_suche: !!x.build })) });
+  const r = await searchWithTool({ system: sys, user, tool: TAILOR_TOOL, maxUses: 0, maxTokens: 800, label: 'Links zuschneiden' });
+  const ok = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '');
+  const t = { gedanke: r.gedanke || '', from: ok(r.von), to: ok(r.bis), eb: /^[a-z-]+--[a-z-]+$/.test(r.eventbrite_ort || '') ? r.eventbrite_ort : '', cc: /^[a-z]{2}$/.test(r.land_code || '') ? r.land_code : '', hashtag: tag(r.hashtag), terms: Object.fromEntries((r.seiten || []).filter((x) => x?.id && x.begriff).map((x) => [x.id, x.begriff])) };
+  cache.set(key, t);
+  return t;
 }
+
 const save = (key, fn) => store.update((d) => {
   const all = d.profile?.sources || {};
   const cur = all[key] || { hidden: [], added: [] };
@@ -86,7 +126,7 @@ export function removeSource(key, id) {
   save(key, (p) => (SOURCE_AREAS[key].defaults.some((x) => x.id === id) ? { ...p, hidden: [...p.hidden, id] } : { ...p, added: p.added.filter((x) => x.id !== id) }));
 }
 export function addSource(key, name, link, city) {
-  let domain = String(link || '').trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+  const domain = String(link || '').trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
   if (!domain) return;
   const src = { id: 'u' + Date.now().toString(36), name: String(name || '').trim() || domain, domain, home: /^https?:\/\//.test(link) ? link.trim() : `https://${domain}` };
   if (SOURCE_AREAS[key].perCity && city) src.city = city;
