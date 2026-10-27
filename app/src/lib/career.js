@@ -278,3 +278,36 @@ export function applyFunnel(search, list, pasted = '') {
   }
   return n;
 }
+
+// v0.72: Stellenanzeige per Link oder Text übernehmen → Felder fürs Formular
+const JOB_TOOL = {
+  name: 'stelle_lesen',
+  description: 'Daten einer Stellenanzeige.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      titel: { type: 'string', description: 'Jobtitel' },
+      firma: { type: 'string' },
+      ort: { type: 'string', description: 'Ort / remote' },
+      frist: { type: 'string', description: 'Bewerbungsfrist YYYY-MM-DD, falls genannt' },
+      anzeige: { type: 'string', description: 'Der Anzeigentext ohne Navigation/Werbung: Aufgaben, Anforderungen, Angebot (max. ca. 3500 Zeichen, nicht zusammenfassen)' },
+    },
+    required: ['titel'],
+  },
+};
+export async function importJob(s, input) {
+  const text = String(input || '').trim();
+  const url = (text.match(/https?:\/\/\S+/) || [])[0] || '';
+  const onlyUrl = url && text === url;
+  const base = {
+    system: `Lies eine Stellenanzeige für Mateo aus.${onlyUrl ? ' Öffne den Link mit web_fetch und lies die Anzeige von der Seite. Klappt das nicht (z.B. Anmeldung nötig), nutze die Wörter in der Adresse und lass "anzeige" leer.' : ' Er hat den Text eingefügt.'} Nichts erfinden, Unbekanntes leer lassen. Antworte mit "stelle_lesen".`,
+    user: text.slice(0, 15000),
+    tool: JOB_TOOL,
+    maxUses: 0,
+    maxTokens: 3000,
+    label: 'Stelle übernehmen',
+  };
+  let r;
+  if (onlyUrl) { try { r = await searchWithTool({ ...base, fetch: true }); } catch { r = await searchWithTool(base); } } else r = await searchWithTool(base);
+  return { title: r?.titel || '', company: r?.firma || '', location: r?.ort || '', deadline: /^\d{4}-\d{2}-\d{2}$/.test(r?.frist || '') ? r.frist : '', url, description: r?.anzeige || (onlyUrl ? '' : text.slice(0, 4000)) };
+}

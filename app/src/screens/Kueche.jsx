@@ -127,7 +127,7 @@ function Recipes({ s }) {
       <div className="sec-h" style={{ padding: '0 4px' }}>
         <h2 className="h2" style={{ fontSize: 19 }}>Meine Rezepte</h2>
         <span style={{ display: 'flex', gap: 14 }}>
-          <button type="button" className="link-btn" onClick={() => setImp({ text: '', cat: cat || s.recipeCats[0] })}>Einfügen</button>
+          <button type="button" className="link-btn" onClick={() => setImp({ text: '', cat: cat || s.recipeCats[0] })}>📥 Übernehmen</button>
           <button type="button" className="link-btn" onClick={() => setNewOpen(true)}>+ Rezept</button>
         </span>
       </div>
@@ -144,12 +144,13 @@ function Recipes({ s }) {
         ))}
       </div>
 
-      <Sheet open={!!imp} title="Rezept einfügen" onClose={() => setImp(null)}>
-        <span className="sub">Kopiere auf der Rezept-Seite den Text (Zutaten und Zubereitung) und füg ihn hier ein – oder nur den Link. Die KI macht daraus ein sauberes Rezept.</span>
-        <textarea className="input" style={{ minHeight: 160 }} value={imp?.text || ''} onChange={(e) => setImp({ ...imp, text: e.target.value })} placeholder="Rezepttext oder https://…" aria-label="Rezepttext oder Link" />
+      <Sheet open={!!imp} title="Rezept übernehmen" onClose={() => setImp(null)}>
+        <span className="sub">Füg einen <b>Link</b> zu einer Rezeptseite ein oder den <b>Text</b> – z.B. die Beschreibung eines Instagram-Beitrags (dort bei der Beschreibung „mehr“ antippen, Text lange drücken → Kopieren). Die KI macht daraus ein sauberes Rezept.</span>
+        <textarea className="input" style={{ minHeight: 160 }} value={imp?.text || ''} onChange={(e) => setImp({ ...imp, text: e.target.value })} placeholder="https://… oder Rezepttext / Instagram-Beschreibung" aria-label="Rezepttext oder Link" />
+        <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={async () => { try { const t = await navigator.clipboard.readText(); if (t) setImp({ ...imp, text: t }); } catch { toast('Einfügen ging nicht – lange ins Feld tippen → Einsetzen'); } }}>📋 Aus der Zwischenablage einfügen</button>
         <div className="field"><span>Kategorie</span><div className="chips">{s.recipeCats.map((c) => <button key={c} type="button" className={imp?.cat === c ? 'chip on' : 'chip'} onClick={() => setImp({ ...imp, cat: c })}>{c}</button>)}</div></div>
-        <button type="button" className="btn" onClick={runImport} disabled={impBusy || !imp?.text?.trim() || !hasKey}>{impBusy ? 'Ich lese das Rezept …' : 'Übernehmen'}</button>
-        <span className="tiny">Text einfügen: unter 0,5 Cent. Nur Link: die KI liest die Seite über eine Internet-Suche (ca. 1–2 Cent).</span>
+        <button type="button" className="btn" onClick={runImport} disabled={impBusy || !imp?.text?.trim() || !hasKey}>{impBusy ? 'Ich lese das Rezept …' : '✨ Übernehmen'}</button>
+        <span className="tiny">Text: unter 0,1 Cent. Link: die KI öffnet die Seite direkt (ca. 0,1–0,3 Cent). Instagram-Links kann sie nicht öffnen – dort den Text kopieren.</span>
       </Sheet>
       <RecipeSheet s={s} recipe={sheet || (newOpen ? 'neu' : null)} onClose={() => { setSheet(null); setNewOpen(false); }} />
     </>

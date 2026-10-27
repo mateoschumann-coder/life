@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort } from '../lib/dates';
-import { addMaterial, deleteMaterial, ensureTopic, KINDS, libChat, linkFor, removeTopic, STATUS, topicsOf, updateMaterial } from '../lib/library';
+import { addMaterial, addNote, deleteMaterial, ensureTopic, KINDS, libChat, linkFor, removeNote, removeTopic, STATUS, structureNotes, summarizeMaterial, topicsOf, updateMaterial } from '../lib/library';
+import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
 import { Missing } from './Saeule';
@@ -17,6 +18,68 @@ function Stars({ value, onChange }) {
         <button key={n} type="button" onClick={() => onChange(value === n ? 0 : n)} aria-label={`${n} Sterne`} style={{ border: 0, background: 'none', padding: 0, fontSize: 24, color: n <= value ? '#F5B225' : 'var(--line)' }}>★</button>
       ))}
     </span>
+  );
+}
+
+// v0.72: KI-Zusammenfassung + Notizen & Learnings am Buch
+function MaterialExtras({ s, m }) {
+  const [busy, setBusy] = useState(null);
+  const [note, setNote] = useState('');
+  const [openSum, setOpenSum] = useState(true);
+  const hasKey = !!getAi().apiKey;
+  const run = async (what) => {
+    setBusy(what);
+    try { if (what === 'sum') await summarizeMaterial(s, m); else await structureNotes(s, m); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(null); }
+  };
+  const sm = m.summary;
+  const ln = m.learnings;
+  const notes = m.notes || [];
+  return (
+    <>
+      <div className="take-box">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 650, fontSize: 15, flex: 1 }}>✨ Zusammenfassung</span>
+          {sm && <button type="button" className="link-btn" style={{ fontSize: 12.5 }} onClick={() => setOpenSum(!openSum)}>{openSum ? 'Einklappen' : 'Zeigen'}</button>}
+        </div>
+        {!sm && <button type="button" className="btn small" onClick={() => run('sum')} disabled={!!busy || !hasKey}>{busy === 'sum' ? 'Ich fasse zusammen …' : 'Von der KI zusammenfassen lassen'}</button>}
+        {sm && openSum && (
+          <>
+            {sm.unsicher && <span className="tiny" style={{ color: 'var(--danger)' }}>Die KI kennt das Werk nicht sicher – mit Vorsicht lesen.</span>}
+            <span style={{ fontSize: 14.5, lineHeight: 1.45 }}>{sm.kern}</span>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.45 }}>{sm.punkte.map((x, i) => <li key={i}>{x}</li>)}</ul>
+            {sm.fuerDich && <span className="tiny" style={{ color: 'var(--text)' }}>🎯 {sm.fuerDich}</span>}
+            <button type="button" className="link-btn" style={{ fontSize: 12.5, alignSelf: 'flex-start' }} onClick={() => run('sum')} disabled={!!busy}>{busy === 'sum' ? '…' : '↻ Neu zusammenfassen'}</button>
+          </>
+        )}
+        {!sm && <span className="tiny">Ohne Internet aus dem Wissen der KI (bei Artikeln/Videos mit Link liest sie die Seite), unter 0,1 Cent.</span>}
+      </div>
+      <div className="take-box">
+        <span style={{ fontWeight: 650, fontSize: 15 }}>📝 Notizen & Learnings</span>
+        {notes.map((n) => (
+          <div key={n.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 14, lineHeight: 1.4, flex: 1 }}>• {n.text}</span>
+            <button type="button" className="x-btn" aria-label="Notiz entfernen" onClick={() => removeNote(m.id, n.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
+          </div>
+        ))}
+        <form className="block-add" onSubmit={(e) => { e.preventDefault(); addNote(m.id, note); setNote(''); }}>
+          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Gedanke, Zitat, Learning …" aria-label="Neue Notiz" />
+          <button type="submit" className="btn small" disabled={!note.trim()}>+</button>
+        </form>
+        {notes.length > 0 && <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => run('learn')} disabled={!!busy || !hasKey}>{busy === 'learn' ? 'Ich ordne …' : ln ? '↻ Learnings neu strukturieren' : '✨ Von der KI strukturieren lassen'}</button>}
+        {ln && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+            {ln.kernaussage && <span style={{ fontSize: 14.5, fontWeight: 600 }}>💡 {ln.kernaussage}</span>}
+            {ln.themen.map((th, i) => (
+              <div key={i}>
+                <span className="label" style={{ padding: 0 }}>{th.titel}</span>
+                <ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 14, lineHeight: 1.4 }}>{th.punkte.map((x, j) => <li key={j}>{x}</li>)}</ul>
+              </div>
+            ))}
+            {ln.anwenden?.length > 0 && <div><span className="label" style={{ padding: 0 }}>Umsetzen</span><ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 14 }}>{ln.anwenden.map((x, j) => <li key={j}>{x}</li>)}</ul></div>}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -63,6 +126,7 @@ function MaterialSheet({ s, item, onClose, defaultTopic, cat }) {
         </>
       )}
       <Field label={m?.status === 'fertig' ? 'Was hast du mitgenommen?' : 'Notiz'}><textarea className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder={m?.status === 'fertig' ? 'Die 2–3 wichtigsten Gedanken …' : 'Warum interessiert es dich?'} /></Field>
+      {m && <MaterialExtras s={s} m={m} />}
       <button type="button" className="btn" onClick={save} disabled={!f.title.trim()}>Speichern</button>
       {m && <button type="button" className="btn danger" onClick={() => { if (confirm('Löschen?')) { deleteMaterial(m.id); onClose(); } }}>Löschen</button>}
     </Sheet>

@@ -156,3 +156,80 @@ Antworte immer mit "antwort_geben". Deutsch, kein Markdown.`;
   const r = await searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: LIB_CHAT_TOOL, maxUses: web ? 2 : 0, label: `Chat: ${cat.name}`, smart });
   return r;
 }
+
+// ---------- v0.72: KI-Zusammenfassung, Notizen & Learnings pro Material ----------
+const SUMMARY_TOOL = {
+  name: 'zusammenfassung',
+  description: 'Kompakte Zusammenfassung eines Buchs/Materials.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      kern: { type: 'string', description: 'Worum geht es? 2–3 Sätze' },
+      punkte: { type: 'array', items: { type: 'string' }, description: '5–8 wichtigste Gedanken/Thesen, je 1 Satz' },
+      fuer_dich: { type: 'string', description: '1–2 Sätze: was davon für Mateo (Profil) besonders relevant ist' },
+      unsicher: { type: 'boolean', description: 'true, wenn du das Werk nicht sicher kennst' },
+    },
+    required: ['kern', 'punkte'],
+  },
+};
+export async function summarizeMaterial(s, m) {
+  const fetchable = /^https?:\/\//.test(m.url || '') && ['artikel', 'video', 'podcast', 'kurs'].includes(m.kind);
+  const base = {
+    system: `Fasse für Mateo das Material zusammen: ${KINDS[m.kind]?.label || 'Buch'} „${m.title}“${m.author ? ` von ${m.author}` : ''}.${fetchable ? ` Wenn möglich, öffne den Link mit web_fetch und fasse den Inhalt der Seite zusammen.` : ' Aus deinem Wissen.'} Kennst du das Werk nicht sicher, sag das (unsicher = true) und erfinde nichts. Was du über Mateo weißt: ${JSON.stringify((s.memory || []).map((x) => x.text)).slice(0, 1500)}. Deutsch, kein Markdown. Antworte mit "zusammenfassung".`,
+    user: fetchable ? `${m.title}\n${m.url}` : m.title,
+    tool: SUMMARY_TOOL,
+    maxUses: 0,
+    maxTokens: 2000,
+    label: 'Zusammenfassung',
+  };
+  let r;
+  if (fetchable) { try { r = await searchWithTool({ ...base, fetch: true }); } catch { r = await searchWithTool(base); } } else r = await searchWithTool(base);
+  if (!r?.kern) throw new Error('Keine Zusammenfassung bekommen – bitte nochmal versuchen.');
+  const summary = { kern: r.kern, punkte: r.punkte || [], fuerDich: r.fuer_dich || '', unsicher: !!r.unsicher, at: today() };
+  updateMaterial(m.id, { summary });
+  return summary;
+}
+
+export function addNote(id, text) {
+  const t = String(text || '').trim();
+  if (!t) return;
+  store.update((s) => {
+    const m = s.library.find((x) => x.id === id);
+    if (m) m.notes = [...(m.notes || []), { id: uid(), text: t, at: today() }];
+  });
+}
+export function removeNote(id, noteId) {
+  store.update((s) => {
+    const m = s.library.find((x) => x.id === id);
+    if (m) m.notes = (m.notes || []).filter((n) => n.id !== noteId);
+  });
+}
+const LEARN_TOOL = {
+  name: 'learnings',
+  description: 'Notizen strukturiert.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      kernaussage: { type: 'string', description: 'Die eine wichtigste Erkenntnis, 1 Satz' },
+      themen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string' }, punkte: { type: 'array', items: { type: 'string' } } }, required: ['titel', 'punkte'] }, description: '2–5 Themen mit Mateos Punkten, sauber formuliert' },
+      anwenden: { type: 'array', items: { type: 'string' }, description: '1–3 konkrete Ideen, wie Mateo das umsetzen kann' },
+    },
+    required: ['themen'],
+  },
+};
+export async function structureNotes(s, m) {
+  const notes = (m.notes || []).map((n) => n.text);
+  if (m.note) notes.unshift(m.note);
+  if (!notes.length) throw new Error('Erst ein paar Notizen eintragen.');
+  const r = await searchWithTool({
+    system: `Ordne Mateos Notizen zu „${m.title}“${m.author ? ` (${m.author})` : ''} in klare Learnings. Nur seine Gedanken verwenden, nichts aus dem Buch dazuerfinden; Formulierungen glätten, Doppeltes zusammenfassen. Deutsch, kein Markdown. Antworte mit "learnings".`,
+    user: notes.map((x) => `- ${x}`).join('\n'),
+    tool: LEARN_TOOL,
+    maxUses: 0,
+    maxTokens: 2000,
+    label: 'Learnings strukturieren',
+  });
+  const learnings = { kernaussage: r.kernaussage || '', themen: r.themen || [], anwenden: r.anwenden || [], at: today() };
+  updateMaterial(m.id, { learnings });
+  return learnings;
+}

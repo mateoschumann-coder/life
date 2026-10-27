@@ -506,12 +506,21 @@ export function stripQty(x) {
 export async function importRecipe(s, input, category) {
   const text = String(input || '').trim();
   const onlyUrl = /^https?:\/\/\S+$/.test(text);
-  const system = `Du überträgst ein Rezept für Mateo in seine App. ${onlyUrl ? 'Er hat nur einen Link geschickt: suche genau diese Seite (1 Suche) und übernimm das Rezept von dort.' : 'Er hat den Text einer Rezept-Seite eingefügt (kann Werbung und Kommentare enthalten – ignoriere die).'}
-Übertrage auf Deutsch: Titel, Zutaten mit Mengen (eine pro Eintrag), kurze nummerierte Schritte, ungefähre Minuten. Mengen so lassen wie im Original (nicht umrechnen). Wenn kein Rezept erkennbar ist, gib ein Rezept mit titel „Kein Rezept gefunden“ und leeren Zutaten zurück. Antworte mit "rezepte_zeigen" (genau 1 Rezept).`;
-  const r = await searchWithTool({ system, user: text.slice(0, 15000), tool: RECIPE_TOOL, maxUses: onlyUrl ? 1 : 0, label: 'Rezept einfügen' });
-  const x = (r.rezepte || [])[0];
-  if (!x || !x.titel || /kein rezept/i.test(x.titel)) throw new Error('Im Text war kein Rezept zu erkennen. Am besten den ganzen Rezepttext (Zutaten + Zubereitung) einfügen.');
-  return { ...toRecipe(x, 0, category), url: onlyUrl ? text : /^https?:\/\//.test(x.url || '') ? x.url : '' };
+  const insta = /instagram\.com|tiktok\.com/i.test(text);
+  const rules = `Übertrage auf Deutsch: Titel, Zutaten mit Mengen (eine pro Eintrag), kurze nummerierte Schritte, ungefähre Minuten. Mengen so lassen wie im Original (nicht umrechnen). Fehlen Mengen (oft bei Instagram), nimm die Zutaten ohne Mengen. Emojis, Hashtags und Werbung ignorieren. Wenn kein Rezept erkennbar ist, gib ein Rezept mit titel „Kein Rezept gefunden“ und leeren Zutaten zurück. Antworte mit "rezepte_zeigen" (genau 1 Rezept).`;
+  const ok = (r) => { const x = (r?.rezepte || [])[0]; return x && x.titel && !/kein rezept/i.test(x.titel) ? x : null; };
+  let x = null;
+  if (onlyUrl) {
+    // v0.72: Seite direkt öffnen (web_fetch, nur Token-Kosten) – Ausweichweg: 1 Websuche
+    try { x = ok(await searchWithTool({ system: `Du überträgst ein Rezept für Mateo in seine App. Öffne den Link mit web_fetch und übernimm das Rezept von der Seite. ${rules}`, user: text, tool: RECIPE_TOOL, maxUses: 0, fetch: true, maxTokens: 3000, label: 'Rezept übernehmen' })); } catch {}
+    if (!x && !insta) x = ok(await searchWithTool({ system: `Du überträgst ein Rezept für Mateo in seine App. Er hat nur einen Link geschickt: suche genau diese Seite (1 Suche) und übernimm das Rezept von dort. ${rules}`, user: text, tool: RECIPE_TOOL, maxUses: 1, label: 'Rezept übernehmen' }));
+    if (!x && insta) throw new Error('Instagram lässt sich per Link leider nicht lesen. Öffne den Beitrag, tippe bei der Beschreibung auf „mehr“, kopiere den Text und füge ihn hier ein.');
+  } else {
+    x = ok(await searchWithTool({ system: `Du überträgst ein Rezept für Mateo in seine App. Er hat Text eingefügt – von einer Rezeptseite oder eine Instagram-/TikTok-Beschreibung (kann Werbung, Kommentare, Emojis enthalten – ignoriere die). ${rules}`, user: text.slice(0, 15000), tool: RECIPE_TOOL, maxUses: 0, label: 'Rezept übernehmen' }));
+  }
+  if (!x) throw new Error('Im Text war kein Rezept zu erkennen. Am besten den ganzen Rezepttext (Zutaten + Zubereitung) einfügen.');
+  const link = (text.match(/https?:\/\/\S+/) || [])[0] || '';
+  return { ...toRecipe(x, 0, category), url: link || (/^https?:\/\//.test(x.url || '') ? x.url : '') };
 }
 
 // Regionen für die Sport-Event-Suche (frei änderbar)

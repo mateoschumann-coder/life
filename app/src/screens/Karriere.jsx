@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, today } from '../lib/dates';
 import { addTask } from '../lib/actions';
 import {
-  addCheck, addDoc, addJob, addSearch, analyzeJob, applyFunnel, careerChat, claudeBrief, funnelChat, removeCheck, removeDoc, removeJob, removeSearch,
+  addCheck, addDoc, addJob, addSearch, analyzeJob, importJob, applyFunnel, careerChat, claudeBrief, funnelChat, removeCheck, removeDoc, removeJob, removeSearch,
   STAGES, stageOf, toggleCheck, toggleDoc, updateJob, updateSearch,
 } from '../lib/career';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -162,6 +162,22 @@ const FUNNEL_GROUPS = [{ key: 'aenderungen', label: 'In den Trichter', title: (x
 function SearchPage({ s, search }) {
   const [manual, setManual] = useState({ title: '', company: '', url: '', description: '', status: 'interessiert' });
   const [adding, setAdding] = useState(false);
+  const [imp, setImp] = useState(null); // Text/Link zum Übernehmen
+  const [impBusy, setImpBusy] = useState(false);
+  const runImport = async () => {
+    setImpBusy(true);
+    try {
+      const r = await importJob(s, imp);
+      setManual({ ...manual, ...r, status: 'interessiert' });
+      setImp(null);
+      setAdding(true);
+      toast(r.title ? 'Bitte kurz prüfen und hinzufügen' : 'Konnte nicht alles lesen – bitte ergänzen');
+    } catch (e) {
+      toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
+    } finally {
+      setImpBusy(false);
+    }
+  };
   const jobs = s.jobs.filter((j) => j.searchId === search.id);
   const key = `jobsuche:${search.id}`;
   const apply = (sel) => {
@@ -196,8 +212,22 @@ function SearchPage({ s, search }) {
         <section className="group">
           <div className="sec-h">
             <h2 className="h2" style={{ fontSize: 19 }}>Stellen</h2>
-            <button type="button" className="link-btn" onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Selbst eintragen'}</button>
+            <span style={{ display: 'flex', gap: 14 }}>
+              {!adding && <button type="button" className="link-btn" onClick={() => setImp(imp === null ? '' : null)}>📥 Übernehmen</button>}
+              <button type="button" className="link-btn" onClick={() => { setAdding(!adding); setImp(null); }}>{adding ? 'Abbrechen' : '+ Selbst'}</button>
+            </span>
           </div>
+          {imp !== null && !adding && (
+            <div className="take-box">
+              <span className="tiny" style={{ color: 'var(--text)' }}>Link zur Anzeige (LinkedIn, Get on Board, Firmenseite …) oder den Anzeigentext einfügen. Die KI liest Stelle, Firma, Ort und den Anzeigentext heraus.</span>
+              <textarea className="input" style={{ minHeight: 90 }} value={imp} onChange={(e) => setImp(e.target.value)} placeholder="https://… oder Text der Anzeige" aria-label="Link oder Anzeigentext" />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button type="button" className="btn small" style={{ flex: 1 }} onClick={runImport} disabled={impBusy || !imp.trim() || !getAi().apiKey}>{impBusy ? 'Ich lese die Anzeige …' : '✨ Übernehmen'}</button>
+                <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={async () => { try { const t = await navigator.clipboard.readText(); if (t) setImp(t); } catch { toast('Lange ins Feld tippen → Einsetzen'); } }}>📋 Einfügen</button>
+              </div>
+              <span className="tiny">Ca. 0,1–0,3 Cent. LinkedIn zeigt Anzeigen oft nur angemeldet – klappt der Link nicht, den Text kopieren.</span>
+            </div>
+          )}
           {adding && (
             <form className="card" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); const id = addJob({ searchId: search.id, ...manual }); setManual({ title: '', company: '', url: '', description: '', status: 'interessiert' }); setAdding(false); if (id) toast('Im Trichter'); }}>
               <input className="input" value={manual.title} onChange={(e) => setManual({ ...manual, title: e.target.value })} placeholder="Stelle, z.B. Investment Analyst" aria-label="Stelle" autoFocus />

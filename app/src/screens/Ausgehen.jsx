@@ -317,8 +317,8 @@ function Stars({ value, onChange, size = 18 }) {
   );
 }
 
-function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, defaultHood = '' }) {
-  const blank = { name: '', category: defaultCat || 'Café', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [], price: 0 };
+function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, defaultHood = '', defaultFav = false }) {
+  const blank = { fav: defaultFav, name: '', category: defaultCat || 'Café', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [], price: 0 };
   const [tagText, setTagText] = useState('');
   const [f, setF] = useState(blank);
   const [hits, setHits] = useState(null);
@@ -521,7 +521,7 @@ function Orte({ s, city }) {
   const catOf = (p) => (PLACE_CATS.includes(p.category) ? p.category : 'Sonstiges');
   const hoods = hoodsOf(s, city);
   const tog = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-  const list = here.filter((p) => (status === 'alle' || p.status === status) && (!catSel.length || catSel.includes(catOf(p))) && (!subSel.length || subSel.includes(p.subcat))
+  const list = here.filter((p) => (status === 'alle' || (status === 'fav' ? p.fav : p.status === status)) && (!catSel.length || catSel.includes(catOf(p))) && (!subSel.length || subSel.includes(p.subcat))
     && (!hoodSel.length || hoodSel.includes(p.hood)) && (!starSel.length || starSel.includes(p.rating || 0)) && (!priceSel.length || priceSel.includes(p.price || 0)) && tagSel.every((x) => (p.tags || []).includes(x)));
   const addHood = (v) => {
     if (v && v.trim()) store.update((d) => { const h = d.profile?.hoods || {}; d.profile = { ...d.profile, hoods: { ...h, [city]: [...new Set([...(h[city] || []), v.trim()])] } }; });
@@ -532,7 +532,7 @@ function Orte({ s, city }) {
   const subsAll = [...new Set(here.filter((p) => (!catSel.length || catSel.includes(catOf(p))) && p.subcat).map((p) => p.subcat))];
   const usedTags = [...new Set(here.flatMap((p) => p.tags || []))];
   const subs = cat ? [...new Set(here.filter((p) => catOf(p) === cat && p.subcat).map((p) => p.subcat))] : [];
-  const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => catOf(p) === c).sort((a, b) => (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
+  const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => catOf(p) === c).sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
   const cats = [...new Set(here.map(catOf))];
   const shown = search || null; // v0.71: bleibt beim Stadtwechsel stehen, bis zur nächsten KI-Suche
   const resCity = search?.city || HOME_CITY;
@@ -573,9 +573,9 @@ function Orte({ s, city }) {
       </div>
       {nActive > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13, marginTop: -6 }} onClick={resetAll}>✕ Alle Filter zurücksetzen · {list.length} von {here.length} Orten</button>}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <Segmented options={[{ id: 'alle', label: 'Alle' }, { id: 'will', label: 'Will hin' }, { id: 'war', label: 'War da' }]} value={status} onChange={setStatus} label="Filter" />
-        <button type="button" className="btn small sec" style={{ marginLeft: 'auto', background: 'var(--card-2)' }} onClick={() => setImportOpen(true)} aria-label="Orte per KI aus Text einfügen">✨ KI</button>
-        <button type="button" className="btn small" onClick={() => setSheet('neu')}>+ Ort</button>
+        <Segmented options={[{ id: 'alle', label: 'Alle' }, { id: 'will', label: 'Will hin' }, { id: 'war', label: 'War da' }, { id: 'fav', label: '♥' }]} value={status} onChange={setStatus} label="Filter" />
+        <button type="button" className="btn small sec" style={{ marginLeft: 'auto', background: 'var(--card-2)', whiteSpace: 'nowrap', padding: '8px 10px', flexShrink: 0 }} onClick={() => setImportOpen(true)} aria-label="Orte per KI aus Text einfügen">✨ KI</button>
+        <button type="button" className="btn small" style={{ whiteSpace: 'nowrap', padding: '8px 10px', flexShrink: 0 }} onClick={() => setSheet('neu')}>+ Ort</button>
       </div>
       {list.length === 0 && <div className="list"><div className="empty">{nActive ? 'Keine Orte passen zu den Filtern.' : `Noch keine Orte in ${city}.`} Tipp auf „+ Ort“, füg mit „✨ KI“ gleich mehrere aus einem Text ein oder lass dir unten neue vorschlagen.</div></div>}
       {groups.map((g) => (
@@ -587,7 +587,7 @@ function Orte({ s, city }) {
                 <button type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => setSel(sel === p.id ? null : p.id)}>
                   <span className="cat-dot" style={{ background: CAT_COLOR[p.category] }} />
                   <span className="row-main">
-                    <span className="row-title plain">{p.name}</span>
+                    <span className="row-title plain">{p.fav ? <span style={{ color: '#E8475A' }}>♥ </span> : null}{p.name}</span>
                     <span className="row-meta">{[p.subcat || p.category, p.hood, p.price ? '$'.repeat(p.price) : '', p.status === 'war' ? (p.rating ? '★'.repeat(p.rating) : 'War da') : 'Will hin'].filter(Boolean).join(' · ')}</span>
                   </span>
                   <span className="tiny">{sel === p.id ? '▴' : '▾'}</span>
@@ -599,6 +599,7 @@ function Orte({ s, city }) {
                     {(p.tags || []).length > 0 && <div className="chips">{p.tags.map((x) => <span key={x} className="chip soft" style={{ fontSize: 12 }}>{x}</span>)}</div>}
                     {p.note && <span style={{ fontSize: 14.5, lineHeight: 1.4 }}>{p.note}</span>}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button type="button" className={p.fav ? 'pill on' : 'pill'} style={p.fav ? { background: '#E8475A', borderColor: '#E8475A' } : undefined} onClick={() => updatePlace(p.id, { fav: !p.fav })} aria-pressed={!!p.fav}>{p.fav ? '♥ Favorit' : '♡ Favorit'}</button>
                       <a className="pill on" href={routeUrl(p)} target="_blank" rel="noreferrer">Route</a>
                       {p.url && <a className="pill" href={p.url} target="_blank" rel="noreferrer">Link <Icon name="link" size={13} /></a>}
                       {p.status === 'will' && <button type="button" className="pill" onClick={() => { updatePlace(p.id, { status: 'war' }); setSheet(p); }}>War da</button>}
@@ -672,7 +673,7 @@ function Orte({ s, city }) {
         <button type="button" className="btn" onClick={() => setFsheet(null)}>{list.length} {list.length === 1 ? 'Ort' : 'Orte'} zeigen</button>
       </Sheet>
       <PlaceImport open={importOpen} city={city} defaultStatus={status} onClose={() => setImportOpen(false)} />
-      <PlaceSheet s={s} city={city} defaultCat={catSel.length === 1 ? catSel[0] : null} defaultHood={hoodSel.length === 1 ? hoodSel[0] : ''} defaultStatus={status} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
+      <PlaceSheet defaultFav={status === 'fav'} s={s} city={city} defaultCat={catSel.length === 1 ? catSel[0] : null} defaultHood={hoodSel.length === 1 ? hoodSel[0] : ''} defaultStatus={status} open={!!sheet} place={sheet && sheet !== 'neu' ? s.places.find((p) => p.id === sheet.id) : null} onClose={() => setSheet(null)} />
     </>
   );
 }
