@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
-  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, TRAVEL_MODES, LEVELS, STAY_TYPES,
+  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, TRAVEL_MODES, LEVELS, STAY_TYPES,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
@@ -93,33 +93,44 @@ function PriceSheet({ s, trips, title, onClose }) {
   const [err, setErr] = useState(null);
   const [key, setKey] = useState(null);
   const k = trips ? trips.map((x) => x.id).join() : null;
-  if (k !== key) { setKey(k); setRes(null); setErr(null); if (first) setF(first.priceSetup ? { ...defaultSetup(s, first), ...first.priceSetup } : defaultSetup(s, first)); }
+  if (k !== key) { setKey(k); setRes(null); setErr(null); if (first) setF(first.priceSetup ? fixSetup({ ...defaultSetup(s, first), ...first.priceSetup }) : defaultSetup(s, first)); }
   const setT = (i, patch) => setF({ ...f, travelers: f.travelers.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
-  const run = async () => {
-    setBusy(true); setErr(null);
-    try { setRes(await comparePrices(s, trips, f)); } catch (e) { setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
+  const run = async (web) => {
+    setBusy(web ? 'web' : 'quick'); setErr(null);
+    try { setRes(await comparePrices(s, trips, f, { web })); } catch (e) { setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
   };
   return (
     <Sheet open={!!trips} title={title || 'Preise nachsehen'} onClose={onClose}>
       <Field label="Zeitraum (optional)"><DateRangeField from={f.from} to={f.to} onChange={(v) => setF({ ...f, ...v })} title="Reisezeitraum" /></Field>
-      <span className="label" style={{ padding: 0 }}>Wer reist? ({f.travelers.length})</span>
+      <span className="label" style={{ padding: 0 }}>Wer reist von wo? ({f.travelers.reduce((n, x) => n + x.count, 0)} Personen)</span>
       {f.travelers.map((tv, i) => (
         <div key={i} className="traveler">
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input className="input" style={{ flex: '0 0 30%' }} value={tv.name} onChange={(e) => setT(i, { name: e.target.value })} placeholder={`Person ${i + 1}`} aria-label="Name" />
-            <input className="input" style={{ flex: 1 }} value={tv.start} onChange={(e) => setT(i, { start: e.target.value })} placeholder="Startort, z.B. Frankfurt" aria-label="Startort" />
-            {f.travelers.length > 1 && <button type="button" className="x-btn" onClick={() => setF({ ...f, travelers: f.travelers.filter((_, j) => j !== i) })} aria-label="Person entfernen"><Icon name="x" size={12} color="var(--chev)" /></button>}
+          <div className="start-field">
+            <input className="input" value={tv.start} onChange={(e) => setT(i, { start: e.target.value })} placeholder="Startort, z.B. Frankfurt" aria-label="Startort" />
+            {tv.start && <button type="button" className="clear-btn" onClick={() => setT(i, { start: '' })} aria-label="Startort löschen"><Icon name="x" size={12} /></button>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="stepper">
+              <button type="button" onClick={() => setT(i, { count: Math.max(1, tv.count - 1) })} aria-label="Weniger Personen">−</button>
+              <b>{tv.count}</b>
+              <button type="button" onClick={() => setT(i, { count: tv.count + 1 })} aria-label="Mehr Personen">+</button>
+            </span>
+            <span className="tiny" style={{ flex: 1 }}>{tv.count === 1 ? 'Person' : 'Personen'} von hier</span>
+            {f.travelers.length > 1 && <button type="button" className="x-btn" onClick={() => setF({ ...f, travelers: f.travelers.filter((_, j) => j !== i) })} aria-label="Startort entfernen"><Icon name="x" size={12} color="var(--chev)" /></button>}
           </div>
           <Seg options={TRAVEL_MODES} value={tv.mode} onChange={(v) => setT(i, { mode: v })} />
           <Seg options={LEVELS} value={tv.level} onChange={(v) => setT(i, { level: v })} />
         </div>
       ))}
-      <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setF({ ...f, travelers: [...f.travelers, { name: '', start: '', mode: 'flug', level: f.travelers[0]?.level || 'normal' }] })}>+ Person</button>
+      <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setF({ ...f, travelers: [...f.travelers, { start: '', count: 1, mode: 'flug', level: f.travelers[0]?.level || 'normal' }] })}>+ Weiterer Startort</button>
       <span className="label" style={{ padding: 0 }}>Unterkunft (gemeinsam)</span>
       <Seg options={STAY_TYPES} value={f.stayType} onChange={(v) => setF({ ...f, stayType: v })} />
       <Seg options={LEVELS} value={f.stayLevel} onChange={(v) => setF({ ...f, stayLevel: v })} />
-      <button type="button" className="btn" onClick={run} disabled={busy || !getAi().apiKey || f.travelers.some((x) => !x.start.trim())}>{busy ? 'Ich suche Preise … (ca. 30–60 Sek.)' : '🔍 Preise suchen'}</button>
-      <span className="tiny">Sucht im Internet (ca. 5–8 Cent). Was nicht zu finden ist, wird geschätzt (mit ≈ markiert).</span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn sec" style={{ flex: 1, background: 'var(--card-2)' }} onClick={() => run(false)} disabled={!!busy || !getAi().apiKey || f.travelers.some((x) => !x.start.trim())}>{busy === 'quick' ? 'Schätze …' : 'Schnell schätzen'}</button>
+        <button type="button" className="btn" style={{ flex: 1 }} onClick={() => run(true)} disabled={!!busy || !getAi().apiKey || f.travelers.some((x) => !x.start.trim())}>{busy === 'web' ? 'Suche … (ca. 30 Sek.)' : '🔍 Mit Internet'}</button>
+      </div>
+      <span className="tiny">Schnell schätzen: aus KI-Wissen, unter 1 Cent. Mit Internet: aktuelle Preise, ca. 3–6 Cent. Geschätztes ist mit ≈ markiert.</span>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {res && (
         <>
@@ -138,16 +149,16 @@ function PriceSheet({ s, trips, title, onClose }) {
 // Kurzer Preis aus den gespeicherten Angaben (ältere Einträge: Zahl aus dem Text holen)
 const PRICE_RE = /~?\s*(?:ca\.?\s*)?(?:ab\s*)?\d[\d.,]*\s*(?:USD|US\$|\$|€|EUR|ARS|R\$)/i;
 const shortP = (main, text) => (main || ((text || '').match(PRICE_RE)?.[0] || '')).replace(/^ab\s*/i, '~').replace(/\s*\/\s*Nacht/i, '').replace(/^ca\.?\s*/i, '~').trim();
-const three = (p) => p ? [shortP(p.anreiseSum || p.flugPreis, p.flug), shortP(p.stayNight || p.stayPreis, p.unterkunft), shortP(p.perPerson || p.gesamt, p.gesamt)] : ['', '', ''];
+const three = (p) => p ? [shortP(p.anreiseSum || p.flugPreis, p.flug), shortP(p.stayNight || p.stayPreis, p.unterkunft), shortP(p.total || p.perPerson || p.gesamt, p.gesamt)] : ['', '', ''];
 // Drei Zahlen klein nebeneinander: Anreise · Unterkunft/Nacht · Gesamt p. P.
 function PriceRow({ p }) {
   const [a, u, g] = three(p);
   if (!a && !u && !g) return null;
   return (
     <span className="price-row3">
-      <span><i>{p.anreise?.length > 1 ? 'Anreise' : 'Flug'}</i>{a || '–'}</span>
+      <span><i>{p.anreise?.some((x, i) => i > 0 || x.count > 1) || p.people > 1 ? 'Anreise' : 'Flug'}</i>{a || '–'}</span>
       <span><i>Nacht</i>{u || '–'}</span>
-      <span className="sum"><i>{p.people > 1 ? 'p. P.' : 'Gesamt'}</i>{p.est && g ? `≈${g.replace(/^~\s*/, '')}` : g || '–'}</span>
+      <span className="sum"><i>Gesamt{p.nights ? ` · ${p.nights} N.` : ''}</i>{p.est && g ? `≈${g.replace(/^~\s*/, '')}` : g || '–'}</span>
     </span>
   );
 }
@@ -165,9 +176,10 @@ function CostCard({ tr, onSearch }) {
       </div>
       {open && has && (
         <div className="cost-details">
-          {(p.anreise || []).map((x, i) => <span key={i}>{x.person}: <b>{x.preis}</b>{x.details ? ` · ${x.details}` : ''}{x.url && <> · <a href={x.url} target="_blank" rel="noreferrer">ansehen ↗</a></>}</span>)}
+          {(p.anreise || []).map((x, i) => <span key={i}>{x.von || x.person}{x.count > 1 ? ` (${x.count}×)` : ''}: <b>{x.preis}</b>{x.count > 1 ? ' p. P.' : ''}{x.details ? ` · ${x.details}` : ''}{x.url && <> · <a href={x.url} target="_blank" rel="noreferrer">ansehen ↗</a></>}</span>)}
           {!p.anreise && p.flug && <span>Flug: {p.flug}{p.urlFlug && <> · <a href={p.urlFlug} target="_blank" rel="noreferrer">ansehen ↗</a></>}</span>}
           {p.unterkunft && <span>Unterkunft: {p.unterkunft}{p.urlStay && <> · <a href={p.urlStay} target="_blank" rel="noreferrer">ansehen ↗</a></>}</span>}
+          {p.people > 1 && p.total && <span>{p.people} Personen · {p.nights} Nächte</span>}
           {p.checked && <span className="tiny">Stand {fmtShort(p.checked)}{p.when ? ` · ${rangeText(...p.when.split('|'))}` : ''}{p.est ? ' · teils geschätzt' : ''}</span>}
         </div>
       )}
@@ -231,9 +243,9 @@ function TripList({ s }) {
       <span className="block-icon" style={tint}><Icon name={tr.status === 'idee' ? 'bulb' : 'plane'} size={16} /></span>
       <span className="row-main">
         <span className="row-title strong">{tr.name}</span>
-        <span className="row-meta">
+        <span className="row-meta" style={tr.status === 'idee' && !tr.stops.length && !tr.places.length ? { display: 'none' } : undefined}>
           {tr.status === 'idee'
-            ? [tr.stops.length && `${tr.stops.length} Stationen`, tr.places.length && `${tr.places.length} Orte`, (tr.idea || '').split('\n')[0]].filter(Boolean).join(' · ') || 'Noch nichts recherchiert'
+            ? [tr.stops.length && `${tr.stops.length} Stationen`, tr.places.length && `${tr.places.length} Orte`].filter(Boolean).join(' · ')
             : [tr.from && rangeText(tr.from, tr.to), tr.from && tr.from > t && `in ${diffDays(t, tr.from)} Tagen`, `${tr.todo.filter((x) => !x.done).length} offen`].filter(Boolean).join(' · ')}
         </span>
         {tr.status === 'idee' && <PriceRow p={tr.prices} />}

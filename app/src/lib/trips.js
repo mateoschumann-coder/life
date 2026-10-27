@@ -335,7 +335,9 @@ const PRICE_TOOL = {
 export const TRAVEL_MODES = { flug: '✈️ Flug', bus: '🚌 Bus', zug: '🚆 Zug', auto: '🚗 Auto' };
 export const LEVELS = { guenstig: 'Günstig', normal: 'Normal', premium: 'Premium' };
 export const STAY_TYPES = { airbnb: 'Airbnb', hotel: 'Hotel', hostel: 'Hostel' };
-export const defaultSetup = (s, tr) => ({ from: tr?.from || '', to: tr?.to || '', travelers: [{ name: 'Ich', start: airportsOf(s, tr), mode: 'flug', level: 'normal' }], stayType: 'airbnb', stayLevel: 'normal' });
+export const defaultSetup = (s, tr) => ({ from: tr?.from || '', to: tr?.to || '', travelers: [{ start: airportsOf(s, tr), count: 1, mode: 'flug', level: 'normal' }], stayType: 'airbnb', stayLevel: 'normal' });
+// ältere Einstellungen (mit Namen statt Anzahl) auf das neue Format bringen
+export const fixSetup = (st) => ({ ...st, travelers: (st.travelers || []).map((x) => ({ start: x.start || '', count: Math.max(1, Number(x.count) || 1), mode: x.mode || 'flug', level: x.level || 'normal' })) });
 const PRICE2 = {
   name: 'preise_zeigen',
   description: 'Reisepreise pro Ziel.',
@@ -349,47 +351,49 @@ const PRICE2 = {
           type: 'object',
           properties: {
             ziel: { type: 'string', description: 'genau wie in der Liste' },
-            anreise: { type: 'array', description: 'eine Zeile pro Reisendem, gleiche Reihenfolge', items: { type: 'object', properties: { person: { type: 'string' }, preis: { type: 'string', description: 'NUR Preis hin & zurück, z.B. „~380 USD“' }, details: { type: 'string', description: 'Anbieter, Dauer, Datum – kurz' }, url: { type: 'string' } }, required: ['person', 'preis'] } },
-            anreise_summe: { type: 'string', description: 'Summe Anreise aller Reisenden, z.B. „~760 USD“' },
-            unterkunft_nacht: { type: 'string', description: 'NUR Preis pro Nacht für die ganze Gruppe, z.B. „~60 USD“' },
-            unterkunft_details: { type: 'string', description: 'kurz: Art, Lage, Beispiel' },
+            anreise: { type: 'array', description: 'eine Zeile pro Startort, gleiche Reihenfolge', items: { type: 'object', properties: { von: { type: 'string' }, preis: { type: 'string', description: 'NUR Preis hin & zurück pro Person, z.B. „~380 USD“' }, details: { type: 'string', description: 'Anbieter, Dauer – sehr kurz' }, url: { type: 'string' } }, required: ['von', 'preis'] } },
+            anreise_summe: { type: 'string', description: 'Anreise aller Personen zusammen, z.B. „~760 USD“' },
+            unterkunft_nacht: { type: 'string', description: 'NUR Preis pro Nacht für alle zusammen, z.B. „~60 USD“' },
+            unterkunft_details: { type: 'string', description: 'sehr kurz: Art, Lage' },
             url_unterkunft: { type: 'string' },
-            gesamt_pro_person: { type: 'string', description: 'NUR die Summe pro Person (Anreise + Anteil Unterkunft), z.B. „~620 USD“' },
-            geschaetzt: { type: 'boolean', description: 'true, wenn nicht in der Suche gefunden, sondern geschätzt' },
+            gesamt_reise: { type: 'string', description: 'NUR Gesamtkosten der ganzen Reise für alle Personen (Anreise aller + Unterkunft aller Nächte), z.B. „~1.250 USD“' },
+            geschaetzt: { type: 'boolean', description: 'true, wenn geschätzt statt gefunden' },
           },
-          required: ['ziel', 'anreise', 'unterkunft_nacht', 'gesamt_pro_person'],
+          required: ['ziel', 'anreise', 'unterkunft_nacht', 'gesamt_reise'],
         },
       },
     },
     required: ['vergleich'],
   },
 };
-export async function comparePrices(s, trips, setup) {
-  const st0 = setup || defaultSetup(s, trips[0]);
+// web = mit Internet (genauer, ca. 5 Cent) oder nur Schätzung aus KI-Wissen (unter 1 Cent)
+export async function comparePrices(s, trips, setup, { web = true } = {}) {
+  const st0 = fixSetup(setup || defaultSetup(s, trips[0]));
   const ziele = trips.map((x) => x.dest || x.name);
-  const nights = st0.from && st0.to ? Math.max(1, diffDays(st0.from, st0.to)) : null;
-  const people = st0.travelers.length;
-  const who = st0.travelers.map((x, i) => `${i + 1}. ${x.name || `Person ${i + 1}`}: ab ${x.start || 'Buenos Aires'}, ${TRAVEL_MODES[x.mode]?.slice(3) || 'Flug'}, ${LEVELS[x.level] || 'Normal'}`).join('\n');
+  const nights = st0.from && st0.to ? Math.max(1, diffDays(st0.from, st0.to)) : 7;
+  const people = st0.travelers.reduce((n, x) => n + x.count, 0);
+  const who = st0.travelers.map((x) => `- ${x.count} ${x.count === 1 ? 'Person' : 'Personen'} ab ${x.start || 'Buenos Aires'}: ${TRAVEL_MODES[x.mode]?.slice(3) || 'Flug'}, ${LEVELS[x.level] || 'Normal'}`).join('\n');
   const base = `Heute ist ${fmtLong(today())}. Ziele: ${JSON.stringify(ziele)}.
-Reisende (${people}):
+Reisegruppe (${people} Personen):
 ${who}
-Unterkunft: gemeinsam für alle ${people}, ${STAY_TYPES[st0.stayType] || 'Airbnb'}, Preisklasse ${LEVELS[st0.stayLevel] || 'Normal'}.
-Zeitraum: ${nights ? `${st0.from} bis ${st0.to} (${nights} Nächte)` : 'flexibel – nimm einen typischen Zeitraum in den nächsten 2–3 Monaten (7 Nächte) und nenne ihn in den Details'}.
-Preisklassen: Günstig = Billigflug/Economy mit Umstieg, einfacher Bus; Normal = übliche Economy/Direkt wenn möglich; Premium = Premium Economy/Business, Bus-Cama/1. Klasse.
-Für JEDES Ziel genau eine Zeile in "vergleich" – auch wenn du nichts Exaktes findest: dann eine realistische Schätzung aus deinem Wissen und geschaetzt=true. Niemals ein Ziel weglassen, niemals „nicht gefunden“. Pro Reisendem eine Anreise-Zeile (hin & zurück, passend zu Startort, Verkehrsmittel und Preisklasse). Preise kurz als „~… USD“. Links nur aus Suchergebnissen.`;
-  const r = await searchWithTool({ system: `Du recherchierst aktuelle Reisepreise für Mateo. ${base}\nSuche bis zu 6-mal im Internet, gezielt und gebündelt (z.B. „vuelos Frankfurt Florianópolis enero precio“, „airbnb Florianópolis 3 personas precio noche“, „bus Buenos Aires Florianópolis pasaje“). Dann "preise_zeigen". Deutsch, kurz.`, user: 'Bitte Preise vergleichen.', tool: PRICE2, maxUses: 6, label: 'Reisepreise vergleichen' });
+Unterkunft gemeinsam für alle: ${STAY_TYPES[st0.stayType] || 'Airbnb'}, ${LEVELS[st0.stayLevel] || 'Normal'}. Zeitraum: ${st0.from && st0.to ? `${st0.from} bis ${st0.to}` : 'flexibel, typisch in den nächsten 2–3 Monaten'} (${nights} Nächte).
+Preisklassen: Günstig = Billigflug mit Umstieg/einfacher Bus; Normal = übliche Economy; Premium = Premium Economy/Business, Bus-Cama/1. Klasse.
+Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: realistische Schätzung mit geschaetzt=true. gesamt_reise = Anreise aller ${people} Personen + ${nights} Nächte Unterkunft. Preise kurz als „~… USD“. Texte sehr kurz.`;
+  const sys = web
+    ? `Du recherchierst aktuelle Reisepreise. ${base}\nSuche höchstens 3-mal im Internet und bündle alles in wenige Suchen (z.B. eine Suche für alle Flüge eines Startorts, eine für Unterkünfte aller Ziele). Links nur aus Suchergebnissen. Dann "preise_zeigen".`
+    : `Du schätzt Reisepreise aus deinem Wissen (ohne Internet, keine Links). ${base}\nSetze geschaetzt=true. Dann "preise_zeigen".`;
+  const r = await searchWithTool({ system: sys, user: 'Bitte Preise vergleichen.', tool: PRICE2, maxUses: web ? 3 : 0, maxTokens: 3000, label: 'Reisepreise vergleichen' });
   let rows = (r.vergleich || []).filter((v) => v && v.ziel);
-  // Fehlt ein Ziel? Ohne Internet schätzen lassen, damit jedes Ziel Preise hat
   const missing = ziele.filter((z) => !rows.some((v) => norm(v.ziel) === norm(z) || norm(z).startsWith(norm(v.ziel)) || norm(v.ziel).startsWith(norm(z).split(',')[0])));
   if (missing.length) {
-    const r2 = await searchWithTool({ system: `Du schätzt Reisepreise aus deinem Wissen (ohne Internet). ${base.replace(JSON.stringify(ziele), JSON.stringify(missing))}\nSetze geschaetzt=true.`, user: 'Bitte schätzen.', tool: PRICE2, maxUses: 0, label: 'Reisepreise vergleichen' });
+    const r2 = await searchWithTool({ system: `Du schätzt Reisepreise aus deinem Wissen (ohne Internet). ${base.replace(JSON.stringify(ziele), JSON.stringify(missing))}\nSetze geschaetzt=true.`, user: 'Bitte schätzen.', tool: PRICE2, maxUses: 0, maxTokens: 2000, label: 'Reisepreise vergleichen' });
     rows = [...rows, ...(r2.vergleich || []).filter((v) => v && v.ziel).map((v) => ({ ...v, geschaetzt: true }))];
   }
   rows = rows.map((v) => ({
     ...v,
     anreise: (v.anreise || []).map((a, i) => {
       const tv = st0.travelers[i] || st0.travelers[0];
-      return { ...a, url: okUrl(a.url) || (tv?.mode === 'flug' || !tv ? flightUrl(tv?.start || airportsOf(s), v.ziel, st0.from) : `https://www.google.com/search?q=${encodeURIComponent(`${tv.mode === 'zug' ? 'tren' : 'bus'} ${tv.start} ${v.ziel} pasaje precio`)}`) };
+      return { ...a, count: tv?.count || 1, url: okUrl(a.url) || (tv?.mode === 'flug' || !tv ? flightUrl(tv?.start || airportsOf(s), v.ziel, st0.from) : `https://www.google.com/search?q=${encodeURIComponent(`${tv.mode === 'zug' ? 'tren' : 'bus'} ${tv.start} ${v.ziel} pasaje precio`)}`) };
     }),
     url_unterkunft: okUrl(v.url_unterkunft) || (st0.stayType === 'airbnb' ? airbnbUrl(v.ziel, st0.from, st0.to) : `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(v.ziel)}${st0.from ? `&checkin=${st0.from}&checkout=${st0.to}` : ''}&group_adults=${people}`),
   }));
@@ -397,7 +401,7 @@ Für JEDES Ziel genau eine Zeile in "vergleich" – auch wenn du nichts Exaktes 
     for (const x of st.trips) if (trips.some((y) => y.id === x.id)) x.priceSetup = st0;
     for (const v of rows) {
       const t = st.trips.find((x) => trips.some((y) => y.id === x.id) && sameDest(x, v.ziel)) || st.trips.find((x) => trips.some((y) => y.id === x.id) && norm(x.dest || x.name).startsWith(norm(v.ziel).split(',')[0]));
-      if (t) t.prices = { anreise: v.anreise, anreiseSum: v.anreise_summe || (v.anreise?.length === 1 ? v.anreise[0].preis : ''), stayNight: v.unterkunft_nacht, unterkunft: v.unterkunft_details, urlStay: v.url_unterkunft, perPerson: v.gesamt_pro_person, est: !!v.geschaetzt, people, when: st0.from && st0.to ? `${st0.from}|${st0.to}` : '', checked: today() };
+      if (t) t.prices = { anreise: v.anreise, anreiseSum: v.anreise_summe || (v.anreise?.length === 1 ? v.anreise[0].preis : ''), stayNight: v.unterkunft_nacht, unterkunft: v.unterkunft_details, urlStay: v.url_unterkunft, total: v.gesamt_reise, est: !!v.geschaetzt || !web, people, nights, when: st0.from && st0.to ? `${st0.from}|${st0.to}` : '', checked: today() };
     }
   });
   return { rows, hinweis: r.hinweis || '' };

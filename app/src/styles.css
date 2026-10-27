@@ -446,3 +446,9 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .mini-seg { display: flex; gap: 4px; background: var(--fill); padding: 3px; border-radius: 10px; }
 .mini-seg button { flex: 1; border: 0; background: none; padding: 6px 4px; border-radius: 8px; font-size: 13px; color: var(--text); white-space: nowrap; }
 .mini-seg button.on { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.12); font-weight: 650; }
+.start-field { position: relative; }
+.start-field .input { width: 100%; padding-right: 40px; font-size: 16px; min-height: 44px; }
+.start-field .clear-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--fill); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
+.stepper { display: inline-flex; align-items: center; gap: 2px; background: var(--fill); border-radius: 10px; padding: 2px; }
+.stepper button { width: 34px; height: 32px; border: 0; background: var(--card); border-radius: 8px; font-size: 18px; color: var(--text); }
+.stepper b { min-width: 26px; text-align: center; }
