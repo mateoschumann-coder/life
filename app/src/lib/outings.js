@@ -298,15 +298,19 @@ const PARSE_TOOL = {
     adresse: { type: 'string', description: 'nur wenn im Text oder sicher bekannt (Viertel reicht)' },
     notiz: { type: 'string', description: 'Mateos eigene Worte/Bewertung zu diesem Ort, kurz' },
     war_da: { type: 'boolean', description: 'true, wenn er schon dort war' },
+    erkannt: { type: 'string', description: '1 kurzer Satz, was das für ein Ort ist und woran du ihn erkannt hast (z.B. „Bekannte Parrilla in Palermo, sehr beliebt“). Wenn du den Ort nicht sicher kennst: „Nicht sicher – bitte auf Google Maps prüfen“.' },
   }, required: ['name', 'kategorie'] } } }, required: ['orte'] },
 };
 export async function parsePlaces(text, city = HOME_CITY) {
   const r = await searchWithTool({
-    system: `Mateo gibt dir einen Text (Liste, Notizen, Empfehlungen, Diktat) mit Orten in ${city}. Zieh JEDEN genannten Ort heraus (Cafés, Bars, Restaurants, Kultur …), ordne Kategorie und Unterart zu und übernimm seine Notizen. Nichts erfinden, keine Orte hinzufügen, die nicht im Text stehen.`,
+    system: `Mateo gibt dir einen Text (Liste, Notizen, Empfehlungen, Diktat) mit Orten in ${city}. Zieh JEDEN genannten Ort heraus (Cafés, Bars, Restaurants, Kultur …), ordne Kategorie und Unterart zu und übernimm seine Notizen. Nichts erfinden, keine Orte hinzufügen, die nicht im Text stehen. Schreib bei "erkannt" ehrlich, ob du den Ort kennst.`,
     user: text, tool: PARSE_TOOL, maxUses: 0, label: 'Orte aus Text',
   });
-  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Sonstiges', subcat: o.unterart || '', address: o.adresse || '', note: o.notiz || '', status: o.war_da ? 'war' : 'will' }));
+  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Sonstiges', subcat: o.unterart || '', address: o.adresse || '', note: o.notiz || '', info: o.erkannt || '', status: o.war_da ? 'war' : 'will' }));
 }
+
+// Google-Maps-Suche zum Prüfen eines Ortes (kostenlos)
+export const mapsUrl = (name, address, city = HOME_CITY) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, address, city].filter(Boolean).join(', '))}`;
 
 // Adresse → Koordinaten (OpenStreetMap Nominatim, kostenlos; sparsam benutzen)
 export async function geocode(q, city = HOME_CITY) {
