@@ -500,7 +500,7 @@ function Route({ s, tr }) {
         <Timeline
           items={stops}
           name={(st) => st.name}
-          meta={(st) => { const n = tr.places.filter((p) => p.stopId === st.id).length; const stay = tr.places.find((p) => p.stopId === st.id && p.kind === 'unterkunft' && p.status === 'fest'); return [st.from && rangeText(st.from, st.to), stay ? `🏠 ${stay.name}` : null, n && `${n} gesammelt`, st.note].filter(Boolean).join(' · '); }}
+          meta={(st) => { const n = tr.places.filter((p) => p.stopId === st.id).length; const stay = tr.places.find((p) => p.stopId === st.id && p.kind === 'unterkunft' && p.status === 'fest'); return [st.from && rangeText(st.from, st.to), stay ? `🏠 ${stay.name}` : null, n && `${n} gespeichert`, st.note].filter(Boolean).join(' · ') || 'Antippen: Anreise, Unterkunft, Restaurants …'; }}
           leg={(i) => { const l = between(tr, stops[i].name, stops[i + 1].name); if (!l.length) return null; const b = l.find((x) => x.status === 'gebucht') || l[0]; return { icon: MODE_ICON[b.mode] || '➡️', text: [b.status === 'gebucht' ? '✓ gebucht' : `${l.length} Option${l.length > 1 ? 'en' : ''}`, b.note].filter(Boolean).join(' · ') }; }}
           onOpen={(i) => setOpenSt(stops[i].id)}
           renderLeg={(i) => <LegDetail tr={tr} a={stops[i].name} b={stops[i + 1].name} />}
@@ -798,27 +798,29 @@ function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, o
     if (drag && !slots.current) { const mids = items.map((_, k) => { const r = nodes.current[k]?.getBoundingClientRect(); return r ? r.top + r.height / 2 : 0; }); slots.current = { mids, off: drag.y0 - mids[drag.from] }; }
   });
   const slotAt = (y, cur) => { const sl = slots.current; if (!sl) return cur; const vy = y - sl.off; let k = 0, best = Infinity; sl.mids.forEach((m, j) => { const d = Math.abs(m - vy); if (d < best) { best = d; k = j; } }); return k; };
+  // v0.80: Griff oben in der Mitte – sofort ziehen, Seite scrollt dabei nicht (touch-action: none)
   const press = (e, i) => {
     if (!onReorder || n < 2) return;
     if (e.type === 'mousedown') { if (Date.now() - lastTouch.current < 800 || e.button !== 0) return; } else lastTouch.current = Date.now();
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
     const pt = e.touches ? e.touches[0] : e;
-    const p = { x: pt.clientX, y: pt.clientY, active: false };
     const set = (d) => { dragRef.current = d; setDrag(d); };
     const move = (ev) => {
-      const q = ev.touches ? ev.touches[0] : ev;
-      if (!p.active) { if (Math.hypot(q.clientX - p.x, q.clientY - p.y) > 10) end(); return; }
       if (ev.cancelable) ev.preventDefault();
-      const d = dragRef.current; if (d) set({ ...d, y: q.clientY, cur: slotAt(q.clientY, d.cur) });
+      const q = ev.touches ? ev.touches[0] : ev;
+      const d = dragRef.current; if (d) { if (Math.abs(q.clientY - d.y0) > 6) d.moved = true; set({ ...d, y: q.clientY, cur: slotAt(q.clientY, d.cur) }); }
     };
     const end = () => {
-      clearTimeout(p.timer);
       window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end); window.removeEventListener('touchcancel', end);
       window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', end);
       const d = dragRef.current;
-      if (p.active) { blockClick.current = true; setTimeout(() => { blockClick.current = false; }, 350); }
+      if (d?.moved) { blockClick.current = true; setTimeout(() => { blockClick.current = false; }, 300); }
       if (d) { set(null); slots.current = null; if (d.cur !== d.from) onReorder(d.from, d.cur); }
     };
-    p.timer = setTimeout(() => { p.active = true; slots.current = null; setOpenStop(null); setOpenLeg(null); setInsertAt(null); try { navigator.vibrate?.(15); } catch {} set({ from: i, cur: i, y: p.y, y0: p.y }); }, 380);
+    slots.current = null; setOpenStop(null); setOpenLeg(null); setInsertAt(null);
+    try { navigator.vibrate?.(10); } catch {}
+    set({ from: i, cur: i, y: pt.clientY, y0: pt.clientY });
     window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end); window.addEventListener('touchcancel', end);
     window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
   };
@@ -836,15 +838,15 @@ function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, o
     const lifted = drag && drag.from === i;
     const st = lifted && slots.current ? { transform: `translateY(${drag.y - slots.current.off - slots.current.mids[k]}px) scale(1.02)`, background: 'var(--card)', boxShadow: '0 8px 24px rgba(0,0,0,.2)', borderRadius: 12, position: 'relative', zIndex: 5 } : undefined;
     return (
-      <div className={drag ? 'tl-node dragging' : 'tl-node'} ref={(el) => { nodes.current[k] = el; }} style={st}
-        onTouchStart={(e) => press(e, i)} onMouseDown={(e) => press(e, i)} onContextMenu={(e) => onReorder && e.preventDefault()}>
+      <div className={['tl-node', drag && 'dragging', onReorder && n > 1 && 'has-grab'].filter(Boolean).join(' ')} ref={(el) => { nodes.current[k] = el; }} style={st}>
+        {onReorder && n > 1 && <span className="tl-grab" role="button" aria-label={`${name(x)} verschieben`} onTouchStart={(e) => press(e, i)} onMouseDown={(e) => press(e, i)} onContextMenu={(e) => e.preventDefault()}><i /></span>}
         <button type="button" className="tl-dot" onClick={() => tap(i)} aria-label={`${name(x)} öffnen`}>{drag ? k + 1 : i + 1}</button>
         <button type="button" className="tl-main" onClick={() => tap(i)}>
           <span style={{ fontWeight: 650, fontSize: 15.5 }}>{name(x)}</span>
           {meta(x, i) && <span className="tiny">{meta(x, i)}</span>}
         </button>
-        {onRemove && !drag && <button type="button" className="tl-x" onClick={() => { onRemove(i); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} entfernen`}>✕</button>}
-        {!onRemove && (onOpen ? <Chevron /> : <span className="tiny">{openStop === i ? '▴' : '▾'}</span>)}
+        {onRemove && <button type="button" className="tl-x" style={drag ? { visibility: 'hidden' } : undefined} onClick={() => { onRemove(i); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} entfernen`}>✕</button>}
+        {onOpen ? <button type="button" className="x-btn" onClick={() => tap(i)} aria-label={`${name(x)} Details`}><Chevron /></button> : <span className="tiny">{openStop === i ? '▴' : '▾'}</span>}
       </div>
     );
   };
@@ -853,13 +855,14 @@ function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, o
       {n === 0 && <span className="tiny" style={{ padding: '4px 0' }}>Noch keine Orte – unten den ersten hinzufügen.</span>}
       {(order || items.map((_, j) => j)).map((i, k) => {
         const x = items[i];
-        const l = !drag && i < n - 1 ? leg(i) : null;
+        const l = i < n - 1 ? leg(i) : null;
+        const hide = drag ? { visibility: 'hidden' } : undefined;
         return (
           <Fragment key={i + name(x)}>
             {node(x, i, k)}
             {!drag && !onOpen && openStop === i && <div className={i < n - 1 ? 'tl-detail line' : 'tl-detail'}>{renderDetail(x, i)}</div>}
-            {!drag && i < n - 1 && (
-              <div className="tl-link">
+            {i < n - 1 && (
+              <div className="tl-link" style={hide}>
                 <button type="button" className="tl-leg" onClick={() => setOpenLeg(openLeg === i ? null : i)}>{l ? `${l.icon} ${l.text}` : '＋ Transport'}</button>
                 <button type="button" className="tl-plus" onClick={() => { setInsertAt(insertAt === i + 1 ? null : i + 1); setText(''); }} aria-label="Ort dazwischen einfügen">＋</button>
               </div>
@@ -869,12 +872,12 @@ function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, o
           </Fragment>
         );
       })}
-      {!drag && <form className="tl-node" onSubmit={(e) => { e.preventDefault(); if (insertAt === null || insertAt >= n) add(n); }}>
+      {<form className="tl-node" style={drag ? { visibility: 'hidden' } : undefined} onSubmit={(e) => { e.preventDefault(); if (insertAt === null || insertAt >= n) add(n); }}>
         <span className="tl-dot add">＋</span>
         <input className="input" value={insertAt === null || insertAt >= n ? text : ''} onFocus={() => setInsertAt(null)} onChange={(e) => setText(e.target.value)} placeholder={addPlaceholder} aria-label="Ort am Ende hinzufügen" />
         <button type="submit" className="btn small" disabled={!text.trim() || (insertAt !== null && insertAt < n)}>+</button>
       </form>}
-      {!drag && onReorder && n > 1 && <span className="tiny" style={{ paddingLeft: 4 }}>Reihenfolge ändern: Ort kurz gedrückt halten und ziehen.</span>}
+      {onReorder && n > 1 && <span className="tiny" style={{ paddingLeft: 4 }}>Ort antippen = Anreise, Unterkünfte, Restaurants … planen. Reihenfolge: am Griff ━ oben ziehen.</span>}
     </div>
   );
 }
@@ -1073,7 +1076,7 @@ function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
       <Timeline
         items={v.stops}
         name={(x) => x.name}
-        meta={(x) => [x.nights && `${x.nights} N.`, (x.items || []).length && `${x.items.length} gesammelt`, tr.stops.some((y) => y.name.toLowerCase() === x.name.toLowerCase()) && '✓ in finaler Route', x.note].filter(Boolean).join(' · ')}
+        meta={(x) => [x.nights && `${x.nights} N.`, (x.items || []).length && `${x.items.length} gesammelt`, tr.stops.some((y) => y.name.toLowerCase() === x.name.toLowerCase()) && '✓ in finaler Route', x.note].filter(Boolean).join(' · ') || 'Antippen: Anreise, Unterkunft, Restaurants …'}
         leg={(i) => legChip(legOf(v.legs, v.stops[i].name, v.stops[i + 1].name))}
         onOpen={(i) => setOpenI(i)}
         onReorder={(a, b) => reorderVariantStop(tr.id, v.id, a, b)}

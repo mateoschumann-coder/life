@@ -514,3 +514,8 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .stop-item { display: flex; flex-direction: column; gap: 6px; padding: 6px 0; border-top: 0.5px solid var(--sep, rgba(60,60,67,.18)); }
 .stop-item .tl-main { padding: 2px 0; }
 .stop-item-edit { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 4px; }
+
+.tl-node.has-grab { position: relative; padding-top: 12px; }
+.tl-grab { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 72px; height: 22px; display: flex; align-items: center; justify-content: center; touch-action: none; cursor: grab; z-index: 2; }
+.tl-grab i { display: block; width: 34px; height: 5px; border-radius: 3px; background: var(--chev, #c7c7cc); }
+.tl-node.dragging .tl-grab { cursor: grabbing; }
