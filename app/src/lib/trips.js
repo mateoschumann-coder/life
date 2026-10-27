@@ -369,22 +369,25 @@ export function directLinks(s, tr, setup) {
       if (a && b) {
         const ymd = (d) => d.slice(2).replace(/-/g, '');
         const path = from && to ? `${ymd(from)}/${ymd(to)}/` : '';
-        return { kind: 'sky', label: `✈️ Skyscanner ab ${start}${who}`, url: `https://www.skyscanner.net/transport/flights/${a}/${b}/${path}?adultsv2=${x.count}&cabinclass=${cabin}&rtn=${from && to ? 1 : 0}` };
+        return { kind: 'sky', label: `✈️ Skyscanner ab ${start}${who}`, url: `https://${skyOf(s).host}/transport/flights/${a}/${b}/${path}?adultsv2=${x.count}&cabinclass=${cabin}&rtn=${from && to ? 1 : 0}${skyOf(s).q}` };
       }
-      return { kind: 'sky', label: `✈️ Skyscanner ab ${start}${who}`, url: `https://www.skyscanner.net/?adultsv2=${x.count}&cabinclass=${cabin}` };
+      return { kind: 'sky', label: `✈️ Skyscanner ab ${start}${who}`, url: `https://${skyOf(s).host}/?adultsv2=${x.count}&cabinclass=${cabin}${skyOf(s).q}` };
     }
     if (x.mode === 'auto') return { kind: 'auto', label: `🚗 ab ${start}`, url: `https://www.google.com/maps/dir/${encodeURIComponent(start)}/${encodeURIComponent(dest)}` };
     return { kind: x.mode, label: `${x.mode === 'zug' ? '🚆' : '🚌'} ab ${start}${who}`, url: `https://www.rome2rio.com/map/${encodeURIComponent(start)}/${encodeURIComponent(dest)}` };
   });
   const dates = from && to;
   const stay = [
-    { kind: 'airbnb', label: '🏠 Airbnb', url: `https://www.airbnb.com/s/${encodeURIComponent(dest)}/homes?adults=${people}${dates ? `&checkin=${from}&checkout=${to}` : ''}` },
-    { kind: 'booking', label: '🏨 Booking', url: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}&group_adults=${people}&no_rooms=1${dates ? `&checkin=${from}&checkout=${to}` : ''}` },
+    { kind: 'airbnb', label: '🏠 Airbnb', url: `https://www.airbnb.com/s/${encodeURIComponent(dest)}/homes?adults=${people}&currency=${tripCur(s)}${dates ? `&checkin=${from}&checkout=${to}` : ''}` },
+    { kind: 'booking', label: '🏨 Booking', url: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}&group_adults=${people}&no_rooms=1&selected_currency=${tripCur(s)}${dates ? `&checkin=${from}&checkout=${to}` : ''}` },
   ];
   return { travel: travel.flat(), stay };
 }
 // Flughafen-Codes (z.B. Frankfurt → FRA, Florianópolis → FLN): Merkliste im Profil, fehlende einmal per KI ohne Internet
 const iataKey = (x) => norm(String(x || '').replace(/\s*\(.*?\)/g, '').split(',')[0]);
+// Skyscanner-Seite passend zur gewählten Währung (das Land der Seite bestimmt die Währung; .net = britische Pfund)
+const SKY = { EUR: { host: 'www.skyscanner.de', q: '&currency=EUR&locale=de-DE&market=DE' }, USD: { host: 'www.skyscanner.com', q: '&currency=USD&locale=en-US&market=US' }, ARS: { host: 'www.skyscanner.com.ar', q: '&currency=ARS&locale=es-AR&market=AR' } };
+export const skyOf = (s) => SKY[tripCur(s)] || SKY.EUR;
 const IATA = { 'buenos aires': 'bue', frankfurt: 'fra', 'frankfurt am main': 'fra', mailand: 'mil', milano: 'mil', milan: 'mil', berlin: 'ber', munchen: 'muc', muenchen: 'muc', hamburg: 'ham', koln: 'cgn', dusseldorf: 'dus', stuttgart: 'str', wien: 'vie', zurich: 'zrh', rom: 'rom', roma: 'rom', paris: 'par', london: 'lon', madrid: 'mad', barcelona: 'bcn', lissabon: 'lis', lisboa: 'lis', porto: 'opo', amsterdam: 'ams', 'new york': 'nyc', miami: 'mia', montevideo: 'mvd', santiago: 'scl', 'santiago de chile': 'scl', lima: 'lim', bogota: 'bog', 'sao paulo': 'sao', 'rio de janeiro': 'rio', florianopolis: 'fln', salvador: 'ssa', mendoza: 'mdz', bariloche: 'brc', 'san carlos de bariloche': 'brc', cordoba: 'cor', salta: 'sla', ushuaia: 'ush', 'el calafate': 'fte', iguazu: 'igr', 'puerto iguazu': 'igr', cusco: 'cuz', 'mexico city': 'mex', 'ciudad de mexico': 'mex', cancun: 'cun', tokio: 'tyo', tokyo: 'tyo', peking: 'bjs', beijing: 'bjs', shanghai: 'sha', bangkok: 'bkk' };
 export function iataOf(s, name) {
   const raw = String(name || '');
@@ -456,10 +459,11 @@ Reisegruppe (${people} Personen):
 ${who}
 Unterkunft gemeinsam für alle: ${STAY_TYPES[st0.stayType] || 'Airbnb'}, ${LEVELS[st0.stayLevel] || 'Normal'}. Zeitraum: ${st0.from && st0.to ? `${st0.from} bis ${st0.to}` : `Datum flexibel (typisch in den nächsten 2–3 Monaten), Dauer ${nights} Nächte`} (${nights} Nächte).
 Preisklassen: Günstig = Billigflug mit Umstieg/einfacher Bus; Normal = übliche Economy; Premium = Premium Economy/Business, Bus-Cama/1. Klasse.
-Richtwerte (Economy hin & zurück pro Person, normale Saison, ca. 2026, in € – in die Zielwährung umrechnen): Europa ↔ Südamerika 750–1.300 €, Europa ↔ Nordamerika 450–800 €, Europa ↔ Ostasien 650–1.100 €, Südamerika ↔ Ostasien 1.300–2.200 €, innerhalb Europas 80–250 €, innerhalb Südamerikas 180–450 €, Inlandsflug Argentinien/Brasilien 90–220 €; Günstig ≈ −20 %, Premium Economy ≈ ×1,8. Hochsaison (Dez–Feb und Ostern in Südamerika, Juli/Aug und Weihnachten in Europa) +20–40 %, Buchung unter 3 Wochen vorher +20–50 %. Unterkunft pro Nacht (ganze Unterkunft für 2, normal): Westeuropa 90–160 €, Südeuropa 70–120 €, Argentinien/Brasilien 40–80 €, Südostasien 30–60 €, China 40–80 €, USA 120–200 €; pro weitere 2 Personen ca. +50 %; Hostel ca. 20–35 € pro Bett. Prüfe am Ende jede Zahl gegen diese Werte, bevor du antwortest.
+Richtwerte (Economy hin & zurück pro Person, normale Saison, ca. 2026, in € – in die Zielwährung umrechnen): Europa ↔ Südamerika 750–1.300 €, Europa ↔ Nordamerika 450–800 €, Europa ↔ Ostasien 650–1.100 €, Südamerika ↔ Ostasien 1.300–2.200 €, innerhalb Europas 130–350 € (Billigflieger mit Handgepäck ab ca. 70 €), innerhalb Südamerikas 200–500 €, Inlandsflug Argentinien/Brasilien 90–220 €; Günstig ≈ −20 %, Premium Economy ≈ ×1,8. Hochsaison (Dez–Feb und Ostern in Südamerika, Juli/Aug und Weihnachten in Europa) +20–40 %, Buchung unter 3 Wochen vorher +20–50 %. Unterkunft pro Nacht (ganze Unterkunft für 2, normal): Westeuropa 90–160 €, Südeuropa 70–120 €, Argentinien/Brasilien 40–80 €, Südostasien 30–60 €, China 40–80 €, USA 120–200 €; pro weitere 2 Personen ca. +50 %; Hostel ca. 20–35 € pro Bett. WICHTIG: Gib den Preis an, den man für genau diesen Zeitraum bei normaler Buchung tatsächlich zahlt – NICHT den billigsten Lockpreis. Im Zweifel eher etwas höher schätzen als zu niedrig. Prüfe am Ende jede Zahl gegen diese Werte, bevor du antwortest.
 Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: realistische Schätzung mit geschaetzt=true. gesamt_reise = Anreise aller ${people} Personen + ${nights} Nächte Unterkunft. Schätze die Anreise für JEDEN Startort einzeln und realistisch (Preise ab verschiedenen Städten unterscheiden sich stark) – nie denselben Preis für alle übernehmen. Alle Preise in ${tripCur(s)}, kurz als „~… ${C}“. "ziel" in der Antwort genau wie in der Liste ohne die Rundreise-Klammer. Texte sehr kurz.`;
   const sys = web
-    ? `Du recherchierst aktuelle Reisepreise. ${base}\nSuche höchstens 3-mal im Internet und bündle alles in wenige Suchen (z.B. eine Suche für alle Flüge eines Startorts, eine für Unterkünfte aller Ziele). Links nur aus Suchergebnissen. Dann "preise_zeigen".`
+    ? `Du recherchierst aktuelle Reisepreise. ${base}
+So suchst du (höchstens 3 Suchen, gebündelt): nenne in jeder Suche Strecke UND Monat/Jahr der Reise, z.B. „Flug Frankfurt Thessaloniki Januar 2027 Preis“ bzw. „Airbnb Thessaloniki Januar Preis pro Nacht“. Du kannst keine Flugsuchmaschine bedienen – Vergleichsseiten (Skyscanner, Kayak, Google Flights, momondo) zeigen in Suchergebnissen meist nur „ab“-Tiefstpreise oder Durchschnittswerte. Rechne so um: gefundener „ab“-/Tiefstpreis × 1,4 ≈ realistischer Preis für ein festes Datum; ein angegebener Durchschnitts-/typischer Preis gilt direkt. Preise für einen anderen Monat an die Saison anpassen. Gleiche das Ergebnis mit den Richtwerten ab. In "details" kurz die Quelle nennen (z.B. „Kayak: ab 180 € → ~250 €“). Links nur aus Suchergebnissen. Dann "preise_zeigen".`
     : `Du schätzt Reisepreise aus deinem Wissen (ohne Internet, keine Links). ${base}\nSetze geschaetzt=true. Dann "preise_zeigen".`;
   const r = await searchWithTool({ system: sys, user: 'Bitte Preise vergleichen.', tool: PRICE2, maxUses: web ? 3 : 0, maxTokens: st0.smart ? 6000 : 3000, smart: !!st0.smart, label: 'Reisepreise vergleichen' });
   let rows = (r.vergleich || []).filter((v) => v && v.ziel);
@@ -554,7 +558,7 @@ export const tripSnapshot = (tr) => ({
 export const flightUrl = (from, to, date) => {
   const s = store.get();
   const a = iataOf(s, from), b = iataOf(s, to);
-  return a && b ? `https://www.skyscanner.net/transport/flights/${a}/${b}/${date ? `${date.slice(2).replace(/-/g, '')}/` : ''}` : 'https://www.skyscanner.net/';
+  return a && b ? `https://${skyOf(s).host}/transport/flights/${a}/${b}/${date ? `${date.slice(2).replace(/-/g, '')}/` : ''}?adultsv2=1${skyOf(s).q}` : `https://${skyOf(s).host}/`;
 };
 const stayUrl = (name, where, tr) => {
   const st = tr.stops.find((y) => norm(y.name) === norm(where));

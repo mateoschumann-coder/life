@@ -330,7 +330,7 @@ export async function askClaude(s, items, mode = 'assistent') {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       // Der lange System-Text (deine Daten) wird zwischengespeichert: Folgenachrichten innerhalb von 5 Min. zahlen nur 10 % dafür
-      body: JSON.stringify({ model: ai.model, max_tokens: 4096, system: [{ type: 'text', text: buildSystem(s) + (coach ? COACH_ROLE : ASSISTANT_ROLE), cache_control: { type: 'ephemeral' } }], ...body }),
+      body: JSON.stringify(fitModel({ model: ai.model, max_tokens: 4096, system: [{ type: 'text', text: buildSystem(s) + (coach ? COACH_ROLE : ASSISTANT_ROLE), cache_control: { type: 'ephemeral' } }], ...body })),
     });
     if (!res.ok) {
       let msg = '';
@@ -372,6 +372,19 @@ export function explainError(status, msg) {
 export const areaName = (s, id) => areaOf(s, id)?.name;
 
 // Gemeinsamer Aufruf der Claude-API (für Check-in und Projekt-Gestalter)
+// Sonnet 5.5 (v0.60): erzwungene Werkzeuge (tool_choice tool/any) → Fehler 400, Denken zählt zu max_tokens.
+// Wird zentral angepasst, damit jede Funktion auch mit „Gründlich“ als Standard-Modell läuft.
+export function fitModel(body) {
+  if (!/^claude-sonnet-5/.test(body.model || '')) return body;
+  const b = { ...body, max_tokens: Math.max(body.max_tokens || 0, 8000) };
+  const tc = body.tool_choice;
+  if (tc && (tc.type === 'tool' || tc.type === 'any')) {
+    const hint = `\n\nAntworte AUSSCHLIESSLICH, indem du ${tc.name ? `das Werkzeug "${tc.name}"` : 'ein Werkzeug'} aufrufst.`;
+    b.tool_choice = { type: 'auto' };
+    b.system = Array.isArray(body.system) ? [...body.system, { type: 'text', text: hint }] : `${body.system || ''}${hint}`;
+  }
+  return b;
+}
 export async function callApi(body, label) {
   const ai = getAi();
   if (label) setCostLabel(label);
@@ -384,7 +397,7 @@ export async function callApi(body, label) {
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({ model: ai.model, ...body }),
+    body: JSON.stringify(fitModel({ model: ai.model, ...body })),
   });
   if (!res.ok) {
     let msg = '';
@@ -409,7 +422,7 @@ export async function testKey(apiKey, model) {
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({ model, max_tokens: 5, messages: [{ role: 'user', content: 'Hallo' }] }),
+    body: JSON.stringify({ model, max_tokens: /^claude-sonnet-5/.test(model) ? 200 : 5, messages: [{ role: 'user', content: 'Hallo' }] }),
   });
   if (!res.ok) {
     let msg = '';

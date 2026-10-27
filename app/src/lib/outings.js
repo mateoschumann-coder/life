@@ -1,6 +1,6 @@
 // Ausgehen: Events und Orte mit KI-Websuche finden, Orte auf der Karte (OpenStreetMap)
 import { addDays, fmtLong, today } from './dates';
-import { explainError, getAi, MODELS, setCostLabel, trackUsage } from './ai';
+import { explainError, fitModel, getAi, MODELS, setCostLabel, trackUsage } from './ai';
 const SMART_MODEL = 'claude-sonnet-5-5';
 import { aiLinks } from './links';
 
@@ -61,7 +61,7 @@ async function post(body) {
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({ ...body, model: body.model || ai.model }),
+    body: JSON.stringify(fitModel({ ...body, model: body.model || ai.model })),
   });
   if (!res.ok) {
     let msg = '';
@@ -88,12 +88,23 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     system = `${system}\n\nWICHTIG: Antworte immer kurz (1–2 Sätze, keine Aufzählungen, kein langer Text). Konkrete Vorschläge gehören in die Listen-Felder des Werkzeugs – kurz formuliert (wenige Wörter pro Punkt), damit Mateo sie einfach antippen kann.`;
   }
   const model = smart ? SMART_MODEL : undefined;
+  // Sonnet 5.5 lehnt erzwungene Werkzeuge (tool_choice "tool") mit Fehler 400 ab und denkt immer mit (zählt zu max_tokens):
+  // dort tool_choice "auto" + klare Anweisung + mehr Platz; fehlt das Werkzeug trotzdem, einmal nachfragen (v0.60)
+  const force = smart ? { type: 'auto' } : { type: 'tool', name: tool.name };
+  if (smart) {
+    system = `${system}\n\nAntworte AUSSCHLIESSLICH, indem du das Werkzeug "${tool.name}" aufrufst – kein Text davor oder danach.`;
+    maxTokens = Math.max(maxTokens * 2, 8000);
+  }
   const messages = history ? [...history] : [{ role: 'user', content: user }];
   if (!maxUses) {
-    let d = await post({ model, max_tokens: maxTokens, system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages });
-    // Antwort abgeschnitten (v0.59: v.a. beim gründlicheren Modell) → einmal mit mehr Platz wiederholen statt halbe Daten zu nehmen
-    if (d.stop_reason === 'max_tokens') d = await post({ model, max_tokens: Math.min(16000, maxTokens * 3), system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages });
-    const f = d.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
+    let d = await post({ model, max_tokens: maxTokens, system, tools: [tool], tool_choice: force, messages });
+    // Antwort abgeschnitten → einmal mit mehr Platz wiederholen statt halbe Daten zu nehmen
+    if (d.stop_reason === 'max_tokens') d = await post({ model, max_tokens: Math.min(32000, maxTokens * 2), system, tools: [tool], tool_choice: force, messages });
+    let f = d.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
+    if (!f && smart) {
+      d = await post({ model, max_tokens: maxTokens, system, tools: [tool], tool_choice: force, messages: [...messages, { role: 'assistant', content: d.content }, { role: 'user', content: `Bitte gib das Ergebnis jetzt mit dem Werkzeug "${tool.name}" zurück.` }] });
+      f = d.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
+    }
     if (!f) throw new Error('Keine Antwort erhalten. Bitte noch einmal versuchen.');
     return f.input || {};
   }
@@ -114,7 +125,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     // Die Suchergebnisse stecken in der bisherigen Antwort: Gespräch fortsetzen und das Werkzeug verlangen
     const prev = data.stop_reason === 'max_tokens' ? data.content.filter((c) => c.type !== 'tool_use') : data.content;
     const cont = prev.length ? [...messages, { role: 'assistant', content: prev }, { role: 'user', content: `Gib jetzt deine Ergebnisse mit "${tool.name}" zurück – kompakt, ohne weitere Suche.` }] : messages;
-    data = await post({ model, max_tokens: 8000, system, tools, tool_choice: { type: 'tool', name: tool.name }, messages: cont });
+    data = await post({ model, max_tokens: smart ? 16000 : 8000, system, tools, tool_choice: force, messages: cont });
     found = data.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
   }
   if (!found) throw new Error('Die Suche hat keine Ergebnisse geliefert. Bitte noch einmal versuchen.');

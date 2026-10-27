@@ -3,7 +3,7 @@
 // im Internet nach Material und gibt pro Box 1–3 kleine Anstöße und eine kurze Frage.
 import { addDays, fmtLong, today } from './dates';
 import { allAreaStatuses, peopleOverdue, upcomingBirthdays } from './logic';
-import { explainError, getAi, setCostLabel, trackUsage } from './ai';
+import { explainError, fitModel, getAi, setCostLabel, trackUsage } from './ai';
 
 const KEY = 'life-app-coach';
 const LOG_KEY = 'life-app-coach-log';
@@ -171,7 +171,7 @@ async function post(body) {
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({ model: ai.model, ...body }),
+    body: JSON.stringify(fitModel({ model: ai.model, ...body })),
   });
   if (!res.ok) {
     let msg = '';
