@@ -28,7 +28,7 @@ function SkillList({ s }) {
           <Back href="#/saeule/professionell" label="Professionell" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Weiterentwicklung</h1>
-            {skills.length > 0 && <button type="button" className="link-btn" onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
+            {skills.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
           </div>
         </div>
         <div className="list">

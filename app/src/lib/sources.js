@@ -74,14 +74,26 @@ export function sourcesOf(s, key, city) {
   return [...area.defaults.filter((x) => !(p.hidden || []).includes(x.id)), ...(p.added || [])].filter(okCity);
 }
 export const isNative = (src) => !!src.build;
+// Was tatsächlich gesucht wird (zum Prüfen in der Liste)
+export function sourceTerm(src, q, city, t) {
+  const u = decodeURIComponent(sourceUrl(src, q, city, t));
+  if (src.id === 'instagram') return '#' + (u.match(/tags\/([^/]+)/) || [])[1];
+  if (src.id === 'eventbrite') return u.replace(/^.*\/d\//, '').replace(/\?/, ' · ').replace(/[/]/g, ' ').replace(/start_date=|end_date=/g, '').trim();
+  const m = u.match(/[?&](?:q|search_query|keywords|s)=([^&]+)/) || u.match(/maps\/search\/([^?]+)/) || u.match(/rs\/s0\/([^/]+)/);
+  return m ? m[1].replace(/\+/g, ' ') : '';
+}
 // Link für eine Seite: zugeschnittener Begriff (t.terms[id]) oder Mateos Text + Stadt
 export function sourceUrl(src, q, city = '', t = null) {
   const raw = String(q || '').trim();
   const anyTerm = t ? Object.values(t.terms || {})[0] : '';
   const term = (t?.terms?.[src.id] || '').trim() || (anyTerm ? (anyTerm.toLowerCase().includes(String(city).toLowerCase()) ? anyTerm : `${anyTerm} ${city}`.trim()) : [raw, city].filter(Boolean).join(' '));
   if (!raw && !t) return src.home || (src.domain ? `https://${src.domain}` : src.build({ q: city, city }));
-  if (src.build) return src.build({ q: term, city, from: t?.from, to: t?.to, eb: t?.eb, cc: t?.cc, hashtag: t?.hashtag });
-  return siteSearch(src.domain, term);
+  // Ort immer sicherstellen (v0.67): fehlt die Stadt im Begriff, hängt die App sie an – außer bei Seiten, die den Ort über die Adresse bekommen
+  const cityKey = String(city || '').toLowerCase().split(/[ ,]/)[0];
+  const withCity = cityKey && !['eventbrite', 'meetup'].includes(src.id) && !term.toLowerCase().includes(cityKey) ? `${term} ${city}` : term;
+  const hashtag = t?.hashtag && cityKey && !t.hashtag.includes(tag(cityKey)) ? t.hashtag + tag(city) : t?.hashtag;
+  if (src.build) return src.build({ q: withCity, city, from: t?.from, to: t?.to, eb: t?.eb, cc: t?.cc, hashtag });
+  return siteSearch(src.domain, withCity);
 }
 
 // KI schneidet die Suche zu (Haiku, ohne Internet): Begriff pro Seite, Datum, Eventbrite-Ort, Hashtag
@@ -96,7 +108,7 @@ const TAILOR_TOOL = {
       bis: { type: 'string', description: 'YYYY-MM-DD' },
       eventbrite_ort: { type: 'string', description: 'Eventbrite-Ort im Format „land--stadt“ auf Englisch, klein, z.B. „argentina--buenos-aires“, „germany--frankfurt“' },
       land_code: { type: 'string', description: '2-Buchstaben-Ländercode, klein, z.B. „ar“, „de“' },
-      hashtag: { type: 'string', description: 'ein passender, real genutzter Instagram-Hashtag ohne #, z.B. „jazzbuenosaires“' },
+      hashtag: { type: 'string', description: 'ein real genutzter Instagram-Hashtag ohne #, der IMMER den Ort enthält (Instagram kennt keinen Standort-Filter), z.B. „cafesbuenosaires“, „jazzbuenosaires“, „frankfurtcafe“' },
       seiten: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, begriff: { type: 'string' } }, required: ['id', 'begriff'] } },
     },
     required: ['gedanke', 'seiten'],
@@ -108,7 +120,7 @@ export async function tailorQueries(s, area, q, city, list) {
   if (cache.has(key)) return cache.get(key);
   const prefs = area === 'events' ? (s.profile?.eventPrefs || []).join(', ') : '';
   const sys = `Du baust Suchbegriffe für Webseiten. Heute ist ${fmtLong(today())} (${today()}). Ort: ${city || 'nicht wichtig'}.${prefs ? ` Mateos Vorlieben: ${prefs}.` : ''}
-Mateo schreibt frei, z.B. „Was kann ich dieses Wochenende machen?“. Mach daraus für JEDE Seite einen kurzen, wirksamen Suchbegriff (2–6 Wörter) in der Sprache der Seite – so, wie man ihn dort ins Suchfeld tippen würde. Füllwörter weglassen, Absicht erkennen (z.B. „Wochenende“ → passende Event-Arten + Datum), Stadt einbauen, wo die Seite keinen Ort kennt (Google, Google Maps, Tripadvisor, Reddit, Time Out, YouTube). Zeitangaben in von/bis als Datum umrechnen. Antworte mit "suchen_zuschneiden".`;
+Mateo schreibt frei, z.B. „Was kann ich dieses Wochenende machen?“. Mach daraus für JEDE Seite einen kurzen, wirksamen Suchbegriff (2–6 Wörter) in der Sprache der Seite – so, wie man ihn dort ins Suchfeld tippen würde. Füllwörter weglassen, Absicht erkennen (z.B. „Wochenende“ → passende Event-Arten + Datum), Den Ort (Stadt, ggf. Viertel) in JEDEN Begriff einbauen – außer bei Eventbrite und Meetup, die den Ort schon über die Adresse bekommen. Der Instagram-Hashtag muss den Ort enthalten. Zeitangaben in von/bis als Datum umrechnen. Antworte mit "suchen_zuschneiden".`;
   const user = JSON.stringify({ text: q, bereich: area, seiten: list.map((x) => ({ id: x.id, name: x.name, sprache: x.lang || 'passend', eigene_suche: !!x.build })) });
   const r = await searchWithTool({ system: sys, user, tool: TAILOR_TOOL, maxUses: 0, maxTokens: 800, label: 'Links zuschneiden' });
   const ok = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '');

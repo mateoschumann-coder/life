@@ -21,7 +21,7 @@ function HobbyList({ s }) {
           <Back href="#/bereich/freizeit" label="Freizeit und Erlebnisse" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Hobbys</h1>
-            {s.hobbies.length > 0 && <button type="button" className="link-btn" onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
+            {s.hobbies.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
           </div>
         </div>
         {s.hobbies.length === 0 && <div className="notice">Füg deine Hobbys hinzu. Zu jedem führst du eine Liste (z.B. Songs: offen / geschafft) und kannst im Chat nach Neuem fragen.</div>}

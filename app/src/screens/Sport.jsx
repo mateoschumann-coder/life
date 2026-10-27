@@ -11,6 +11,7 @@ import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
 import { DateRangeField } from '../components/DateRange';
 import { getAi } from '../lib/ai';
+import { cityHere, searchWithTool } from '../lib/outings';
 import MiniChart from '../components/MiniChart';
 import PaceCalc from '../components/PaceCalc';
 import { Back, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
@@ -123,7 +124,9 @@ function SportsPage({ s }) {
   const [pick, setPick] = useState([]); // leer = alle
   const regions = sportRegions(s);
   const [regPick, setRegPick] = useState(() => [sportRegions(s)[0]].filter(Boolean));
-  const [editReg, setEditReg] = useState(false);
+  const [regOpen, setRegOpen] = useState(false);
+  const [paste, setPaste] = useState('');
+  const [pBusy, setPBusy] = useState(false);
   const periods = sportPeriods(s);
   const [period, setPeriod] = useState(() => sportPeriods(s)[1] || sportPeriods(s)[0] || '');
   const [editPer, setEditPer] = useState(false);
@@ -147,6 +150,22 @@ function SportsPage({ s }) {
   const missing = SPORT_PRESETS.filter((p) => !s.sports.some((x) => x.name === p.name));
   const toggle = (id) => setPick(pick.includes(id) ? pick.filter((x) => x !== id) : [...pick, id]);
 
+  // Gefundenes Rennen aus Link/Text übernehmen (v0.67): KI ohne Internet füllt das Formular vor, Mateo prüft
+  const takeOver = async () => {
+    const text = paste.trim();
+    const url = (text.match(/https?:\/\/\S+/) || [''])[0];
+    const sportId = pick[0] || s.sports[0]?.id || '';
+    if (!getAi().apiKey) { setF({ name: '', date: '', place: '', url, sportId }); setAdding(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    setPBusy(true);
+    try {
+      const r = await parseSportText(s, text);
+      const sp = s.sports.find((x) => x.name.toLowerCase() === String(r.sportart || '').toLowerCase());
+      setF({ name: r.name || '', date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : '', place: r.ort || '', dist: r.distanz || '', url: url || '', sportId: sp?.id || sportId });
+      setAdding(true); setPaste('');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toast('Bitte kurz prüfen und „Notieren“ tippen');
+    } catch (e) { toast(e.message); } finally { setPBusy(false); }
+  };
   const search = async (web) => {
     setBusy(web ? 'web' : 'ki');
     setErr(null);
@@ -210,7 +229,7 @@ function SportsPage({ s }) {
                 {sp.name}{editSports && <Icon name="x" size={11} />}
               </button>
             ))}
-            <button type="button" className="chip" onClick={() => setEditSports(!editSports)} aria-label="Sportarten bearbeiten">{editSports ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+            <button type="button" className={editSports ? 'chip on' : 'chip'} onClick={() => setEditSports(!editSports)} aria-label="Sportarten bearbeiten">{editSports ? 'Fertig' : <Icon name="edit" size={14} />}</button>
           </div>
           {editSports && (
             <>
@@ -222,21 +241,12 @@ function SportsPage({ s }) {
             </>
           )}
           {s.sports.length === 0 && !editSports && <span className="sub">Tippe auf den Stift und füg deine Sportarten hinzu.</span>}
-          <span className="tiny" style={{ marginBottom: -4 }}>Wo?</span>
-          <div className="chips">
-            {regions.map((r) => (
-              <button key={r} type="button" className={editReg ? 'chip editing' : regPick.includes(r) ? 'chip on' : 'chip'} onClick={() => (editReg ? (setSportRegions(regions.filter((x) => x !== r)), setRegPick(regPick.filter((x) => x !== r))) : setRegPick(regPick.includes(r) ? regPick.filter((x) => x !== r) : [...regPick, r]))}>
-                📍 {r}{editReg && <Icon name="x" size={11} />}
-              </button>
-            ))}
-            <button type="button" className="chip" onClick={() => setEditReg(!editReg)} aria-label="Regionen bearbeiten">{editReg ? 'Fertig' : <Icon name="edit" size={14} />}</button>
-          </div>
-          {editReg && (
-            <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); const r = newReg.trim(); if (r && !regions.includes(r)) { setSportRegions([...regions, r]); setRegPick([...regPick, r]); } setNewReg(''); }}>
-              <input className="input" value={newReg} onChange={(ev) => setNewReg(ev.target.value)} placeholder="z.B. Córdoba, Mendoza, Uruguay" aria-label="Neue Region" />
-              <button type="submit" className="btn small" disabled={!newReg.trim()}>+</button>
-            </form>
-          )}
+          <button type="button" className="city-bar" onClick={() => setRegOpen(true)} aria-label="Regionen wählen">
+            <span style={{ fontSize: 18 }}>📍</span>
+            <span className="row-main"><span className="row-meta">Wo?</span><span className="row-title strong">{regPick.filter((r) => regions.includes(r)).join(', ') || 'Überall'}</span></span>
+            <span className="pill" style={{ fontSize: 13 }}>Wechseln ▾</span>
+          </button>
+          <RegionSheet s={s} open={regOpen} onClose={() => setRegOpen(false)} regions={regions} pick={regPick} setPick={setRegPick} />
           <span className="tiny" style={{ marginBottom: -4 }}>Wann?</span>
           <div className="chips">
             {periods.map((x) => (
@@ -244,7 +254,7 @@ function SportsPage({ s }) {
                 🗓 {x}{editPer && <Icon name="x" size={11} />}
               </button>
             ))}
-            <button type="button" className="chip" onClick={() => setEditPer(!editPer)} aria-label="Zeiträume bearbeiten">{editPer ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+            <button type="button" className={editPer ? 'chip on' : 'chip'} onClick={() => setEditPer(!editPer)} aria-label="Zeiträume bearbeiten">{editPer ? 'Fertig' : <Icon name="edit" size={14} />}</button>
           </div>
           {editPer && (
             <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); const x = newPer.trim(); if (x && !periods.includes(x)) { setSportPeriods([...periods, x]); setPeriod(x); } setNewPer(''); }}>
@@ -255,6 +265,17 @@ function SportsPage({ s }) {
           <ModeToggle mode={smode} onChange={setSmode} />
           <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" />
           {smode === 'links' && <SourceLinks embedded s={s} area="rennen" query={[q, ...regPick].filter(Boolean).join(' ')} />}
+          {smode === 'links' && (
+            <div className="take-box">
+              <span style={{ fontWeight: 650, fontSize: 14 }}>Etwas gefunden? Hier übernehmen</span>
+              <textarea className="input" style={{ minHeight: 64 }} value={paste} onChange={(ev) => setPaste(ev.target.value)} placeholder="Link oder Text vom Rennen einfügen (Name, Datum, Ort …)" aria-label="Link oder Text einfügen" />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || pBusy} onClick={takeOver}>{pBusy ? 'Ich lese …' : '✨ Übernehmen'}</button>
+                <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => { setAdding(true); setF({ ...f, sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Selbst eintragen</button>
+              </div>
+              <span className="tiny">Die KI liest Name, Datum, Ort und Distanz aus Link oder Text (ohne Internet, ca. 0,02 Cent). Du prüfst und speicherst.</span>
+            </div>
+          )}
           {smode === 'ki' && <>
           <div className="search-row">
             <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
@@ -330,4 +351,41 @@ function SportsPage({ s }) {
 export default function Sport() {
   const s = useStore();
   return <SportsPage s={s} />;
+}
+
+// „Wo?“ für Sport-Events (v0.67): wie die Stadt-Auswahl bei Ausgehen – suchen/anlegen, Mein Standort, mehrere wählbar
+function RegionSheet({ open, onClose, regions, pick, setPick }) {
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState(false);
+  const match = regions.filter((r) => !q.trim() || r.toLowerCase().includes(q.trim().toLowerCase()));
+  const exact = regions.some((r) => r.toLowerCase() === q.trim().toLowerCase());
+  const add = (r) => { if (!regions.includes(r)) setSportRegions([...regions, r]); if (!pick.includes(r)) setPick([...pick, r]); setQ(''); };
+  const here = async () => {
+    setBusy(true);
+    try { const r = await cityHere(); add(r.city); if (r.country && !regions.includes(r.country)) setSportRegions([...regions.filter((x) => x !== r.city), r.city, r.country]); toast(`Standort: ${r.city}`); } catch (e) { toast(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <Sheet open={open} title="Wo suchen?" onClose={onClose}>
+      <button type="button" className="btn sec" style={{ background: 'var(--card-2)' }} disabled={busy} onClick={here}>{busy ? 'Suche deinen Standort …' : '📍 Mein Standort'}</button>
+      <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Stadt, Land oder Region suchen/eingeben" aria-label="Region suchen" />
+      {q.trim() && !exact && <button type="button" className="btn" onClick={() => add(q.trim())}>+ „{q.trim()}“ hinzufügen</button>}
+      <span className="tiny">Antippen = auswählen (mehrere möglich).</span>
+      <div className="list">
+        {match.map((r) => (
+          <div key={r} className="row" style={{ minHeight: 48, gap: 6 }}>
+            <button type="button" className="row-main" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }} onClick={() => setPick(pick.includes(r) ? pick.filter((x) => x !== r) : [...pick, r])}>
+              <span className="row-title strong">{pick.includes(r) ? '✓ ' : ''}{r}</span>
+            </button>
+            <button type="button" className="x-btn" onClick={() => { setSportRegions(regions.filter((x) => x !== r)); setPick(pick.filter((x) => x !== r)); }} aria-label={`${r} entfernen`}><Icon name="x" size={12} color="var(--chev)" /></button>
+          </div>
+        ))}
+      </div>
+      <button type="button" className="btn" onClick={onClose}>Fertig</button>
+    </Sheet>
+  );
+}
+
+const PARSE_RACE = { name: 'rennen_lesen', description: 'Daten eines Rennens', input_schema: { type: 'object', properties: { name: { type: 'string' }, datum: { type: 'string', description: 'YYYY-MM-DD, nur wenn erkennbar' }, ort: { type: 'string' }, distanz: { type: 'string', description: 'z.B. „21 km“ oder „10K, 21K“' }, sportart: { type: 'string' } }, required: ['name'] } };
+async function parseSportText(s, text) {
+  return searchWithTool({ system: `Lies aus Mateos eingefügtem Link oder Text die Daten eines Sport-Events (Rennen). Bei einem Link: nutze die Wörter in der Adresse (z.B. „maraton-de-buenos-aires-2027“). Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()}. Sportarten: ${s.sports.map((x) => x.name).join(', ')}.`, user: text, tool: PARSE_RACE, maxUses: 0, maxTokens: 400, label: 'Rennen übernehmen' });
 }

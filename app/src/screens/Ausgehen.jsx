@@ -30,7 +30,7 @@ function SearchChips({ s, kind, defaults, disabled, onPick }) {
             {c}{edit && <Icon name="x" size={11} />}
           </button>
         ))}
-        <button type="button" className="chip soft" onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Kategorien bearbeiten'}>
+        <button type="button" className={edit ? 'chip on' : 'chip soft'} onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Kategorien bearbeiten'}>
           {edit ? 'Fertig' : <Icon name="edit" size={14} />}
         </button>
       </div>
@@ -243,7 +243,7 @@ function Events({ s, city }) {
         </section>
       )}
 
-      {!busy && mode === 'web' && shown && (
+      {!busy && smode === 'ki' && shown && (
         <section className="group">
           <div className="sec-h">
             <h2 className="h2" style={{ fontSize: 19 }}>„{shown.query}“</h2>

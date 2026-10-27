@@ -30,7 +30,7 @@ function Sources({ s }) {
       <section className="group">
         <div className="sec-h">
           <h2 className="h2" style={{ fontSize: 19 }}>Meine Quellen</h2>
-          {list.length > 0 && <button type="button" className="link-btn" onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
+          {list.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
         </div>
         <div className="list">
           {list.length === 0 && <div className="empty">Hier sammelst du Webseiten, Blogs oder Newsletter, die regelmäßig etwas veröffentlichen – z.B. einen Wirtschafts-Blog oder einen KI-Newsletter. Ein Tipp öffnet die Seite.</div>}

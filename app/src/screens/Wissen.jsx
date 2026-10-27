@@ -128,7 +128,7 @@ function CategoryPage({ s, cat }) {
               {t.name}{edit && <Icon name="x" size={11} />}
             </button>
           ))}
-          <button type="button" className="chip" onClick={() => setEdit(!edit)} aria-label="Themen bearbeiten">{edit ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+          <button type="button" className={edit ? 'chip on' : 'chip'} onClick={() => setEdit(!edit)} aria-label="Themen bearbeiten">{edit ? 'Fertig' : <Icon name="edit" size={14} />}</button>
         </div>
         {edit && (
           <form className="block-add" onSubmit={(e) => { e.preventDefault(); ensureTopic(topicText); setTopicText(''); }}>

@@ -482,3 +482,6 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .city-bar { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border: 0; border-radius: 14px; background: var(--card); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,.06)); text-align: left; font: inherit; color: inherit; }
 .filter-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .filter-row .chip { justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 6px; padding-right: 6px; font-size: 13px; min-width: 0; display: block; text-align: center; }
+.terms-list { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); padding: 6px 10px; background: var(--card-2); border-radius: 10px; }
+.terms-list b { color: var(--text); font-weight: 600; margin-right: 4px; }
+.take-box { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--card-2); }

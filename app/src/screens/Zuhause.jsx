@@ -66,7 +66,7 @@ function CatList({ s, listKey }) {
             {c}{!edit && countIn(c) > 0 && <span className="badge" style={{ marginLeft: 6 }}>{countIn(c)}</span>}{edit && <Icon name="x" size={11} />}
           </button>
         ))}
-        <button type="button" className="chip" onClick={() => setEdit(!edit)} aria-label="Kategorien bearbeiten">{edit ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+        <button type="button" className={edit ? 'chip on' : 'chip'} onClick={() => setEdit(!edit)} aria-label="Kategorien bearbeiten">{edit ? 'Fertig' : <Icon name="edit" size={14} />}</button>
       </div>
       {edit && (
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); const t = catText.trim(); if (t && !l.cats.includes(t)) setHomeCats(listKey, [...l.cats, t]); setCatText(''); }}>

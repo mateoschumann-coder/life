@@ -115,7 +115,7 @@ function Recipes({ s }) {
             {c}{editCats && <Icon name="x" size={11} />}
           </button>
         ))}
-        <button type="button" className="chip" onClick={() => setEditCats(!editCats)} aria-label="Kategorien bearbeiten">{editCats ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+        <button type="button" className={editCats ? 'chip on' : 'chip'} onClick={() => setEditCats(!editCats)} aria-label="Kategorien bearbeiten">{editCats ? 'Fertig' : <Icon name="edit" size={14} />}</button>
       </div>
       {editCats && (
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); const t = catText.trim(); if (t && !s.recipeCats.includes(t)) setRecipeCats([...s.recipeCats, t]); setCatText(''); }}>

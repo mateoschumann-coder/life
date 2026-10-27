@@ -1,6 +1,6 @@
 // Karte „Meine Seiten“: Suchbegriff eintippen → Seite antippen → öffnet direkt mit der Suche (kostenlos, keine KI)
 import { useState } from 'react';
-import { addSource, isNative, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceUrl, tailorQueries } from '../lib/sources';
+import { addSource, isNative, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
 import { getAi } from '../lib/ai';
 import { Icon } from './ui';
 
@@ -33,6 +33,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
   const [res, setRes] = useState(null); // { q, city, t }
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [showTerms, setShowTerms] = useState(false);
   const list = sourcesOf(s, area, city);
   const hidden = (s.profile?.sources?.[area]?.hidden || []).length;
   const fresh = res && res.q === q.trim() && res.city === city;
@@ -60,7 +61,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
       </>}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button type="button" className="btn small" style={{ flex: 1 }} onClick={make} disabled={!q.trim() || busy}>{busy ? 'Ich baue die Suchen …' : fresh ? '↻ Neu erstellen' : '🔗 Links erstellen'}</button>
-        <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Seiten bearbeiten'}>{edit ? <Icon name="check" size={13} /> : <Icon name="edit" size={13} />}</button>
+        {edit ? <button type="button" className="pill on" style={{ fontSize: 13 }} onClick={() => setEdit(false)}>Fertig</button> : <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => setEdit(true)} aria-label="Seiten bearbeiten"><Icon name="edit" size={13} /></button>}
       </div>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {fresh && res.t?.gedanke && <span className="tiny" style={{ color: 'var(--text)' }}>🎯 {res.t.gedanke}</span>}
@@ -72,6 +73,12 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
               {edit && <button type="button" className="city-x" onClick={() => removeSource(area, x.id)} aria-label={`${x.name} entfernen`}><Icon name="x" size={10} /></button>}
             </span>
           ))}
+        </div>
+      )}
+      {fresh && !edit && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 12.5 }} onClick={() => setShowTerms(!showTerms)}>Was genau gesucht wird {showTerms ? '▴' : '▾'}</button>}
+      {fresh && !edit && showTerms && (
+        <div className="terms-list">
+          {list.map((x) => <span key={x.id}><b>{x.name}</b> {sourceTerm(x, res.q, city, res.t)}</span>)}
         </div>
       )}
       {edit && (
