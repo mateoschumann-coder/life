@@ -29,7 +29,7 @@ export const SOURCE_AREAS = {
     placeholder: 'z.B. Was kann ich dieses Wochenende machen?',
     perCity: true,
     defaults: [
-      { id: 'gevents', name: 'Google Events', lang: 'Landessprache', build: (c) => `https://www.google.com/search?q=${enc(c.q)}&ibp=htl;events` },
+      { id: 'gevents', name: 'Google', lang: 'Landessprache', build: (c) => `https://www.google.com/search?q=${enc(/event|evento|veranstalt|concierto|konzert|show|fiesta|party/i.test(c.q) ? c.q : `${c.q} ${evWord(c)}`)}` },
       { id: 'eventbrite', name: 'Eventbrite', lang: 'en', build: (c) => `https://www.eventbrite.com/d/${c.eb || slug(c.city)}/${slug(c.q) || 'all-events'}/${c.from ? `?start_date=${c.from}&end_date=${c.to || c.from}` : ''}` },
       { id: 'meetup', name: 'Meetup', lang: 'en', build: (c) => `https://www.meetup.com/find/?keywords=${enc(c.q)}&location=${enc(`${c.cc || ''}--${c.city}`)}&source=EVENTS` },
       { id: 'instagram', name: 'Instagram #', lang: '–', build: (c) => `https://www.instagram.com/explore/tags/${tag(c.hashtag || c.q + c.city)}/` },
@@ -66,6 +66,8 @@ export const SOURCE_AREAS = {
   },
 };
 
+// Wort für „Events“ in der Landessprache (Google zeigt dann seine Event-Liste)
+const evWord = (c) => (/^(de|at|ch)$/i.test(c.cc || '') || /berlin|münchen|hamburg|köln|frankfurt|wien|zürich/i.test(c.city || '') ? 'Veranstaltungen' : /^(us|gb|uk|au|ca|ie|nz)$/i.test(c.cc || '') || /london|new york|sydney/i.test(c.city || '') ? 'events' : 'eventos');
 const prefsOf = (s, key) => s.profile?.sources?.[key] || { hidden: [], added: [] };
 // Sichtbare Seiten eines Bereichs (bei Events/Orten: allgemeine + die der gewählten Stadt)
 export function sourcesOf(s, key, city) {
