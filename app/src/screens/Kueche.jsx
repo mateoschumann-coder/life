@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import {
-  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shoppingSuggestions, toggleShopping, updateRecipe,
+  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, SHOP_CATS, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -158,6 +158,7 @@ function Recipes({ s }) {
 
 function Shopping({ s }) {
   const [text, setText] = useState('');
+  const [move, setMove] = useState(null);
   const open = s.shopping.items.filter((x) => !x.done);
   const done = s.shopping.items.filter((x) => x.done);
   const sugg = shoppingSuggestions(s);
@@ -175,22 +176,41 @@ function Shopping({ s }) {
       <button type="button" className="tell" style={{ alignSelf: 'flex-start' }} onClick={() => listen('Auf die Einkaufsliste: ')}>
         <Icon name="mic" size={16} /> Einkaufsliste einsprechen
       </button>
-      <div className="list">
-        {open.length === 0 && <div className="empty">Die Liste ist leer.</div>}
-        {open.map((x) => (
-          <div key={x.id} className="row" style={{ minHeight: 48 }}>
-            <Check on={false} color={COLOR} onClick={() => toggleShopping(x.id)} label={`${x.name} gekauft`} />
-            <span className="row-main"><span className="row-title plain">{x.name}</span></span>
-            <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => removeShopping(x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+      {open.length === 0 && <div className="list"><div className="empty">Die Liste ist leer.</div></div>}
+      {SHOP_CATS.map((c) => {
+        const items = open.filter((x) => shopCatOf(s, x) === c.id);
+        if (!items.length) return null;
+        return (
+          <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="label" style={{ padding: '0 4px' }}>{c.emoji} {c.label} · {items.length}</span>
+            <div className="list">
+              {items.map((x) => (
+                <div key={x.id} className="row" style={{ minHeight: 48 }}>
+                  <Check on={false} color={COLOR} onClick={() => toggleShopping(x.id)} label={`${x.name} gekauft`} />
+                  <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => setMove(x)} aria-label={`${x.name}: Kategorie ändern`}><span className="row-title plain">{x.name}</span></button>
+                  <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => removeShopping(x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-        {done.map((x) => (
-          <div key={x.id} className="row" style={{ minHeight: 44 }}>
-            <Check on color={COLOR} onClick={() => toggleShopping(x.id)} label={`${x.name} wieder offen`} />
-            <span className="row-main"><span className="row-title plain done">{x.name}</span></span>
-          </div>
-        ))}
-      </div>
+        );
+      })}
+      {done.length > 0 && (
+        <div className="list">
+          {done.map((x) => (
+            <div key={x.id} className="row" style={{ minHeight: 44 }}>
+              <Check on color={COLOR} onClick={() => toggleShopping(x.id)} label={`${x.name} wieder offen`} />
+              <span className="row-main"><span className="row-title plain done">{x.name}</span></span>
+            </div>
+          ))}
+        </div>
+      )}
+      {open.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal).</span>}
+      <Sheet open={!!move} title={move ? `„${move.name}“ einsortieren` : ''} onClose={() => setMove(null)}>
+        <div className="chips">
+          {SHOP_CATS.map((c) => <button key={c.id} type="button" className={move && shopCatOf(s, move) === c.id ? 'chip on' : 'chip'} onClick={() => { setShoppingCat(move.id, c.id); setMove(null); }}>{c.emoji} {c.label}</button>)}
+        </div>
+      </Sheet>
       {done.length > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={clearBought}>Gekauftes entfernen ({done.length})</button>}
       {sugg.length > 0 && (
         <section className="card" style={{ gap: 10 }}>
@@ -220,7 +240,7 @@ function RecipeFinder({ s }) {
     <>
       <span className="label" style={{ padding: '4px 4px 0' }}>Neue Rezepte finden</span>
       <ModeToggle mode={mode} onChange={setMode} />
-      {mode === 'links' ? <SourceLinks s={s} area="rezepte" /> : <KitchenChat s={s} />}
+      {mode === 'links' ? <SourceLinks s={s} area="rezepte" instant /> : <KitchenChat s={s} />}
     </>
   );
 }
@@ -278,7 +298,7 @@ export default function Kueche() {
         </div>
         <Segmented full options={[{ id: 'rezepte', label: 'Rezepte' }, { id: 'einkauf', label: `Einkaufsliste${openCount ? ` (${openCount})` : ''}` }]} value={tab} onChange={choose} label="Ansicht" />
         {tab === 'rezepte' ? <Recipes s={s} /> : <Shopping s={s} />}
-        <RecipeFinder s={s} />
+        {tab === 'rezepte' && <RecipeFinder s={s} />}
       </main>
       <TabBar active="bereiche" />
     </>

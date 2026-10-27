@@ -1,6 +1,6 @@
 // Karte „Meine Seiten“: Suchbegriff eintippen → Seite antippen → öffnet direkt mit der Suche (kostenlos, keine KI)
 import { useState } from 'react';
-import { addSource, forgetSearch, isNative, learnSearch, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
+import { addSource, forgetSearch, isFixed, isNative, learnSearch, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
 import { getAi } from '../lib/ai';
 import { Icon } from './ui';
 
@@ -23,7 +23,7 @@ export function ModeToggle({ mode, onChange }) {
 
 // embedded = ohne eigene Karte, Suchbegriff kommt von außen (query)
 // Ablauf (v0.66): Satz eintippen → „Links erstellen“ → KI macht pro Seite einen passenden Begriff → Knöpfe öffnen die Suche der Seite
-export default function SourceLinks({ s, area, city = '', defaultQuery = '', embedded = false, query }) {
+export default function SourceLinks({ s, area, city = '', defaultQuery = '', embedded = false, query, instant = false }) {
   const cfg = SOURCE_AREAS[area];
   const [own, setQ] = useState(defaultQuery);
   const q = query !== undefined ? query : own;
@@ -68,11 +68,11 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
       </div>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {fresh && res.t?.gedanke && <span className="tiny" style={{ color: 'var(--text)' }}>🎯 {res.t.gedanke}</span>}
-      {(fresh || edit) && (
+      {(fresh || edit || instant) && (
         <div className="link-chips" style={{ marginTop: 0, alignItems: 'center' }}>
           {list.map((x) => (
             <span key={x.id} className="src-chip">
-              <a className="link-chip" style={isNative(x) ? undefined : { background: 'var(--card-2)', color: 'var(--text)' }} href={sourceUrl(x, fresh ? res.q : q, city, fresh ? res.t : null)} target="_blank" rel="noreferrer" title={fresh && res.t?.terms?.[x.id] ? res.t.terms[x.id] : ''}>{x.name}{isNative(x) ? '' : ' · G'} ↗</a>
+              <a className="link-chip" style={isNative(x) ? undefined : { background: 'var(--card-2)', color: 'var(--text)' }} href={sourceUrl(x, fresh ? res.q : q, city, fresh ? res.t : null)} target="_blank" rel="noreferrer" title={fresh && res.t?.terms?.[x.id] ? res.t.terms[x.id] : ''}>{isFixed(x) ? '📌 ' : ''}{x.name}{isNative(x) ? '' : ' · G'} ↗</a>
               {edit && !x.build && <button type="button" className="city-x" style={x.tpl ? { background: 'var(--accent)', color: '#fff' } : undefined} onClick={() => { setTeach(x); setTeachUrl(''); setTeachErr(''); }} aria-label={`Direkte Suche für ${x.name} einrichten`}>🔧</button>}
               {edit && <button type="button" className="city-x" onClick={() => removeSource(area, x.id)} aria-label={`${x.name} entfernen`}><Icon name="x" size={10} /></button>}
             </span>
@@ -88,12 +88,14 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
       {edit && teach && (
         <div className="take-box">
           <span style={{ fontWeight: 650, fontSize: 14 }}>🔧 Direkte Suche für {teach.name}</span>
-          <span className="tiny" style={{ color: 'var(--text)' }}>1. <a href={teach.home || `https://${teach.domain}`} target="_blank" rel="noreferrer">{teach.name} öffnen ↗</a> · 2. dort im Suchfeld nach <b>test</b> suchen · 3. die Adresse der Ergebnisseite kopieren und hier einfügen.</span>
+          <span className="tiny" style={{ color: 'var(--text)' }}><b>Mit Suchfeld:</b> 1. <a href={teach.home || `https://${teach.domain}`} target="_blank" rel="noreferrer">{teach.name} öffnen ↗</a> · 2. dort nach <b>test</b> suchen · 3. Adresse der Ergebnisseite hier einfügen → der Knopf sucht künftig direkt dort.</span>
+          <span className="tiny" style={{ color: 'var(--text)' }}><b>Ohne Suchfeld:</b> die passende Unterseite öffnen (z.B. Rennkalender) und deren Adresse einfügen → der Knopf öffnet immer diese Seite (📌).</span>
           <form className="block-add" onSubmit={(e) => { e.preventDefault(); const er = learnSearch(area, teach.id, teachUrl); setTeachErr(er); if (!er) setTeach(null); }}>
-            <input className="input" value={teachUrl} onChange={(e) => setTeachUrl(e.target.value)} placeholder="https://… (mit test in der Adresse)" aria-label="Adresse der Ergebnisseite" />
+            <input className="input" value={teachUrl} onChange={(e) => setTeachUrl(e.target.value)} placeholder="https://…" aria-label="Adresse der Ergebnisseite" />
             <button type="submit" className="btn small" disabled={!teachUrl.trim()}>OK</button>
           </form>
           {teachErr && <span className="tiny" style={{ color: 'var(--danger)' }}>{teachErr}</span>}
+          {teach.tpl && <span className="tiny">Jetzt: {teach.tpl.replace('{q}', '…')}</span>}
           {teach.tpl && <button type="button" className="link-btn" style={{ fontSize: 12.5, alignSelf: 'flex-start' }} onClick={() => { forgetSearch(area, teach.id); setTeach(null); }}>Wieder über Google suchen</button>}
         </div>
       )}
@@ -107,7 +109,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
           <span className="tiny">🔧 = direkte Suche einrichten (sonst Google, nur auf dieser Seite).{cfg.perCity && city ? ` Neue Seiten gelten für ${city}.` : ''}{hidden ? ' ' : ''}{hidden ? <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => restoreSources(area)}>Entfernte Standard-Seiten zurückholen ({hidden})</button> : null}</span>
         </>
       )}
-      {!edit && <span className="tiny">{fresh ? 'Blaue Knöpfe öffnen die Suche direkt auf der Seite bzw. in der App. Grau (· G) = Google, nur auf dieser Seite.' : `Schreib frei, was du suchst. Die KI macht daraus pro Seite den passenden Suchbegriff${cfg.perCity && city ? ` für ${city}` : ''} (ohne Internet, ca. 0,03 Cent).`}</span>}
+      {!edit && <span className="tiny">{instant && !fresh ? 'Antippen öffnet die Seite mit deinem Suchbegriff. „Links erstellen“ übersetzt ihn vorher passend pro Seite (ca. 0,03 Cent).' : fresh ? 'Blaue Knöpfe öffnen die Suche direkt auf der Seite bzw. in der App. Grau (· G) = Google, nur auf dieser Seite.' : `Schreib frei, was du suchst. Die KI macht daraus pro Seite den passenden Suchbegriff${cfg.perCity && city ? ` für ${city}` : ''} (ohne Internet, ca. 0,03 Cent).`}</span>}
     </Wrap>
   );
 }

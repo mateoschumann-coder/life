@@ -227,6 +227,43 @@ export function setRecipeCats(list) {
   });
 }
 
+// Einkaufs-Kategorien (v0.69): Standard-Reihenfolge wie im Supermarkt; Zuordnung per Stichwort (Deutsch/Spanisch/Englisch),
+// von Hand geänderte Zuordnung wird pro Artikel gemerkt (s.shopping.catMap)
+export const SHOP_CATS = [
+  { id: 'obst', label: 'Obst & Gemüse', emoji: '🥦', words: 'apfel äpfel banane birne orange zitrone limette traube beere erdbeere heidelbeere himbeere mango ananas kiwi melone avocado tomate gurke paprika salat spinat rucola zwiebel knoblauch kartoffel süßkartoffel karotte möhre brokkoli zucchini aubergine pilz champignon lauch sellerie kürbis mais kräuter petersilie basilikum ingwer obst gemüse manzana banana pera naranja limón uva frutilla fresa arándano palta tomate pepino morrón lechuga espinaca cebolla ajo papa batata zanahoria brócoli zapallito berenjena hongo champiñón puerro apio calabaza choclo perejil albahaca jengibre verdura fruta fruit vegetable' },
+  { id: 'brot', label: 'Brot & Backwaren', emoji: '🥖', words: 'brot brötchen toast baguette croissant wrap tortilla fladenbrot pan tostada medialuna factura pita bagel' },
+  { id: 'milch', label: 'Milch, Käse & Eier', emoji: '🧀', words: 'milch joghurt quark käse butter sahne frischkäse mozzarella parmesan feta skyr kefir ei eier leche yogur queso manteca crema huevo huevos ricota cheese egg' },
+  { id: 'fleisch', label: 'Fleisch & Fisch', emoji: '🥩', words: 'fleisch hähnchen huhn hühnchen pute rind hack hackfleisch steak schwein schinken salami wurst speck lachs thunfisch fisch garnele shrimp carne pollo pechuga milanesa bife vacío asado cerdo jamón salame chorizo panceta salmón atún pescado langostino chicken beef' },
+  { id: 'vorrat', label: 'Nudeln, Reis & Vorrat', emoji: '🍝', words: 'nudeln pasta spaghetti reis haferflocken müsli granola mehl zucker linsen bohnen kichererbsen dose konserve quinoa couscous cornflakes fideos arroz avena harina azúcar lentejas porotos garbanzos lata polenta' },
+  { id: 'wuerze', label: 'Öl, Gewürze & Saucen', emoji: '🧂', words: 'öl olivenöl essig salz pfeffer gewürz paprikapulver curry zimt senf ketchup mayo mayonnaise sojasauce sauce soße pesto brühe honig marmelade erdnussbutter aceite vinagre sal pimienta especia mostaza salsa miel mermelada dulce de leche caldo' },
+  { id: 'tk', label: 'Tiefkühl', emoji: '🧊', words: 'tiefkühl tk gefroren pizza eis eiscreme congelado helado' },
+  { id: 'getraenke', label: 'Getränke', emoji: '🥤', words: 'wasser saft cola bier wein sprudel limonade kaffee tee mate yerba energy agua jugo gaseosa cerveza vino café té soda' },
+  { id: 'snacks', label: 'Snacks & Süßes', emoji: '🍫', words: 'schokolade chips nüsse mandeln kekse riegel proteinriegel gummibärchen popcorn cracker chocolate galletitas galletas maní almendras nueces barrita alfajor snack' },
+  { id: 'drogerie', label: 'Drogerie & Haushalt', emoji: '🧴', words: 'shampoo duschgel seife zahnpasta zahnbürste deo rasierer klopapier toilettenpapier küchenrolle spülmittel waschmittel müllbeutel schwamm putzmittel tücher taschentücher desodorante jabón pasta dental papel higiénico detergente lavandina esponja bolsas' },
+  { id: 'sonstiges', label: 'Sonstiges', emoji: '🛒', words: '' },
+];
+const WORDS = SHOP_CATS.map((c) => [c.id, c.words.split(' ').filter(Boolean)]);
+export function guessShopCat(name) {
+  const n = norm(name);
+  const toks = n.split(/[^a-zäöüßñáéíóú]+/).filter(Boolean);
+  if (toks.length > 1 && WORDS.find(([, ws]) => ws.includes(n))) return WORDS.find(([, ws]) => ws.includes(n))[0]; // ganze Wortgruppe, z.B. „papel higiénico“
+  for (const [id, ws] of WORDS) if (ws.some((w) => toks.includes(w))) return id;
+  // längster Wortteil gewinnt (Erdnussbutter → Aufstrich statt Butter)
+  let best = null;
+  for (const [id, ws] of WORDS) for (const w of ws) if (w.length > 3 && n.includes(w) && (!best || w.length > best[1])) best = [id, w.length];
+  if (best) return best[0];
+  return 'sonstiges';
+}
+export const shopCatOf = (s, it) => it.cat || s.shopping.catMap?.[norm(it.name)] || guessShopCat(it.name);
+export function setShoppingCat(id, cat) {
+  store.update((s) => {
+    const it = s.shopping.items.find((x) => x.id === id);
+    if (!it) return;
+    it.cat = cat;
+    s.shopping.catMap = { ...(s.shopping.catMap || {}), [norm(it.name)]: cat };
+  });
+}
+
 export function addShopping(names) {
   const list = (Array.isArray(names) ? names : [names]).map((n) => String(n || '').trim()).filter(Boolean);
   if (!list.length) return 0;

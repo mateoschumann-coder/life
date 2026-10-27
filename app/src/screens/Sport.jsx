@@ -264,7 +264,7 @@ function SportsPage({ s }) {
           )}
           <ModeToggle mode={smode} onChange={setSmode} />
           <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" />
-          {smode === 'links' && <SourceLinks embedded s={s} area="rennen" query={[q, ...regPick].filter(Boolean).join(' ')} />}
+          {smode === 'links' && <SourceLinks embedded s={s} area="rennen" instant query={[q, ...regPick].filter(Boolean).join(' ')} />}
           {smode === 'links' && (
             <div className="take-box">
               <span style={{ fontWeight: 650, fontSize: 14 }}>Etwas gefunden? Hier übernehmen</span>

@@ -78,9 +78,9 @@ export function sourcesOf(s, key, city) {
 export function learnSearch(key, id, url) {
   const u = String(url || '').trim();
   if (!/^https?:\/\//.test(u)) return 'Bitte die ganze Adresse einfügen (beginnt mit https://).';
-  const i = u.toLowerCase().indexOf('test');
-  if (i < 0) return 'In der Adresse kommt das Wort „test“ nicht vor – bitte auf der Seite genau nach test suchen.';
-  const tpl = u.slice(0, i) + '{q}' + u.slice(i + 4);
+  // Mit „test“ = Suche, ohne = feste Seite (z.B. Rennkalender ohne Suchfeld, v0.69)
+  const m = u.match(/([?&=\/+-])test(?=$|[&/#?+-])/i);
+  const tpl = m ? u.slice(0, m.index + 1) + '{q}' + u.slice(m.index + 5) : u;
   save(key, (p) => ({ ...p, searchTpl: { ...(p.searchTpl || {}), [id]: tpl } }));
   return '';
 }
@@ -88,8 +88,10 @@ export function forgetSearch(key, id) {
   save(key, (p) => { const x = { ...(p.searchTpl || {}) }; delete x[id]; return { ...p, searchTpl: x }; });
 }
 export const isNative = (src) => !!(src.build || src.tpl);
+export const isFixed = (src) => !!(src.tpl && !src.tpl.includes('{q}'));
 // Was tatsächlich gesucht wird (zum Prüfen in der Liste)
 export function sourceTerm(src, q, city, t) {
+  if (src.tpl && !src.tpl.includes('{q}')) return '(feste Seite, ohne Suche)';
   const u = decodeURIComponent(sourceUrl(src, q, city, t));
   if (src.id === 'instagram') return '#' + (u.match(/tags\/([^/]+)/) || [])[1];
   if (src.id === 'eventbrite') return u.replace(/^.*\/d\//, '').replace(/\?/, ' · ').replace(/[/]/g, ' ').replace(/start_date=|end_date=/g, '').trim();
@@ -101,6 +103,7 @@ export function sourceUrl(src, q, city = '', t = null) {
   const raw = String(q || '').trim();
   const anyTerm = t ? Object.values(t.terms || {})[0] : '';
   const term = (t?.terms?.[src.id] || '').trim() || (anyTerm ? (anyTerm.toLowerCase().includes(String(city).toLowerCase()) ? anyTerm : `${anyTerm} ${city}`.trim()) : [raw, city].filter(Boolean).join(' '));
+  if (src.tpl && !src.tpl.includes('{q}')) return src.tpl;
   if (!raw && !t) return src.home || (src.domain ? `https://${src.domain}` : src.build({ q: city, city }));
   // Ort immer sicherstellen (v0.67): fehlt die Stadt im Begriff, hängt die App sie an – außer bei Seiten, die den Ort über die Adresse bekommen
   const cityKey = String(city || '').toLowerCase().split(/[ ,]/)[0];
