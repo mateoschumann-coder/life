@@ -47,7 +47,7 @@ export const removeSearch = (id) => store.update((s) => {
 });
 
 // ---------- Jobs (Funnel) ----------
-export function addJob({ searchId = null, title, company = '', url = '', location = '', note = '', deadline = '', status = 'interessiert', description = '' }) {
+export function addJob({ searchId = null, title, company = '', url = '', location = '', note = '', deadline = '', status = 'interessiert', description = '', about = '', mode = '', salary = '', tasks = [], reqs = [] }) {
   const t = String(title || '').trim();
   if (!t) return null;
   const s = store.get();
@@ -55,7 +55,7 @@ export function addJob({ searchId = null, title, company = '', url = '', locatio
   const id = uid();
   store.update((d) => {
     ensureCareer(d);
-    d.jobs.push({ id, searchId, title: t, company, url: okUrl(url), location, note, deadline: okDate(deadline), status: STAGES.some((x) => x.id === status) ? status : 'interessiert', description: String(description || ''), analysis: null, checklist: items(DEFAULT_CHECK), createdAt: today(), updatedAt: today() });
+    d.jobs.push({ id, searchId, title: t, company, url: okUrl(url), location, note, deadline: okDate(deadline), status: STAGES.some((x) => x.id === status) ? status : 'interessiert', description: String(description || ''), about, mode, salary, tasks: Array.isArray(tasks) ? tasks : [], reqs: Array.isArray(reqs) ? reqs : [], analysis: null, checklist: items(DEFAULT_CHECK), createdAt: today(), updatedAt: today() });
   });
   return id;
 }
@@ -279,35 +279,59 @@ export function applyFunnel(search, list, pasted = '') {
   return n;
 }
 
-// v0.72: Stellenanzeige per Link oder Text übernehmen → Felder fürs Formular
-const JOB_TOOL = {
-  name: 'stelle_lesen',
-  description: 'Daten einer Stellenanzeige.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      titel: { type: 'string', description: 'Jobtitel' },
-      firma: { type: 'string' },
-      ort: { type: 'string', description: 'Ort / remote' },
-      frist: { type: 'string', description: 'Bewerbungsfrist YYYY-MM-DD, falls genannt' },
-      anzeige: { type: 'string', description: 'Der Anzeigentext ohne Navigation/Werbung: Aufgaben, Anforderungen, Angebot (max. ca. 3500 Zeichen, nicht zusammenfassen)' },
-    },
-    required: ['titel'],
+// v0.73: Stellenanzeigen per Link oder Text übernehmen – auch mehrere auf einmal – mit Steckbrief
+export const WORK_MODES = { remote: '🏠 Remote', hybrid: '🔀 Hybrid', vor_ort: '🏢 Vor Ort' };
+const JOB_ITEM = {
+  type: 'object',
+  properties: {
+    titel: { type: 'string', description: 'Jobtitel' },
+    firma: { type: 'string' },
+    ueber_firma: { type: 'string', description: '1 Satz: was die Firma macht' },
+    ort: { type: 'string', description: 'Stadt/Land' },
+    arbeitsmodell: { type: 'string', enum: ['remote', 'hybrid', 'vor_ort', ''] },
+    gehalt: { type: 'string', description: 'Gehalt/Spanne, falls genannt' },
+    aufgaben: { type: 'array', items: { type: 'string' }, description: 'Jobprofil: 3–7 Hauptaufgaben, je kurz' },
+    anforderungen: { type: 'array', items: { type: 'string' }, description: 'Anforderungen: 3–8, je kurz (Muss vor Kann)' },
+    frist: { type: 'string', description: 'Bewerbungsfrist YYYY-MM-DD, falls genannt' },
+    link: { type: 'string', description: 'Link zur Anzeige, falls bekannt' },
+    anzeige: { type: 'string', description: 'Der Anzeigentext ohne Navigation/Werbung (max. ca. 3500 Zeichen, nicht zusammenfassen)' },
   },
+  required: ['titel'],
 };
-export async function importJob(s, input) {
+const JOBS_TOOL = { name: 'stellen_lesen', description: 'Eine oder mehrere Stellenanzeigen.', input_schema: { type: 'object', properties: { stellen: { type: 'array', items: JOB_ITEM } }, required: ['stellen'] } };
+const toJob = (r, fallbackText = '') => ({
+  title: r?.titel || '', company: r?.firma || '', about: r?.ueber_firma || '', location: r?.ort || '', mode: WORK_MODES[r?.arbeitsmodell] ? r.arbeitsmodell : '', salary: r?.gehalt || '',
+  tasks: (r?.aufgaben || []).filter(Boolean), reqs: (r?.anforderungen || []).filter(Boolean),
+  deadline: /^\d{4}-\d{2}-\d{2}$/.test(r?.frist || '') ? r.frist : '', url: /^https?:\/\//.test(r?.link || '') ? r.link : '', description: r?.anzeige || fallbackText,
+});
+export async function importJobs(s, input) {
   const text = String(input || '').trim();
-  const url = (text.match(/https?:\/\/\S+/) || [])[0] || '';
-  const onlyUrl = url && text === url;
+  const urls = [...new Set(text.match(/https?:\/\/\S+/g) || [])];
+  const onlyUrls = urls.length && !text.replace(/https?:\/\/\S+/g, '').trim();
   const base = {
-    system: `Lies eine Stellenanzeige für Mateo aus.${onlyUrl ? ' Öffne den Link mit web_fetch und lies die Anzeige von der Seite. Klappt das nicht (z.B. Anmeldung nötig), nutze die Wörter in der Adresse und lass "anzeige" leer.' : ' Er hat den Text eingefügt.'} Nichts erfinden, Unbekanntes leer lassen. Antworte mit "stelle_lesen".`,
-    user: text.slice(0, 15000),
-    tool: JOB_TOOL,
+    system: `Lies Stellenanzeigen für Mateo aus – eine Stelle pro Eintrag unter "stellen".${onlyUrls ? ` Öffne jeden Link mit web_fetch und lies die Anzeige. Klappt ein Link nicht (z.B. Anmeldung nötig), nutze die Wörter in der Adresse, setze link und lass "anzeige" leer.` : ' Er hat Text eingefügt (eine oder mehrere Anzeigen); Links im Text gehören zur jeweiligen Stelle.'} Fülle den Steckbrief (Firma, Ort, Arbeitsmodell, Gehalt, Aufgaben, Anforderungen) knapp auf Deutsch. Nichts erfinden, Unbekanntes leer lassen. Antworte mit "stellen_lesen".`,
+    user: text.slice(0, 20000),
+    tool: JOBS_TOOL,
     maxUses: 0,
-    maxTokens: 3000,
-    label: 'Stelle übernehmen',
+    maxTokens: 6000,
+    label: 'Stellen übernehmen',
   };
   let r;
-  if (onlyUrl) { try { r = await searchWithTool({ ...base, fetch: true }); } catch { r = await searchWithTool(base); } } else r = await searchWithTool(base);
-  return { title: r?.titel || '', company: r?.firma || '', location: r?.ort || '', deadline: /^\d{4}-\d{2}-\d{2}$/.test(r?.frist || '') ? r.frist : '', url, description: r?.anzeige || (onlyUrl ? '' : text.slice(0, 4000)) };
+  if (onlyUrls) { try { r = await searchWithTool({ ...base, fetch: true, fetchMax: Math.min(8, urls.length + 1) }); } catch { r = await searchWithTool(base); } } else r = await searchWithTool(base);
+  const list = (r?.stellen || []).map((x, i) => { const j = toJob(x); if (!j.url && urls.length === (r.stellen || []).length) j.url = urls[i]; if (!j.description && !onlyUrls && (r.stellen || []).length === 1) j.description = text.slice(0, 4000); return j; }).filter((j) => j.title);
+  if (!list.length) throw new Error('Keine Stelle erkannt. Am besten den Anzeigentext einfügen.');
+  return list;
+}
+// Steckbrief einer vorhandenen Stelle aus ihrem Anzeigentext füllen
+export async function fillJobProfile(s, job) {
+  const src = [job.description, job.url].filter(Boolean).join('\n');
+  if (!src.trim()) throw new Error('Erst den Anzeigentext oder Link einfügen.');
+  const [x] = await importJobs(s, job.description ? job.description : job.url);
+  const patch = {};
+  for (const k of ['company', 'about', 'location', 'mode', 'salary', 'deadline']) if (x[k] && !job[k]) patch[k] = x[k];
+  if (x.tasks.length) patch.tasks = x.tasks;
+  if (x.reqs.length) patch.reqs = x.reqs;
+  if (!job.description && x.description) patch.description = x.description;
+  updateJob(job.id, patch);
+  return patch;
 }

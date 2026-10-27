@@ -108,7 +108,7 @@ async function post(body) {
 // maxUses = 0: ohne Websuche (viel günstiger) – die KI antwortet aus ihrem eigenen Wissen
 // smart = true: gründlicheres Modell (Sonnet) statt des eingestellten
 // fetch = true: die KI darf Links aus Mateos Nachricht lesen (web_fetch, nur Text-Kosten, keine Suchgebühr; v0.68)
-export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false, city, fetch: canFetch = false }) {
+export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false, city, fetch: canFetch = false, fetchMax = 2 }) {
   if (label) setCostLabel(label);
   // Chats mit Vorschlägen (Mateo, v0.35): kurze Antwort, die Vorschläge erscheinen als Häkchen-Liste darunter
   if (history && tool?.input_schema?.properties?.antwort) {
@@ -137,7 +137,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     if (!f) throw new Error('Keine Antwort erhalten. Bitte noch einmal versuchen.');
     return f.input || {};
   }
-  const tools = [...(maxUses ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: locOf(city) }] : []), ...(canFetch ? [{ type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 2, max_content_tokens: 8000 }] : []), tool];
+  const tools = [...(maxUses ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: locOf(city) }] : []), ...(canFetch ? [{ type: 'web_fetch_20250910', name: 'web_fetch', max_uses: fetchMax, max_content_tokens: 8000 }] : []), tool];
   let data;
   let found;
   const complete = (d) => {

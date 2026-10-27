@@ -4,7 +4,7 @@ import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
-  addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
+  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio } from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -654,15 +654,143 @@ function Budget({ tr }) {
 }
 
 // ---------- Routen-Varianten: Skizzen vergleichen, eine wählen ----------
-function Variants({ tr, onChosen, onCommit }) {
-  const [text, setText] = useState('');
+
+const errMsg = (e) => (e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
+const MODE_ICON = { flug: '✈️', bus: '🚌', auto: '🚗', zug: '🚆', faehre: '⛴️', sonstiges: '➡️' };
+
+// v0.73: Ein-Ort-Reise – mögliche Ziele sammeln und vergleichen, eines festlegen
+function Spots({ s, tr }) {
   const [name, setName] = useState('');
-  const vs = tr.variants || [];
+  const [busy, setBusy] = useState(false);
+  const [sugg, setSugg] = useState([]);
+  const list = tr.spots || [];
+  const ask = async () => {
+    setBusy(true);
+    try { setSugg(await suggestSpots(s, tr)); } catch (e) { toast(errMsg(e)); } finally { setBusy(false); }
+  };
   return (
     <>
       <div className="list">
-        {vs.length === 0 && <div className="empty">Noch keine Varianten. Lass dir unten von der KI zwei Routen skizzieren (z.B. „entspannt“ und „viel sehen“) oder trag selbst eine ein.</div>}
-        {vs.length > 1 && <span className="tiny" style={{ padding: '0 4px' }}>Vergleiche die Varianten, entwickle sie unten mit der KI weiter („Variante 2 mit einem Tag mehr in …“) und wähle am Ende eine.</span>}
+        {list.length === 0 && <div className="empty">Weißt du schon, wohin? Dann trag den Ort ein und leg ihn fest. Unsicher? Sammle hier mehrere Orte und vergleiche sie – auch mit der KI unten („Vergleich meine Orte“).</div>}
+        {list.map((x) => (
+          <div key={x.id} className="row" style={{ minHeight: 56 }}>
+            <span className="row-main">
+              <span className="row-title strong">{x.chosen ? '✓ ' : ''}{x.name}</span>
+              {(x.note || (x.tags || []).length > 0) && <span className="row-meta">{[...(x.tags || []), x.note].filter(Boolean).join(' · ')}</span>}
+            </span>
+            <button type="button" className={x.chosen ? 'pill on' : 'pill'} onClick={() => { chooseSpot(tr.id, x.id); toast(`Ziel: ${x.name}`); }}>{x.chosen ? 'Gewählt' : 'Festlegen'}</button>
+            <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => removeSpotFrom(tr.id, 'spots', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+          </div>
+        ))}
+        <form className="inline-add" onSubmit={(e) => { e.preventDefault(); addSpotTo(tr.id, 'spots', { name }); setName(''); }}>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ort, z.B. Punta del Este" aria-label="Ort zum Vergleichen" />
+          <button type="submit" className="btn small" disabled={!name.trim()}>+</button>
+        </form>
+      </div>
+      <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={ask} disabled={busy || !getAi().apiKey}>{busy ? 'Ich überlege …' : `✨ Orte zum Vergleichen vorschlagen${tr.region || tr.dest ? ` (${tr.region || tr.dest})` : ''}`}</button>
+      {sugg.length > 0 && <SuggList items={sugg} onTake={(x) => { addSpotTo(tr.id, 'spots', { name: x.name, note: x.was, tags: x.typ ? [x.typ] : [] }); setSugg(sugg.filter((y) => y !== x)); }} onClose={() => setSugg([])} />}
+    </>
+  );
+}
+
+function SuggList({ items, onTake, onClose }) {
+  return (
+    <section className="card" style={{ gap: 8 }}>
+      <div className="sec-h" style={{ padding: 0 }}><span className="label" style={{ padding: 0 }}>Vorschläge – antippen zum Übernehmen</span><button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={onClose}>Schließen</button></div>
+      {items.map((x) => (
+        <div key={x.name} className="option" style={{ alignItems: 'center' }}>
+          <span className="row-main">
+            <span style={{ fontWeight: 600, fontSize: 15 }}>{x.name}{x.naechte ? <span className="tiny"> · {x.naechte} N.</span> : null}</span>
+            <span className="tiny">{[x.typ, x.was].filter(Boolean).join(' · ')}</span>
+          </span>
+          <button type="button" className="pill on" onClick={() => onTake(x)}>+ Sammeln</button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// v0.73: Rundreise – Region + Schwerpunkte → Orte sammeln → daraus Varianten
+function Pool({ s, tr, onVariants }) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(null);
+  const [sugg, setSugg] = useState([]);
+  const [sel, setSel] = useState([]);
+  const [vname, setVname] = useState('');
+  const pool = tr.pool || [];
+  const focus = tr.focus || [];
+  const ask = async () => {
+    setBusy('sugg');
+    try { setSugg(await suggestSpots(s, tr)); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); }
+  };
+  const build = async () => {
+    setBusy('build');
+    try { const n = await buildVariants(s, tr); toast(`${n} Varianten gebaut`); onVariants?.(); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); }
+  };
+  const tog = (id) => setSel(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
+  return (
+    <>
+      <section className="card" style={{ gap: 10 }}>
+        <Field label="Wohin ungefähr? (Land, Region oder Stadt)"><input className="input" defaultValue={tr.region || tr.dest || ''} key={tr.id + 'rg'} placeholder="z.B. Südbrasilien, Patagonien, Japan" onBlur={(e) => e.target.value !== (tr.region || '') && updateTrip(tr.id, { region: e.target.value.trim() })} /></Field>
+        <div className="field">
+          <span>Was willst du vor allem?</span>
+          <div className="chips">{FOCI.map((f) => <button key={f} type="button" className={focus.includes(f) ? 'chip on' : 'chip soft'} style={{ fontSize: 13, padding: '5px 10px' }} onClick={() => updateTrip(tr.id, { focus: focus.includes(f) ? focus.filter((x) => x !== f) : [...focus, f] })}>{f}</button>)}</div>
+        </div>
+        <button type="button" className="btn small" onClick={ask} disabled={!!busy || !getAi().apiKey}>{busy === 'sugg' ? 'Ich suche passende Orte …' : '✨ Orte vorschlagen'}</button>
+      </section>
+      {sugg.length > 0 && <SuggList items={sugg} onTake={(x) => { addSpotTo(tr.id, 'pool', { name: x.name, note: x.was, tags: x.typ ? [x.typ] : [], nights: x.naechte || null }); setSugg(sugg.filter((y) => y !== x)); }} onClose={() => setSugg([])} />}
+      <section className="group">
+        <div className="sec-h"><h2 className="label" style={{ padding: '0 4px' }}>Gesammelte Orte · {pool.length}</h2>{pool.length > 0 && <span className="tiny">antippen = für eine Variante auswählen</span>}</div>
+        <div className="list">
+          {pool.length === 0 && <div className="empty">Noch nichts gesammelt. Lass dir oben Orte vorschlagen oder trag eigene ein.</div>}
+          {pool.map((x) => {
+            const i = sel.indexOf(x.id);
+            return (
+              <div key={x.id} className="row" style={{ minHeight: 54 }}>
+                <button type="button" className="step-no" style={{ border: 0, background: i >= 0 ? 'var(--accent)' : 'var(--card-2)', color: i >= 0 ? '#fff' : 'var(--chev)', cursor: 'pointer' }} onClick={() => tog(x.id)} aria-label={`${x.name} auswählen`}>{i >= 0 ? i + 1 : '+'}</button>
+                <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => tog(x.id)}>
+                  <span className="row-title strong">{x.name}{x.nights ? <span className="tiny"> · {x.nights} N.</span> : null}</span>
+                  {(x.note || (x.tags || []).length > 0) && <span className="row-meta">{[...(x.tags || []), x.note].filter(Boolean).join(' · ')}</span>}
+                </button>
+                <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => { removeSpotFrom(tr.id, 'pool', x.id); setSel(sel.filter((y) => y !== x.id)); }}><Icon name="x" size={12} color="var(--chev)" /></button>
+              </div>
+            );
+          })}
+          <form className="inline-add" onSubmit={(e) => { e.preventDefault(); addSpotTo(tr.id, 'pool', { name }); setName(''); }}>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Eigenen Ort hinzufügen" aria-label="Eigener Ort" />
+            <button type="submit" className="btn small" disabled={!name.trim()}>+</button>
+          </form>
+        </div>
+      </section>
+      {sel.length > 0 && (
+        <section className="card" style={{ gap: 8 }}>
+          <span className="label" style={{ padding: 0 }}>Neue Variante aus {sel.length} {sel.length === 1 ? 'Ort' : 'Orten'} (Reihenfolge = Auswahl)</span>
+          <span className="tiny" style={{ color: 'var(--text)' }}>{sel.map((id) => pool.find((x) => x.id === id)?.name).filter(Boolean).join(' → ')}</span>
+          <input className="input" value={vname} onChange={(e) => setVname(e.target.value)} placeholder="Name, z.B. Mehr Strand" aria-label="Name der Variante" />
+          <button type="button" className="btn small" onClick={() => { addVariant(tr.id, { name: vname.trim() || undefined, stops: sel.map((id) => pool.find((x) => x.id === id)).filter(Boolean).map((x) => ({ name: x.name, nights: x.nights, note: x.note })) }); setSel([]); setVname(''); toast('Variante gespeichert'); onVariants?.(); }}>Als Variante speichern</button>
+        </section>
+      )}
+      {pool.length >= 2 && <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={build} disabled={!!busy || !getAi().apiKey}>{busy === 'build' ? 'Ich baue Routen …' : '✨ 2 Varianten aus den gesammelten Orten bauen'}</button>}
+    </>
+  );
+}
+
+function Variants({ s, tr, onChosen, onCommit }) {
+  const [text, setText] = useState('');
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(null);
+  const [part, setPart] = useState({}); // { variantId: [indices] }
+  const vs = tr.variants || [];
+  const legs = async (v) => {
+    setBusy(v.id);
+    try { await variantTransport(s, tr, v.id); } catch (e) { toast(errMsg(e)); } finally { setBusy(null); }
+  };
+  const togPart = (vid, i) => { const cur = part[vid] || []; setPart({ ...part, [vid]: cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i] }); };
+  return (
+    <>
+      <div className="list">
+        {vs.length === 0 && <div className="empty">Noch keine Varianten. Sammle unter „Orte sammeln“ Orte und bau daraus Varianten – oder lass dir unten von der KI Routen skizzieren.</div>}
+        {vs.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>Orte antippen = auswählen, um nur Teile an die finale Route anzuhängen. Oder die ganze Variante übernehmen.</span>}
         {vs.map((v, vi) => {
           const nights = v.stops.reduce((n, x) => n + (x.nights || 0), 0);
           return (
@@ -674,15 +802,33 @@ function Variants({ tr, onChosen, onCommit }) {
               </div>
               {v.summary && <span className="tiny">{v.summary}</span>}
               <div className="variant-steps">
-                {v.stops.map((x, i) => (
-                  <span key={i} className="variant-step">
-                    <span className="step-no" style={{ width: 20, height: 20, fontSize: 11 }}>{i + 1}</span>
-                    <span><b>{x.name}</b>{x.nights ? ` · ${x.nights} N.` : ''}{x.note ? <span className="tiny"> · {x.note}</span> : null}</span>
-                  </span>
-                ))}
+                {v.stops.map((x, i) => {
+                  const on = (part[v.id] || []).includes(i);
+                  const leg = (v.legs || []).find((l) => l.from && l.to && l.from.toLowerCase() === x.name.toLowerCase() && v.stops[i + 1] && l.to.toLowerCase() === v.stops[i + 1].name.toLowerCase()) || (v.legs || [])[i];
+                  return (
+                    <Fragment key={i}>
+                      <button type="button" className="variant-step" style={{ border: 0, background: on ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'none', borderRadius: 8, textAlign: 'left', cursor: 'pointer', padding: '2px 4px' }} onClick={() => togPart(v.id, i)} aria-pressed={on}>
+                        <span className="step-no" style={{ width: 20, height: 20, fontSize: 11, background: on ? 'var(--accent)' : undefined, color: on ? '#fff' : undefined }}>{on ? '✓' : i + 1}</span>
+                        <span><b>{x.name}</b>{x.nights ? ` · ${x.nights} N.` : ''}{x.note ? <span className="tiny"> · {x.note}</span> : null}</span>
+                      </button>
+                      {i < v.stops.length - 1 && leg && (
+                        <span className="tiny" style={{ paddingLeft: 30, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                          {MODE_ICON[leg.mode] || '➡️'} {[leg.dur, leg.price, leg.note].filter(Boolean).join(' · ')}
+                          <a href={rome2rio(x.name, v.stops[i + 1].name)} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>prüfen ↗</a>
+                        </span>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className={v.chosen ? 'pill on' : 'pill'} onClick={() => { chooseVariant(tr.id, v.id); toast(`„${v.name}“ ist jetzt deine Route`); onChosen?.(); }}>{v.chosen ? 'Gewählt' : 'Diese Route wählen'}</button>
+              {v.stops.length > 1 && (
+                <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => legs(v)} disabled={!!busy || !getAi().apiKey}>{busy === v.id ? 'Ich schätze die Strecken …' : v.legs?.length ? '↻ Transport neu schätzen' : '🚌 Transport zwischen den Orten schätzen'}</button>
+              )}
+              {(part[v.id] || []).length > 0 && (
+                <button type="button" className="btn small" onClick={() => { const n = appendFromVariant(tr.id, v.id, part[v.id]); setPart({ ...part, [v.id]: [] }); toast(n ? `${n} ${n === 1 ? 'Ort' : 'Orte'} an die finale Route angehängt` : 'Schon in der Route'); }}>{(part[v.id] || []).length} ausgewählte an die finale Route anhängen</button>
+              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" className={v.chosen ? 'pill on' : 'pill'} onClick={() => { chooseVariant(tr.id, v.id); toast(`„${v.name}“ ist jetzt deine finale Route`); onChosen?.(); }}>{v.chosen ? 'Ist die Route' : 'Ganze Variante als Route'}</button>
                 {onCommit && <button type="button" className="pill on" onClick={() => { chooseVariant(tr.id, v.id); onCommit(); }}>Zur Reise machen</button>}
                 <span style={{ flex: 1 }} />
                 <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Variante „${v.name}“ löschen?`) && removeVariant(tr.id, v.id)}>Löschen</button>
@@ -702,6 +848,7 @@ function Variants({ tr, onChosen, onCommit }) {
 }
 
 const PLAN_GROUPS = [
+  { key: 'kandidaten', label: 'Zu den Orten (sammeln / vergleichen)', title: (x) => x.name, meta: (x) => [x.typ, x.was, x.naechte && `${x.naechte} N.`].filter(Boolean).join(' · ') },
   { key: 'varianten', label: 'Als Routen-Variante speichern', title: (x) => x.name, meta: (x) => [(x.abschnitte || []).map((a) => `${a.ort}${a.naechte ? ` (${a.naechte} N.)` : ''}`).join(' → '), x.kurz].filter(Boolean).join(' · ') },
   { key: 'stationen', label: 'Stationen', title: (x) => x.name, meta: (x) => [x.von && x.bis ? `${fmtShort(x.von)} – ${fmtShort(x.bis)}` : '', x.notiz].filter(Boolean).join(' · ') },
   { key: 'transport', label: 'Transport', title: (x) => `${x.von} → ${x.nach}`, meta: (x) => [MODES[x.art], x.dauer, x.preis, x.notiz].filter(Boolean).join(' · ') },
@@ -714,17 +861,19 @@ const PLAN_GROUPS = [
 function TripDetail({ s, tr }) {
   const t = today();
   const isIdea = tr.status === 'idee';
-  const tabs = isIdea
-    ? [['varianten', 'Varianten'], ['route', 'Route'], ['orte', 'Orte'], ['notizen', 'Notizen']]
-    : [['route', 'Route'], ['varianten', 'Varianten'], ['orte', 'Orte'], ['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen']];
-  const [tab, setTab] = useState(isIdea ? 'varianten' : 'route');
+  const kind = tripKind(tr);
+  const planTabs = [['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen']];
+  const tabs = kind === 'ort'
+    ? (isIdea ? [['vergleich', 'Orte vergleichen'], ['orte', 'Vor Ort'], ['notizen', 'Notizen']] : [['vergleich', 'Ziel'], ['route', 'Anreise'], ['orte', 'Vor Ort'], ...planTabs])
+    : (isIdea ? [['sammeln', 'Orte sammeln'], ['varianten', 'Varianten'], ['route', 'Finale Route'], ['orte', 'Orte'], ['notizen', 'Notizen']] : [['route', 'Finale Route'], ['sammeln', 'Orte sammeln'], ['varianten', 'Varianten'], ['orte', 'Orte'], ...planTabs]);
+  const [tab, setTab] = useState(null);
   const [commit, setCommit] = useState(false);
   const [priceFor, setPriceFor] = useState(null);
   const [range, setRange] = useState({ from: tr.from, to: tr.to });
   const cur = tabs.some(([k]) => k === tab) ? tab : tabs[0][0];
   const days = tr.from ? diffDays(t, tr.from) : null;
   const spent = tr.expenses.reduce((n, x) => n + x.amount, 0);
-  const count = { varianten: (tr.variants || []).length, todo: tr.todo.filter((x) => !x.done).length, packen: tr.packen.filter((x) => !x.done).length, orte: tr.places.length, route: tr.stops.length, docs: tr.docs.length };
+  const count = { sammeln: (tr.pool || []).length, vergleich: (tr.spots || []).length, varianten: (tr.variants || []).length, todo: tr.todo.filter((x) => !x.done).length, packen: tr.packen.filter((x) => !x.done).length, orte: tr.places.length, route: tr.stops.length, docs: tr.docs.length };
   return (
     <>
       <main className="screen">
@@ -752,10 +901,16 @@ function TripDetail({ s, tr }) {
         )}
 
 
+        <div className="seg full" role="group" aria-label="Art der Reise">
+          <button type="button" className={kind === 'ort' ? 'on' : ''} aria-pressed={kind === 'ort'} onClick={() => { updateTrip(tr.id, { kind: 'ort' }); setTab(null); }}>📍 An einem Ort</button>
+          <button type="button" className={kind === 'rundreise' ? 'on' : ''} aria-pressed={kind === 'rundreise'} onClick={() => { updateTrip(tr.id, { kind: 'rundreise' }); setTab(null); }}>🗺 Rundreise</button>
+        </div>
         <div className="box-tabs main-tabs">
           {tabs.map(([k, l]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{count[k] ? ` ${count[k]}` : ''}</button>)}
         </div>
-        {cur === 'varianten' && <Variants tr={tr} onChosen={() => setTab('route')} onCommit={isIdea ? () => setCommit(true) : null} />}
+        {cur === 'vergleich' && <Spots s={s} tr={tr} />}
+        {cur === 'sammeln' && <Pool s={s} tr={tr} onVariants={() => setTab('varianten')} />}
+        {cur === 'varianten' && <Variants s={s} tr={tr} onChosen={() => setTab('route')} onCommit={isIdea ? () => setCommit(true) : null} />}
         {cur === 'route' && <Route tr={tr} />}
         {cur === 'orte' && <Places tr={tr} />}
         {cur === 'todo' && <GroupedChecklist items={tr.todo} cats={Object.keys(TODO_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'todo', text, cat)} onToggle={(id) => updateEntry(tr.id, 'todo', id, { done: !tr.todo.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'todo', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Neues To-do" />}
@@ -774,7 +929,7 @@ function TripDetail({ s, tr }) {
         )}
         <PlanChat
           title={isIdea ? 'Mit KI recherchieren' : 'Mit KI planen'}
-          intro={isIdea ? 'Erzähl, was dich reizt (Strände, Städte, Natur …) und wie lange du Zeit hast. Ich frage kurz nach, schlage erst Orte vor und dann Routen-Varianten zum Vergleichen.' : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
+          intro={isIdea ? (kind === 'ort' ? 'Erzähl, was dir wichtig ist (Strand, Ruhe, Essen …). Ich schlage Orte zum Vergleichen vor und sage, was für welchen spricht.' : 'Erzähl, was dich reizt und wie lange du Zeit hast. Ich schlage Orte für deine Sammlung vor und baue daraus Routen-Varianten.') : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
           history={tr.chat}
           prefKey="reise"
           onSave={(chat) => updateTrip(tr.id, { chat })}
@@ -783,7 +938,7 @@ function TripDetail({ s, tr }) {
           autoWeb={TRAVEL_WEB}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyTripProposal(tr.id, sel)}
-          chips={isIdea ? ['Was gibt es dort zu sehen?', 'Schlag mir 2 Routen vor', 'Vergleich meine Routen'] : ['Alternative Route als Variante', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen', 'Was fehlt noch?']}
+          chips={kind === 'ort' ? (isIdea ? ['Vergleich meine Orte', 'Welcher Ort passt zu mir?', 'Was gibt es dort zu tun?'] : ['Unterkunft-Lage: wo am besten?', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen']) : (isIdea ? ['Mehr Orte für die Sammlung', 'Vergleich meine Varianten', 'Was gibt es dort zu sehen?'] : ['Alternative Route als Variante', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen', 'Was fehlt noch?'])}
         />
         <button type="button" className="btn danger" onClick={() => { if (confirm(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
       </main>

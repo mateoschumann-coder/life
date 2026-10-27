@@ -173,6 +173,7 @@ export function chooseVariant(tripId, id) {
       added.push(nid);
       return { id: nid, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
     });
+    for (const l of v.legs || []) if (!t.transport.some((y) => norm(y.from) === norm(l.from) && norm(y.to) === norm(l.to))) t.transport.push({ id: uid(), from: l.from, to: l.to, mode: l.mode, date: '', time: '', note: [l.dur, l.price, l.note].filter(Boolean).join(' · '), url: rome2rio(l.from, l.to), status: 'option' });
   });
   (async () => { for (const sid of added) await locateEntry(tripId, 'stops', sid); })();
 }
@@ -529,6 +530,7 @@ const PLAN_TOOL = {
       todo: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, kategorie: { type: 'string', description: `z.B. ${Object.keys(TODO_TEMPLATE).join(', ')}` } }, required: ['text'] } },
       packen: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, kategorie: { type: 'string', description: `z.B. ${Object.keys(PACK_TEMPLATE).join(', ')}` } }, required: ['text'] } },
       entfernen: { type: 'array', items: { type: 'string' }, description: 'Punkte der Packliste/To-dos, die für diese Reise nicht passen (genauer Text)' },
+      kandidaten: { type: 'array', description: 'Orte zum Sammeln/Vergleichen: bei „an einem Ort bleiben“ alternative Ziele zum Vergleichen, bei Rundreisen Orte für die Sammlung (aus denen Varianten entstehen)', items: { type: 'object', properties: { name: { type: 'string' }, was: { type: 'string', description: '3–8 Wörter: was es dort gibt' }, typ: { type: 'string', description: 'Schwerpunkt, z.B. Kultur, Strand, Natur' }, naechte: { type: 'integer' } }, required: ['name'] } },
       vergleich: VERGLEICH,
       varianten: {
         type: 'array',
@@ -548,7 +550,9 @@ const PLAN_TOOL = {
   },
 };
 export const tripSnapshot = (tr) => ({
-  name: tr.name, ziel: tr.dest, abflug: tr.airport || undefined, status: tr.status === 'idee' ? 'Idee (noch nicht festgelegt)' : 'festgelegt', von: tr.from, bis: tr.to, idee: tr.idea || undefined, budget: tr.budget ? `${tr.budget} ${tr.currency}` : undefined,
+  name: tr.name, ziel: tr.dest, art: tripKind(tr) === 'ort' ? 'an einem Ort bleiben' : 'Rundreise (mehrere Orte)', region: tr.region || undefined, schwerpunkte: (tr.focus || []).length ? tr.focus : undefined,
+  ort_kandidaten: (tr.spots || []).length ? tr.spots.map((x) => `${x.name}${x.chosen ? ' (gewählt)' : ''}`) : undefined, gesammelte_orte: (tr.pool || []).length ? tr.pool.map((x) => x.name) : undefined,
+  abflug: tr.airport || undefined, status: tr.status === 'idee' ? 'Idee (noch nicht festgelegt)' : 'festgelegt', von: tr.from, bis: tr.to, idee: tr.idea || undefined, budget: tr.budget ? `${tr.budget} ${tr.currency}` : undefined,
   stationen: tr.stops.map((x) => ({ name: x.name, von: x.from, bis: x.to })),
   transport: tr.transport.map((x) => `${x.from} → ${x.to} (${MODES[x.mode] || x.mode}${x.status === 'gebucht' ? ', gebucht' : ''})`),
   orte: tr.places.map((x) => `${x.name} (${PLACE_KINDS[x.kind]}${x.status === 'fest' ? ', gemerkt' : ''})`),
@@ -572,6 +576,7 @@ export async function tripAssist(s, tr, history, { web = false, smart = false } 
   const system = `Du bist Mateos Reiseplaner in der App „Life“. Er lebt in Buenos Aires. Heute ist ${fmtLong(today())}.
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Aktueller Stand der Reise: ${JSON.stringify(tripSnapshot(tr))}
+Art der Reise: ${tripKind(tr) === 'ort' ? 'Mateo bleibt an EINEM Ort. Hilf, mögliche Ziele zu vergleichen (Vorschläge unter "kandidaten", Vergleich in der Antwort: Stimmung, Strand/Kultur, Anreise, Kosten) oder – wenn das Ziel steht – vor Ort zu planen (Unterkunft, Orte). Keine Routen-Varianten.' : `Rundreise. Region: ${tr.region || tr.dest || 'noch offen – frag danach'}${(tr.focus || []).length ? `; Schwerpunkte: ${tr.focus.join(', ')}` : ''}. Ablauf: Orte sammeln ("kandidaten", passend zu den Schwerpunkten) → Routen-Varianten aus gesammelten Orten ("varianten") → Transport zwischen den Abschnitten ("transport").`}
 Arbeitsweise:
 - ${tr.status === 'idee' ? `Die Reise ist noch eine Idee. Führe ein echtes Gespräch und baue Schritt für Schritt auf:
   1) Erst verstehen: Was will Mateo sehen/erleben, wie lange, welcher Reisestil? Frag gezielt nach (1–2 Fragen), statt gleich viel vorzuschlagen.
@@ -626,6 +631,11 @@ export function applyTripProposal(tripId, sel) {
       const target = sameDest(t, v.ziel) ? t : st.trips.find((x) => x.id !== t.id && t.group && x.group === t.group && sameDest(x, v.ziel));
       if (target) target.prices = { ...(target.prices || {}), ...priceOf(v) };
     }
+    for (const x of sel.kandidaten || []) {
+      const key = tripKind(t) === 'ort' ? 'spots' : 'pool';
+      t[key] = t[key] || [];
+      if (!t[key].some((y) => norm(y.name) === norm(x.name))) t[key].push({ id: uid(), name: x.name, note: x.was || '', tags: x.typ ? [x.typ] : [], nights: x.naechte || null });
+    }
     for (const v of sel.varianten || []) {
       t.variants = t.variants || [];
       t.variants.push({ id: uid(), name: v.name || `Route ${t.variants.length + 1}`, summary: v.kurz || '', stops: (v.abschnitte || []).filter((x) => x && x.ort).map((x) => ({ name: x.ort, nights: x.naechte || null, note: x.notiz || '' })), chosen: false });
@@ -642,4 +652,107 @@ export function applyTripProposal(tripId, sel) {
     for (const id of added.stops) await locateEntry(tripId, 'stops', id);
     for (const id of added.places) await locateEntry(tripId, 'places', id);
   })();
+}
+
+// ---------- v0.73: Reise-Art (ein Ort / Rundreise), Orte sammeln, Varianten mit Transport, Teile übernehmen ----------
+export const tripKind = (tr) => tr?.kind || ((tr?.variants || []).length || (tr?.stops || []).length > 1 || (tr?.pool || []).length ? 'rundreise' : 'ort');
+export const FOCI = ['Kultur', 'Städte', 'Strand', 'Natur', 'Wandern', 'Essen', 'Nachtleben', 'Entspannung', 'Abenteuer'];
+export function addSpotTo(tripId, key, { name, note = '', tags = [], nights = null }) {
+  const n = String(name || '').trim();
+  if (!n) return;
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === tripId);
+    if (!t) return;
+    t[key] = t[key] || [];
+    if (!t[key].some((y) => norm(y.name) === norm(n))) t[key].push({ id: uid(), name: n, note, tags, nights });
+  });
+}
+export const removeSpotFrom = (tripId, key, id) => store.update((s) => { const t = s.trips.find((x) => x.id === tripId); if (t) t[key] = (t[key] || []).filter((x) => x.id !== id); });
+// Ein-Ort-Reise: Ziel festlegen
+export function chooseSpot(tripId, id) {
+  let newStop = null;
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === tripId);
+    const sp = t?.spots.find((x) => x.id === id);
+    if (!sp) return;
+    t.spots.forEach((x) => { x.chosen = x.id === id; });
+    t.dest = sp.name;
+    if (!t.stops.length) { newStop = uid(); t.stops.push({ id: newStop, name: sp.name, from: t.from || '', to: t.to || '', note: '' }); }
+    else if (t.stops.length === 1) t.stops[0].name = sp.name;
+  });
+  if (newStop) locateEntry(tripId, 'stops', newStop);
+  locateTrip(tripId);
+}
+const SUGGEST_TOOL = { name: 'orte_vorschlagen', description: 'Orte zum Sammeln.', input_schema: { type: 'object', properties: { orte: { type: 'array', items: { type: 'object', properties: { name: { type: 'string', description: 'Ort, ggf. mit Region' }, was: { type: 'string', description: '4–10 Wörter: was es dort gibt' }, typ: { type: 'string', description: 'passender Schwerpunkt' }, naechte: { type: 'integer', description: 'empfohlene Nächte' } }, required: ['name', 'was'] } } }, required: ['orte'] } };
+// KI schlägt Orte vor (ohne Internet): Rundreise → Sammlung, Ein Ort → Kandidaten zum Vergleichen
+export async function suggestSpots(s, tr, { wish = '' } = {}) {
+  const kind = tripKind(tr);
+  const key = kind === 'ort' ? 'spots' : 'pool';
+  const have = (tr[key] || []).map((x) => x.name);
+  const region = tr.region || tr.dest || tr.name;
+  const r = await searchWithTool({
+    system: `Du hilfst Mateo, eine Reise zu planen (er lebt in Buenos Aires). ${kind === 'ort' ? `Er will an EINEM Ort bleiben und sucht mögliche Ziele zum Vergleichen in/um „${region}“.` : `Rundreise in „${region}“. Schlage Orte vor, aus denen er Routen bauen kann.`}${(tr.focus || []).length ? ` Schwerpunkte: ${tr.focus.join(', ')} – verteile die Vorschläge darauf und setze "typ".` : ''}${tr.from && tr.to ? ` Zeitraum: ${tr.from} bis ${tr.to}.` : ''} Bereits gesammelt (nicht wiederholen): ${JSON.stringify(have)}. 6–8 Orte, realistisch erreichbar, Mischung aus Klassikern und Geheimtipps. Deutsch. Antworte mit "orte_vorschlagen".`,
+    user: wish || `Orte für ${region}`,
+    tool: SUGGEST_TOOL,
+    maxUses: 0,
+    maxTokens: 2000,
+    label: 'Reise: Orte vorschlagen',
+  });
+  return (r.orte || []).filter((x) => x.name && !have.some((h) => norm(h) === norm(x.name)));
+}
+const BUILD_TOOL = { name: 'varianten_bauen', description: 'Routen-Varianten.', input_schema: { type: 'object', properties: { varianten: PLAN_TOOL.input_schema.properties.varianten } }, required: ['varianten'] };
+export async function buildVariants(s, tr) {
+  const r = await searchWithTool({
+    system: `Baue aus Mateos gesammelten Orten 2 unterschiedliche Routen-Varianten für eine Rundreise in „${tr.region || tr.dest || tr.name}“ (z.B. „entspannt“ vs. „viel sehen“, oder unterschiedliche Schwerpunkte${(tr.focus || []).length ? `: ${tr.focus.join(', ')}` : ''}). Logische Reihenfolge (kurze Wege), Nächte pro Ort${tr.from && tr.to ? `, insgesamt passend zu ${diffDays(tr.from, tr.to)} Nächten` : ''}. Nutze vor allem die gesammelten Orte, höchstens 1 zusätzlicher. Notiz pro Abschnitt ganz kurz. Vorhandene Varianten nicht wiederholen: ${JSON.stringify((tr.variants || []).map((v) => v.stops.map((x) => x.name).join(' → ')))}. Antworte mit "varianten_bauen".`,
+    user: `Gesammelte Orte: ${JSON.stringify((tr.pool || []).map((x) => `${x.name}${x.nights ? ` (${x.nights} N.)` : ''}${x.note ? ` – ${x.note}` : ''}`))}`,
+    tool: BUILD_TOOL,
+    maxUses: 0,
+    maxTokens: 2500,
+    label: 'Reise: Varianten bauen',
+  });
+  for (const v of r.varianten || []) addVariant(tr.id, { name: v.name, summary: v.kurz || '', stops: (v.abschnitte || []).map((x) => ({ name: x.ort, nights: x.naechte, note: x.notiz })) });
+  return (r.varianten || []).length;
+}
+const LEG_TOOL = { name: 'strecken', description: 'Transport zwischen den Abschnitten.', input_schema: { type: 'object', properties: { strecken: { type: 'array', items: { type: 'object', properties: { von: { type: 'string' }, nach: { type: 'string' }, art: { type: 'string', enum: Object.keys(MODES) }, dauer: { type: 'string', description: 'z.B. „3 h“' }, preis: { type: 'string', description: 'grobe Spanne pro Person mit Währung' }, notiz: { type: 'string', description: 'ganz kurz, z.B. „mehrmals täglich, Cometa/Flecha Bus“' } }, required: ['von', 'nach', 'art', 'dauer'] } } }, required: ['strecken'] } };
+export const rome2rio = (a, b) => `https://www.rome2rio.com/map/${encodeURIComponent(a)}/${encodeURIComponent(b)}`;
+// Transport für eine Variante schätzen (ohne Internet, < 0,1 Cent); echte Verbindungen per Rome2rio-Link
+export async function variantTransport(s, tr, vid) {
+  const v = (tr.variants || []).find((x) => x.id === vid);
+  if (!v || v.stops.length < 2) throw new Error('Die Variante braucht mindestens zwei Orte.');
+  const r = await searchWithTool({
+    system: `Schätze für Mateo den Transport zwischen aufeinanderfolgenden Orten einer Rundreise: bestes übliches Verkehrsmittel, realistische Dauer (Tür zu Tür grob), grobe Preisspanne pro Person in ${tripCur(s) === 'EUR' ? 'Euro' : tripCur(s) === 'USD' ? 'US-Dollar' : 'argentinischen Pesos'}, kurze Notiz (Anbieter/Häufigkeit). Genau eine Strecke pro Paar in Reihenfolge. Ehrlich schätzen, nichts erfinden. Antworte mit "strecken".`,
+    user: v.stops.map((x) => x.name).join(' → ') + (tr.region || tr.dest ? ` (Region: ${tr.region || tr.dest})` : ''),
+    tool: LEG_TOOL,
+    maxUses: 0,
+    maxTokens: 2000,
+    label: 'Reise: Transport schätzen',
+  });
+  const legs = (r.strecken || []).map((x) => ({ from: x.von, to: x.nach, mode: MODES[x.art] ? x.art : 'sonstiges', dur: x.dauer || '', price: x.preis || '', note: x.notiz || '' }));
+  store.update((st) => { const t = st.trips.find((x) => x.id === tr.id); const vv = t?.variants.find((x) => x.id === vid); if (vv) vv.legs = legs; });
+  return legs;
+}
+// Teile einer Variante an die finale Route anhängen (+ geschätzte Strecken als Transport-Optionen)
+export function appendFromVariant(tripId, vid, idxs) {
+  const added = [];
+  store.update((s) => {
+    const t = s.trips.find((x) => x.id === tripId);
+    const v = t?.variants.find((x) => x.id === vid);
+    if (!v) return;
+    const pick = [...idxs].sort((a, b) => a - b).map((i) => v.stops[i]).filter(Boolean);
+    for (const x of pick) {
+      if (t.stops.some((y) => norm(y.name) === norm(x.name))) continue;
+      const id = uid();
+      t.stops.push({ id, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') });
+      added.push(id);
+    }
+    const names = t.stops.map((x) => norm(x.name));
+    for (const l of v.legs || []) {
+      const a = names.indexOf(norm(l.from)), b = names.indexOf(norm(l.to));
+      if (a < 0 || b !== a + 1) continue;
+      if (t.transport.some((y) => norm(y.from) === norm(l.from) && norm(y.to) === norm(l.to))) continue;
+      t.transport.push({ id: uid(), from: l.from, to: l.to, mode: l.mode, date: '', time: '', note: [l.dur, l.price, l.note].filter(Boolean).join(' · '), url: rome2rio(l.from, l.to), status: 'option' });
+    }
+  });
+  (async () => { for (const id of added) await locateEntry(tripId, 'stops', id); })();
+  return added.length;
 }
