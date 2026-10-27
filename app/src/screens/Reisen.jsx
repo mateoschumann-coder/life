@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
@@ -155,11 +155,15 @@ function PriceSheet({ s, trips, title, onClose }) {
           <div className="list">{trips.map((x) => <div key={x.id} className="row" style={{ minHeight: 44 }}><span className="row-main"><span className="row-title strong">{x.name}</span><DirectLinks s={s} tr={x} setup={f} /></span></div>)}</div>
         </>
       )}
+      <label className="row" style={{ minHeight: 44, padding: '4px 0', border: 0, gap: 10 }}>
+        <input type="checkbox" style={{ width: 20, height: 20, accentColor: COLOR }} checked={!!f.smart} onChange={() => setF({ ...f, smart: !f.smart })} />
+        <span className="row-main"><span className="row-title">🧠 Genauer schätzen</span><span className="row-meta">stärkeres Modell, ca. 2 Cent statt unter 1 Cent</span></span>
+      </label>
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="btn sec" style={{ flex: 1, background: 'var(--card-2)' }} onClick={() => run(false)} disabled={!!busy || !getAi().apiKey || !nightsOf(f) || f.travelers.some((x) => !x.start.trim())}>{busy === 'quick' ? 'Schätze …' : 'Schnell schätzen'}</button>
         <button type="button" className="btn" style={{ flex: 1 }} onClick={() => run(true)} disabled={!!busy || !getAi().apiKey || !nightsOf(f) || f.travelers.some((x) => !x.start.trim())}>{busy === 'web' ? 'Suche … (ca. 30 Sek.)' : '🔍 Mit Internet'}</button>
       </div>
-      <span className="tiny">Schnell schätzen: aus KI-Wissen, unter 1 Cent. Mit Internet: aktuelle Preise, ca. 3–6 Cent. Geschätztes ist mit ≈ markiert.</span>
+      <span className="tiny">Schätzungen sind Richtwerte (meist ±20–30 %). Echte Preise: Skyscanner/Airbnb-Links – kostenlos. Geschätztes ist mit ≈ markiert.</span>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {res && (
         <>
@@ -187,22 +191,40 @@ const three = (p) => p ? [shortP(p.anreiseSum || p.flugPreis, p.flug), shortP(p.
 // Drei Zahlen klein nebeneinander: Anreise · Unterkunft/Nacht · Gesamt p. P.
 // Zahl aus „~1.250 USD“ / „ca. 380 USD“ holen
 const num = (x) => { const m = String(x || '').replace(/(\d)[.,](\d{3})\b/g, '$1$2').match(/\d+(?:[.,]\d+)?/); return m ? Number(m[0].replace(',', '.')) : null; };
+const curSign0 = (c) => (c === 'EUR' ? '€' : c === 'USD' ? 'US$' : c);
 const cur = (x) => (String(x || '').match(/USD|US\$|€|EUR|ARS|R\$/) || ['USD'])[0];
-// Pro Startort: Anreise pro Person + Anteil an der Unterkunft (Nacht × Nächte ÷ Personen)
-export function perPerson(p) {
-  if (!p?.anreise?.length || p.anreise.length < 2) return [];
+// Pro Startort (v0.57): Reise p. P. · Anteil Unterkunft (Nacht × Nächte ÷ Personen) · Gesamt p. P.
+export function perOrigin(p) {
+  if (!p) return [];
   const night = num(p.stayNight);
-  const share = night && p.nights && p.people ? (night * p.nights) / p.people : 0;
-  return p.anreise.map((x) => {
-    const t = num(x.preis);
-    return t == null ? null : { von: String(x.von || x.person || '').replace(/\s*\(.*?\)/g, ''), count: x.count || 1, sum: Math.round(t + share), cur: cur(x.preis) };
-  }).filter(Boolean);
+  const people = p.people || (p.anreise || []).reduce((n, x) => n + (x.count || 1), 0) || 1;
+  const share = night && p.nights ? (night * p.nights) / people : 0;
+  const c = cur(p.stayNight || p.total || p.anreise?.[0]?.preis);
+  if (p.anreise?.length) {
+    return p.anreise.map((x) => {
+      const t = num(x.preis);
+      return t == null ? null : { von: String(x.von || x.person || '').replace(/\s*\(.*?\)/g, ''), count: x.count || 1, travel: Math.round(t), stay: Math.round(share), sum: Math.round(t + share), cur: cur(x.preis) || c };
+    }).filter(Boolean);
+  }
+  const tot = num(p.total);
+  return tot ? [{ von: '', count: people, travel: null, stay: Math.round(share) || null, sum: Math.round(tot / people), cur: cur(p.total) }] : [];
 }
-// Nur der Gesamtpreis (für die Ideen-Liste)
+export const perPerson = (p) => (p?.anreise?.length > 1 ? perOrigin(p) : []);
+const fmtN = (n) => n.toLocaleString('de-DE');
+// Ideen-Liste: Preis pro Person (bei mehreren Startorten Spanne von–bis)
 function TotalChip({ p }) {
-  const g = three(p)[2];
-  if (!g) return null;
-  return <span className="total-chip">{p.est ? `≈${g.replace(/^~\s*/, '')}` : g}<i>gesamt{p.nights ? ` · ${p.nights} N.` : ''}{p.people > 1 ? ` · ${p.people} P.` : ''}</i></span>;
+  const rows = perOrigin(p);
+  const pre = p.est ? '≈' : '~';
+  let txt;
+  if (rows.length) {
+    const lo = Math.min(...rows.map((x) => x.sum)), hi = Math.max(...rows.map((x) => x.sum));
+    txt = `${pre}${fmtN(lo)}${hi !== lo ? `–${fmtN(hi)}` : ''} ${rows[0].cur}`;
+  } else {
+    const g = three(p)[2];
+    if (!g) return null;
+    txt = p.est ? `≈${g.replace(/^~\s*/, '')}` : g;
+  }
+  return <span className="total-chip">{txt}<i>pro Person{p.nights ? ` · ${p.nights} N.` : ''}</i></span>;
 }
 // In der Idee: Transport · Unterkunft (alle Nächte) · Gesamt
 const stayTotal = (p) => { const n = num(p.stayNight); return n && p.nights ? `~${Math.round(n * p.nights).toLocaleString('de-DE')} ${cur(p.stayNight)}` : shortP(p.stayNight || p.stayPreis, p.unterkunft); };
@@ -244,7 +266,7 @@ function CostCard({ s, tr, onSearch }) {
   const p = tr.prices;
   const [a, u, g] = three(p);
   const has = a || u || g;
-  const pp = has ? perPerson(p) : [];
+  const pp = has ? perOrigin(p) : [];
   return (
     <section className="card" style={{ gap: 8, padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -255,13 +277,21 @@ function CostCard({ s, tr, onSearch }) {
       {open && has && (
         <div className="cost-details">
           {pp.length > 0 && (
-            <div className="pp-row" style={{ marginBottom: 4 }}>
-              {pp.map((x) => <span key={x.von}><i>pro Person ab {x.von}{x.count > 1 ? ` (${x.count})` : ''}</i>{p.est ? '≈' : '~'}{x.sum.toLocaleString('de-DE')} {x.cur}</span>)}
+            <div className="origin-grid">
+              <span className="h">Pro Person ab</span><span className="h">Reise</span><span className="h">Unterkunft</span><span className="h">Gesamt</span>
+              {pp.map((x, i) => (
+                <Fragment key={i}>
+                  <span className="o">{x.von || 'alle'}{x.count > 1 ? ` (${x.count})` : ''}</span>
+                  <span>{x.travel != null ? fmtN(x.travel) : '–'}</span>
+                  <span>{x.stay ? fmtN(x.stay) : '–'}</span>
+                  <span className="sum">{p.est ? '≈' : '~'}{fmtN(x.sum)} {curSign0(x.cur)}</span>
+                </Fragment>
+              ))}
             </div>
           )}
-          {(p.anreise || []).map((x, i) => <span key={i}>{x.von || x.person}{x.count > 1 ? ` (${x.count}×)` : ''}: <b>{x.preis}</b> p. P.{x.details ? ` · ${x.details}` : ''}</span>)}
+          {(p.anreise || []).filter((x) => x.details).map((x, i) => <span key={i}>{String(x.von || x.person || '').replace(/\s*\(.*?\)/g, '')}: {x.details}</span>)}
           {!p.anreise && p.flug && <span>Flug: {p.flug}</span>}
-          {p.stayNight && <span>Unterkunft: <b>{p.stayNight}</b>/Nacht{p.unterkunft ? ` · ${p.unterkunft}` : ''}</span>}
+          {p.stayNight && <span>Unterkunft: {p.stayNight}/Nacht für alle{p.unterkunft ? ` · ${p.unterkunft}` : ''}</span>}
           {p.people > 0 && p.nights && <span>{p.people} {p.people === 1 ? 'Person' : 'Personen'} · {p.nights} Nächte</span>}
           {p.checked && <span className="tiny">Stand {fmtShort(p.checked)}{p.when ? ` · ${rangeText(...p.when.split('|'))}` : ''}{p.est ? ' · geschätzt' : ''}</span>}
         </div>
