@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
-  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, TRAVEL_MODES, LEVELS, STAY_TYPES,
+  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
@@ -116,7 +116,7 @@ function PriceSheet({ s, trips, title, onClose }) {
   const [err, setErr] = useState(null);
   const [key, setKey] = useState(null);
   const k = trips ? trips.map((x) => x.id).join() : null;
-  if (k !== key) { setKey(k); setRes(null); setErr(null); if (first) setF(first.priceSetup ? fixSetup({ ...defaultSetup(s, first), ...first.priceSetup }) : defaultSetup(s, first)); }
+  if (k !== key) { setKey(k); setRes(null); setErr(null); if (first) setF(setupOf(s, first)); }
   const setT = (i, patch) => setF({ ...f, travelers: f.travelers.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const run = async (web) => {
     setBusy(web ? 'web' : 'quick'); setErr(null);
@@ -177,7 +177,7 @@ function PriceSheet({ s, trips, title, onClose }) {
 }
 // „✈️ ab Buenos Aires (2) · ✈️ Frankfurt · 🚌 Montevideo“ – aus den Preis-Einstellungen der Idee
 const startsText = (s, tr) => {
-  const st = fixSetup(tr.priceSetup || defaultSetup(s, tr));
+  const st = setupOf(s, tr);
   return st.travelers.map((x, i) => `${TRAVEL_MODES[x.mode]?.slice(0, 2) || '✈️'} ${i === 0 ? 'ab ' : ''}${String(x.start || '?').replace(/\s*\(.*?\)/g, '')}${x.count > 1 ? ` (${x.count})` : ''}`).join(' · ');
 };
 // Kurzer Preis aus den gespeicherten Angaben (ältere Einträge: Zahl aus dem Text holen)
@@ -198,15 +198,24 @@ export function perPerson(p) {
     return t == null ? null : { von: String(x.von || x.person || '').replace(/\s*\(.*?\)/g, ''), count: x.count || 1, sum: Math.round(t + share), cur: cur(x.preis) };
   }).filter(Boolean);
 }
-function PriceRow({ p }) {
-  const [a, u, g] = three(p);
+// Nur der Gesamtpreis (für die Ideen-Liste)
+function TotalChip({ p }) {
+  const g = three(p)[2];
+  if (!g) return null;
+  return <span className="total-chip">{p.est ? `≈${g.replace(/^~\s*/, '')}` : g}<i>gesamt{p.nights ? ` · ${p.nights} N.` : ''}{p.people > 1 ? ` · ${p.people} P.` : ''}</i></span>;
+}
+// In der Idee: Transport · Unterkunft (alle Nächte) · Gesamt
+const stayTotal = (p) => { const n = num(p.stayNight); return n && p.nights ? `~${Math.round(n * p.nights).toLocaleString('de-DE')} ${cur(p.stayNight)}` : shortP(p.stayNight || p.stayPreis, p.unterkunft); };
+function PriceRow({ p, detail }) {
+  const [a, u0, g] = three(p);
+  const u = detail && p.stayNight ? stayTotal(p) : u0;
   if (!a && !u && !g) return null;
-  const pp = perPerson(p);
+  const pp = detail ? [] : perPerson(p);
   return (
     <>
     <span className="price-row3">
-      <span><i>{p.anreise?.some((x, i) => i > 0 || x.count > 1) || p.people > 1 ? 'Anreise' : 'Flug'}</i>{a || '–'}</span>
-      <span><i>Nacht</i>{u || '–'}</span>
+      <span><i>{detail ? 'Transport' : p.anreise?.some((x, i) => i > 0 || x.count > 1) || p.people > 1 ? 'Anreise' : 'Flug'}</i>{a || '–'}</span>
+      <span><i>{detail ? 'Unterkunft' : 'Nacht'}</i>{u || '–'}</span>
       <span className="sum"><i>Gesamt{p.nights ? ` · ${p.nights} N.` : ''}</i>{p.est && g ? `≈${g.replace(/^~\s*/, '')}` : g || '–'}</span>
     </span>
     {pp.length > 0 && (
@@ -220,7 +229,7 @@ function PriceRow({ p }) {
 // Kostenlose Direkt-Links zum Vergleichen (Google Flights, Bus/Zug, Airbnb, Booking)
 function DirectLinks({ s, tr, setup }) {
   const { travel, stay } = directLinks(s, tr, setup);
-  const st = fixSetup(setup || tr.priceSetup || defaultSetup(s, tr));
+  const st = setupOf(s, tr, setup);
   const fly = st.travelers.filter((x) => x.mode === 'flug').map((x) => x.start);
   useEffect(() => { if (fly.length && getAi().apiKey) ensureIata(s, [...fly, tr.dest || tr.name]); }, [fly.join('|'), tr.dest]);
   return (
@@ -235,23 +244,30 @@ function CostCard({ s, tr, onSearch }) {
   const p = tr.prices;
   const [a, u, g] = three(p);
   const has = a || u || g;
+  const pp = has ? perPerson(p) : [];
   return (
     <section className="card" style={{ gap: 8, padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {has ? <button type="button" style={{ flex: 1, minWidth: 0, border: 0, background: 'none', padding: 0, textAlign: 'left' }} onClick={() => setOpen(!open)} aria-label="Preis-Details"><PriceRow p={p} /></button> : <span className="tiny" style={{ flex: 1 }}>Preise schätzen oder direkt nachsehen:</span>}
+        {has ? <span style={{ flex: 1, minWidth: 0 }}><PriceRow p={p} detail /></span> : <span className="tiny" style={{ flex: 1 }}>Preise schätzen oder direkt nachsehen:</span>}
         <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 10px', whiteSpace: 'nowrap' }} onClick={onSearch}>{has ? '↻' : 'Schätzen'}</button>
       </div>
-      <span className="tiny" style={{ marginTop: 2 }}>Direkt nachsehen (kostenlos):</span>
-      <DirectLinks s={s} tr={tr} />
+      {has && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setOpen(!open)}>Details {open ? '▴' : '▾'}</button>}
       {open && has && (
         <div className="cost-details">
-          {(p.anreise || []).map((x, i) => <span key={i}>{x.von || x.person}{x.count > 1 ? ` (${x.count}×)` : ''}: <b>{x.preis}</b>{x.count > 1 ? ' p. P.' : ''}{x.details ? ` · ${x.details}` : ''}{x.url && <> · <a href={x.url} target="_blank" rel="noreferrer">ansehen ↗</a></>}</span>)}
-          {!p.anreise && p.flug && <span>Flug: {p.flug}{p.urlFlug && <> · <a href={p.urlFlug} target="_blank" rel="noreferrer">ansehen ↗</a></>}</span>}
-          {p.unterkunft && <span>Unterkunft: {p.unterkunft}{p.urlStay && <> · <a href={p.urlStay} target="_blank" rel="noreferrer">ansehen ↗</a></>}</span>}
-          {p.people > 1 && p.total && <span>{p.people} Personen · {p.nights} Nächte</span>}
-          {p.checked && <span className="tiny">Stand {fmtShort(p.checked)}{p.when ? ` · ${rangeText(...p.when.split('|'))}` : ''}{p.est ? ' · teils geschätzt' : ''}</span>}
+          {pp.length > 0 && (
+            <div className="pp-row" style={{ marginBottom: 4 }}>
+              {pp.map((x) => <span key={x.von}><i>pro Person ab {x.von}{x.count > 1 ? ` (${x.count})` : ''}</i>{p.est ? '≈' : '~'}{x.sum.toLocaleString('de-DE')} {x.cur}</span>)}
+            </div>
+          )}
+          {(p.anreise || []).map((x, i) => <span key={i}>{x.von || x.person}{x.count > 1 ? ` (${x.count}×)` : ''}: <b>{x.preis}</b> p. P.{x.details ? ` · ${x.details}` : ''}</span>)}
+          {!p.anreise && p.flug && <span>Flug: {p.flug}</span>}
+          {p.stayNight && <span>Unterkunft: <b>{p.stayNight}</b>/Nacht{p.unterkunft ? ` · ${p.unterkunft}` : ''}</span>}
+          {p.people > 0 && p.nights && <span>{p.people} {p.people === 1 ? 'Person' : 'Personen'} · {p.nights} Nächte</span>}
+          {p.checked && <span className="tiny">Stand {fmtShort(p.checked)}{p.when ? ` · ${rangeText(...p.when.split('|'))}` : ''}{p.est ? ' · geschätzt' : ''}</span>}
         </div>
       )}
+      <span className="tiny" style={{ marginTop: 2 }}>Direkt nachsehen (kostenlos):</span>
+      <DirectLinks s={s} tr={tr} />
     </section>
   );
 }
@@ -317,7 +333,7 @@ function TripList({ s }) {
             ? [tr.stops.length && `${tr.stops.length} Stationen`, tr.places.length && `${tr.places.length} Orte`].filter(Boolean).join(' · ')
             : [tr.from && rangeText(tr.from, tr.to), tr.from && tr.from > t && `in ${diffDays(t, tr.from)} Tagen`, `${tr.todo.filter((x) => !x.done).length} offen`].filter(Boolean).join(' · ')}
         </span>
-        {tr.status === 'idee' && <PriceRow p={tr.prices} />}
+        {tr.status === 'idee' && tr.prices && <TotalChip p={tr.prices} />}
       </span>
       {!idea && <Chevron />}
     </a>
@@ -332,6 +348,10 @@ function TripList({ s }) {
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Reisen</h1>
             <button type="button" className="btn small" onClick={() => setOpen(true)}>+ Reise</button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="tiny">Preise in</span>
+            {Object.entries(TRIP_CURRENCIES).map(([k, l]) => <button key={k} type="button" className={tripCur(s) === k ? 'chip on' : 'chip soft'} style={{ padding: '4px 10px', fontSize: 13 }} onClick={() => store.update((d) => { d.profile = { ...d.profile, tripCurrency: k }; })}>{l}</button>)}
           </div>
         </div>
         <section className="group">

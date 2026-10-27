@@ -201,6 +201,10 @@ const VERGLEICH = {
   },
 };
 // Abflughafen: pro Reise einstellbar (tr.airport), sonst Standard aus dem Profil (v0.44)
+// Reisewährung (v0.56): Standard Euro, oben in Reisen umstellbar
+export const TRIP_CURRENCIES = { EUR: '€', USD: 'US$', ARS: 'ARS' };
+export const tripCur = (s) => (TRIP_CURRENCIES[s.profile?.tripCurrency] ? s.profile.tripCurrency : 'EUR');
+export const curSign = (s) => (tripCur(s) === 'EUR' ? '€' : tripCur(s) === 'USD' ? 'USD' : 'ARS');
 export const airportsOf = (s, tr) => tr?.priceSetup?.travelers?.[0]?.start || tr?.airport || s.profile?.airports || 'Buenos Aires (EZE oder AEP)';
 export const airbnbUrl = (ziel, from, to) => `https://www.airbnb.com/s/${encodeURIComponent(ziel)}/homes${from && to ? `?checkin=${from}&checkout=${to}` : ''}`;
 // fehlende Links ergänzen, damit man die echten Preise mit einem Tipp sieht
@@ -225,7 +229,9 @@ const GUIDE_TOOL = {
         items: {
           type: 'object',
           properties: {
-            ziel: { type: 'string', description: 'Ort/Region, z.B. „Florianópolis“' },
+            ziel: { type: 'string', description: 'Ort/Region, z.B. „Florianópolis“ – bei Rundreisen ein Name wie „China-Klassiker“' },
+            route: { type: 'array', description: 'Nur bei Rundreisen: Stationen in Reihenfolge mit Nächten', items: { type: 'object', properties: { ort: { type: 'string' }, naechte: { type: 'integer' } }, required: ['ort'] } },
+            naechte: { type: 'integer', description: 'Gesamtdauer in Nächten, wenn bekannt' },
             land: { type: 'string' },
             kurz: { type: 'string', description: 'Höchstens 6 Wörter, z.B. „Strände, Surfen, Inselflair“' },
             warum: { type: 'string', description: '2–3 Sätze: was dort besonders ist und warum es zu Mateo passt' },
@@ -251,6 +257,8 @@ Arbeitsweise:
 - Wie ein guter Reiseführer im Gespräch: Wenn der Wunsch noch vage ist, darfst du kurz nachfragen (Zeitraum/Dauer, Strand/Stadt/Natur, Budget, allein/zu zweit) – musst aber nicht; meist direkt 3–5 abwechslungsreiche Ziele vorschlagen (gern ein überraschendes) und höchstens eine Frage stellen.
 - Auf Nachfragen eingehen: vergleichen, Alternativen, „mehr wie X“, „günstiger“ – dann neue Ziele unter "ziele".
 - Mateo will zwischen Zielen entscheiden: jedes Ziel eigenständig, nicht mehrere Orte in einem Eintrag zusammenfassen.
+- Preise/Budget immer in ${tripCur(s)}.
+- DAUER BEACHTEN: Hat Mateo eine Dauer genannt (z.B. „2 Wochen“), muss jedes Ziel diese Zeit füllen. Reicht ein Ort dafür nicht (Faustregel: mehr als ~5–7 Nächte in einem großen Land oder einer Region), schlage RUNDREISEN vor: jedes Ziel ist dann eine eigene komplette Route (z.B. „China-Klassiker: Peking 4 → Xi'an 3 → Shanghai 4 → Guilin 3“ vs. „Südchina & Natur …“) mit "route" (Stationen + Nächte, Summe = Dauer) und "naechte". Nicht einzelne Städte für je 4–5 Tage nebeneinanderstellen, als müsste er sich für eine entscheiden. Kurze Trips (Wochenende, 3–6 Tage) = einzelne Orte.
 - Pro Ziel: "kurz" (höchstens 6 Wörter, das sieht er in der Liste) und dafür ausführlich warum, highlights, dauer, anreise ab Buenos Aires, beste_zeit, budget – das wird beim Übernehmen in die Idee geschrieben.
 - Hier geht es ums Finden von Zielen. Genaue Flug- und Unterkunftspreise prüft Mateo später mit dem Knopf „Preise“ bei seinen Ideen – darauf kannst du kurz hinweisen.
 - ${web ? 'Du darfst höchstens 2-mal im Internet suchen (aktuelle Tipps, Events, Saison). Links nur aus Suchergebnissen.' : 'Du suchst diesmal NICHT im Internet: antworte aus deinem Wissen, ohne URLs.'}
@@ -344,7 +352,7 @@ export const STAY_TYPES = { airbnb: 'Airbnb', hotel: 'Hotel', hostel: 'Hostel' }
 export const defaultSetup = (s, tr) => ({ from: tr?.from || '', to: tr?.to || '', travelers: [{ start: airportsOf(s, tr), count: 1, mode: 'flug', level: 'normal' }], stayType: 'airbnb', stayLevel: 'normal' });
 // Direkt-Links (v0.51, kostenlos): Seiten mit Startort, Ziel, Datum und Personen schon ausgefüllt – echte Preise mit einem Tipp
 export function directLinks(s, tr, setup) {
-  const st = fixSetup(setup || tr.priceSetup || defaultSetup(s, tr));
+  const st = setupOf(s, tr, setup);
   const from = st.from || tr.from;
   const to = st.to || tr.to;
   const dest = (tr.dest || tr.name).split(',')[0].trim();
@@ -401,6 +409,7 @@ async function lookupIata(names) {
 }
 // ältere Einstellungen (mit Namen statt Anzahl) auf das neue Format bringen
 export const nightsOf = (st) => (st?.from && st?.to ? Math.max(1, diffDays(st.from, st.to)) : Number(st?.nights) || 0);
+export const setupOf = (s, tr, setup) => { const d = defaultSetup(s, tr); const m = { ...d, ...(setup || tr?.priceSetup || {}) }; if (!m.travelers?.length) m.travelers = d.travelers; return fixSetup(m); };
 export const fixSetup = (st) => ({ ...st, travelers: (st.travelers || []).map((x) => ({ start: x.start || '', count: Math.max(1, Number(x.count) || 1), mode: x.mode || 'flug', level: x.level || 'normal' })) });
 const PRICE2 = {
   name: 'preise_zeigen',
@@ -415,12 +424,12 @@ const PRICE2 = {
           type: 'object',
           properties: {
             ziel: { type: 'string', description: 'genau wie in der Liste' },
-            anreise: { type: 'array', description: 'eine Zeile pro Startort, gleiche Reihenfolge', items: { type: 'object', properties: { von: { type: 'string' }, preis: { type: 'string', description: 'NUR Preis hin & zurück pro Person, z.B. „~380 USD“' }, details: { type: 'string', description: 'Anbieter, Dauer – sehr kurz' }, url: { type: 'string' } }, required: ['von', 'preis'] } },
-            anreise_summe: { type: 'string', description: 'Anreise aller Personen zusammen, z.B. „~760 USD“' },
-            unterkunft_nacht: { type: 'string', description: 'NUR Preis pro Nacht für alle zusammen, z.B. „~60 USD“' },
+            anreise: { type: 'array', description: 'eine Zeile pro Startort, gleiche Reihenfolge', items: { type: 'object', properties: { von: { type: 'string' }, preis: { type: 'string', description: 'NUR Preis hin & zurück pro Person, z.B. „~380 €“' }, details: { type: 'string', description: 'Anbieter, Dauer – sehr kurz' }, url: { type: 'string' } }, required: ['von', 'preis'] } },
+            anreise_summe: { type: 'string', description: 'Anreise aller Personen zusammen, z.B. „~760 €“' },
+            unterkunft_nacht: { type: 'string', description: 'NUR Preis pro Nacht für alle zusammen, z.B. „~60 €“' },
             unterkunft_details: { type: 'string', description: 'sehr kurz: Art, Lage' },
             url_unterkunft: { type: 'string' },
-            gesamt_reise: { type: 'string', description: 'NUR Gesamtkosten der ganzen Reise für alle Personen (Anreise aller + Unterkunft aller Nächte), z.B. „~1.250 USD“' },
+            gesamt_reise: { type: 'string', description: 'NUR Gesamtkosten der ganzen Reise für alle Personen (Anreise aller + Unterkunft aller Nächte), z.B. „~1.250 €“' },
             geschaetzt: { type: 'boolean', description: 'true, wenn geschätzt statt gefunden' },
           },
           required: ['ziel', 'anreise', 'unterkunft_nacht', 'gesamt_reise'],
@@ -433,16 +442,20 @@ const PRICE2 = {
 // web = mit Internet (genauer, ca. 5 Cent) oder nur Schätzung aus KI-Wissen (unter 1 Cent)
 export async function comparePrices(s, trips, setup, { web = true } = {}) {
   const st0 = fixSetup(setup || defaultSetup(s, trips[0]));
+  // Rundreisen: gewählte (oder erste) Routen-Variante mitgeben, damit Unterkunft/Inlandsstrecken für alle Stationen geschätzt werden
+  const routeOf = (x) => { const v = (x.variants || []).find((y) => y.chosen) || (x.variants || [])[0]; return v && v.stops.length > 1 ? ` (Rundreise: ${v.stops.map((y) => `${y.name}${y.nights ? ` ${y.nights}N` : ''}`).join(' → ')})` : ''; };
   const ziele = trips.map((x) => x.dest || x.name);
+  const zieleText = JSON.stringify(trips.map((x) => (x.dest || x.name) + routeOf(x)));
+  const C = curSign(s);
   const nights = nightsOf(st0) || 7;
   const people = st0.travelers.reduce((n, x) => n + x.count, 0);
   const who = st0.travelers.map((x) => `- ${x.count} ${x.count === 1 ? 'Person' : 'Personen'} ab ${x.start || 'Buenos Aires'}: ${TRAVEL_MODES[x.mode]?.slice(3) || 'Flug'}, ${LEVELS[x.level] || 'Normal'}`).join('\n');
-  const base = `Heute ist ${fmtLong(today())}. Ziele: ${JSON.stringify(ziele)}.
+  const base = `Heute ist ${fmtLong(today())}. Ziele: ${zieleText}. Bei Rundreisen: Anreise = Hin zum ersten und zurück vom letzten Ort, plus Strecken zwischen den Stationen in die Anreise einrechnen; Unterkunft über alle Stationen mitteln.
 Reisegruppe (${people} Personen):
 ${who}
 Unterkunft gemeinsam für alle: ${STAY_TYPES[st0.stayType] || 'Airbnb'}, ${LEVELS[st0.stayLevel] || 'Normal'}. Zeitraum: ${st0.from && st0.to ? `${st0.from} bis ${st0.to}` : `Datum flexibel (typisch in den nächsten 2–3 Monaten), Dauer ${nights} Nächte`} (${nights} Nächte).
 Preisklassen: Günstig = Billigflug mit Umstieg/einfacher Bus; Normal = übliche Economy; Premium = Premium Economy/Business, Bus-Cama/1. Klasse.
-Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: realistische Schätzung mit geschaetzt=true. gesamt_reise = Anreise aller ${people} Personen + ${nights} Nächte Unterkunft. Schätze die Anreise für JEDEN Startort einzeln und realistisch (Preise ab verschiedenen Städten unterscheiden sich stark) – nie denselben Preis für alle übernehmen. Preise kurz als „~… USD“. Texte sehr kurz.`;
+Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: realistische Schätzung mit geschaetzt=true. gesamt_reise = Anreise aller ${people} Personen + ${nights} Nächte Unterkunft. Schätze die Anreise für JEDEN Startort einzeln und realistisch (Preise ab verschiedenen Städten unterscheiden sich stark) – nie denselben Preis für alle übernehmen. Alle Preise in ${tripCur(s)}, kurz als „~… ${C}“. "ziel" in der Antwort genau wie in der Liste ohne die Rundreise-Klammer. Texte sehr kurz.`;
   const sys = web
     ? `Du recherchierst aktuelle Reisepreise. ${base}\nSuche höchstens 3-mal im Internet und bündle alles in wenige Suchen (z.B. eine Suche für alle Flüge eines Startorts, eine für Unterkünfte aller Ziele). Links nur aus Suchergebnissen. Dann "preise_zeigen".`
     : `Du schätzt Reisepreise aus deinem Wissen (ohne Internet, keine Links). ${base}\nSetze geschaetzt=true. Dann "preise_zeigen".`;
@@ -450,7 +463,7 @@ Für JEDES Ziel genau eine Zeile – nie weglassen; wenn nichts Exaktes da ist: 
   let rows = (r.vergleich || []).filter((v) => v && v.ziel);
   const missing = ziele.filter((z) => !rows.some((v) => norm(v.ziel) === norm(z) || norm(z).startsWith(norm(v.ziel)) || norm(v.ziel).startsWith(norm(z).split(',')[0])));
   if (missing.length) {
-    const r2 = await searchWithTool({ system: `Du schätzt Reisepreise aus deinem Wissen (ohne Internet). ${base.replace(JSON.stringify(ziele), JSON.stringify(missing))}\nSetze geschaetzt=true.`, user: 'Bitte schätzen.', tool: PRICE2, maxUses: 0, maxTokens: 2000, label: 'Reisepreise vergleichen' });
+    const r2 = await searchWithTool({ system: `Du schätzt Reisepreise aus deinem Wissen (ohne Internet). ${base.replace(zieleText, JSON.stringify(trips.filter((x) => missing.includes(x.dest || x.name)).map((x) => (x.dest || x.name) + routeOf(x))))}\nSetze geschaetzt=true.`, user: 'Bitte schätzen.', tool: PRICE2, maxUses: 0, maxTokens: 2000, label: 'Reisepreise vergleichen' });
     rows = [...rows, ...(r2.vergleich || []).filter((v) => v && v.ziel).map((v) => ({ ...v, geschaetzt: true }))];
   }
   rows = rows.map((v) => ({
@@ -482,8 +495,12 @@ export function applyGuide(sel, { group = '' } = {}) {
       updateTrip(old.id, { ...(g ? { group: g } : {}), ...(z.flug || z.unterkunft ? { prices: { ...(old.prices || {}), ...priceOf(z) } } : {}), ...(!old.idea && (z.warum || z.kurz) ? { idea: ideaText(z) } : {}) });
       continue;
     }
-    const id = addTrip({ name: z.ziel, dest: [z.ziel, z.land].filter(Boolean).join(', '), status: 'idee', idea: ideaText(z) });
-    updateTrip(id, { group: g, ...(z.flug || z.unterkunft ? { prices: priceOf(z) } : {}) });
+    const route = (z.route || []).filter((x) => x && x.ort);
+    const id = addTrip({ name: z.ziel, dest: route.length ? [route[0].ort, z.land].filter(Boolean).join(', ') : [z.ziel, z.land].filter(Boolean).join(', '), status: 'idee', idea: ideaText(z) });
+    const nights = z.naechte || route.reduce((n, x) => n + (x.naechte || 0), 0);
+    updateTrip(id, { group: g, ...(z.flug || z.unterkunft ? { prices: priceOf(z) } : {}), ...(nights ? { priceSetup: { nights } } : {}) });
+    // Rundreise: Route gleich als Variante speichern
+    if (route.length > 1) addVariant(id, { name: z.ziel, summary: z.kurz || '', stops: route.map((x) => ({ name: x.ort, nights: x.naechte || null })) });
     n++;
   }
   return n;
