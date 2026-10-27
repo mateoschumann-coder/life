@@ -505,5 +505,12 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .tl-ctrl button:disabled { opacity: .3; }
 .tl-x { color: var(--chev); font-size: 12px; }
 
-.tl-grip { width: 24px; height: 36px; display: inline-flex; align-items: center; justify-content: center; color: var(--chev); font-size: 16px; font-weight: 700; letter-spacing: -2px; touch-action: none; cursor: grab; flex-shrink: 0; user-select: none; -webkit-user-select: none; }
 .tl-drop { height: 3px; background: var(--accent); border-radius: 2px; margin: 2px 0 2px 34px; }
+
+.tl-node { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.tl-node.dragging { transition: none; }
+.stop-sec { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 14px; background: var(--fill, rgba(120,120,128,.08)); }
+.stop-sec-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 2px 0; font: inherit; font-weight: 650; font-size: 15.5px; color: var(--text); text-align: left; cursor: pointer; }
+.stop-item { display: flex; flex-direction: column; gap: 6px; padding: 6px 0; border-top: 0.5px solid var(--sep, rgba(60,60,67,.18)); }
+.stop-item .tl-main { padding: 2px 0; }
+.stop-item-edit { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 4px; }

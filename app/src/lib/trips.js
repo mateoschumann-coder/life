@@ -157,8 +157,15 @@ export const removeVariant = (tripId, id) => store.update((s) => { const t = s.t
 // Variante wählen: ihre Abschnitte werden die Stationen der Route (vorhandene gleiche Stationen bleiben samt Orten erhalten)
 // In der Variante Gesammeltes (🏠/🍽/👀/🎯) wird beim Übernehmen zu Orten der Station
 const ITEM_TO_PLACE = { unterkunft: 'unterkunft', essen: 'restaurant', sehen: 'sehenswuerdigkeit', tun: 'aktivitaet' };
-function itemsToPlaces(t, x, stopId) {
-  for (const it of x.items || []) if (!t.places.some((p) => norm(p.name) === norm(it.text) && p.stopId === stopId)) t.places.push({ id: uid(), name: it.text, kind: ITEM_TO_PLACE[it.kind] || 'sonstiges', stopId, note: it.note || '', address: '', url: okUrl(it.url), status: 'option' });
+function itemsToPlaces(t, x, stopId, prev = '') {
+  const from = prev || cleanPlace(t.priceSetup?.travelers?.[0]?.start) || 'Buenos Aires';
+  for (const it of x.items || []) {
+    if (it.kind === 'anreise') {
+      if (!t.transport.some((y) => norm(y.to) === norm(x.name) && norm(y.note) === norm(it.text))) t.transport.push({ id: uid(), from, to: x.name, mode: it.mode || 'sonstiges', date: '', time: '', note: it.text, price: it.price || '', url: okUrl(it.url), status: it.picked ? 'gebucht' : 'option' });
+      continue;
+    }
+    if (!t.places.some((p) => norm(p.name) === norm(it.text) && p.stopId === stopId)) t.places.push({ id: uid(), name: it.text, kind: ITEM_TO_PLACE[it.kind] || 'sonstiges', stopId, note: it.note || '', address: '', url: okUrl(it.url), price: it.price || '', reserve: !!it.reserve, status: it.picked ? 'fest' : 'option' });
+  }
 }
 export function chooseVariant(tripId, id) {
   const added = [];
@@ -172,12 +179,12 @@ export function chooseVariant(tripId, id) {
       t.variants.unshift({ id: uid(), name: 'Bisherige Route', summary: 'automatisch gesichert', stops: t.stops.map((x) => ({ name: x.name, nights: null, note: x.note || '' })), chosen: false });
     }
     t.variants.forEach((x) => { x.chosen = x.id === id; });
-    t.stops = v.stops.map((x) => {
+    t.stops = v.stops.map((x, k) => {
       const old = t.stops.find((y) => norm(y.name) === norm(x.name));
       if (old) return { ...old, note: old.note || [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
       const nid = uid();
       added.push(nid);
-      itemsToPlaces(t, x, nid);
+      itemsToPlaces(t, x, nid, v.stops[k - 1]?.name);
       return { id: nid, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
     });
     for (const l of v.legs || []) if (!t.transport.some((y) => norm(y.from) === norm(l.from) && norm(y.to) === norm(l.to))) t.transport.push({ id: uid(), from: l.from, to: l.to, mode: l.mode, date: '', time: '', note: [l.dur, l.price, l.note].filter(Boolean).join(' · '), url: rome2rio(l.from, l.to), status: 'option' });
@@ -753,7 +760,7 @@ export function appendFromVariant(tripId, vid, idxs, at = null) {
       const ns = { id, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
       if (at !== null && at >= 0 && at < t.stops.length) t.stops.splice(at++, 0, ns); else t.stops.push(ns);
       added.push(id);
-      itemsToPlaces(t, x, id);
+      itemsToPlaces(t, x, id, t.stops[t.stops.findIndex((y) => y.id === id) - 1]?.name);
     }
     const names = t.stops.map((x) => norm(x.name));
     for (const l of v.legs || []) {
@@ -786,11 +793,12 @@ export function setVariantLeg(tripId, vid, from, to, patch) {
     if (l) Object.assign(l, patch); else v.legs.push({ from, to, mode: 'bus', dur: '', price: '', note: '', ...patch });
   });
 }
-export function addVariantItem(tripId, vid, i, text, kind = 'sehen', url = '') {
+export function addVariantItem(tripId, vid, i, text, kind = 'sehen', url = '', extra = {}) {
   const t = String(text || '').trim();
   if (!t) return;
-  editV(tripId, vid, (v) => { const st = v.stops[i]; if (st) st.items = [...(st.items || []), { id: uid(), text: t, kind, url: okUrl(url) }]; });
+  editV(tripId, vid, (v) => { const st = v.stops[i]; if (st) st.items = [...(st.items || []), { id: uid(), text: t, kind, url: okUrl(url), ...extra }]; });
 }
+export const updateVariantItem = (tripId, vid, i, id, patch) => editV(tripId, vid, (v) => { const it = (v.stops[i]?.items || []).find((x) => x.id === id); if (it) Object.assign(it, patch, patch.url !== undefined ? { url: okUrl(patch.url) } : {}); });
 export const removeVariantItem = (tripId, vid, i, id) => editV(tripId, vid, (v) => { const st = v.stops[i]; if (st) st.items = (st.items || []).filter((x) => x.id !== id); });
 export function addEmptyVariant(tripId) { return addVariant(tripId, { name: `Variante ${(store.get().trips.find((x) => x.id === tripId)?.variants || []).length + 1}`, stops: [] }); }
 // Finale Route: Station an einer Stelle einfügen
@@ -833,7 +841,7 @@ export function suggestPosition(tr, v, i) {
   return { at: tr.stops.length, why: tr.stops.length ? 'am Ende' : 'als erste Station' };
 }
 const cleanPlace = (x) => String(x || '').replace(/\s*\(.*?\)\s*/g, ' ').split(/ oder |,/)[0].trim();
-export function stopLinks(s, tr, v, i) {
+export function stopLinks(s, tr, v, i, fix = null) {
   const st = setupOf(s, tr);
   const people = st.travelers.reduce((n, x) => n + x.count, 0) || 1;
   const x = v.stops[i];
@@ -842,6 +850,7 @@ export function stopLinks(s, tr, v, i) {
   const where = region && !name.toLowerCase().includes(region.toLowerCase()) ? `${name}, ${region}` : name;
   let checkin = '', checkout = '';
   if (tr.from) { const before = v.stops.slice(0, i).reduce((n, y) => n + (y.nights || 0), 0); checkin = addDays(tr.from, before); checkout = addDays(checkin, x.nights || 1); }
+  if (fix?.checkin) { checkin = fix.checkin; checkout = fix.checkout && fix.checkout > fix.checkin ? fix.checkout : addDays(fix.checkin, 1); }
   const dates = checkin ? `&checkin=${checkin}&checkout=${checkout}` : '';
   const level = st.stayLevel || 'normal';
   const type = st.stayType || 'airbnb';
@@ -858,6 +867,28 @@ export function stopLinks(s, tr, v, i) {
     { label: '🗺 Google Maps (ÖPNV)', url: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(prev)}&destination=${encodeURIComponent(where)}&travelmode=transit` },
   ];
   return { stay, travel, prev, checkin, checkout, people, level: LEVELS[level], type: STAY_TYPES[type] };
+}
+// v0.79: Such-Links für die Kategorien eines Ortes (kostenlos)
+export function spotLinks(tr, name) {
+  const region = (tr.region || tr.dest || '').split(',')[0].trim();
+  const where = region && !name.toLowerCase().includes(region.toLowerCase()) ? `${name}, ${region}` : name;
+  const e = encodeURIComponent;
+  return {
+    sehen: [
+      { label: '🔎 Google: Sehenswürdigkeiten', url: `https://www.google.com/search?q=${e(`Sehenswürdigkeiten ${where}`)}` },
+      { label: '🦉 Tripadvisor', url: `https://www.tripadvisor.com/Search?q=${e(where)}` },
+      { label: '🎟 GetYourGuide (Tickets)', url: `https://www.getyourguide.com/s/?q=${e(where)}` },
+    ],
+    essen: [
+      { label: '🗺 Google Maps: Restaurants', url: `https://www.google.com/maps/search/${e(`restaurants ${where}`)}` },
+      { label: '🦉 Tripadvisor', url: `https://www.tripadvisor.com/Search?q=${e(`restaurants ${where}`)}` },
+    ],
+    tun: [
+      { label: '🚐 GetYourGuide: Ausflüge', url: `https://www.getyourguide.com/s/?q=${e(`${where} day trip`)}` },
+      { label: '🔎 Google: Tagesausflüge', url: `https://www.google.com/search?q=${e(`Tagesausflüge ab ${where}`)}` },
+    ],
+    reserve: (item) => `https://www.google.com/search?q=${e(`${item} ${where} tickets reservierung`)}`,
+  };
 }
 
 // ---------- v0.76: An- und Abreise automatisch (Startort aus den Preis-Einstellungen → erste Station, letzte → zurück) ----------

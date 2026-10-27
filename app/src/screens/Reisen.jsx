@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
-  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes, toOutings, moveStop, removeStop, reorderStop, reorderVariantStop } from '../lib/trips';
+  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, updateVariantItem, spotLinks, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes, toOutings, moveStop, removeStop, reorderStop, reorderVariantStop } from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -445,38 +445,6 @@ function TripList({ s }) {
 }
 
 // ---------- Route: Stationen + Transport ----------
-function StopDetail({ tr, st, i }) {
-  const [pname, setPname] = useState('');
-  const [pkind, setPkind] = useState('unterkunft');
-  const [purl, setPurl] = useState('');
-  const places = tr.places.filter((p) => p.stopId === st.id);
-  return (
-    <>
-      <DateRangeField from={st.from} to={st.to} onChange={(v) => updateEntry(tr.id, 'stops', st.id, v)} placeholder="Wann bist du dort?" />
-      <input className="input" defaultValue={st.note} key={st.id + 'n' + (st.note || '')} placeholder="Notiz, z.B. „2 Nächte, Strandtag“" onBlur={(e) => e.target.value !== st.note && updateEntry(tr.id, 'stops', st.id, { note: e.target.value })} aria-label="Notiz" />
-      <span className="label" style={{ padding: 0 }}>Hier sammeln</span>
-      {Object.keys(PLACE_KINDS).filter((k) => places.some((p) => (PLACE_KINDS[p.kind] ? p.kind : 'sonstiges') === k)).flatMap((k) => [
-        <span key={'h' + k} className="tiny" style={{ fontWeight: 650, color: 'var(--text)', marginTop: 4 }}>{PLACE_ICON[k]} {PLACE_KINDS[k]} · {places.filter((p) => (PLACE_KINDS[p.kind] ? p.kind : 'sonstiges') === k).length}</span>,
-        ...places.filter((p) => (PLACE_KINDS[p.kind] ? p.kind : 'sonstiges') === k).map((p) => (
-        <div key={p.id} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', paddingLeft: 8 }}>
-          <span style={{ fontSize: 14.5, flex: 1, minWidth: 120 }}>{p.status === 'fest' ? '✓ ' : ''}{p.name}</span>
-          {p.url && <a className="x-btn" href={p.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
-          {p.kind !== 'unterkunft' && <button type="button" className="pill" style={{ fontSize: 11.5, padding: '3px 8px' }} onClick={() => toast(toOutings(p.name, p.kind, st.name, { url: p.url, note: p.note || `Von der Reise „${tr.name}“`, address: p.address }) ? `In Ausgehen → Orte (${st.name}) gespeichert` : 'Ist schon in Ausgehen')}>→ Ausgehen</button>}
-          <button type="button" className={p.status === 'fest' ? 'pill on' : 'pill'} style={{ fontSize: 12 }} onClick={() => updateEntry(tr.id, 'places', p.id, { status: p.status === 'fest' ? 'option' : 'fest' })}>{p.status === 'fest' ? 'Fest' : 'Option'}</button>
-          <button type="button" className="x-btn" aria-label={`${p.name} entfernen`} onClick={() => removeEntry(tr.id, 'places', p.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
-        </div>
-      ))])}
-      <div className="chips">{Object.entries(PLACE_KINDS).filter(([k]) => k !== 'sonstiges').map(([k, l]) => <button key={k} type="button" className={pkind === k ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5, padding: '4px 9px' }} onClick={() => setPkind(k)}>{l}</button>)}</div>
-      <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const id = addEntry(tr.id, 'places', { name: pname.trim(), kind: pkind, stopId: st.id, note: '', address: '', url: /^https?:\/\//.test(purl.trim()) ? purl.trim() : '', status: 'option' }); setPname(''); setPurl(''); locateEntry(tr.id, 'places', id); }}>
-        <input className="input" value={pname} onChange={(e) => setPname(e.target.value)} placeholder="Name" aria-label="Ort sammeln" />
-        <div className="block-add">
-          <input className="input" value={purl} onChange={(e) => setPurl(e.target.value)} placeholder="Link (optional)" inputMode="url" aria-label="Link" />
-          <button type="submit" className="btn small" disabled={!pname.trim()}>+</button>
-        </div>
-      </form>
-    </>
-  );
-}
 const between = (tr, a, b) => tr.transport.filter((x) => x.from?.toLowerCase() === a.toLowerCase() && x.to?.toLowerCase() === b.toLowerCase());
 function TransportRow({ tr, x }) {
   return (
@@ -507,7 +475,8 @@ function LegDetail({ tr, a, b }) {
     </>
   );
 }
-function Route({ tr }) {
+function Route({ s, tr }) {
+  const [openSt, setOpenSt] = useState(null);
   const [tf, setTf] = useState({ from: '', to: '', mode: 'flug' });
   const stops = tr.stops;
   const startKey = JSON.stringify([stops[0]?.name, stops[stops.length - 1]?.name, tr.priceSetup?.travelers?.[0]?.start, tr.priceSetup?.travelers?.[0]?.mode, tr.from, tr.to]);
@@ -533,7 +502,7 @@ function Route({ tr }) {
           name={(st) => st.name}
           meta={(st) => { const n = tr.places.filter((p) => p.stopId === st.id).length; const stay = tr.places.find((p) => p.stopId === st.id && p.kind === 'unterkunft' && p.status === 'fest'); return [st.from && rangeText(st.from, st.to), stay ? `🏠 ${stay.name}` : null, n && `${n} gesammelt`, st.note].filter(Boolean).join(' · '); }}
           leg={(i) => { const l = between(tr, stops[i].name, stops[i + 1].name); if (!l.length) return null; const b = l.find((x) => x.status === 'gebucht') || l[0]; return { icon: MODE_ICON[b.mode] || '➡️', text: [b.status === 'gebucht' ? '✓ gebucht' : `${l.length} Option${l.length > 1 ? 'en' : ''}`, b.note].filter(Boolean).join(' · ') }; }}
-          renderDetail={(st, i) => <StopDetail tr={tr} st={st} i={i} />}
+          onOpen={(i) => setOpenSt(stops[i].id)}
           renderLeg={(i) => <LegDetail tr={tr} a={stops[i].name} b={stops[i + 1].name} />}
           onInsert={(name, at) => insertStop(tr.id, name, at)}
           onReorder={(a, b) => reorderStop(tr.id, a, b)}
@@ -541,6 +510,7 @@ function Route({ tr }) {
           addPlaceholder="Station hinzufügen, z.B. Garopaba"
         />
         {autoLine(rueck, 'Rückreise')}
+        {openSt && stops.some((x) => x.id === openSt) && <StopSheet s={s} tr={tr} v={null} i={stops.findIndex((x) => x.id === openSt)} onClose={() => setOpenSt(null)} />}
         {(hin || rueck) && <span className="tiny">An- und Rückreise kommen aus dem Startort (✎ oben) und passen sich an, wenn sich die erste oder letzte Station ändert.</span>}
         {!stops.length && tripKind(tr) !== 'ort' && <span className="tiny">Tipp: Unter „Varianten“ ganze Routen oder einzelne Orte hierher übernehmen.</span>}
       </section>
@@ -810,18 +780,49 @@ function Pool({ s, tr, onVariants }) {
 
 
 // ---------- v0.74: Zeitleiste wie bei Google Maps – Ort, Linie mit Transport, nächster Ort ----------
-function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, onOpen, onMove, onRemove, onReorder, addPlaceholder = 'Ort hinzufügen, z.B. Garopaba' }) {
+function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, onOpen, onRemove, onReorder, addPlaceholder = 'Ort hinzufügen, z.B. Garopaba' }) {
   const [openStop, setOpenStop] = useState(null);
-  const [drag, setDrag] = useState(null); // { from, over, dy }
-  const nodes = useRef([]);
-  const overOf = (y) => { let k = 0; nodes.current.forEach((el, j) => { if (el && j < items.length) { const r = el.getBoundingClientRect(); if (y > r.top + r.height / 2) k = j; } }); const first = nodes.current[0]?.getBoundingClientRect(); return first && y < first.top + first.height / 2 ? 0 : k; };
-  const startDrag = (e, i) => { e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} setOpenStop(null); setOpenLeg(null); setDrag({ from: i, over: i, y0: e.clientY, dy: 0 }); };
-  const moveDrag = (e) => { if (!drag) return; setDrag({ ...drag, dy: e.clientY - drag.y0, over: overOf(e.clientY) }); };
-  const endDrag = () => { if (drag && drag.over !== drag.from) onReorder(drag.from, drag.over); setDrag(null); };
   const [openLeg, setOpenLeg] = useState(null);
   const [insertAt, setInsertAt] = useState(null);
   const [text, setText] = useState('');
+  // v0.79: gedrückt halten → ziehen; Orte rücken live zur Seite
+  const [drag, setDrag] = useState(null); // { from, cur, y }
+  const dragRef = useRef(null);
+  const slots = useRef(null);
+  const nodes = useRef([]);
+  const lastTouch = useRef(0);
+  const blockClick = useRef(false);
   const n = items.length;
+  const order = drag ? (() => { const o = items.map((_, j) => j); o.splice(drag.from, 1); o.splice(drag.cur, 0, drag.from); return o; })() : null;
+  useLayoutEffect(() => {
+    if (drag && !slots.current) { const mids = items.map((_, k) => { const r = nodes.current[k]?.getBoundingClientRect(); return r ? r.top + r.height / 2 : 0; }); slots.current = { mids, off: drag.y0 - mids[drag.from] }; }
+  });
+  const slotAt = (y, cur) => { const sl = slots.current; if (!sl) return cur; const vy = y - sl.off; let k = 0, best = Infinity; sl.mids.forEach((m, j) => { const d = Math.abs(m - vy); if (d < best) { best = d; k = j; } }); return k; };
+  const press = (e, i) => {
+    if (!onReorder || n < 2) return;
+    if (e.type === 'mousedown') { if (Date.now() - lastTouch.current < 800 || e.button !== 0) return; } else lastTouch.current = Date.now();
+    const pt = e.touches ? e.touches[0] : e;
+    const p = { x: pt.clientX, y: pt.clientY, active: false };
+    const set = (d) => { dragRef.current = d; setDrag(d); };
+    const move = (ev) => {
+      const q = ev.touches ? ev.touches[0] : ev;
+      if (!p.active) { if (Math.hypot(q.clientX - p.x, q.clientY - p.y) > 10) end(); return; }
+      if (ev.cancelable) ev.preventDefault();
+      const d = dragRef.current; if (d) set({ ...d, y: q.clientY, cur: slotAt(q.clientY, d.cur) });
+    };
+    const end = () => {
+      clearTimeout(p.timer);
+      window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end); window.removeEventListener('touchcancel', end);
+      window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', end);
+      const d = dragRef.current;
+      if (p.active) { blockClick.current = true; setTimeout(() => { blockClick.current = false; }, 350); }
+      if (d) { set(null); slots.current = null; if (d.cur !== d.from) onReorder(d.from, d.cur); }
+    };
+    p.timer = setTimeout(() => { p.active = true; slots.current = null; setOpenStop(null); setOpenLeg(null); setInsertAt(null); try { navigator.vibrate?.(15); } catch {} set({ from: i, cur: i, y: p.y, y0: p.y }); }, 380);
+    window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end); window.addEventListener('touchcancel', end);
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+  };
+  const tap = (i) => { if (blockClick.current) return; if (onOpen) onOpen(i); else setOpenStop(openStop === i ? null : i); };
   const add = (at) => { onInsert(text, at); setText(''); setInsertAt(null); };
   const insertForm = (at) => (
     <form className="tl-detail" onSubmit={(e) => { e.preventDefault(); add(at); }}>
@@ -831,53 +832,56 @@ function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onInsert, o
       </div>
     </form>
   );
+  const node = (x, i, k) => {
+    const lifted = drag && drag.from === i;
+    const st = lifted && slots.current ? { transform: `translateY(${drag.y - slots.current.off - slots.current.mids[k]}px) scale(1.02)`, background: 'var(--card)', boxShadow: '0 8px 24px rgba(0,0,0,.2)', borderRadius: 12, position: 'relative', zIndex: 5 } : undefined;
+    return (
+      <div className={drag ? 'tl-node dragging' : 'tl-node'} ref={(el) => { nodes.current[k] = el; }} style={st}
+        onTouchStart={(e) => press(e, i)} onMouseDown={(e) => press(e, i)} onContextMenu={(e) => onReorder && e.preventDefault()}>
+        <button type="button" className="tl-dot" onClick={() => tap(i)} aria-label={`${name(x)} öffnen`}>{drag ? k + 1 : i + 1}</button>
+        <button type="button" className="tl-main" onClick={() => tap(i)}>
+          <span style={{ fontWeight: 650, fontSize: 15.5 }}>{name(x)}</span>
+          {meta(x, i) && <span className="tiny">{meta(x, i)}</span>}
+        </button>
+        {onRemove && !drag && <button type="button" className="tl-x" onClick={() => { onRemove(i); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} entfernen`}>✕</button>}
+        {!onRemove && (onOpen ? <Chevron /> : <span className="tiny">{openStop === i ? '▴' : '▾'}</span>)}
+      </div>
+    );
+  };
   return (
     <div className="tl">
       {n === 0 && <span className="tiny" style={{ padding: '4px 0' }}>Noch keine Orte – unten den ersten hinzufügen.</span>}
-      {items.map((x, i) => {
-        const l = i < n - 1 ? leg(i) : null;
+      {(order || items.map((_, j) => j)).map((i, k) => {
+        const x = items[i];
+        const l = !drag && i < n - 1 ? leg(i) : null;
         return (
           <Fragment key={i + name(x)}>
-            {drag && drag.over === i && drag.over < drag.from && <div className="tl-drop" />}
-            <div className="tl-node" ref={(el) => { nodes.current[i] = el; }} style={drag && drag.from === i ? { transform: `translateY(${drag.dy}px)`, background: 'var(--card)', boxShadow: '0 6px 20px rgba(0,0,0,.18)', borderRadius: 12, position: 'relative', zIndex: 5 } : undefined}>
-              {onReorder && <span className="tl-grip" onPointerDown={(e) => startDrag(e, i)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)} aria-label={`${name(x)} verschieben`} role="button">⋮⋮</span>}
-              <button type="button" className="tl-dot" onClick={() => (onOpen ? onOpen(i) : setOpenStop(openStop === i ? null : i))} aria-label={`${name(x)} öffnen`}>{i + 1}</button>
-              <button type="button" className="tl-main" onClick={() => (onOpen ? onOpen(i) : setOpenStop(openStop === i ? null : i))}>
-                <span style={{ fontWeight: 650, fontSize: 15.5 }}>{name(x)}</span>
-                {meta(x, i) && <span className="tiny">{meta(x, i)}</span>}
-              </button>
-              {onMove && <span className="tl-ctrl">
-                <button type="button" disabled={i === 0} onClick={() => { onMove(i, -1); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} nach vorne`}>↑</button>
-                <button type="button" disabled={i === n - 1} onClick={() => { onMove(i, 1); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} nach hinten`}>↓</button>
-              </span>}
-              {onRemove && <button type="button" className="tl-x" onClick={() => { onRemove(i); setOpenStop(null); setOpenLeg(null); }} aria-label={`${name(x)} entfernen`}>✕</button>}
-              {!onMove && !onRemove && (onOpen ? <Chevron /> : <span className="tiny">{openStop === i ? '▴' : '▾'}</span>)}
-            </div>
-            {drag && drag.over === i && drag.over > drag.from && <div className="tl-drop" />}
-            {!onOpen && openStop === i && <div className={i < n - 1 ? 'tl-detail line' : 'tl-detail'}>{renderDetail(x, i)}</div>}
-            {i < n - 1 && (
+            {node(x, i, k)}
+            {!drag && !onOpen && openStop === i && <div className={i < n - 1 ? 'tl-detail line' : 'tl-detail'}>{renderDetail(x, i)}</div>}
+            {!drag && i < n - 1 && (
               <div className="tl-link">
                 <button type="button" className="tl-leg" onClick={() => setOpenLeg(openLeg === i ? null : i)}>{l ? `${l.icon} ${l.text}` : '＋ Transport'}</button>
                 <button type="button" className="tl-plus" onClick={() => { setInsertAt(insertAt === i + 1 ? null : i + 1); setText(''); }} aria-label="Ort dazwischen einfügen">＋</button>
               </div>
             )}
-            {i < n - 1 && openLeg === i && <div className="tl-detail line">{renderLeg(i)}</div>}
-            {i < n - 1 && insertAt === i + 1 && insertForm(i + 1)}
+            {!drag && i < n - 1 && openLeg === i && <div className="tl-detail line">{renderLeg(i)}</div>}
+            {!drag && i < n - 1 && insertAt === i + 1 && insertForm(i + 1)}
           </Fragment>
         );
       })}
-      <form className="tl-node" onSubmit={(e) => { e.preventDefault(); if (insertAt === null || insertAt >= n) add(n); }}>
+      {!drag && <form className="tl-node" onSubmit={(e) => { e.preventDefault(); if (insertAt === null || insertAt >= n) add(n); }}>
         <span className="tl-dot add">＋</span>
         <input className="input" value={insertAt === null || insertAt >= n ? text : ''} onFocus={() => setInsertAt(null)} onChange={(e) => setText(e.target.value)} placeholder={addPlaceholder} aria-label="Ort am Ende hinzufügen" />
         <button type="submit" className="btn small" disabled={!text.trim() || (insertAt !== null && insertAt < n)}>+</button>
-      </form>
+      </form>}
+      {!drag && onReorder && n > 1 && <span className="tiny" style={{ paddingLeft: 4 }}>Reihenfolge ändern: Ort kurz gedrückt halten und ziehen.</span>}
     </div>
   );
 }
 
 const ITEM_KINDS = { unterkunft: '🏠', essen: '🍽', sehen: '👀', tun: '🎯' };
 const PLACE_ICON = { unterkunft: '🏠', restaurant: '🍽', sehenswuerdigkeit: '👀', aktivitaet: '🎯', sonstiges: '•' };
-const ITEM_LABEL = { unterkunft: 'Unterkunft', essen: 'Essen', sehen: 'Sehen', tun: 'Tun' };
+const ITEM_LABEL = { unterkunft: 'Unterkunft', essen: 'Essen', sehen: 'Sehen', tun: 'Ausflug' };
 function Nights({ value, onChange }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -887,79 +891,152 @@ function Nights({ value, onChange }) {
     </span>
   );
 }
-// v0.75: Ort einer Variante als eigenes Fenster – sammeln, Unterkunft- und Anreise-Links, in die finale Route schieben
-function VariantStopSheet({ s, tr, v, i, onClose }) {
+// v0.79: Ort-Seite – alles für einen Ort an einer Stelle (Variante und finale Route)
+const SECS = [
+  { key: 'anreise', icon: '✈️', label: 'Anreise', ph: 'z.B. LATAM 14:05, direkt, 13 h', pick: ['Option', '✓ Gebucht'] },
+  { key: 'unterkunft', icon: '🏠', label: 'Unterkünfte', place: 'unterkunft', ph: 'Name oder Link einfügen', pick: ['Option', '✓ Gebucht'] },
+  { key: 'sehen', icon: '👀', label: 'Sehenswürdigkeiten', place: 'sehenswuerdigkeit', ph: 'z.B. Verbotene Stadt', pick: ['Vielleicht', '✓ Fest'], reserve: true, out: true },
+  { key: 'essen', icon: '🍽', label: 'Restaurants', place: 'restaurant', ph: 'z.B. Din Tai Fung', pick: ['Vielleicht', '✓ Fest'], reserve: true, out: true },
+  { key: 'tun', icon: '🚐', label: 'Tagesausflüge & Aktivitäten', place: 'aktivitaet', ph: 'z.B. Große Mauer Mutianyu', pick: ['Vielleicht', '✓ Fest'], reserve: true, out: true },
+];
+const PLACE_SEC = { unterkunft: 'unterkunft', sehenswuerdigkeit: 'sehen', restaurant: 'essen', aktivitaet: 'tun', sonstiges: 'tun' };
+const itemSec = (it) => (it.kind === 'anreise' ? 'anreise' : ITEM_LABEL[it.kind] ? it.kind : 'sehen');
+const fromLink = (text, url) => { const t0 = text.trim(); if (/^https?:\/\//.test(t0) && !url.trim()) { let h = t0; try { h = new URL(t0).hostname.replace(/^www\./, ''); } catch {} return { text: h, url: t0 }; } return { text: t0, url: url.trim() }; };
+const nightsBetween = (a, b) => (a && b ? Math.max(0, diffDays(a, b)) : null);
+
+function stopApi(tr, v, i) {
+  if (v) {
+    const x = v.stops[i];
+    const items = x.items || [];
+    return {
+      list: (key) => items.filter((it) => itemSec(it) === key).map((it) => ({ ...it })),
+      add: (key, d) => addVariantItem(tr.id, v.id, i, d.text, key, d.url, { price: d.price || '' }),
+      upd: (id, patch) => updateVariantItem(tr.id, v.id, i, id, patch),
+      del: (id) => removeVariantItem(tr.id, v.id, i, id),
+    };
+  }
+  const st = tr.stops[i];
+  const prev = i > 0 ? tr.stops[i - 1].name : (tr.priceSetup?.travelers?.[0]?.start || 'Buenos Aires').replace(/\s*\(.*?\)/g, '').split(',')[0].trim();
+  return {
+    list: (key) => key === 'anreise'
+      ? tr.transport.filter((x) => x.to?.toLowerCase() === st.name.toLowerCase()).map((x) => ({ id: x.id, text: (!x.auto && x.note) || `${MODES[x.mode] || 'Transport'} ${x.from} → ${x.to}`, sub: `${MODE_ICON[x.mode] || '➡️'} ab ${x.from}${x.auto ? ' · automatisch' : ''}`, url: x.url, price: x.price, picked: x.status === 'gebucht', auto: x.auto }))
+      : tr.places.filter((p) => p.stopId === st.id && (PLACE_SEC[p.kind] || 'tun') === key).map((p) => ({ id: p.id, text: p.name, url: p.url, price: p.price, note: p.note, reserve: p.reserve, picked: p.status === 'fest' })),
+    add: (key, d) => {
+      if (key === 'anreise') { const mode = i === 0 && (tr.priceSetup?.travelers?.[0]?.mode || 'flug') === 'flug' ? 'flug' : 'bus'; addEntry(tr.id, 'transport', { from: prev, to: st.name, mode, date: '', time: '', note: d.text, price: d.price || '', url: /^https?:\/\//.test(d.url) ? d.url : '', status: 'option' }); return; }
+      const id = addEntry(tr.id, 'places', { name: d.text, kind: SECS.find((s0) => s0.key === key).place, stopId: st.id, note: '', address: '', url: /^https?:\/\//.test(d.url) ? d.url : '', price: d.price || '', reserve: false, status: 'option' });
+      locateEntry(tr.id, 'places', id);
+    },
+    upd: (id, patch) => {
+      const isT = tr.transport.some((x) => x.id === id);
+      const p = {};
+      if (patch.text !== undefined) p[isT ? 'note' : 'name'] = patch.text;
+      if (patch.picked !== undefined) p.status = patch.picked ? (isT ? 'gebucht' : 'fest') : 'option';
+      for (const k of ['url', 'price', 'note', 'reserve']) if (patch[k] !== undefined) p[k] = patch[k];
+      updateEntry(tr.id, isT ? 'transport' : 'places', id, p);
+    },
+    del: (id) => removeEntry(tr.id, tr.transport.some((x) => x.id === id) ? 'transport' : 'places', id),
+  };
+}
+
+function StopItem({ e, sec, api, tr, city, links }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="stop-item">
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <button type="button" className="tl-main" style={{ flex: 1, minWidth: 0 }} onClick={() => setOpen(!open)} aria-expanded={open}>
+          <span style={{ fontSize: 14.5, fontWeight: e.picked ? 650 : 500 }}>{e.text}</span>
+          {(e.sub || e.price || e.reserve || e.note) && <span className="tiny">{[e.sub, e.price, e.reserve && '🎟 reservieren', !open && e.note].filter(Boolean).join(' · ')}</span>}
+        </button>
+        {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
+        <button type="button" className={e.picked ? 'pill on' : 'pill'} style={{ fontSize: 12, padding: '4px 9px', flexShrink: 0 }} onClick={() => api.upd(e.id, { picked: !e.picked })}>{e.picked ? sec.pick[1] : sec.pick[0]}</button>
+      </div>
+      {open && (
+        <div className="stop-item-edit">
+          <input className="input" defaultValue={e.text} key={e.id + 't' + e.text} onBlur={(ev) => ev.target.value.trim() && ev.target.value !== e.text && api.upd(e.id, { text: ev.target.value.trim() })} aria-label="Name" />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input className="input" style={{ flex: '0 0 34%' }} defaultValue={e.price || ''} key={e.id + 'p' + (e.price || '')} placeholder="Preis" onBlur={(ev) => ev.target.value !== (e.price || '') && api.upd(e.id, { price: ev.target.value })} aria-label="Preis" />
+            <input className="input" defaultValue={e.url || ''} key={e.id + 'u' + (e.url || '')} placeholder="Link" inputMode="url" onBlur={(ev) => ev.target.value !== (e.url || '') && api.upd(e.id, { url: ev.target.value.trim() })} aria-label="Link" />
+          </div>
+          {sec.key !== 'anreise' && <input className="input" defaultValue={e.note || ''} key={e.id + 'n' + (e.note || '')} placeholder="Notiz, z.B. Lage, Öffnungszeiten, Tipp" onBlur={(ev) => ev.target.value !== (e.note || '') && api.upd(e.id, { note: ev.target.value })} aria-label="Notiz" />}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {sec.reserve && <button type="button" className={e.reserve ? 'pill on' : 'pill'} style={{ fontSize: 12 }} onClick={() => api.upd(e.id, { reserve: !e.reserve })}>🎟 Reservierung nötig</button>}
+            {sec.reserve && <a className="pill" style={{ fontSize: 12 }} href={links.reserve(e.text)} target="_blank" rel="noreferrer">Tickets/Reservierung prüfen ↗</a>}
+            {sec.out && <button type="button" className="pill" style={{ fontSize: 12 }} onClick={() => toast(toOutings(e.text, SECS.find((s0) => s0.key === sec.key).place === 'restaurant' ? 'essen' : sec.key, city, { url: e.url, note: [e.note, `Von der Reise „${tr.name}“`].filter(Boolean).join(' · ') }) ? `In Ausgehen → Orte (${city}) gespeichert` : 'Ist schon in Ausgehen')}>→ Ausgehen</button>}
+            <span style={{ flex: 1 }} />
+            {!e.auto && <button type="button" className="pill" style={{ fontSize: 12, color: 'var(--danger)' }} onClick={() => api.del(e.id)}>Entfernen</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StopSection({ sec, api, tr, city, links, extraLinks, hint }) {
+  const list = api.list(sec.key);
+  const [open, setOpen] = useState(list.length > 0 || sec.key === 'anreise' || sec.key === 'unterkunft');
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
-  const [kind, setKind] = useState('unterkunft');
-  const [moving, setMoving] = useState(null); // gewählte Position
-  useEffect(() => { if (i === 0 && v?.stops[0] && getAi().apiKey) ensureIataCodes(s, [tr.priceSetup?.travelers?.[0]?.start || 'Buenos Aires', v.stops[0].name]).catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const x = v?.stops[i];
+  return (
+    <section className="stop-sec">
+      <button type="button" className="stop-sec-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span>{sec.icon} {sec.label}</span>
+        <span className="tiny">{list.length ? `${list.length} gespeichert` : ''} {open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <>
+          {hint && <span className="tiny">{hint}</span>}
+          {extraLinks?.length > 0 && <div className="link-chips" style={{ marginTop: 0 }}>{extraLinks.map((l) => <a key={l.url} className="link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a>)}</div>}
+          {list.map((e) => <StopItem key={e.id} e={e} sec={sec} api={api} tr={tr} city={city} links={links} />)}
+          <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); const d = fromLink(text, url); if (!d.text) return; api.add(sec.key, d); setText(''); setUrl(''); }}>
+            <input className="input" value={text} onChange={(ev) => setText(ev.target.value)} placeholder={sec.ph} aria-label={`${sec.label} speichern`} />
+            <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
+          </form>
+          {text.trim() && !/^https?:/.test(text.trim()) && <input className="input" value={url} onChange={(ev) => setUrl(ev.target.value)} placeholder="Link (optional)" inputMode="url" aria-label="Link" />}
+        </>
+      )}
+    </section>
+  );
+}
+
+function StopSheet({ s, tr, v, i, onClose }) {
+  useEffect(() => { if (i === 0 && getAi().apiKey) { const nm = v ? v.stops[0]?.name : tr.stops[0]?.name; if (nm) ensureIataCodes(s, [tr.priceSetup?.travelers?.[0]?.start || 'Buenos Aires', nm]).catch(() => {}); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const x = v ? v.stops[i] : tr.stops[i];
   if (!x) return <Sheet open={false} onClose={onClose} />;
-  const items = x.items || [];
-  const L = stopLinks(s, tr, v, i);
-  const inFinal = tr.stops.some((y) => y.name.toLowerCase() === x.name.toLowerCase());
-  const sug = suggestPosition(tr, v, i);
-  const positions = [{ at: 0, label: tr.stops.length ? `Am Anfang (vor ${tr.stops[0].name})` : 'Als erste Station' }, ...tr.stops.map((st, k) => ({ at: k + 1, label: `Nach ${st.name}${k + 1 < tr.stops.length ? ` (vor ${tr.stops[k + 1].name})` : ' (am Ende)'}` }))];
-  const pos = moving ?? sug.at;
+  const api = stopApi(tr, v, i);
+  const pv = v || { stops: tr.stops.map((y) => ({ name: y.name, nights: nightsBetween(y.from, y.to) })) };
+  const L = stopLinks(s, tr, pv, i, v ? null : { checkin: x.from, checkout: x.to });
+  const links = spotLinks(tr, x.name);
+  const inFinal = v && tr.stops.some((y) => y.name.toLowerCase() === x.name.toLowerCase());
+  const total = v ? v.stops.length : tr.stops.length;
+  const take = () => { const sug = suggestPosition(tr, v, i); appendFromVariant(tr.id, v.id, [i], sug.at); toast(`${x.name} ist jetzt Station ${Math.min(sug.at, tr.stops.length) + 1} der finalen Route – dort per Ziehen verschiebbar`); };
+  const stayHint = `${L.people} ${L.people === 1 ? 'Person' : 'Personen'} · ${L.type} · ${L.level}${L.checkin ? ` · ${fmtShort(L.checkin)}–${fmtShort(L.checkout)}` : ' · ohne Datum'}`;
   return (
     <Sheet open title={x.name} onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <Nights value={x.nights} onChange={(nv) => updateVariantStop(tr.id, v.id, i, { nights: nv })} />
-        <span className="tiny">{v.name} · Ort {i + 1} von {v.stops.length}</span>
+        {v ? <Nights value={x.nights} onChange={(nv) => updateVariantStop(tr.id, v.id, i, { nights: nv })} /> : <div style={{ flex: 1, minWidth: 200 }}><DateRangeField from={x.from} to={x.to} onChange={(val) => updateEntry(tr.id, 'stops', x.id, val)} placeholder="Wann bist du dort?" /></div>}
+        <span className="tiny">{v ? `${v.name} · ` : ''}Ort {i + 1} von {total}{inFinal ? ' · ✓ in finaler Route' : ''}</span>
       </div>
-      <input className="input" defaultValue={x.note || ''} key={v.id + i + 'n' + (x.note || '')} placeholder="Notiz, z.B. Strände, Lagoa" onBlur={(e) => e.target.value !== (x.note || '') && updateVariantStop(tr.id, v.id, i, { note: e.target.value })} aria-label="Notiz" />
-
-      <section className="take-box">
-        <span style={{ fontWeight: 650, fontSize: 14.5 }}>🏠 Unterkunft finden</span>
-        <span className="tiny">{L.people} {L.people === 1 ? 'Person' : 'Personen'} · {L.type} · {L.level}{L.checkin ? ` · ${fmtShort(L.checkin)}–${fmtShort(L.checkout)}` : ' · ohne Datum (Reisezeitraum fehlt)'} – ändern über „✎“ oben bei der Reise</span>
-        <div className="link-chips" style={{ marginTop: 0 }}>{L.stay.map((l) => <a key={l.url} className="link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a>)}</div>
-        <span style={{ fontWeight: 650, fontSize: 14.5, marginTop: 4 }}>🚌 Hinkommen ab {L.prev}</span>
-        <div className="link-chips" style={{ marginTop: 0 }}>{L.travel.map((l) => <a key={l.url} className="link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a>)}</div>
+      <StopSection sec={SECS[0]} api={api} tr={tr} city={x.name} links={links} extraLinks={L.travel} hint={`ab ${L.prev} – Verbindungen ansehen, gute Optionen hier speichern`} />
+      <StopSection sec={SECS[1]} api={api} tr={tr} city={x.name} links={links} extraLinks={L.stay} hint={`${stayHint} – ändern über „✎“ bei der Reise. Inserate hier mit Link speichern und vergleichen.`} />
+      <StopSection sec={SECS[2]} api={api} tr={tr} city={x.name} links={links} extraLinks={links.sehen} />
+      <StopSection sec={SECS[3]} api={api} tr={tr} city={x.name} links={links} extraLinks={links.essen} />
+      <StopSection sec={SECS[4]} api={api} tr={tr} city={x.name} links={links} extraLinks={links.tun} />
+      <section className="stop-sec">
+        <span className="stop-sec-head" style={{ cursor: 'default' }}><span>📝 Notizen</span></span>
+        <textarea className="input" rows={3} defaultValue={x.note || ''} key={(v ? v.id : 'f') + i + 'n' + (x.note || '')} placeholder="z.B. Viertel zum Wohnen, Wetter, was man nicht verpassen darf" onBlur={(e) => e.target.value !== (x.note || '') && (v ? updateVariantStop(tr.id, v.id, i, { note: e.target.value }) : updateEntry(tr.id, 'stops', x.id, { note: e.target.value }))} aria-label="Notiz" />
       </section>
-
-      <span className="label" style={{ padding: 0 }}>Hier sammeln</span>
-      {items.length === 0 && <span className="tiny">Unterkünfte, Restaurants, Tipps – gern mit Link. Wird beim Übernehmen in die finale Route mitgenommen.</span>}
-      {Object.keys(ITEM_LABEL).filter((k) => items.some((it) => (ITEM_LABEL[it.kind] ? it.kind : 'sehen') === k)).map((k) => (
-        <span key={'h' + k} className="tiny" style={{ fontWeight: 650, color: 'var(--text)', marginTop: 4 }}>{ITEM_KINDS[k]} {ITEM_LABEL[k]} · {items.filter((it) => (ITEM_LABEL[it.kind] ? it.kind : 'sehen') === k).length}</span>
-      )).flatMap((head, gi) => { const k = Object.keys(ITEM_LABEL).filter((kk) => items.some((it) => (ITEM_LABEL[it.kind] ? it.kind : 'sehen') === kk))[gi]; return [head, ...items.filter((it) => (ITEM_LABEL[it.kind] ? it.kind : 'sehen') === k).map((it) => (
-        <div key={it.id} style={{ display: 'flex', gap: 8, alignItems: 'center', paddingLeft: 8 }}>
-          <span style={{ fontSize: 14.5, flex: 1, minWidth: 0 }}>{it.text}</span>
-          {it.url && <a className="x-btn" href={it.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
-          {it.kind !== 'unterkunft' && <button type="button" className="pill" style={{ fontSize: 11.5, padding: '3px 8px' }} onClick={() => toast(toOutings(it.text, it.kind, x.name, { url: it.url, note: `Von der Reise „${tr.name}“` }) ? `In Ausgehen → Orte (${x.name}) gespeichert` : 'Ist schon in Ausgehen')}>→ Ausgehen</button>}
-          <button type="button" className="x-btn" aria-label={`${it.text} entfernen`} onClick={() => removeVariantItem(tr.id, v.id, i, it.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
+      {v && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {!inFinal && <button type="button" className="btn small" onClick={take}>→ In die finale Route</button>}
+          <span style={{ flex: 1 }} />
+          <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => { removeVariantStop(tr.id, v.id, i); onClose(); }}>Aus Variante entfernen</button>
         </div>
-      ))]; })}
-      <div className="chips">{Object.entries(ITEM_LABEL).map(([k, l]) => <button key={k} type="button" className={kind === k ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5, padding: '4px 9px' }} onClick={() => setKind(k)}>{ITEM_KINDS[k]} {l}</button>)}</div>
-      <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); addVariantItem(tr.id, v.id, i, text, kind, url.trim()); setText(''); setUrl(''); }}>
-        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'unterkunft' ? 'z.B. Pousada am Strand' : kind === 'essen' ? 'z.B. Ostras in Ribeirão' : kind === 'tun' ? 'z.B. Surfkurs' : 'z.B. Lagoa da Conceição'} aria-label="Etwas sammeln" />
-        <div className="block-add">
-          <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Link (optional), z.B. Airbnb-Inserat" inputMode="url" aria-label="Link" />
-          <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
-        </div>
-      </form>
-
-      <section className="take-box">
-        {inFinal ? <span style={{ fontWeight: 650, fontSize: 14.5 }}>✓ {x.name} ist schon in der finalen Route</span> : (
-          <>
-            <span style={{ fontWeight: 650, fontSize: 14.5 }}>→ In die finale Route</span>
-            <span className="tiny">Vorschlag: {sug.why} (nach der Reihenfolge dieser Variante). Gesammeltes und Links kommen mit.</span>
-            <select className="input" value={pos} onChange={(e) => setMoving(Number(e.target.value))} aria-label="Wo einfügen?">
-              {positions.map((p) => <option key={p.at} value={p.at}>{p.label}{p.at === sug.at ? ' – empfohlen' : ''}</option>)}
-            </select>
-            <button type="button" className="btn small" onClick={() => { appendFromVariant(tr.id, v.id, [i], pos); toast(`${x.name} ist in der finalen Route`); setMoving(null); }}>Übernehmen</button>
-          </>
-        )}
-      </section>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <button type="button" className="pill" disabled={i === 0} onClick={() => moveVariantStop(tr.id, v.id, i, -1)}>↑ Früher</button>
-        <button type="button" className="pill" disabled={i === v.stops.length - 1} onClick={() => moveVariantStop(tr.id, v.id, i, 1)}>↓ Später</button>
-        <span style={{ flex: 1 }} />
-        <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => { removeVariantStop(tr.id, v.id, i); onClose(); }}>Aus Variante entfernen</button>
-      </div>
+      )}
+      {v && !inFinal && <span className="tiny">Alles Gespeicherte (Anreise, Unterkünfte, Orte mit Links) kommt mit in die finale Route.</span>}
     </Sheet>
   );
 }
+const VariantStopSheet = (props) => <StopSheet {...props} />;
 function VariantLegDetail({ tr, v, a, b }) {
   const l = legOf(v.legs, a, b) || {};
   const set = (patch) => setVariantLeg(tr.id, v.id, a, b, patch);
@@ -1108,7 +1185,7 @@ function TripDetail({ s, tr }) {
         {cur === 'vergleich' && <Spots s={s} tr={tr} />}
         {cur === 'sammeln' && <Pool s={s} tr={tr} onVariants={() => setTab('varianten')} />}
         {cur === 'varianten' && <Variants s={s} tr={tr} onChosen={() => setTab('route')} onCommit={isIdea ? () => setCommit(true) : null} />}
-        {cur === 'route' && <Route tr={tr} />}
+        {cur === 'route' && <Route s={s} tr={tr} />}
         {cur === 'orte' && <Places tr={tr} />}
         {cur === 'todo' && <GroupedChecklist items={tr.todo} cats={Object.keys(TODO_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'todo', text, cat)} onToggle={(id) => updateEntry(tr.id, 'todo', id, { done: !tr.todo.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'todo', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Neues To-do" />}
         {cur === 'packen' && <GroupedChecklist items={tr.packen} cats={Object.keys(PACK_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'packen', text, cat)} onToggle={(id) => updateEntry(tr.id, 'packen', id, { done: !tr.packen.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'packen', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Einpacken" />}
