@@ -1001,19 +1001,28 @@ function StopSection({ sec, api, tr, city, links, extraLinks, hint, allOpen }) {
   );
 }
 
-function StopBody({ s, tr, v, i, inline, onClose }) {
+function StopBody({ s, tr, v, i, inline, only, ort, onClose }) {
   useEffect(() => { if (i === 0 && getAi().apiKey) { const nm = v ? v.stops[0]?.name : tr.stops[0]?.name; if (nm) ensureIataCodes(s, [tr.priceSetup?.travelers?.[0]?.start || 'Buenos Aires', nm]).catch(() => {}); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const x = v ? v.stops[i] : tr.stops[i];
   if (!x) return null;
   const api = stopApi(tr, v, i);
   const pv = v || { stops: tr.stops.map((y) => ({ name: y.name, nights: nightsBetween(y.from, y.to) })) };
-  const one = !v && tr.stops.length === 1;
+  const one = ort || (!v && tr.stops.length === 1);
   const L = stopLinks(s, tr, pv, i, v ? null : { checkin: x.from || (one ? tr.from : ''), checkout: x.to || (one ? tr.to : '') });
   const links = spotLinks(tr, x.name);
   const inFinal = v && tr.stops.some((y) => y.name.toLowerCase() === x.name.toLowerCase());
   const total = v ? v.stops.length : tr.stops.length;
   const take = () => { const sug = suggestPosition(tr, v, i); appendFromVariant(tr.id, v.id, [i], sug.at); toast(`${x.name} ist jetzt Station ${Math.min(sug.at, tr.stops.length) + 1} der finalen Route – dort per Ziehen verschiebbar`); };
   const stayHint = `${L.people} ${L.people === 1 ? 'Person' : 'Personen'} · ${L.type} · ${L.level}${L.checkin ? ` · ${fmtShort(L.checkin)}–${fmtShort(L.checkout)}` : ' · ohne Datum'}`;
+  const secProps = (k) => ({ allOpen: inline || !!only, sec: SECS.find((s0) => s0.key === k), api, tr, city: x.name, links });
+  const SECX = {
+    anreise: <StopSection key="anreise" {...secProps('anreise')} extraLinks={L.travel} hint={`ab ${L.prev} – Verbindungen ansehen, gute Optionen hier speichern`} />,
+    unterkunft: <StopSection key="unterkunft" {...secProps('unterkunft')} extraLinks={L.stay} hint={`${stayHint} – ändern über „✎“ oben bei der Reise. Inserate hier mit Link speichern und vergleichen.`} />,
+    sehen: <StopSection key="sehen" {...secProps('sehen')} extraLinks={links.sehen} />,
+    essen: <StopSection key="essen" {...secProps('essen')} extraLinks={links.essen} />,
+    tun: <StopSection key="tun" {...secProps('tun')} extraLinks={links.tun} />,
+  };
+  if (only) return SECX[only] || null;
   return (
     <>
       {inline && <h2 style={{ margin: 0, fontSize: 20 }}>📍 {x.name}</h2>}
@@ -1021,11 +1030,7 @@ function StopBody({ s, tr, v, i, inline, onClose }) {
         {v ? <Nights value={x.nights} onChange={(nv) => updateVariantStop(tr.id, v.id, i, { nights: nv })} /> : <div style={{ flex: 1, minWidth: 200 }}>{inline && one ? <DateRangeField from={tr.from} to={tr.to} onChange={(val) => updateTrip(tr.id, val)} title="Reisezeitraum" placeholder="Wann bist du dort?" /> : <DateRangeField from={x.from} to={x.to} onChange={(val) => updateEntry(tr.id, 'stops', x.id, val)} placeholder="Wann bist du dort?" />}</div>}
         {!inline && <span className="tiny">{v ? `${v.name} · ` : ''}Ort {i + 1} von {total}{inFinal ? ' · ✓ in finaler Route' : ''}</span>}
       </div>
-      <StopSection allOpen={inline} sec={SECS[0]} api={api} tr={tr} city={x.name} links={links} extraLinks={L.travel} hint={`ab ${L.prev} – Verbindungen ansehen, gute Optionen hier speichern`} />
-      <StopSection allOpen={inline} sec={SECS[1]} api={api} tr={tr} city={x.name} links={links} extraLinks={L.stay} hint={`${stayHint} – ändern über „✎“ bei der Reise. Inserate hier mit Link speichern und vergleichen.`} />
-      <StopSection allOpen={inline} sec={SECS[2]} api={api} tr={tr} city={x.name} links={links} extraLinks={links.sehen} />
-      <StopSection allOpen={inline} sec={SECS[3]} api={api} tr={tr} city={x.name} links={links} extraLinks={links.essen} />
-      <StopSection allOpen={inline} sec={SECS[4]} api={api} tr={tr} city={x.name} links={links} extraLinks={links.tun} />
+      {['anreise', 'unterkunft', 'sehen', 'essen', 'tun'].map((k) => SECX[k])}
       <section className="stop-sec">
         <span className="stop-sec-head" style={{ cursor: 'default' }}><span>📝 Notizen</span></span>
         <textarea className="input" rows={3} defaultValue={x.note || ''} key={(v ? v.id : 'f') + i + 'n' + (x.note || '')} placeholder="z.B. Viertel zum Wohnen, Wetter, was man nicht verpassen darf" onBlur={(e) => e.target.value !== (x.note || '') && (v ? updateVariantStop(tr.id, v.id, i, { note: e.target.value }) : updateEntry(tr.id, 'stops', x.id, { note: e.target.value }))} aria-label="Notiz" />
@@ -1046,30 +1051,60 @@ function StopSheet({ s, tr, v, i, onClose }) {
   if (!x) return <Sheet open={false} onClose={onClose} />;
   return <Sheet open title={x.name} onClose={onClose}><StopBody s={s} tr={tr} v={v} i={i} onClose={onClose} /></Sheet>;
 }
-// v0.81: Reise „An einem Ort“ – alles direkt auf der Seite: Anreise, Unterkünfte, Sehenswürdigkeiten, Restaurants, Ausflüge, Notizen
-function OrtPlan({ s, tr, onCompare }) {
-  const [pick, setPick] = useState(0);
-  const [dest, setDest] = useState(tr.dest || '');
-  const st = tr.stops[Math.min(pick, tr.stops.length - 1)];
-  const startKey = JSON.stringify([tr.stops[0]?.name, tr.priceSetup?.travelers?.[0]?.start, tr.priceSetup?.travelers?.[0]?.mode, tr.from, tr.to]);
-  useEffect(() => { if (!tr.stops.length && tr.dest) insertStop(tr.id, tr.dest, 0); }, [tr.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (tr.stops.length) syncAutoTransport(tr.id); }, [startKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!st) return (
+// v0.82: Reise „An einem Ort“ – erst die Stadt, dann Kategorien als Reiter (Anreise, Unterkünfte, Sehenswürdigkeiten, Restaurants, Ausflüge)
+const COUNTRIES = 'afghanistan ägypten albanien algerien andorra angola argentinien armenien aserbaidschan äthiopien australien bahamas bangladesch belgien belize benin bhutan bolivien bosnien botswana brasilien bulgarien chile china costa rica dänemark deutschland dominikanische republik ecuador el salvador elfenbeinküste england estland fidschi finnland frankreich georgien ghana griechenland großbritannien guatemala honduras indien indonesien irak iran irland island israel italien jamaika japan jemen jordanien kambodscha kamerun kanada kap verde kasachstan katar kenia kirgisistan kolumbien kongo korea südkorea nordkorea kosovo kroatien kuba laos lettland libanon libyen litauen luxemburg madagaskar malawi malaysia malediven mali malta marokko mauritius mexiko moldau monaco mongolei montenegro mosambik myanmar namibia nepal neuseeland nicaragua niederlande holland nigeria nordmazedonien norwegen oman österreich pakistan panama paraguay peru philippinen polen portugal ruanda rumänien russland sambia saudi-arabien schottland schweden schweiz senegal serbien seychellen simbabwe singapur slowakei slowenien somalia spanien sri lanka südafrika sudan surinam syrien tadschikistan taiwan tansania thailand togo tschechien tunesien türkei turkmenistan uganda ukraine ungarn uruguay usa vereinigte staaten amerika usbekistan vanuatu venezuela vereinigte arabische emirate vae vietnam wales weißrussland belarus zypern brasil españa espagne spain france italy italia germany alemania japón japan china méxico mexico united states uk united kingdom portugal grecia greece thailand tailandia india marruecos morocco colombia perú peru'.split(' ');
+const COUNTRY_SET = new Set([...COUNTRIES, 'costa rica', 'el salvador', 'sri lanka', 'kap verde', 'dominikanische republik', 'saudi-arabien', 'vereinigte staaten', 'vereinigte arabische emirate', 'united states', 'united kingdom', 'south korea', 'new zealand', 'nueva zelanda', 'estados unidos', 'reino unido', 'südost-asien', 'südostasien', 'europa', 'asien', 'afrika', 'südamerika', 'patagonien', 'patagonia', 'karibik']);
+const isCountry = (name) => COUNTRY_SET.has(String(name || '').toLowerCase().replace(/\s*\(.*?\)/g, '').trim());
+export function ortStopOf(tr) {
+  const byId = tr.ortStopId && tr.stops.find((x) => x.id === tr.ortStopId);
+  if (byId) return isCountry(byId.name) ? null : byId;
+  return tr.stops.length === 1 && !isCountry(tr.stops[0].name) ? tr.stops[0] : null;
+}
+function OrtCitySetup({ tr }) {
+  const guess = tr.dest && !isCountry(tr.dest) && !tr.stops.length ? tr.dest : '';
+  const [city, setCity] = useState(guess);
+  const land = isCountry(tr.dest) ? tr.dest : (tr.stops[0] && isCountry(tr.stops[0].name) ? tr.stops[0].name : '');
+  const save = (name, existingId) => {
+    const n = String(name || '').trim(); if (!n) return;
+    let id = existingId;
+    if (!id) {
+      const countryStop = tr.stops.find((x) => isCountry(x.name));
+      if (countryStop && tr.stops.length === 1) { updateEntry(tr.id, 'stops', countryStop.id, { name: n }); id = countryStop.id; }
+      else id = insertStop(tr.id, n, 0);
+    }
+    updateTrip(tr.id, { ortStopId: id, dest: land ? `${n}, ${land}` : n });
+  };
+  const routeStops = tr.stops.filter((x) => !isCountry(x.name));
+  return (
     <section className="card" style={{ gap: 8 }}>
-      <span style={{ fontWeight: 650 }}>Wohin genau?</span>
-      <span className="tiny">Trag den Ort ein – oder vergleiche erst mehrere unter „Orte vergleichen“.</span>
-      <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (!dest.trim()) return; updateTrip(tr.id, { dest: dest.trim() }); insertStop(tr.id, dest.trim(), 0); }}>
-        <input className="input" value={dest} onChange={(e) => setDest(e.target.value)} placeholder="z.B. Florianópolis" aria-label="Ziel" />
-        <button type="submit" className="btn small" disabled={!dest.trim()}>Planen</button>
+      <span style={{ fontWeight: 650, fontSize: 16 }}>📍 Stadt muss noch festgelegt werden</span>
+      <span className="tiny">{land ? `„${land}“ ist ein Land oder eine Region. ` : ''}In welcher Stadt bzw. an welchem Ort bist du? Danach erscheinen Anreise, Unterkünfte, Sehenswürdigkeiten, Restaurants und Ausflüge.</span>
+      <form className="block-add" onSubmit={(e) => { e.preventDefault(); save(city); }}>
+        <input className="input" value={city} onChange={(e) => setCity(e.target.value)} placeholder={land ? `Stadt in ${land}, z.B. Shanghai` : 'z.B. Florianópolis'} aria-label="Stadt" autoFocus={!guess} />
+        <button type="submit" className="btn small" disabled={!city.trim()}>Festlegen</button>
       </form>
-      <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={onCompare}>Orte vergleichen ›</button>
+      {routeStops.length > 1 && <><span className="tiny">Oder einen Ort aus deiner Rundreise nehmen:</span><div className="chips">{routeStops.map((x) => <button key={x.id} type="button" className="chip soft" onClick={() => save(x.name, x.id)}>{x.name}</button>)}</div></>}
     </section>
   );
-  const i = tr.stops.indexOf(st);
+}
+function OrtHead({ tr, st }) {
+  const [edit, setEdit] = useState(false);
+  const [val, setVal] = useState(st.name);
+  const startKey = JSON.stringify([st.name, tr.priceSetup?.travelers?.[0]?.start, tr.priceSetup?.travelers?.[0]?.mode, tr.from, tr.to]);
+  useEffect(() => { syncAutoTransport(tr.id); }, [startKey]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <section className="card" style={{ gap: 10 }}>
-      {tr.stops.length > 1 && <div className="chips">{tr.stops.map((x, k) => <button key={x.id} type="button" className={k === i ? 'chip on' : 'chip soft'} onClick={() => setPick(k)}>{x.name}</button>)}</div>}
-      <StopBody s={s} tr={tr} v={null} i={i} inline />
+    <section className="card" style={{ gap: 8 }}>
+      {edit ? (
+        <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (!val.trim()) return; updateEntry(tr.id, 'stops', st.id, { name: val.trim() }); setEdit(false); }}>
+          <input className="input" autoFocus value={val} onChange={(e) => setVal(e.target.value)} aria-label="Stadt ändern" />
+          <button type="submit" className="btn small">OK</button>
+        </form>
+      ) : (
+        <button type="button" className="tl-main" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} onClick={() => { setVal(st.name); setEdit(true); }} aria-label="Stadt ändern">
+          <span style={{ fontWeight: 700, fontSize: 20 }}>📍 {st.name}</span><span className="tiny">✎</span>
+        </button>
+      )}
+      <DateRangeField from={tr.from} to={tr.to} onChange={(val2) => updateTrip(tr.id, val2)} title="Reisezeitraum" placeholder="Wann bist du dort?" />
     </section>
   );
 }
@@ -1173,7 +1208,7 @@ function TripDetail({ s, tr }) {
   const kind = tripKind(tr);
   const planTabs = [['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen']];
   const tabs = kind === 'ort'
-    ? (isIdea ? [['plan', 'Vor Ort planen'], ['vergleich', 'Orte vergleichen'], ['notizen', 'Notizen']] : [['plan', 'Vor Ort planen'], ['vergleich', 'Ziel'], ...planTabs])
+    ? [['anreise', '✈️ Anreise'], ['unterkunft', '🏠 Unterkünfte'], ['sehen', '👀 Sehenswürdigkeiten'], ['essen', '🍽 Restaurants'], ['tun', '🚐 Ausflüge'], ...(isIdea ? [['notizen', 'Notizen']] : planTabs)]
     : (isIdea ? [['sammeln', 'Orte sammeln'], ['varianten', 'Varianten'], ['route', 'Finale Route'], ['notizen', 'Notizen']] : [['route', 'Finale Route'], ['sammeln', 'Orte sammeln'], ['varianten', 'Varianten'], ...planTabs]);
   const [tab, setTab] = useState(null);
   const [commit, setCommit] = useState(false);
@@ -1182,7 +1217,9 @@ function TripDetail({ s, tr }) {
   const cur = tabs.some(([k]) => k === tab) ? tab : tabs[0][0];
   const days = tr.from ? diffDays(t, tr.from) : null;
   const spent = tr.expenses.reduce((n, x) => n + x.amount, 0);
-  const count = { sammeln: (tr.pool || []).length, vergleich: (tr.spots || []).length, varianten: (tr.variants || []).length, todo: tr.todo.filter((x) => !x.done).length, packen: tr.packen.filter((x) => !x.done).length, orte: tr.places.length, route: tr.stops.length, docs: tr.docs.length };
+  const ortSt = kind === 'ort' ? ortStopOf(tr) : null;
+  const ortApi = ortSt ? stopApi(tr, null, tr.stops.indexOf(ortSt)) : null;
+  const count = { ...(ortApi ? Object.fromEntries(['anreise', 'unterkunft', 'sehen', 'essen', 'tun'].map((k) => [k, ortApi.list(k).length])) : {}), sammeln: (tr.pool || []).length, vergleich: (tr.spots || []).length, varianten: (tr.variants || []).length, todo: tr.todo.filter((x) => !x.done).length, packen: tr.packen.filter((x) => !x.done).length, orte: tr.places.length, route: tr.stops.length, docs: tr.docs.length };
   return (
     <>
       <main className="screen">
@@ -1211,37 +1248,39 @@ function TripDetail({ s, tr }) {
 
 
         <div className="seg full" role="group" aria-label="Art der Reise">
-          <button type="button" className={kind === 'ort' ? 'on' : ''} aria-pressed={kind === 'ort'} onClick={() => { if (kind === 'ort') return; updateTrip(tr.id, { kind: 'ort' }); setTab(null); toast('Umgestellt – deine Rundreise-Planung bleibt gespeichert'); }}>📍 An einem Ort</button>
-          <button type="button" className={kind === 'rundreise' ? 'on' : ''} aria-pressed={kind === 'rundreise'} onClick={() => { if (kind === 'rundreise') return; updateTrip(tr.id, { kind: 'rundreise' }); setTab(null); toast('Umgestellt – nichts geht verloren'); }}>🗺 Rundreise</button>
+          <button type="button" className={kind === 'ort' ? 'on' : ''} aria-pressed={kind === 'ort'} onClick={() => { if (kind === 'ort') return; updateTrip(tr.id, { kind: 'ort' }); setTab(null); toast('Umgestellt – nichts geht verloren, alles bleibt gespeichert'); }}>📍 An einem Ort</button>
+          <button type="button" className={kind === 'rundreise' ? 'on' : ''} aria-pressed={kind === 'rundreise'} onClick={() => { if (kind === 'rundreise') return; updateTrip(tr.id, { kind: 'rundreise' }); setTab(null); toast('Umgestellt – nichts geht verloren, alles bleibt gespeichert'); }}>🗺 Rundreise</button>
         </div>
-        {kind === 'ort' && ((tr.pool || []).length > 0 || (tr.variants || []).length > 0) && <span className="tiny" style={{ padding: '0 4px', marginTop: -6 }}>🗺 Gespeichert bleibt deine Rundreise-Planung ({[(tr.pool || []).length && `${tr.pool.length} Orte`, (tr.variants || []).length && `${tr.variants.length} Varianten`].filter(Boolean).join(', ')}) – mit „Rundreise“ ist alles wieder da.</span>}
-        {kind === 'rundreise' && (tr.spots || []).length > 0 && <span className="tiny" style={{ padding: '0 4px', marginTop: -6 }}>📍 Gespeichert bleiben {tr.spots.length} Orte zum Vergleichen – unter „An einem Ort“.</span>}
-        <div className="box-tabs main-tabs">
+        {kind === 'ort' && ((tr.pool || []).length > 0 || (tr.variants || []).length > 0 || tr.stops.length > 1) && <span className="tiny" style={{ padding: '0 4px', marginTop: -6 }}>🗺 Gespeichert bleibt deine Planung für „Rundreise“ ({[tr.stops.length > 1 && `Route mit ${tr.stops.length} Orten`, (tr.pool || []).length && `${tr.pool.length} gesammelte Orte`, (tr.variants || []).length && `${tr.variants.length} Varianten`].filter(Boolean).join(', ')}) – mit „Rundreise“ ist alles wieder da.</span>}
+        {kind === 'rundreise' && (() => { const os = tr.ortStopId && tr.stops.find((x) => x.id === tr.ortStopId); const n = os ? tr.places.filter((p) => p.stopId === os.id).length : 0; return os || (tr.spots || []).length > 0 ? <span className="tiny" style={{ padding: '0 4px', marginTop: -6 }}>📍 Gespeichert bleibt deine Planung für „An einem Ort“ ({[os && os.name, n && `${n} ${n === 1 ? "Eintrag" : "Einträge"}`, (tr.spots || []).length && `${tr.spots.length} Orte`].filter(Boolean).join(', ')}) – mit „An einem Ort“ ist alles wieder da.</span> : null; })()}
+        {kind === 'ort' && !ortSt && <OrtCitySetup tr={tr} />}
+        {ortSt && <OrtHead tr={tr} st={ortSt} />}
+        {(kind !== 'ort' || ortSt) && <div className="box-tabs main-tabs">
           {tabs.map(([k, l]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{count[k] ? ` ${count[k]}` : ''}</button>)}
-        </div>
+        </div>}
+        {ortSt && ['anreise', 'unterkunft', 'sehen', 'essen', 'tun'].includes(cur) && <section className="card" style={{ gap: 8 }}><StopBody s={s} tr={tr} v={null} i={tr.stops.indexOf(ortSt)} only={cur} ort /></section>}
         {cur === 'vergleich' && <Spots s={s} tr={tr} />}
         {cur === 'sammeln' && <Pool s={s} tr={tr} onVariants={() => setTab('varianten')} />}
         {cur === 'varianten' && <Variants s={s} tr={tr} onChosen={() => setTab('route')} onCommit={isIdea ? () => setCommit(true) : null} />}
         {cur === 'route' && <Route s={s} tr={tr} />}
-        {cur === 'plan' && <OrtPlan s={s} tr={tr} onCompare={() => setTab('vergleich')} />}
         {cur === 'orte' && <Places tr={tr} />}
         {cur === 'todo' && <GroupedChecklist items={tr.todo} cats={Object.keys(TODO_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'todo', text, cat)} onToggle={(id) => updateEntry(tr.id, 'todo', id, { done: !tr.todo.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'todo', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Neues To-do" />}
         {cur === 'packen' && <GroupedChecklist items={tr.packen} cats={Object.keys(PACK_TEMPLATE)} onAdd={(text, cat) => addCheck(tr.id, 'packen', text, cat)} onToggle={(id) => updateEntry(tr.id, 'packen', id, { done: !tr.packen.find((x) => x.id === id).done })} onRemove={(id) => removeEntry(tr.id, 'packen', id)} onTemplate={() => commitTrip(tr.id)} placeholder="Einpacken" />}
         {cur === 'docs' && <Docs tr={tr} />}
         {cur === 'budget' && <Budget tr={tr} />}
-        {cur === 'notizen' && isIdea && (
+        {cur === 'notizen' && isIdea && (kind !== 'ort' || ortSt) && (
           <section className="card" style={{ gap: 6 }}>
             <textarea className="input" style={{ minHeight: 140, fontSize: 15 }} defaultValue={tr.idea} key={tr.id + 'idea' + (tr.idea || '').length} placeholder="Alles sammeln: was es dort gibt, Anreise, beste Zeit …" onBlur={(e) => e.target.value !== tr.idea && updateTrip(tr.id, { idea: e.target.value })} aria-label="Notizen zur Idee" />
           </section>
         )}
-        {cur === 'notizen' && (!isIdea || tr.notes) && (
+        {cur === 'notizen' && (!isIdea || tr.notes) && (kind !== 'ort' || ortSt) && (
           <section className="card" style={{ gap: 6 }}>
             <textarea className="input" style={{ minHeight: 140 }} defaultValue={tr.notes} key={tr.id + 'notes'} placeholder="Alles Weitere: Kontakte, Ideen, Gedanken …" onBlur={(e) => e.target.value !== tr.notes && updateTrip(tr.id, { notes: e.target.value })} />
           </section>
         )}
         {!['sammeln', 'varianten'].includes(cur) && <PlanChat
           title={isIdea ? 'Mit KI recherchieren' : 'Mit KI planen'}
-          intro={isIdea ? (kind === 'ort' ? 'Erzähl, was dir wichtig ist (Strand, Ruhe, Essen …). Ich schlage Orte zum Vergleichen vor und sage, was für welchen spricht.' : 'Erzähl, was dich reizt und wie lange du Zeit hast. Ich schlage Orte für deine Sammlung vor und baue daraus Routen-Varianten.') : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
+          intro={isIdea ? (kind === 'ort' ? 'Frag mich zum Ort: in welchem Viertel wohnen, was man sehen muss, gute Restaurants, Ausflüge – ich schlage konkrete Einträge vor.' : 'Erzähl, was dich reizt und wie lange du Zeit hast. Ich schlage Orte für deine Sammlung vor und baue daraus Routen-Varianten.') : 'Sag z.B.: „Ich mache viel Sport dort, es wird kalt“ – ich passe Packliste und To-dos an. Oder: „Such mir eine Unterkunft in der Nähe vom Strand“.'}
           history={tr.chat}
           prefKey="reise"
           onSave={(chat) => updateTrip(tr.id, { chat })}
@@ -1250,7 +1289,7 @@ function TripDetail({ s, tr }) {
           autoWeb={TRAVEL_WEB}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyTripProposal(tr.id, sel)}
-          chips={kind === 'ort' ? (isIdea ? ['Vergleich meine Orte', 'Welcher Ort passt zu mir?', 'Was gibt es dort zu tun?'] : ['Unterkunft-Lage: wo am besten?', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen']) : (isIdea ? ['Mehr Orte für die Sammlung', 'Vergleich meine Varianten', 'Was gibt es dort zu sehen?'] : ['Alternative Route als Variante', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen', 'Was fehlt noch?'])}
+          chips={kind === 'ort' ? (isIdea ? ['In welchem Viertel wohnen?', 'Was muss ich sehen?', 'Restaurant-Tipps', 'Tagesausflüge'] : ['Unterkunft-Lage: wo am besten?', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen']) : (isIdea ? ['Mehr Orte für die Sammlung', 'Vergleich meine Varianten', 'Was gibt es dort zu sehen?'] : ['Alternative Route als Variante', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen', 'Was fehlt noch?'])}
         />}
         <button type="button" className="btn danger" onClick={() => { if (confirm(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
       </main>
