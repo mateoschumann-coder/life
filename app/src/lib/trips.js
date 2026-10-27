@@ -336,6 +336,31 @@ export const TRAVEL_MODES = { flug: '✈️ Flug', bus: '🚌 Bus', zug: '🚆 Z
 export const LEVELS = { guenstig: 'Günstig', normal: 'Normal', premium: 'Premium' };
 export const STAY_TYPES = { airbnb: 'Airbnb', hotel: 'Hotel', hostel: 'Hostel' };
 export const defaultSetup = (s, tr) => ({ from: tr?.from || '', to: tr?.to || '', travelers: [{ start: airportsOf(s, tr), count: 1, mode: 'flug', level: 'normal' }], stayType: 'airbnb', stayLevel: 'normal' });
+// Direkt-Links (v0.51, kostenlos): Seiten mit Startort, Ziel, Datum und Personen schon ausgefüllt – echte Preise mit einem Tipp
+export function directLinks(s, tr, setup) {
+  const st = fixSetup(setup || tr.priceSetup || defaultSetup(s, tr));
+  const from = st.from || tr.from;
+  const to = st.to || tr.to;
+  const dest = (tr.dest || tr.name).split(',')[0].trim();
+  const people = st.travelers.reduce((n, x) => n + x.count, 0);
+  const place = (x) => String(x || '').replace(/\s*\(.*?\)\s*/g, ' ').split(/ oder |,/)[0].trim() || 'Buenos Aires';
+  const travel = st.travelers.map((x) => {
+    const start = place(x.start);
+    const who = x.count > 1 ? ` (${x.count})` : '';
+    if (x.mode === 'flug') {
+      const q = `Flights from ${start} to ${dest}${from ? ` on ${from}` : ''}${to ? ` returning ${to}` : ''}${x.count > 1 ? ` for ${x.count} adults` : ''}${x.level === 'premium' ? ' premium economy' : ''}`;
+      return { kind: 'flug', label: `✈️ ab ${start}${who}`, url: `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}` };
+    }
+    if (x.mode === 'auto') return { kind: 'auto', label: `🚗 ab ${start}`, url: `https://www.google.com/maps/dir/${encodeURIComponent(start)}/${encodeURIComponent(dest)}` };
+    return { kind: x.mode, label: `${x.mode === 'zug' ? '🚆' : '🚌'} ab ${start}${who}`, url: `https://www.rome2rio.com/map/${encodeURIComponent(start)}/${encodeURIComponent(dest)}` };
+  });
+  const dates = from && to;
+  const stay = [
+    { kind: 'airbnb', label: '🏠 Airbnb', url: `https://www.airbnb.com/s/${encodeURIComponent(dest)}/homes?adults=${people}${dates ? `&checkin=${from}&checkout=${to}` : ''}` },
+    { kind: 'booking', label: '🏨 Booking', url: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}&group_adults=${people}&no_rooms=1${dates ? `&checkin=${from}&checkout=${to}` : ''}` },
+  ];
+  return { travel, stay };
+}
 // ältere Einstellungen (mit Namen statt Anzahl) auf das neue Format bringen
 export const fixSetup = (st) => ({ ...st, travelers: (st.travelers || []).map((x) => ({ start: x.start || '', count: Math.max(1, Number(x.count) || 1), mode: x.mode || 'flug', level: x.level || 'normal' })) });
 const PRICE2 = {

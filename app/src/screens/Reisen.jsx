@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
-  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, TRAVEL_MODES, LEVELS, STAY_TYPES,
+  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, TRAVEL_MODES, LEVELS, STAY_TYPES,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
@@ -126,6 +126,12 @@ function PriceSheet({ s, trips, title, onClose }) {
       <span className="label" style={{ padding: 0 }}>Unterkunft (gemeinsam)</span>
       <Seg options={STAY_TYPES} value={f.stayType} onChange={(v) => setF({ ...f, stayType: v })} />
       <Seg options={LEVELS} value={f.stayLevel} onChange={(v) => setF({ ...f, stayLevel: v })} />
+      {!res && (trips || []).length > 0 && (
+        <>
+          <span className="label" style={{ padding: 0 }}>Direkt nachsehen (kostenlos)</span>
+          <div className="list">{trips.map((x) => <div key={x.id} className="row" style={{ minHeight: 44 }}><span className="row-main"><span className="row-title strong">{x.name}</span><DirectLinks s={s} tr={x} setup={f} /></span></div>)}</div>
+        </>
+      )}
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="btn sec" style={{ flex: 1, background: 'var(--card-2)' }} onClick={() => run(false)} disabled={!!busy || !getAi().apiKey || f.travelers.some((x) => !x.start.trim())}>{busy === 'quick' ? 'Schätze …' : 'Schnell schätzen'}</button>
         <button type="button" className="btn" style={{ flex: 1 }} onClick={() => run(true)} disabled={!!busy || !getAi().apiKey || f.travelers.some((x) => !x.start.trim())}>{busy === 'web' ? 'Suche … (ca. 30 Sek.)' : '🔍 Mit Internet'}</button>
@@ -138,7 +144,7 @@ function PriceSheet({ s, trips, title, onClose }) {
           <div className="list">
             {(trips || []).map((x) => {
               const fresh = s.trips.find((y) => y.id === x.id) || x;
-              return <div key={x.id} className="row" style={{ minHeight: 50 }}><span className="row-main"><span className="row-title strong">{x.name}</span><PriceRow p={fresh.prices} /></span></div>;
+              return <div key={x.id} className="row" style={{ minHeight: 50 }}><span className="row-main"><span className="row-title strong">{x.name}</span><PriceRow p={fresh.prices} /><DirectLinks s={s} tr={fresh} setup={f} /></span></div>;
             })}
           </div>
         </>
@@ -162,8 +168,17 @@ function PriceRow({ p }) {
     </span>
   );
 }
+// Kostenlose Direkt-Links zum Vergleichen (Google Flights, Bus/Zug, Airbnb, Booking)
+function DirectLinks({ s, tr, setup }) {
+  const { travel, stay } = directLinks(s, tr, setup);
+  return (
+    <div className="link-chips">
+      {[...travel, ...stay].map((l) => <a key={l.url} className="link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a>)}
+    </div>
+  );
+}
 // In der Idee: dieselben drei Zahlen, antippen zeigt Details + Links
-function CostCard({ tr, onSearch }) {
+function CostCard({ s, tr, onSearch }) {
   const [open, setOpen] = useState(false);
   const p = tr.prices;
   const [a, u, g] = three(p);
@@ -171,9 +186,10 @@ function CostCard({ tr, onSearch }) {
   return (
     <section className="card" style={{ gap: 8, padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {has ? <button type="button" style={{ flex: 1, minWidth: 0, border: 0, background: 'none', padding: 0, textAlign: 'left' }} onClick={() => setOpen(!open)} aria-label="Preis-Details"><PriceRow p={p} /></button> : <span className="tiny" style={{ flex: 1 }}>Noch keine Preise</span>}
-        <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 10px', whiteSpace: 'nowrap' }} onClick={onSearch}>{has ? '↻' : '✈️🏠 Preise'}</button>
+        {has ? <button type="button" style={{ flex: 1, minWidth: 0, border: 0, background: 'none', padding: 0, textAlign: 'left' }} onClick={() => setOpen(!open)} aria-label="Preis-Details"><PriceRow p={p} /></button> : <span className="tiny" style={{ flex: 1 }}>Preise schätzen oder direkt nachsehen:</span>}
+        <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 10px', whiteSpace: 'nowrap' }} onClick={onSearch}>{has ? '↻ Schätzen' : 'Schätzen'}</button>
       </div>
+      <DirectLinks s={s} tr={tr} />
       {open && has && (
         <div className="cost-details">
           {(p.anreise || []).map((x, i) => <span key={i}>{x.von || x.person}{x.count > 1 ? ` (${x.count}×)` : ''}: <b>{x.preis}</b>{x.count > 1 ? ' p. P.' : ''}{x.details ? ` · ${x.details}` : ''}{x.url && <> · <a href={x.url} target="_blank" rel="noreferrer">ansehen ↗</a></>}</span>)}
@@ -623,7 +639,7 @@ function TripDetail({ s, tr }) {
         </div>
 
         {isIdea ? (
-          <CostCard tr={tr} onSearch={() => setPriceFor(tr.group ? s.trips.filter((x) => x.group === tr.group) : [tr])} />
+          <CostCard s={s} tr={tr} onSearch={() => setPriceFor(tr.group ? s.trips.filter((x) => x.group === tr.group) : [tr])} />
         ) : (
           <section className="card countdown" style={{ gap: 10 }}>
             <div className="stat-row">
