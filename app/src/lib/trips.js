@@ -354,8 +354,17 @@ export function directLinks(s, tr, setup) {
     const start = place(x.start);
     const who = x.count > 1 ? ` (${x.count})` : '';
     if (x.mode === 'flug') {
-      const q = `Flights from ${start} to ${dest}${from ? ` on ${from}` : ''}${to ? ` returning ${to}` : ''}${x.count > 1 ? ` for ${x.count} adults` : ''}${x.level === 'premium' ? ' premium economy' : ''}`;
-      return { kind: 'flug', label: `✈️ ab ${start}${who}`, url: `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}` };
+      const q = `Flights from ${start} to ${dest}${from ? ` on ${from}` : ''}${from && to ? ` through ${to}` : ''}${x.level === 'premium' ? ' premium economy' : ''}`;
+      const links = [{ kind: 'flug', label: `✈️ ab ${start}${who}`, url: `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}` }];
+      // Skyscanner übernimmt Datum, Personen und Klasse direkt – braucht Flughafen-Codes (werden einmal von der KI ermittelt und gemerkt)
+      const a = iataOf(s, x.start);
+      const b = iataOf(s, tr.dest || tr.name);
+      if (a && b) {
+        const ymd = (d) => d.slice(2).replace(/-/g, '');
+        const path = from && to ? `${ymd(from)}/${ymd(to)}/` : '';
+        links.push({ kind: 'sky', label: `Skyscanner ${a.toUpperCase()}→${b.toUpperCase()}${who}`, url: `https://www.skyscanner.net/transport/flights/${a}/${b}/${path}?adultsv2=${x.count}&cabinclass=${x.level === 'premium' ? 'premiumeconomy' : 'economy'}&rtn=${from && to ? 1 : 0}` });
+      }
+      return links;
     }
     if (x.mode === 'auto') return { kind: 'auto', label: `🚗 ab ${start}`, url: `https://www.google.com/maps/dir/${encodeURIComponent(start)}/${encodeURIComponent(dest)}` };
     return { kind: x.mode, label: `${x.mode === 'zug' ? '🚆' : '🚌'} ab ${start}${who}`, url: `https://www.rome2rio.com/map/${encodeURIComponent(start)}/${encodeURIComponent(dest)}` };
@@ -365,7 +374,30 @@ export function directLinks(s, tr, setup) {
     { kind: 'airbnb', label: '🏠 Airbnb', url: `https://www.airbnb.com/s/${encodeURIComponent(dest)}/homes?adults=${people}${dates ? `&checkin=${from}&checkout=${to}` : ''}` },
     { kind: 'booking', label: '🏨 Booking', url: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}&group_adults=${people}&no_rooms=1${dates ? `&checkin=${from}&checkout=${to}` : ''}` },
   ];
-  return { travel, stay };
+  return { travel: travel.flat(), stay };
+}
+// Flughafen-Codes (z.B. Frankfurt → FRA, Florianópolis → FLN): Merkliste im Profil, fehlende einmal per KI ohne Internet
+const iataKey = (x) => norm(String(x || '').replace(/\s*\(.*?\)/g, '').split(',')[0]);
+export function iataOf(s, name) {
+  const raw = String(name || '');
+  const inBrackets = raw.match(/\(([A-Z]{3})\b/);
+  if (inBrackets) return inBrackets[1].toLowerCase();
+  if (/^[A-Z]{3}$/.test(raw.trim())) return raw.trim().toLowerCase();
+  return (s.profile?.iata || {})[iataKey(raw)] || '';
+}
+const IATA_TOOL = { name: 'codes', description: 'Flughafen-Codes', input_schema: { type: 'object', properties: { codes: { type: 'array', items: { type: 'object', properties: { ort: { type: 'string' }, code: { type: 'string', description: '3-Buchstaben-IATA-Code des wichtigsten Flughafens bzw. Stadt-Codes (z.B. Buenos Aires → BUE, Frankfurt → FRA)' } }, required: ['ort', 'code'] } } }, required: ['codes'] } };
+let iataChain = Promise.resolve();
+export const ensureIata = (_s, names) => { iataChain = iataChain.then(() => lookupIata(names)); return iataChain; };
+async function lookupIata(names) {
+  const s = store.get();
+  const missing = [...new Set(names.filter(Boolean).filter((n) => !iataOf(s, n)).map((n) => String(n).replace(/\s*\(.*?\)/g, '').split(',')[0].trim()))];
+  if (!missing.length) return;
+  try {
+    const r = await searchWithTool({ system: 'Gib für jeden Ort den IATA-Code des passenden Flughafens (bei Städten mit mehreren Flughäfen den Stadt-Code). Nur Codes, die es wirklich gibt.', user: JSON.stringify(missing), tool: IATA_TOOL, maxUses: 0, maxTokens: 500, label: 'Flughafen-Codes' });
+    const map = {};
+    for (const c of r.codes || []) if (/^[A-Za-z]{3}$/.test(c.code || '')) map[iataKey(c.ort)] = c.code.toLowerCase();
+    if (Object.keys(map).length) store.update((st) => { st.profile = { ...st.profile, iata: { ...(st.profile?.iata || {}), ...map } }; });
+  } catch {}
 }
 // ältere Einstellungen (mit Namen statt Anzahl) auf das neue Format bringen
 export const nightsOf = (st) => (st?.from && st?.to ? Math.max(1, diffDays(st.from, st.to)) : Number(st?.nights) || 0);

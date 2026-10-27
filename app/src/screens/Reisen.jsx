@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
-  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, TRAVEL_MODES, LEVELS, STAY_TYPES,
+  removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, TRAVEL_MODES, LEVELS, STAY_TYPES,
   addVariant, removeVariant, chooseVariant, locateAll, locateTrip} from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
@@ -199,6 +199,9 @@ function PriceRow({ p }) {
 // Kostenlose Direkt-Links zum Vergleichen (Google Flights, Bus/Zug, Airbnb, Booking)
 function DirectLinks({ s, tr, setup }) {
   const { travel, stay } = directLinks(s, tr, setup);
+  const st = fixSetup(setup || tr.priceSetup || defaultSetup(s, tr));
+  const fly = st.travelers.filter((x) => x.mode === 'flug').map((x) => x.start);
+  useEffect(() => { if (fly.length && getAi().apiKey) ensureIata(s, [...fly, tr.dest || tr.name]); }, [fly.join('|'), tr.dest]);
   return (
     <div className="link-chips">
       {[...travel, ...stay].map((l) => <a key={l.url} className="link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a>)}
