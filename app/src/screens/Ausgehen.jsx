@@ -3,7 +3,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, setEventStage, updatePlace } from '../lib/actions';
 import {
-  citiesOf, cityOf, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
+  allCities, citiesOf, cityOf, countryOf, locateCountry, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import { getAi } from '../lib/ai';
@@ -47,37 +47,42 @@ function SearchChips({ s, kind, defaults, disabled, onPick }) {
 // Städte (v0.40): zwischen Buenos Aires, Frankfurt … wechseln – gilt für Events und Orte, bearbeitbar
 function CityChips({ s }) {
   const [adding, setAdding] = useState(false);
+  const [all, setAll] = useState(false);
   const [text, setText] = useState('');
   const list = citiesOf(s);
   const cur = cityOf(s);
+  const known = allCities(s);
   const pick = (c) => store.update((d) => { d.profile = { ...d.profile, city: c }; });
   const save = (l) => store.update((d) => { d.profile = { ...d.profile, cities: l }; });
-  const remove = (c) => {
-    const n = s.places.filter((p) => placeCity(p) === c).length;
-    if (!confirm(`„${c}“ entfernen?${n ? ` Deine ${n} Orte dort bleiben gespeichert und tauchen wieder auf, wenn du die Stadt neu hinzufügst.` : ''}`)) return;
-    save(list.filter((x) => x !== c));
-  };
+  const remember = (c) => store.update((d) => { const a = d.profile?.allCities || []; if (!a.includes(c)) d.profile = { ...d.profile, allCities: [...a, c] }; });
+  // ✕ = nur aus der Schnellauswahl nehmen; die Stadt und ihre Orte bleiben unter „Alle Städte“ (v0.62)
+  const hide = (c) => { remember(c); save(list.filter((x) => x !== c)); if (c === cur) pick(list.find((x) => x !== c)); toast(`„${c}“ ausgeblendet – unter 🌍 Alle Städte`); };
   const add = (e) => {
     e.preventDefault();
-    const c = text.trim();
-    if (c && !list.some((x) => x.toLowerCase() === c.toLowerCase())) {
-      save([...list, c]);
-      locateCity(store, c);
-    }
-    if (c) pick(list.find((x) => x.toLowerCase() === c.toLowerCase()) || c);
+    const c0 = text.trim();
+    if (!c0) return;
+    const c = known.find((x) => x.toLowerCase() === c0.toLowerCase()) || c0;
+    if (!list.includes(c)) save([...list, c]);
+    remember(c);
+    locateCity(store, c);
+    locateCountry(store, c);
+    pick(c);
     setText('');
     setAdding(false);
   };
-  // Antippen = zu dieser Stadt wechseln · kleines ✕ = Stadt entfernen · „+ Stadt“ = hinzufügen (v0.47)
+  useEffect(() => { known.forEach((c) => locateCountry(store, c)); }, [known.join('|')]);
+  const chip = (c, temp) => (
+    <span key={c} className={c === cur ? 'chip on city-chip' : 'chip soft city-chip'}>
+      <button type="button" onClick={() => pick(c)} aria-pressed={c === cur}>📍 {c}</button>
+      {!temp && list.length > 1 && <button type="button" className="city-x" onClick={() => hide(c)} aria-label={`${c} aus der Schnellauswahl nehmen`}><Icon name="x" size={10} /></button>}
+    </span>
+  );
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="box-tabs">
-        {list.map((c) => (
-          <span key={c} className={c === cur ? 'chip on city-chip' : 'chip soft city-chip'}>
-            <button type="button" onClick={() => pick(c)} aria-pressed={c === cur}>📍 {c}</button>
-            {list.length > 1 && <button type="button" className="city-x" onClick={() => remove(c)} aria-label={`${c} entfernen`}><Icon name="x" size={10} /></button>}
-          </span>
-        ))}
+        {list.map((c) => chip(c))}
+        {!list.includes(cur) && chip(cur, true)}
+        <button type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} onClick={() => setAll(true)}>🌍 Alle Städte{known.length > list.length ? ` (${known.length})` : ''}</button>
         <button type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} onClick={() => setAdding(!adding)}>{adding ? 'Abbrechen' : '+ Stadt'}</button>
       </div>
       {adding && (
@@ -86,7 +91,57 @@ function CityChips({ s }) {
           <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
         </form>
       )}
+      <AllCitiesSheet s={s} open={all} onClose={() => setAll(false)} pick={(c) => { pick(c); setAll(false); }} />
     </div>
+  );
+}
+// Alle Städte nach Land: antippen = wechseln, 📌 = in die Schnellauswahl oben, Löschen nur ohne gespeicherte Orte/Events
+function AllCitiesSheet({ s, open, onClose, pick }) {
+  const list = citiesOf(s);
+  const cur = cityOf(s);
+  const known = allCities(s);
+  const nPlaces = (c) => s.places.filter((p) => placeCity(p) === c).length;
+  const nEvents = (c) => s.events.filter((e) => e.city && eventCity(e) === c).length;
+  const groups = {};
+  for (const c of known) (groups[countryOf(s, c) || 'Weitere'] = groups[countryOf(s, c) || 'Weitere'] || []).push(c);
+  const lands = Object.keys(groups).sort((a, b) => (a === 'Weitere') - (b === 'Weitere') || a.localeCompare(b, 'de'));
+  const togglePin = (c) => store.update((d) => {
+    const l = citiesOf(d);
+    d.profile = { ...d.profile, cities: l.includes(c) ? (l.length > 1 ? l.filter((x) => x !== c) : l) : [...l, c], allCities: [...new Set([...(d.profile?.allCities || []), c])] };
+  });
+  const setLand = (c) => {
+    const v = prompt(`In welchem Land liegt „${c}“?`, countryOf(s, c));
+    if (v != null) store.update((d) => { d.profile = { ...d.profile, cityCountry: { ...(d.profile?.cityCountry || {}), [c]: v.trim() } }; });
+  };
+  const del = (c) => {
+    if (!confirm(`„${c}“ ganz löschen?`)) return;
+    store.update((d) => { d.profile = { ...d.profile, cities: citiesOf(d).filter((x) => x !== c), allCities: (d.profile?.allCities || []).filter((x) => x !== c) }; });
+  };
+  return (
+    <Sheet open={open} title="Alle Städte" onClose={onClose}>
+      <span className="tiny">Antippen = dorthin wechseln. 📌 = oben in der Schnellauswahl. Städte mit gespeicherten Orten bleiben immer erhalten.</span>
+      {lands.map((land) => (
+        <div key={land} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span className="label" style={{ padding: 0 }}>{land}</span>
+          <div className="list">
+            {groups[land].sort((a, b) => a.localeCompare(b, 'de')).map((c) => {
+              const n = nPlaces(c), ev = nEvents(c), pinned = list.includes(c);
+              return (
+                <div key={c} className="row" style={{ minHeight: 50, gap: 6 }}>
+                  <button type="button" className="row-main" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }} onClick={() => pick(c)}>
+                    <span className="row-title strong">{c === cur ? '✓ ' : ''}{c}</span>
+                    <span className="row-meta">{[n && `${n} ${n === 1 ? 'Ort' : 'Orte'}`, ev && `${ev} Events`].filter(Boolean).join(' · ') || 'noch leer'}</span>
+                  </button>
+                  <button type="button" className={pinned ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5 }} onClick={() => togglePin(c)} aria-pressed={pinned} aria-label={pinned ? 'Aus der Schnellauswahl' : 'In die Schnellauswahl'}>📌</button>
+                  <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setLand(c)} aria-label={`Land von ${c} ändern`}><Icon name="edit" size={13} /></button>
+                  {!n && !ev && c !== HOME_CITY && <button type="button" className="x-btn" onClick={() => del(c)} aria-label={`${c} löschen`}><Icon name="x" size={12} color="var(--chev)" /></button>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </Sheet>
   );
 }
 
@@ -418,10 +473,11 @@ function Orte({ s, city }) {
   const hasKey = !!getAi().apiKey;
 
   const here = s.places.filter((p) => placeCity(p) === city);
-  const list = here.filter((p) => (status === 'alle' || p.status === status) && (!cat || p.category === cat) && (!sub || p.subcat === sub));
-  const subs = cat ? [...new Set(here.filter((p) => p.category === cat && p.subcat).map((p) => p.subcat))] : [];
-  const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => p.category === c).sort((a, b) => (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
-  const cats = [...new Set(here.map((p) => p.category))];
+  const catOf = (p) => (PLACE_CATS.includes(p.category) ? p.category : 'Sonstiges');
+  const list = here.filter((p) => (status === 'alle' || p.status === status) && (!cat || catOf(p) === cat) && (!sub || p.subcat === sub));
+  const subs = cat ? [...new Set(here.filter((p) => catOf(p) === cat && p.subcat).map((p) => p.subcat))] : [];
+  const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => catOf(p) === c).sort((a, b) => (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
+  const cats = [...new Set(here.map(catOf))];
   const shown = search && (search.city || HOME_CITY) === city ? search : null;
   useEffect(() => { locateCity(store, city); setCat(null); setSub(null); setSel(null); }, [city]);
 
@@ -453,7 +509,7 @@ function Orte({ s, city }) {
       {/* v0.47 (Mateo): keine Karte mehr – oben Art wählen (Restaurant, Café …), darunter direkt die Liste */}
       <div className="box-tabs">
         <button type="button" className={!cat ? 'chip on' : 'chip soft'} onClick={() => { setCat(null); setSub(null); }}>Alle {here.length}</button>
-        {PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setCat(cat === c ? null : c); setSub(null); }}>{c} {here.filter((p) => p.category === c).length}</button>)}
+        {PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setCat(cat === c ? null : c); setSub(null); }}>{c} {here.filter((p) => catOf(p) === c).length}</button>)}
       </div>
       {subs.length > 0 && (
         <div className="chips">

@@ -11,14 +11,32 @@ const locOf = (city) => (!city || city === 'Buenos Aires' ? BA : { type: 'approx
 
 // Städte für Ausgehen (v0.40, Mateo): Knöpfe „Buenos Aires“, „Frankfurt“ … – bearbeitbar, gilt für Events und Orte
 export const HOME_CITY = 'Buenos Aires';
-export const citiesOf = (s) => (s.profile?.cities?.length ? s.profile.cities : [HOME_CITY]);
-export const cityOf = (s) => {
-  const c = s.profile?.city;
-  const list = citiesOf(s);
-  return list.includes(c) ? c : list[0];
-};
 export const placeCity = (p) => p.city || HOME_CITY;
 export const eventCity = (e) => e.city || HOME_CITY;
+export const citiesOf = (s) => (s.profile?.cities?.length ? s.profile.cities : [HOME_CITY]);
+// Alle bekannten Städte (v0.62): Schnellauswahl + je angelegte + alle mit Orten/Events – eine Stadt mit Einträgen verschwindet nie
+export const allCities = (s) => {
+  const seen = new Map();
+  for (const c of [...citiesOf(s), ...(s.profile?.allCities || []), ...(s.places || []).map(placeCity), ...(s.events || []).filter((e) => e.city).map(eventCity)]) {
+    if (c && !seen.has(c.toLowerCase())) seen.set(c.toLowerCase(), c);
+  }
+  return [...seen.values()];
+};
+export const cityOf = (s) => {
+  const c = s.profile?.city;
+  const all = allCities(s);
+  return c && all.includes(c) ? c : citiesOf(s)[0];
+};
+export const countryOf = (s, c) => (c === HOME_CITY ? 'Argentinien' : s.profile?.cityCountry?.[c] || '');
+// Land einer Stadt einmal über OpenStreetMap nachsehen und merken
+export async function locateCountry(store, city) {
+  if (!city || city === HOME_CITY || store.get().profile?.cityCountry?.[city]) return;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&accept-language=de&q=${encodeURIComponent(city)}`).then((x) => x.json());
+    const land = r?.[0]?.address?.country;
+    if (land) store.update((d) => { d.profile = { ...d.profile, cityCountry: { ...(d.profile?.cityCountry || {}), [city]: land } }; });
+  } catch {}
+}
 export const BA_POS = { lat: -34.6037, lon: -58.3816 };
 // Mittelpunkt einer Stadt für die Karte (einmal über OpenStreetMap gesucht, dann gemerkt)
 export async function locateCity(store, city) {
