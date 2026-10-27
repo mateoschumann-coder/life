@@ -1209,7 +1209,7 @@ function TripDetail({ s, tr }) {
   const planTabs = [['todo', 'To-dos'], ['packen', 'Packen'], ['docs', 'Unterlagen'], ['budget', 'Budget'], ['notizen', 'Notizen']];
   const tabs = kind === 'ort'
     ? [['anreise', '✈️ Anreise'], ['unterkunft', '🏠 Unterkünfte'], ['sehen', '👀 Sehenswürdigkeiten'], ['essen', '🍽 Restaurants'], ['tun', '🚐 Ausflüge'], ...(isIdea ? [['notizen', 'Notizen']] : planTabs)]
-    : (isIdea ? [['sammeln', 'Orte sammeln'], ['varianten', 'Varianten'], ['route', 'Finale Route'], ['notizen', 'Notizen']] : [['route', 'Finale Route'], ['sammeln', 'Orte sammeln'], ['varianten', 'Varianten'], ...planTabs]);
+    : (isIdea ? [['route', 'Finale Route'], ['varianten', 'Varianten'], ['sammeln', 'Orte sammeln'], ['notizen', 'Notizen']] : [['route', 'Finale Route'], ['varianten', 'Varianten'], ['sammeln', 'Orte sammeln'], ...planTabs]);
   const [tab, setTab] = useState(null);
   const [commit, setCommit] = useState(false);
   const [priceFor, setPriceFor] = useState(null);

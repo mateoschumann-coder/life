@@ -3,6 +3,9 @@
   --bg: #f9fafb;
   --card: #ffffff;
   --card-2: #f3f4f6;
+  --input-bg: #ffffff;
+  --input-border: #cfd4dc;
+  --placeholder: #8a909b;
   --text: #111827;
   --muted: #6b7280;
   --soft: #374151;
@@ -29,6 +32,9 @@
     --bg: #0b0d12;
     --card: #161a22;
     --card-2: #1e232d;
+    --input-bg: #1f2531;
+    --input-border: #3a4252;
+    --placeholder: #8a92a3;
     --text: #f3f4f6;
     --muted: #9ca3af;
     --soft: #d1d5db;
@@ -145,9 +151,10 @@ a.tag:active { opacity: 0.6; }
 /* Formulare */
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > span { font-size: 13px; color: var(--muted); padding-left: 4px; }
-.input { border: 0; background: var(--card); border-radius: 12px; padding: 13px 14px; font-size: 17px; outline: none; width: 100%; color: var(--text); }
-.card .input, .list .input { background: var(--card-2); }
-.input:focus { box-shadow: 0 0 0 2px var(--accent-bg); }
+.input { border: 1px solid var(--input-border); background: var(--input-bg); border-radius: 12px; padding: 13px 14px; font-size: 17px; outline: none; width: 100%; color: var(--text); }
+.card .input, .list .input { background: var(--input-bg); }
+.input::placeholder { color: var(--placeholder); opacity: 1; }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
 textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .inline-add { display: flex; gap: 8px; padding: 10px 16px 12px 0; position: relative; }
 .inline-add .input { padding: 10px 12px; font-size: 16px; }
@@ -519,3 +526,5 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .tl-grab { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 72px; height: 22px; display: flex; align-items: center; justify-content: center; touch-action: none; cursor: grab; z-index: 2; }
 .tl-grab i { display: block; width: 34px; height: 5px; border-radius: 3px; background: var(--chev, #c7c7cc); }
 .tl-node.dragging .tl-grab { cursor: grabbing; }
+.input.title-input { border-color: transparent; background: transparent; }
+.input.title-input:focus { border-color: var(--accent); background: var(--input-bg); }
