@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
-import { addEvent, addPlace, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, setEventStage, updatePlace } from '../lib/actions';
+import { addEvent, addPlace, addPlaceCat, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
 import {
   allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
@@ -318,6 +318,8 @@ function Stars({ value, onChange, size = 18 }) {
 }
 
 function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, defaultHood = '', defaultFav = false }) {
+  const [catEdit, setCatEdit] = useState(false);
+  const [newCat, setNewCat] = useState('');
   const blank = { fav: defaultFav, name: '', category: defaultCat || 'Café', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [], price: 0 };
   const [tagText, setTagText] = useState('');
   const [f, setF] = useState(blank);
@@ -387,8 +389,15 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
       <div className="field">
         <span>Art</span>
         <div className="chips">
-          {PLACE_CATS.map((c) => <button key={c} type="button" className={f.category === c ? 'chip on' : 'chip'} onClick={() => set({ category: c, subcat: f.category === c ? f.subcat : '' })}>{c}</button>)}
+          {placeCatsOf(s).map((c) => <button key={c} type="button" className={f.category === c ? 'chip on' : 'chip'} onClick={() => set({ category: c, subcat: f.category === c ? f.subcat : '' })}>{c}{catEdit && (s?.profile?.placeCats || []).includes(c) && <span role="button" aria-label={`${c} entfernen`} style={{ marginLeft: 6 }} onClick={(e) => { e.stopPropagation(); if ((s.places || []).some((p) => p.category === c)) { toast('Wird noch von Orten benutzt'); return; } removePlaceCat(c); if (f.category === c) set({ category: 'Café' }); }}>✕</span>}</button>)}
+          {!catEdit && <button type="button" className="chip soft" onClick={() => setCatEdit(true)}>+ Neue Art / bearbeiten</button>}
         </div>
+        {catEdit && (
+          <div className="block-add">
+            <input className="input" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Neue Art, z.B. Coworking" aria-label="Neue Art" />
+            <button type="button" className="btn small" onClick={() => { if (newCat.trim()) { const c = addPlaceCat(newCat); set({ category: c, subcat: '' }); setNewCat(''); } setCatEdit(false); }}>{newCat.trim() ? '+' : 'Fertig'}</button>
+          </div>
+        )}
       </div>
       <div className="field">
         <span>Genauer (optional)</span>
@@ -518,7 +527,7 @@ function Orte({ s, city }) {
   const hasKey = !!getAi().apiKey;
 
   const here = s.places.filter((p) => placeCity(p) === city);
-  const catOf = (p) => (PLACE_CATS.includes(p.category) ? p.category : 'Sonstiges');
+  const catOf = (p) => (placeCatsOf(s).includes(p.category) ? p.category : 'Sonstiges');
   const hoods = hoodsOf(s, city);
   const tog = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   const list = here.filter((p) => (status === 'alle' || (status === 'fav' ? p.fav : p.status === status)) && (!catSel.length || catSel.includes(catOf(p))) && (!subSel.length || subSel.includes(p.subcat))
@@ -532,7 +541,7 @@ function Orte({ s, city }) {
   const subsAll = [...new Set(here.filter((p) => (!catSel.length || catSel.includes(catOf(p))) && p.subcat).map((p) => p.subcat))];
   const usedTags = [...new Set(here.flatMap((p) => p.tags || []))];
   const subs = cat ? [...new Set(here.filter((p) => catOf(p) === cat && p.subcat).map((p) => p.subcat))] : [];
-  const groups = PLACE_CATS.map((c) => ({ c, items: list.filter((p) => catOf(p) === c).sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
+  const groups = placeCatsOf(s).map((c) => ({ c, items: list.filter((p) => catOf(p) === c).sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
   const cats = [...new Set(here.map(catOf))];
   const shown = search || null; // v0.71: bleibt beim Stadtwechsel stehen, bis zur nächsten KI-Suche
   const resCity = search?.city || HOME_CITY;
@@ -651,7 +660,7 @@ function Orte({ s, city }) {
         )}
         {fsheet === 'art' && (
           <>
-            <div className="chips">{PLACE_CATS.filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={catSel.includes(c) ? 'chip on' : 'chip soft'} onClick={() => { tog(catSel, setCatSel, c); setSubSel([]); }}>{c} {here.filter((p) => catOf(p) === c).length}</button>)}</div>
+            <div className="chips">{placeCatsOf(s).filter((c) => cats.includes(c)).map((c) => <button key={c} type="button" className={catSel.includes(c) ? 'chip on' : 'chip soft'} onClick={() => { tog(catSel, setCatSel, c); setSubSel([]); }}>{c} {here.filter((p) => catOf(p) === c).length}</button>)}</div>
             {subsAll.length > 0 && <><span className="label" style={{ padding: 0 }}>Genauer</span><div className="chips">{subsAll.map((c) => <button key={c} type="button" className={subSel.includes(c) ? 'chip on' : 'chip soft'} onClick={() => tog(subSel, setSubSel, c)}>{c}</button>)}</div></>}
           </>
         )}

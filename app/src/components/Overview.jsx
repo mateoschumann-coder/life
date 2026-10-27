@@ -33,6 +33,8 @@ function Group({ g }) {
 export default function Overview({ s }) {
   const [v, setV] = useState(loadOverview);
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem('life-app-ov-open') !== '0'; } catch { return true; } });
+  const toggle = () => { const n = !open; setOpen(n); try { localStorage.setItem('life-app-ov-open', n ? '1' : '0'); } catch {} };
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
   const fresh = v && v.date === today() && v.kind === 'hint';
@@ -62,11 +64,13 @@ export default function Overview({ s }) {
   return (
     <section className="card checkin" style={{ gap: 6 }}>
       <div className="sec-h" style={{ padding: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
-          <span className="spark"><Icon name="sparkle" size={16} color="currentColor" /></span> Dein Überblick
-        </span>
-        {hasKey && <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={run} disabled={busy} aria-label="Hinweise aktualisieren"><Icon name="refresh" size={15} /></button>}
+        <button type="button" onClick={toggle} aria-expanded={open} style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17, background: 'none', border: 0, padding: 0, color: 'inherit', font: 'inherit', flex: 1, textAlign: 'left', cursor: 'pointer' }}>
+          <span className="spark"><Icon name="sparkle" size={16} color="currentColor" /></span> <span style={{ fontWeight: 700, fontSize: 17 }}>Dein Überblick</span>
+          <span className="tiny" style={{ marginLeft: 'auto', marginRight: 6 }}>{open ? '▴ Einklappen' : '▾ Aufklappen'}</span>
+        </button>
+        {open && hasKey && <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={run} disabled={busy} aria-label="Hinweise aktualisieren"><Icon name="refresh" size={15} /></button>}
       </div>
+      {open && <>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {fresh && v.lage && <p className="coach-summary">{v.lage}</p>}
       {sections.map((x) => (
@@ -78,6 +82,7 @@ export default function Overview({ s }) {
       ))}
       {!sections.length && <span className="sub">Gerade ist nichts eingetragen, das ansteht.</span>}
       {busy && <span className="tiny">KI-Hinweise werden geholt …</span>}
+      </>}
     </section>
   );
 }

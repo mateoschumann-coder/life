@@ -73,9 +73,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
       {fresh && res.t?.gedanke && <span className="tiny" style={{ color: 'var(--text)' }}>🎯 {res.t.gedanke}</span>}
       {(fresh || edit || instant) && (
         <div className="link-chips" style={{ marginTop: 0, alignItems: 'center' }}>
-          {list.map((x) => x.id === 'instagram' && !edit && !x.tpl ? instaTags(fresh ? res.q : q, city, fresh ? res.t : null).map((h) => (
-            <span key={x.id + h} className="src-chip"><a className="link-chip" href={instaUrl(h)} target="_blank" rel="noreferrer">#{h} ↗</a></span>
-          )) : (
+          {list.map((x) => x.id === 'instagram' && !edit && !x.tpl ? (() => { const h = instaTags(fresh ? res.q : q, city, fresh ? res.t : null)[0]; return h ? <span key={x.id} className="src-chip"><a className="link-chip" href={instaUrl(h)} target="_blank" rel="noreferrer" title={`#${h}`}>Instagram ↗</a></span> : null; })() : (
             <span key={x.id} className="src-chip">
               <a className="link-chip" style={isNative(x) ? undefined : { background: 'var(--card-2)', color: 'var(--text)' }} href={sourceUrl(x, fresh ? res.q : q, city, fresh ? res.t : null, siteQuery)} target="_blank" rel="noreferrer" title={fresh && res.t?.terms?.[x.id] ? res.t.terms[x.id] : ''}>{isFixed(x) ? '📌 ' : ''}{x.name}{isNative(x) ? '' : ' · G'} ↗</a>
               {edit && !x.build && <button type="button" className="city-x" style={x.tpl ? { background: 'var(--accent)', color: '#fff' } : undefined} onClick={() => { setTeach(x); setTeachUrl(''); setTeachErr(''); }} aria-label={`Direkte Suche für ${x.name} einrichten`}>🔧</button>}

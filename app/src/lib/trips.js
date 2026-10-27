@@ -186,11 +186,11 @@ export function chooseVariant(tripId, id) {
     t.variants.forEach((x) => { x.chosen = x.id === id; });
     t.stops = v.stops.map((x, k) => {
       const old = t.stops.find((y) => norm(y.name) === norm(x.name));
-      if (old) return { ...old, note: old.note || [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
+      if (old) return { ...old, note: old.note || x.note || '', nights: old.nights || x.nights || null, tip: old.tip || x.tip || '' };
       const nid = uid();
       added.push(nid);
       itemsToPlaces(t, x, nid, v.stops[k - 1]?.name);
-      return { id: nid, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
+      return { id: nid, name: x.name, from: '', to: '', note: x.note || '', nights: x.nights || null, tip: x.tip || '' };
     });
     legsToTransport(t, v);
   });
@@ -521,11 +521,11 @@ export function applyGuide(sel, { group = '' } = {}) {
     const st = store.get();
     const old = st.trips.find((x) => x.status === 'idee' && sameDest(x, z.ziel) && (!g || x.group === g || !x.group));
     if (old) {
-      updateTrip(old.id, { ...(g ? { group: g } : {}), ...(z.flug || z.unterkunft ? { prices: { ...(old.prices || {}), ...priceOf(z) } } : {}), ...(!old.idea && (z.warum || z.kurz) ? { idea: ideaText(z) } : {}) });
+      updateTrip(old.id, { ...(g ? { group: g } : {}), ...(z.flug || z.unterkunft ? { prices: { ...(old.prices || {}), ...priceOf(z) } } : {}),  });
       continue;
     }
     const route = (z.route || []).filter((x) => x && x.ort);
-    const id = addTrip({ name: z.ziel, dest: route.length ? [route[0].ort, z.land].filter(Boolean).join(', ') : [z.ziel, z.land].filter(Boolean).join(', '), status: 'idee', idea: ideaText(z) });
+    const id = addTrip({ name: z.ziel, dest: route.length ? [route[0].ort, z.land].filter(Boolean).join(', ') : [z.ziel, z.land].filter(Boolean).join(', '), status: 'idee', info: ideaText(z) });
     const nights = z.naechte || route.reduce((n, x) => n + (x.naechte || 0), 0);
     updateTrip(id, { group: g, ...(z.flug || z.unterkunft ? { prices: priceOf(z) } : {}), ...(nights ? { priceSetup: { nights } } : {}) });
     // Rundreise: Route gleich als Variante speichern
@@ -632,7 +632,7 @@ export function applyTripProposal(tripId, sel) {
     for (const x of sel.stationen || []) {
       if (t.stops.some((y) => norm(y.name) === norm(x.name))) continue;
       const id = uid();
-      t.stops.push({ id, name: x.name, from: okDate(x.von), to: okDate(x.bis), note: x.notiz || '', ...(typeof x.lat === 'number' && typeof x.lon === 'number' ? { lat: x.lat, lon: x.lon, aiPos: true } : {}) });
+      t.stops.push({ id, name: x.name, from: okDate(x.von), to: okDate(x.bis), note: '', tip: x.notiz || '', ...(typeof x.lat === 'number' && typeof x.lon === 'number' ? { lat: x.lat, lon: x.lon, aiPos: true } : {}) });
       added.stops.push(id);
     }
     for (const x of sel.transport || []) t.transport.push({ id: uid(), from: x.von, to: x.nach, mode: MODES[x.art] ? x.art : 'sonstiges', date: '', time: '', note: [x.dauer, x.preis, x.notiz].filter(Boolean).join(' · '), url: okUrl(x.url), status: 'option' });
@@ -657,7 +657,7 @@ export function applyTripProposal(tripId, sel) {
     }
     for (const v of sel.varianten || []) {
       t.variants = t.variants || [];
-      t.variants.push({ id: uid(), name: v.name || `Route ${t.variants.length + 1}`, summary: v.kurz || '', stops: (v.abschnitte || []).filter((x) => x && x.ort).map((x) => ({ name: x.ort, nights: x.naechte || null, note: x.notiz || '' })), chosen: false });
+      t.variants.push({ id: uid(), name: v.name || `Route ${t.variants.length + 1}`, summary: v.kurz || '', stops: (v.abschnitte || []).filter((x) => x && x.ort).map((x) => ({ name: x.ort, nights: x.naechte || null, note: '', tip: x.notiz || '' })), chosen: false });
     }
     if (sel.entfernen?.length) {
       const rm = new Set(sel.entfernen.map(norm));
@@ -730,7 +730,7 @@ export async function buildVariants(s, tr, wish = '') {
     maxTokens: 2500,
     label: 'Reise: Varianten bauen',
   });
-  for (const v of r.varianten || []) addVariant(tr.id, { name: v.name, summary: v.kurz || '', stops: (v.abschnitte || []).map((x) => ({ name: x.ort, nights: x.naechte, note: x.notiz })) });
+  for (const v of r.varianten || []) addVariant(tr.id, { name: v.name, summary: v.kurz || '', stops: (v.abschnitte || []).map((x) => ({ name: x.ort, nights: x.naechte, note: '', tip: x.notiz || '' })) });
   return (r.varianten || []).length;
 }
 const LEG_TOOL = { name: 'strecken', description: 'Transport zwischen den Abschnitten.', input_schema: { type: 'object', properties: { strecken: { type: 'array', items: { type: 'object', properties: { von: { type: 'string' }, nach: { type: 'string' }, art: { type: 'string', enum: Object.keys(MODES) }, dauer: { type: 'string', description: 'z.B. „3 h“' }, preis: { type: 'string', description: 'grobe Spanne pro Person mit Währung' }, notiz: { type: 'string', description: 'ganz kurz, z.B. „mehrmals täglich, Cometa/Flecha Bus“' } }, required: ['von', 'nach', 'art', 'dauer'] } } }, required: ['strecken'] } };
@@ -762,7 +762,7 @@ export function appendFromVariant(tripId, vid, idxs, at = null) {
     for (const x of pick) {
       if (t.stops.some((y) => norm(y.name) === norm(x.name))) continue;
       const id = uid();
-      const ns = { id, name: x.name, from: '', to: '', note: [x.nights && `${x.nights} Nächte`, x.note].filter(Boolean).join(' · ') };
+      const ns = { id, name: x.name, from: '', to: '', note: x.note || '', nights: x.nights || null, tip: x.tip || '' };
       if (at !== null && at >= 0 && at < t.stops.length) t.stops.splice(at++, 0, ns); else t.stops.push(ns);
       added.push(id);
       itemsToPlaces(t, x, id, t.stops[t.stops.findIndex((y) => y.id === id) - 1]?.name);
@@ -826,7 +826,7 @@ export async function editVariant(s, tr, vid, wish) {
   if (!(r.abschnitte || []).some((x) => x.ort)) { editV(tr.id, vid, (vv) => { vv.aiNote = r.antwort || ''; }); return r.antwort; }
   editV(tr.id, vid, (vv) => {
     const old = vv.stops;
-    vv.stops = (r.abschnitte || []).filter((x) => x.ort).map((x) => { const o = old.find((y) => norm(y.name) === norm(x.ort)); return { name: x.ort, nights: x.naechte || o?.nights || null, note: x.notiz || o?.note || '', items: o?.items || [] }; });
+    vv.stops = (r.abschnitte || []).filter((x) => x.ort).map((x) => { const o = old.find((y) => norm(y.name) === norm(x.ort)); return { name: x.ort, nights: x.naechte || o?.nights || null, note: o?.note || '', tip: x.notiz || o?.tip || '', items: o?.items || [] }; });
     if (r.name) vv.name = r.name;
     vv.aiNote = r.antwort || '';
   });
@@ -1013,4 +1013,28 @@ export function saveTripSetup(trips, setup) {
   const st0 = fixSetup(setup);
   store.update((s) => { for (const x of s.trips) if (trips.some((y) => y.id === x.id)) { x.priceSetup = st0; if (st0.from) { x.from = st0.from; x.to = st0.to || x.to; } } });
   for (const x of trips) syncAutoTransport(x.id);
+}
+
+// ---------- v0.86: alle Reisepreise in der gewählten Währung anzeigen (Kurse aus Finanzen, pro 1 US$) ----------
+const FX_CUR = [['US$', 'USD'], ['USD', 'USD'], ['EUR', 'EUR'], ['€', 'EUR'], ['Euro', 'EUR'], ['ARS', 'ARS'], ['$', 'USD']];
+const fxRe = /(~|≈|ca\.?\s*|ab\s*)?(?:(US\$|€|\$)\s*(\d[\d.,]*)|(\d[\d.,]*)\s*(US\$|USD|EUR|Euro|€|ARS|\$)(?![A-Za-z]))/g;
+const fxNum = (x) => { const s0 = String(x); if (/^\d{1,3}([.,]\d{3})+$/.test(s0)) return Number(s0.replace(/[.,]/g, '')); return Number(s0.replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')); };
+export function fxText(text) {
+  if (!text || typeof text !== 'string') return text;
+  const s = store.get();
+  const to = tripCur(s);
+  const rates = { USD: 1, EUR: 0.92, ARS: 1200, ...(s.budget?.rates || {}) };
+  const sign = to === 'EUR' ? '€' : to === 'USD' ? 'US$' : 'ARS';
+  return text.replace(fxRe, (m, pre, c1, n1, n2, c2) => {
+    const from = (FX_CUR.find(([k]) => k === (c1 || c2)) || [])[1];
+    const n = fxNum(n1 || n2);
+    if (!from || !isFinite(n) || from === to || !rates[from] || !rates[to]) return m;
+    const v = Math.round((n / rates[from]) * rates[to]);
+    return `${pre && /~|≈/.test(pre) ? pre : '≈'}${v.toLocaleString('de-DE')} ${sign}`;
+  });
+}
+export function fxPrices(p) {
+  if (!p) return p;
+  const conv = (v) => (typeof v === 'string' ? fxText(v) : Array.isArray(v) ? v.map(conv) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, /url|when|checked/i.test(k) ? x : conv(x)])) : v);
+  return conv(p);
 }

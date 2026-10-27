@@ -237,6 +237,15 @@ export function setEventStage(id, stage) {
 // Orte (Bars, Cafés, Restaurants …) mit Karte
 export const PLACE_CATS = ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'];
 // Unterarten pro Art (Vorschläge; eigene sind jederzeit möglich)
+// v0.86: eigene Arten (z.B. „Rooftop“, „Coworking“) – Standard-Arten + eigene, „Sonstiges“ immer zuletzt
+export const placeCatsOf = (s) => [...new Set([...PLACE_CATS.filter((c) => c !== 'Sonstiges'), ...(s?.profile?.placeCats || []), 'Sonstiges'])];
+export function addPlaceCat(name) {
+  const n = String(name || '').trim();
+  if (!n) return '';
+  store.update((s) => { s.profile = s.profile || {}; const l = s.profile.placeCats || []; if (![...PLACE_CATS, ...l].some((c) => c.toLowerCase() === n.toLowerCase())) s.profile.placeCats = [...l, n]; });
+  return [...PLACE_CATS, ...(store.get().profile?.placeCats || [])].find((c) => c.toLowerCase() === n.toLowerCase()) || n;
+}
+export const removePlaceCat = (name) => store.update((s) => { s.profile.placeCats = (s.profile?.placeCats || []).filter((c) => c !== name); });
 export const PLACE_SUBCATS = {
   Café: ['Specialty Coffee', 'Zum Arbeiten', 'Brunch', 'Konditorei'],
   Bar: ['Rooftop / Sky Bar', 'Pub', 'Cocktailbar', 'Weinbar', 'Craft Beer', 'Speakeasy', 'Live-Musik'],
@@ -252,7 +261,7 @@ export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '',
   if (!name || !name.trim()) return;
   const id = uid();
   store.update((s) => {
-    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, city: String(city || '').trim() || 'Buenos Aires', hood: String(hood || '').trim(), tags: Array.isArray(tags) ? tags : [], price: Number(price) || 0, fav: !!fav, createdAt: now() });
+    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) || (s.profile?.placeCats || []).includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, city: String(city || '').trim() || 'Buenos Aires', hood: String(hood || '').trim(), tags: Array.isArray(tags) ? tags : [], price: Number(price) || 0, fav: !!fav, createdAt: now() });
   });
   return id;
 }

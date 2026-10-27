@@ -10,6 +10,8 @@ export function RangeCalendar({ from, to, onChange, single = false }) {
   const start = from || today();
   const [ym, setYm] = useState({ y: Number(start.slice(0, 4)), m: Number(start.slice(5, 7)) - 1 });
   const t = today();
+  const y0 = Number(t.slice(0, 4));
+  const years = [...new Set([y0 - 1, y0, y0 + 1, y0 + 2, y0 + 3, ym.y])].sort();
   const first = new Date(ym.y, ym.m, 1);
   const offset = (first.getDay() + 6) % 7; // Montag zuerst
   const days = new Date(ym.y, ym.m + 1, 0).getDate();
@@ -25,7 +27,10 @@ export function RangeCalendar({ from, to, onChange, single = false }) {
     <div className="cal">
       <div className="cal-head">
         <button type="button" className="x-btn" onClick={() => move(-1)} aria-label="Vorheriger Monat"><Icon name="chevLeft" size={18} /></button>
-        <b>{MONTHS[ym.m]} {ym.y}</b>
+        <span style={{ display: 'flex', gap: 6, flex: 1, justifyContent: 'center' }}>
+          <select className="cal-sel" value={ym.m} onChange={(e) => setYm({ ...ym, m: Number(e.target.value) })} aria-label="Monat">{MONTHS.map((n, i) => <option key={n} value={i}>{n}</option>)}</select>
+          <select className="cal-sel" value={ym.y} onChange={(e) => setYm({ ...ym, y: Number(e.target.value) })} aria-label="Jahr">{years.map((y) => <option key={y} value={y}>{y}</option>)}</select>
+        </span>
         <button type="button" className="x-btn" onClick={() => move(1)} aria-label="Nächster Monat"><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon name="chevLeft" size={18} /></span></button>
       </div>
       <div className="cal-grid">

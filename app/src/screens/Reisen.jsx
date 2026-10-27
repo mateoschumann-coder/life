@@ -4,7 +4,7 @@ import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addCheck, addEntry, addExpense, addTrip, applyTripProposal, commitTrip, locateEntry, MODES, PACK_TEMPLATE, PLACE_CAT, PLACE_KINDS,
   removeEntry, removeTrip, TODO_TEMPLATE, tripAssist, tripGuide, applyGuide, updateEntry, updateTrip, airportsOf, comparePrices, defaultSetup, fixSetup, directLinks, nightsOf, setGroupTime, ensureIata, setupOf, TRIP_CURRENCIES, tripCur, TRAVEL_MODES, LEVELS, STAY_TYPES,
-  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, updateVariantItem, spotLinks, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes, toOutings, moveStop, removeStop, reorderStop, reorderVariantStop, tripHome, skyUrl, legUrl, legsOf, addVariantLeg, updateVariantLeg, removeVariantLeg, parseLegText, setTripDates, restartFinalRoute, saveTripSetup } from '../lib/trips';
+  addVariant, removeVariant, chooseVariant, locateAll, locateTrip, tripKind, FOCI, addSpotTo, removeSpotFrom, chooseSpot, suggestSpots, buildVariants, variantTransport, appendFromVariant, rome2rio, updateVariant, addVariantStop, removeVariantStop, moveVariantStop, updateVariantStop, legOf, setVariantLeg, addVariantItem, removeVariantItem, updateVariantItem, spotLinks, addEmptyVariant, insertStop, editVariant, suggestPosition, stopLinks, syncAutoTransport, ensureIata as ensureIataCodes, toOutings, moveStop, removeStop, reorderStop, reorderVariantStop, tripHome, skyUrl, legUrl, legsOf, fxText, fxPrices, addVariantLeg, updateVariantLeg, removeVariantLeg, parseLegText, setTripDates, restartFinalRoute, saveTripSetup } from '../lib/trips';
 import { getAi } from '../lib/ai';
 import { groupIdeas, groupsOf, renameGroup, ungroup } from '../lib/trips';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -180,7 +180,7 @@ function PriceSheet({ s, trips, title, onClose }) {
           <div className="list">
             {(trips || []).map((x) => {
               const fresh = s.trips.find((y) => y.id === x.id) || x;
-              return <div key={x.id} className="row" style={{ minHeight: 50 }}><span className="row-main"><span className="row-title strong">{x.name}</span><PriceRow p={fresh.prices} /><DirectLinks s={s} tr={fresh} setup={f} /></span></div>;
+              return <div key={x.id} className="row" style={{ minHeight: 50 }}><span className="row-main"><span className="row-title strong">{x.name}</span><PriceRow p={fxPrices(fresh.prices)} /><DirectLinks s={s} tr={fresh} setup={f} /></span></div>;
             })}
           </div>
         </>
@@ -296,7 +296,7 @@ function OriginGrid({ p, detail }) {
 // In der Idee: Preise pro Person je Startort, „Details“ klappt die Erklärung je Zeile auf
 function CostCard({ s, tr, onSearch }) {
   const [open, setOpen] = useState(false);
-  const p = tr.prices;
+  const p = fxPrices(tr.prices);
   const has = perOrigin(p).length > 0 || !!three(p)[2];
   return (
     <section className="card" style={{ gap: 8, padding: '12px 14px' }}>
@@ -374,7 +374,7 @@ function TripList({ s }) {
             ? [tr.stops.length && `${tr.stops.length} Stationen`, tr.places.length && `${tr.places.length} Orte`].filter(Boolean).join(' · ')
             : [tr.from && rangeText(tr.from, tr.to), tr.from && tr.from > t && `in ${diffDays(t, tr.from)} Tagen`, `${tr.todo.filter((x) => !x.done).length} offen`].filter(Boolean).join(' · ')}
         </span>
-        {tr.status === 'idee' && tr.prices && <TotalChip p={tr.prices} />}
+        {tr.status === 'idee' && tr.prices && <TotalChip p={fxPrices(tr.prices)} />}
       </span>
       {!idea && <Chevron />}
     </a>
@@ -527,8 +527,8 @@ function Route({ s, tr }) {
         <Timeline
           items={stops}
           name={(st) => st.name}
-          meta={(st) => { const n = tr.places.filter((p) => p.stopId === st.id).length; const stay = tr.places.find((p) => p.stopId === st.id && p.kind === 'unterkunft' && p.status === 'fest'); return [st.from && rangeText(st.from, st.to), stay ? `🏠 ${stay.name}` : null, n && `${n} gespeichert`, st.note].filter(Boolean).join(' · ') || 'Antippen: Anreise, Unterkunft, Restaurants …'; }}
-          leg={(i) => { const l = between(tr, stops[i].name, stops[i + 1].name).filter((x) => !x.auto); if (!l.length) return null; const b = l.find((x) => x.status === 'gebucht') || l[0]; return { icon: MODE_ICON[b.mode] || '➡️', text: [b.status === 'gebucht' ? '✓ gebucht' : `${l.length} Option${l.length > 1 ? 'en' : ''}`, b.dur, b.price].filter(Boolean).join(' · ') }; }}
+          meta={(st) => { const n = tr.places.filter((p) => p.stopId === st.id).length; const stay = tr.places.find((p) => p.stopId === st.id && p.kind === 'unterkunft' && p.status === 'fest'); return [(st.from && rangeText(st.from, st.to)) || (st.nights && `${st.nights} N.`), stay ? `🏠 ${stay.name}` : null, n && `${n} gespeichert`, st.note].filter(Boolean).join(' · ') || 'Antippen: Anreise, Unterkunft, Restaurants …'; }}
+          leg={(i) => { const l = between(tr, stops[i].name, stops[i + 1].name).filter((x) => !x.auto); if (!l.length) return null; const b = l.find((x) => x.status === 'gebucht') || l[0]; return { icon: MODE_ICON[b.mode] || '➡️', text: [b.status === 'gebucht' ? '✓ gebucht' : `${l.length} Option${l.length > 1 ? 'en' : ''}`, b.dur, fxText(b.price)].filter(Boolean).join(' · ') }; }}
           onOpen={(i) => setOpenSt(stops[i].id)}
           onLeg={(i) => setLegAB({ a: stops[i].name, b: stops[i + 1].name })}
           onInsert={(name, at) => insertStop(tr.id, name, at)}
@@ -968,7 +968,7 @@ function StopItem({ e, sec, api, tr, city, links }) {
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <button type="button" className="tl-main" style={{ flex: 1, minWidth: 0 }} onClick={() => setOpen(!open)} aria-expanded={open}>
           <span style={{ fontSize: 14.5, fontWeight: e.picked ? 650 : 500 }}>{e.text}</span>
-          {(e.sub || e.price || e.reserve || e.note) && <span className="tiny">{[e.sub, e.price, e.reserve && '🎟 reservieren', !open && e.note].filter(Boolean).join(' · ')}</span>}
+          {(e.sub || e.price || e.reserve || e.note) && <span className="tiny">{[e.sub, fxText(e.price), e.reserve && '🎟 reservieren', !open && e.note].filter(Boolean).join(' · ')}</span>}
         </button>
         {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
         <button type="button" className={e.picked ? 'pill on' : 'pill'} style={{ fontSize: 12, padding: '4px 9px', flexShrink: 0 }} onClick={() => api.upd(e.id, { picked: !e.picked })}>{e.picked ? sec.pick[1] : sec.pick[0]}</button>
@@ -1056,6 +1056,7 @@ function StopBody({ s, tr, v, i, inline, only, ort, onClose }) {
         {v ? <Nights value={x.nights} onChange={(nv) => updateVariantStop(tr.id, v.id, i, { nights: nv })} /> : <div style={{ flex: 1, minWidth: 200 }}>{inline && one ? <DateRangeField from={tr.from} to={tr.to} onChange={(val) => updateTrip(tr.id, val)} title="Reisezeitraum" placeholder="Wann bist du dort?" /> : <DateRangeField from={x.from} to={x.to} onChange={(val) => updateEntry(tr.id, 'stops', x.id, val)} placeholder="Wann bist du dort?" />}</div>}
         {!inline && <span className="tiny">{v ? `${v.name} · ` : ''}Ort {i + 1} von {total}{inFinal ? ' · ✓ in finaler Route' : ''}</span>}
       </div>
+      {x.tip && <span className="tiny" style={{ color: 'var(--text)' }}>💡 {x.tip}</span>}
       {['anreise', 'unterkunft', 'sehen', 'essen', 'tun', 'rueck'].map((k) => SECX[k])}
       <section className="stop-sec">
         <span className="stop-sec-head" style={{ cursor: 'default' }}><span>📝 Notizen</span></span>
@@ -1158,7 +1159,7 @@ function LegItem({ e, api }) {
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <button type="button" className="tl-main" style={{ flex: 1, minWidth: 0 }} onClick={() => setOpen(!open)} aria-expanded={open}>
           <span style={{ fontSize: 14.5, fontWeight: e.picked ? 650 : 500 }}>{MODE_ICON[e.mode] || '➡️'} {e.text}</span>
-          {(e.dur || e.price) && <span className="tiny">{[e.dur, e.price].filter(Boolean).join(' · ')}</span>}
+          {(e.dur || e.price) && <span className="tiny">{[e.dur, fxText(e.price)].filter(Boolean).join(' · ')}</span>}
         </button>
         {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
         <button type="button" className={e.picked ? 'pill on' : 'pill'} style={{ fontSize: 12, padding: '4px 9px', flexShrink: 0 }} onClick={() => api.upd(e.id, { picked: !e.picked })}>{e.picked ? '✓ Gebucht' : 'Option'}</button>
@@ -1229,7 +1230,7 @@ function VariantLegDetail({ tr, v, a, b }) {
     </>
   );
 }
-const legChip = (l, n = 1) => (l ? { icon: MODE_ICON[l.mode] || '➡️', text: [l.picked ? '✓ gebucht' : n > 1 ? `${n} Optionen` : '', l.dur, l.price].filter(Boolean).join(' · ') || MODES[l.mode] || 'Transport' } : null);
+const legChip = (l, n = 1) => (l ? { icon: MODE_ICON[l.mode] || '➡️', text: [l.picked ? '✓ gebucht' : n > 1 ? `${n} Optionen` : '', l.dur, fxText(l.price)].filter(Boolean).join(' · ') || MODES[l.mode] || 'Transport' } : null);
 
 function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
   const [busy, setBusy] = useState(null);
