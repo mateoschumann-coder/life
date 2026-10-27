@@ -33,7 +33,8 @@ export const SECTIONS = [
   { key: 'kueche', name: 'Küche', link: '#/kueche', icon: 'pot', areaId: 'koerper' },
   { key: 'wissen', name: 'Lernen & Wissen', link: '#/wissen', icon: 'bulb', areaId: 'mental' },
   { key: 'zuhause', name: 'Zuhause', link: '#/zuhause/haushalt', icon: 'home', areaId: 'zuhause' },
-  { key: 'freizeit', name: 'Hobbys & Reisen', link: '#/bereich/freizeit', icon: 'plane', areaId: 'freizeit' },
+  { key: 'reisen', name: 'Reisen', link: '#/reisen', icon: 'plane', areaId: 'freizeit' },
+  { key: 'hobbys', name: 'Hobbys', link: '#/hobbys', icon: 'star', areaId: 'freizeit' },
   { key: 'finanzen', name: 'Finanzen', link: '#/finanzen', icon: 'wallet', areaId: 'finanzen' },
   { key: 'menschen', name: 'Menschen', link: '#/menschen', icon: 'users', areaId: 'freunde' },
   { key: 'events', name: 'Events & Ausgehen', link: '#/ausgehen', icon: 'calendar', areaId: 'erlebnisse' },
@@ -66,7 +67,7 @@ export function collectItems(s) {
   for (const r of (s.reminders || []).filter((r) => r.next <= addDays(t, 3))) add('zuhause', { ref: `reminder:${r.id}`, kind: 'reminder', id: r.id, text: r.title, area: 'Erinnerung', date: r.next, info: when(r.next, t), link: '#/zuhause/erinnerungen' });
   for (const tr of (s.trips || []).filter((tr) => tr.status !== 'idee' && tr.from && tr.from >= t && tr.from <= addDays(t, 45))) {
     const open = tr.todo.filter((x) => !x.done).length;
-    add('freizeit', { ref: `trip:${tr.id}`, kind: 'trip', text: tr.name, area: 'Reise', date: tr.from, info: `${when(tr.from, t)} · ${open} To-dos offen`, link: `#/reisen/${tr.id}` });
+    add('reisen', { ref: `trip:${tr.id}`, kind: 'trip', text: tr.name, area: 'Reise', date: tr.from, info: `${when(tr.from, t)} · ${open} To-dos offen`, link: `#/reisen/${tr.id}` });
   }
   for (const b of upcomingBirthdays(s, t, 10)) add('menschen', { ref: `bday:${b.person.id}`, kind: 'person', id: b.person.id, text: `Geburtstag ${b.person.name}`, area: 'Geburtstag', date: addDays(t, b.inDays), info: b.inDays === 0 ? 'heute' : `in ${b.inDays} Tagen`, link: `#/person/${b.person.id}`, wa: waLink(b.person) });
   for (const x of peopleOverdue(s, t).slice(0, 4)) add('menschen', { ref: `person:${x.person.id}`, kind: 'person', id: x.person.id, text: `${x.person.name} schreiben`, area: 'Melde dich mal', info: x.since == null ? 'noch kein Kontakt notiert' : `seit ${x.since} Tagen kein Kontakt`, link: `#/person/${x.person.id}`, wa: waLink(x.person) });
@@ -101,7 +102,8 @@ function facts(s) {
     kueche: { rezepte: (s.recipes || []).length, einkaufsliste: s.shopping.items.filter((x) => !x.done).length },
     wissen: { gerade_dabei: (s.library || []).filter((m) => m.status === 'aktiv').map((m) => m.title), auf_der_liste: (s.library || []).filter((m) => m.status === 'will').length, zuletzt_fertig: (s.library || []).filter((m) => m.status === 'fertig').slice(-2).map((m) => m.title) },
     zuhause: { offene_punkte: Object.values(s.home || {}).reduce((n, l) => n + (l.items || []).filter((x) => !x.done).length, 0), erinnerungen: (s.reminders || []).length },
-    freizeit: { hobbys: hobbies, reise_ideen: (s.trips || []).filter((x) => x.status === 'idee').map((x) => x.name), geplante_reisen: (s.trips || []).filter((x) => x.status !== 'idee' && (!x.to || x.to >= t)).map((x) => `${x.name} ${x.from || ''}`) },
+    hobbys: { hobbys: hobbies },
+    reisen: { reise_ideen: (s.trips || []).filter((x) => x.status === 'idee').map((x) => x.name), geplante_reisen: (s.trips || []).filter((x) => x.status !== 'idee' && (!x.to || x.to >= t)).map((x) => `${x.name} ${x.from || ''}`) },
     finanzen: { eingerichtet: !!(b && (b.incomes || []).length), fixkosten_posten: (b?.costs || []).length },
     menschen: { personen: s.people.length, mit_rhythmus: s.people.filter((p) => p.contactEvery).length },
     events: { eigene_events: (s.gatherings || []).filter((g) => !g.done).length, einladungen: (s.invites || []).filter((x) => !x.done && x.status !== 'abgesagt').length, vorgemerkt: s.events.filter((e) => e.stage === 'interessiert' || e.stage === 'zugesagt').length, ausgeh_vorlieben: s.profile?.eventPrefs || [] },
@@ -125,7 +127,7 @@ const TOOL = {
           type: 'object',
           properties: {
             key: { type: 'string', enum: SECTIONS.map((x) => x.key) },
-            text: { type: 'string', description: '1–3 kurze, sachliche Sätze: Was ist dort gerade los / was steht an (mit Datum, wenn vorhanden).' },
+            text: { type: 'string', description: 'Höchstens 1 kurzer Satz (max. 12 Wörter): das Wichtigste, worauf Mateo achten sollte (Frist, Überfälliges, Lücke). Die Einträge selbst NICHT aufzählen – die zeigt die App schon.' },
           },
           required: ['key', 'text'],
         },
@@ -138,14 +140,14 @@ export async function askOverview(s) {
   const items = collectItems(s);
   const t = today();
   const system = `Du schreibst für Mateo eine strukturierte Übersicht seiner App „Life“. Heute ist ${fmtLong(t)} (${t}).
-Geh die Bereiche in dieser Reihenfolge durch: ${SECTIONS.map((x) => x.key).join(', ')}. Schreib pro Bereich in 1–3 kurzen, sachlichen Sätzen, was dort gerade passiert bzw. ansteht – nur aus den Daten, nichts erfinden, keine Ratschläge, keine Fragen. Bereiche ohne Inhalt weglassen. Deutsch, kein Markdown. Antworte mit "ueberblick_geben".`;
+Die App zeigt pro Bereich schon die einzelnen Einträge als Liste. Du ergänzt pro Bereich höchstens EINEN kurzen Hinweis (max. 12 Wörter), nur wenn es etwas Wichtiges gibt (Frist, Überfälliges, lange nichts passiert) – sonst den Bereich weglassen. Nur aus den Daten, nichts erfinden, keine Aufzählung der Einträge. Reihenfolge: ${SECTIONS.map((x) => x.key).join(', ')}. Deutsch, kein Markdown. Antworte mit "ueberblick_geben".`;
   const byKey = {};
   for (const i of items) (byKey[i.sec] = byKey[i.sec] || []).push([i.text, i.area, i.info].filter(Boolean).join(' · '));
   const f = facts(s);
   const input = SECTIONS.map((x) => ({ key: x.key, bereich: x.name, offen: byKey[x.key] || [], stand: f[x.key] }));
-  const r = await searchWithTool({ system, user: JSON.stringify(input), tool: TOOL, maxUses: 0, maxTokens: 2000, label: 'Überblick' });
+  const r = await searchWithTool({ system, user: JSON.stringify(input), tool: TOOL, maxUses: 0, maxTokens: 1000, label: 'Überblick' });
   const v = {
-    date: t, at: new Date().toISOString(), kind: 'text', lage: r.lage || '',
+    date: t, at: new Date().toISOString(), kind: 'hint', lage: r.lage || '',
     sections: (r.bereiche || []).filter((b) => secOf(b.key) && b.text).map((b) => ({ key: b.key, text: b.text }))
       .sort((a, b2) => SECTIONS.findIndex((x) => x.key === a.key) - SECTIONS.findIndex((x) => x.key === b2.key)),
   };
@@ -153,11 +155,83 @@ Geh die Bereiche in dieser Reihenfolge durch: ${SECTIONS.map((x) => x.key).join(
   return v;
 }
 
-// Ohne KI: pro Bereich die offenen Punkte als kurzer Text
-export function localOverview(s) {
-  const items = collectItems(s);
-  return {
-    kind: 'text', lage: '',
-    sections: SECTIONS.map((x) => ({ key: x.key, text: items.filter((i) => i.sec === x.key).slice(0, 4).map((i) => [i.text, i.info].filter(Boolean).join(' – ')).join('. ') })).filter((x) => x.text),
-  };
+// Struktur pro Bereich (v0.58, ohne KI): kleine Gruppen mit antippbaren Einträgen, die direkt dorthin springen
+const short = (d, t) => {
+  const n = inDays(d, t);
+  if (n == null) return '';
+  if (n < 0) return `${-n} T. überfällig`;
+  if (n === 0) return 'heute';
+  if (n === 1) return 'morgen';
+  if (n < 14) return `in ${n} T.`;
+  const [, m, dd] = d.split('-');
+  return `${Number(dd)}.${Number(m)}.`;
+};
+export function structure(s) {
+  const t = today();
+  const soon = addDays(t, 14);
+  const out = {};
+  const G = (key, label, items) => { const it = items.filter(Boolean); if (it.length) (out[key] = out[key] || []).push({ label, items: it }); };
+  const I = (text, link, info, ext) => ({ text, link, info, ext });
+
+  // Aufgaben
+  const tasks = s.tasks.filter((x) => !x.done && !x.idea);
+  const tLink = (x) => { const p = x.projectId && s.projects.find((y) => y.id === x.projectId); return p ? `#/projekt/${p.id}` : x.areaId ? `#/bereich/${x.areaId}` : ''; };
+  G('aufgaben', 'Überfällig', tasks.filter((x) => x.due && x.due < t).map((x) => I(x.title, tLink(x), short(x.due, t))));
+  G('aufgaben', 'Heute', tasks.filter((x) => x.due === t).map((x) => I(x.title, tLink(x), x.time || '')));
+  G('aufgaben', 'Diese Woche', tasks.filter((x) => x.due && x.due > t && x.due <= addDays(t, 7)).map((x) => I(x.title, tLink(x), short(x.due, t))));
+  G('aufgaben', 'Ohne Datum', tasks.filter((x) => !x.due).map((x) => I(x.title, tLink(x))));
+
+  // Sport
+  const se = (s.sportEvents || []).filter((e) => e.status !== 'dabei' && (!e.date || e.date >= t)).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+  G('sport', 'Angemeldet', se.filter((e) => e.status === 'angemeldet').map((e) => I(e.name, '#/sport', short(e.date, t))));
+  G('sport', 'Gemerkt', se.filter((e) => e.status !== 'angemeldet').map((e) => I(e.name, '#/sport', short(e.date, t))));
+
+  // Vorsorge
+  const hi = (s.healthItems || []).filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt');
+  G('vorsorge', 'Fällig', hi.filter((h) => h.date && h.date <= addDays(t, 14)).map((h) => I(h.title, '#/vorsorge', short(h.date, t))));
+  G('vorsorge', 'Verletzungen', (s.healthItems || []).filter((h) => h.type === 'verletzung' && h.status === 'aktiv').map((h) => I(h.title, '#/vorsorge')));
+
+  // Küche
+  const shop = s.shopping.items.filter((x) => !x.done);
+  if (shop.length) G('kueche', 'Einkaufsliste', [I(`${shop.length} Sachen`, '#/kueche', shop.slice(0, 3).map((x) => x.name).join(', '))]);
+
+  // Lernen & Wissen
+  G('wissen', 'Gerade dabei', (s.library || []).filter((m) => m.status === 'aktiv').map((m) => I(m.title, `#/wissen/${m.cat || ''}`)));
+
+  // Zuhause
+  G('zuhause', 'Erinnerungen', (s.reminders || []).filter((r) => r.next && r.next <= addDays(t, 7)).map((r) => I(r.title, '#/zuhause/erinnerungen', short(r.next, t))));
+
+  // Reisen: anstehend, Ideen (Gruppen als ein Eintrag)
+  const trips = s.trips || [];
+  G('reisen', 'Anstehend', trips.filter((x) => x.status !== 'idee' && (!x.to || x.to >= t)).sort((a, b) => (a.from || '9') < (b.from || '9') ? -1 : 1).map((x) => I(x.name, `#/reisen/${x.id}`, x.from ? short(x.from, t) : '')));
+  const ideas = trips.filter((x) => x.status === 'idee');
+  const groups = [...new Set(ideas.map((x) => x.group).filter(Boolean))];
+  G('reisen', 'Ideen', [...groups.map((g) => I(`📁 ${g}`, '#/reisen', `${ideas.filter((x) => x.group === g).length}`)), ...ideas.filter((x) => !x.group).map((x) => I(x.name, `#/reisen/${x.id}`))]);
+
+  // Hobbys
+  G('hobbys', 'Offen', (s.hobbies || []).map((h) => { const n = (h.items || []).filter((x) => x.status !== 'geschafft').length; return n ? I(h.name, `#/hobbys/${h.id}`, `${n}`) : null; }));
+
+  // Finanzen
+  const b = s.budget;
+  if (b && ((b.incomes || []).length || (b.costs || []).length)) G('finanzen', 'Monatsrechner', [I(`${(b.costs || []).length} Fixkosten`, '#/finanzen')]);
+
+  // Menschen
+  G('menschen', 'Geburtstage', upcomingBirthdays(s, t, 21).map((x) => I(x.person.name, `#/person/${x.person.id}`, x.inDays === 0 ? 'heute 🎂' : x.inDays === 1 ? 'morgen' : `in ${x.inDays} T.`)));
+  G('menschen', 'Melde dich mal', peopleOverdue(s, t).map((x) => I(x.person.name, `#/person/${x.person.id}`)));
+
+  // Events
+  G('events', 'Eigene Events', (s.gatherings || []).filter((g) => !g.done && (!g.date || g.date >= t)).map((g) => I(g.name, `#/treffen/${g.id}`, g.date ? short(g.date, t) : '')));
+  G('events', 'Einladungen', (s.invites || []).filter((x) => !x.done && x.status !== 'abgesagt' && (!x.date || x.date >= t)).map((x) => I(x.name, '#/saeule/sozial', x.date ? short(x.date, t) : '')));
+  G('events', 'Ausgehen', s.events.filter((e) => e.date && e.date >= t && e.date <= soon && (e.stage === 'zugesagt' || e.stage === 'interessiert')).map((e) => I(e.name, '#/ausgehen', short(e.date, t))));
+
+  // Karriere
+  G('karriere', 'Bewerbungen', (s.jobs || []).filter((j) => ['beworben', 'rueckmeldung', 'gespraech', 'angebot'].includes(j.status)).map((j) => I(j.company || j.title, `#/karriere/job/${j.id}`, ({ beworben: 'beworben', rueckmeldung: 'Rückmeldung', gespraech: 'Gespräch', angebot: 'Angebot' })[j.status])));
+  G('karriere', 'Eigene Projekte', (s.sideProjects || []).filter((p) => p.status === 'aktiv').map((p) => I(p.name, `#/karriere/projekt/${p.id}`)));
+
+  // Weiterentwicklung
+  G('entwicklung', 'Skills', (s.skills || []).map((k) => { const o = (k.todos || []).filter((x) => !x.done).length; return o ? I(k.name, `#/skills/${k.id}`, `${o} offen`) : null; }));
+
+  // Informiert bleiben: eigene Quellen direkt öffnen
+  G('informiert', 'Quellen', (s.newsSources || []).filter((x) => x.url).map((x) => I(x.name, x.url, '', true)));
+  return out;
 }

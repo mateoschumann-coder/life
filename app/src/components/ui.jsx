@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LEVEL_COLOR } from '../lib/logic';
+import { clearFrom, fromHeute } from '../lib/router';
 
 const PATHS = {
   today: <><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
@@ -96,7 +97,7 @@ export function Chevron() {
 
 export function TabBar({ active }) {
   const tab = (id, href, label, icon) => (
-    <a href={href} className={active === id ? 'tab on' : 'tab'} aria-current={active === id ? 'page' : undefined}>
+    <a href={href} onClick={clearFrom} className={active === id ? 'tab on' : 'tab'} aria-current={active === id ? 'page' : undefined}>
       <Icon name={icon} size={25} width={active === id ? 2.2 : 1.8} />
       <span>{label}</span>
     </a>
@@ -115,6 +116,7 @@ export function TabBar({ active }) {
 }
 
 export function Back({ href, label }) {
+  if (fromHeute()) { href = '#/heute'; label = 'Heute'; }
   return (
     <a href={href} className="back">
       <Icon name="back" size={22} width={2.4} />

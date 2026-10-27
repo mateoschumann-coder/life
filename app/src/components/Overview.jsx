@@ -1,18 +1,41 @@
-// „Dein Überblick“ auf Heute: pro Bereich eine kurze, strukturierte Text-Übersicht (KI ohne Internet, einmal am Tag automatisch)
+// „Dein Überblick“ auf Heute (v0.58): pro Bereich kleine Gruppen mit antippbaren Einträgen (direkt dorthin springen),
+// dazu höchstens ein kurzer KI-Hinweis pro Bereich (ohne Internet, einmal am Tag automatisch)
 import { useEffect, useState } from 'react';
-import { askOverview, loadOverview, localOverview, secOf } from '../lib/overview';
+import { SECTIONS, askOverview, loadOverview, structure } from '../lib/overview';
 import { getAi } from '../lib/ai';
 import { today } from '../lib/dates';
+import { markFromHeute } from '../lib/router';
 import { Chevron, Icon } from './ui';
 
 let running = null;
+const MAX = 6;
+
+function Group({ g }) {
+  const [all, setAll] = useState(false);
+  const items = all ? g.items : g.items.slice(0, MAX);
+  return (
+    <div className="ov-group">
+      <span className="ov-label">{g.label}</span>
+      <div className="ov-chips">
+        {items.map((x, i) => {
+          const inner = <><span className="ov-t">{x.text}</span>{x.info && <i className={/überfällig/.test(x.info) ? 'late' : ''}>{x.info}</i>}{x.link && <span className="ov-arrow">›</span>}</>;
+          if (!x.link) return <span key={i} className="ov-chip plain">{inner}</span>;
+          return x.ext
+            ? <a key={i} className="ov-chip" href={x.link} target="_blank" rel="noreferrer">{inner}</a>
+            : <a key={i} className="ov-chip" href={x.link} onClick={() => markFromHeute(x.link)}>{inner}</a>;
+        })}
+        {g.items.length > MAX && <button type="button" className="ov-chip more" onClick={() => setAll(!all)}>{all ? 'weniger' : `+${g.items.length - MAX}`}</button>}
+      </div>
+    </div>
+  );
+}
 
 export default function Overview({ s }) {
   const [v, setV] = useState(loadOverview);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
-  const fresh = v && v.date === today() && v.kind === 'text';
+  const fresh = v && v.date === today() && v.kind === 'hint';
   const run = async () => {
     if (running) return;
     setBusy(true);
@@ -31,32 +54,30 @@ export default function Overview({ s }) {
     if (hasKey && !fresh) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const data = fresh ? v : localOverview(s);
-  const sections = (data.sections || []).filter((x) => secOf(x.key) && x.text);
+  const struct = structure(s);
+  const hints = {};
+  if (fresh) for (const x of v.sections || []) hints[x.key] = x.text;
+  const sections = SECTIONS.filter((x) => struct[x.key] || hints[x.key]);
 
   return (
-    <section className="card checkin" style={{ gap: 10 }}>
+    <section className="card checkin" style={{ gap: 6 }}>
       <div className="sec-h" style={{ padding: 0 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
           <span className="spark"><Icon name="sparkle" size={16} color="currentColor" /></span> Dein Überblick
         </span>
-        {hasKey && <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={run} disabled={busy} aria-label="Überblick aktualisieren"><Icon name="refresh" size={15} /></button>}
+        {hasKey && <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={run} disabled={busy} aria-label="Hinweise aktualisieren"><Icon name="refresh" size={15} /></button>}
       </div>
-      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich gehe deine Bereiche durch …</span></div>}
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-      {!busy && data.lage && <p className="coach-summary">{data.lage}</p>}
-      {!busy && sections.map((x) => {
-        const info = secOf(x.key);
-        return (
-          <div key={x.key} className="ov-sec">
-            <a href={info.link} className="ov-head"><Icon name={info.icon} size={15} color="var(--accent)" /><span style={{ flex: 1 }}>{info.name}</span><Chevron /></a>
-            <p className="ov-text">{x.text}</p>
-          </div>
-        );
-      })}
-      {!busy && !sections.length && <span className="sub">Gerade ist nichts eingetragen, das ansteht.</span>}
-      {!busy && fresh && <span className="tiny">Stand {new Date(v.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} · Pfeil oben für eine neue Übersicht (ohne Internet, unter 0,5 Cent)</span>}
-      {!hasKey && <span className="tiny">Ohne API-Schlüssel listet die App die offenen Punkte selbst auf.</span>}
+      {fresh && v.lage && <p className="coach-summary">{v.lage}</p>}
+      {sections.map((x) => (
+        <div key={x.key} className="ov-sec">
+          <a href={x.link} className="ov-head" onClick={() => markFromHeute(x.link)}><Icon name={x.icon} size={15} color="var(--accent)" /><span style={{ flex: 1 }}>{x.name}</span><Chevron /></a>
+          {(struct[x.key] || []).map((g) => <Group key={g.label} g={g} />)}
+          {hints[x.key] && <span className="ov-hint">✨ {hints[x.key]}</span>}
+        </div>
+      ))}
+      {!sections.length && <span className="sub">Gerade ist nichts eingetragen, das ansteht.</span>}
+      {busy && <span className="tiny">KI-Hinweise werden geholt …</span>}
     </section>
   );
 }

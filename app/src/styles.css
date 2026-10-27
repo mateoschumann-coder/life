@@ -464,3 +464,15 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .origin-grid > .h { font-size: 11px; font-weight: 500; color: var(--muted); }
 .origin-grid > .o, .origin-grid > .h:first-child { text-align: left; }
 .origin-grid > .sum { color: var(--accent); font-weight: 700; }
+.ov-group { display: flex; align-items: baseline; gap: 8px; }
+.ov-label { flex: 0 0 78px; font-size: 11.5px; font-weight: 600; color: var(--muted); line-height: 1.3; padding-top: 4px; }
+.ov-chips { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.ov-chip { display: inline-flex; align-items: baseline; gap: 5px; max-width: 100%; font-size: 13px; font-weight: 600; padding: 4px 9px; border-radius: 999px; background: var(--card-2); color: var(--text); text-decoration: none; border: 0; font-family: inherit; overflow: hidden; white-space: nowrap; box-sizing: border-box; }
+.ov-chip .ov-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ov-chip i.late { color: var(--danger); }
+.ov-chip i, .ov-chip .ov-arrow { flex: 0 0 auto; }
+.ov-chip i { font-style: normal; font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.ov-chip .ov-arrow { color: var(--accent); font-weight: 700; }
+.ov-chip.more { color: var(--accent); }
+.ov-chip.plain { background: transparent; padding-left: 0; }
+.ov-hint { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
