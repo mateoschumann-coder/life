@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort } from '../lib/dates';
-import { addMaterial, addNote, deleteMaterial, ensureTopic, KINDS, libChat, linkFor, removeNote, removeTopic, STATUS, structureNotes, summarizeMaterial, topicsOf, updateMaterial } from '../lib/library';
+import { addLibCat, addMaterial, addNote, deleteMaterial, ensureTopic, fillMaterial, findTopic, KINDS, libChat, linkFor, removeNote, removeTopic, STATUS, structureNotes, summarizeMaterial, topicsOf, updateMaterial } from '../lib/library';
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
+import { canDictate, useDictation } from '../lib/dictate';
 import PlanChat from '../components/PlanChat';
 import { Missing } from './Saeule';
 import { LibCatsSheet } from './Bereich';
@@ -26,6 +27,7 @@ function MaterialExtras({ s, m }) {
   const [busy, setBusy] = useState(null);
   const [note, setNote] = useState('');
   const [openSum, setOpenSum] = useState(true);
+  const dict = useDictation(note, setNote);
   const hasKey = !!getAi().apiKey;
   const run = async (what) => {
     setBusy(what);
@@ -38,7 +40,7 @@ function MaterialExtras({ s, m }) {
     <>
       <div className="take-box">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontWeight: 650, fontSize: 15, flex: 1 }}>✨ Zusammenfassung</span>
+          <span style={{ fontWeight: 650, fontSize: 15, flex: 1 }}>✨ KI-Zusammenfassung (kurz)</span>
           {sm && <button type="button" className="link-btn" style={{ fontSize: 12.5 }} onClick={() => setOpenSum(!openSum)}>{openSum ? 'Einklappen' : 'Zeigen'}</button>}
         </div>
         {!sm && <button type="button" className="btn small" onClick={() => run('sum')} disabled={!!busy || !hasKey}>{busy === 'sum' ? 'Ich fasse zusammen …' : 'Von der KI zusammenfassen lassen'}</button>}
@@ -54,18 +56,22 @@ function MaterialExtras({ s, m }) {
         {!sm && <span className="tiny">Ohne Internet aus dem Wissen der KI (bei Artikeln/Videos mit Link liest sie die Seite), unter 0,1 Cent.</span>}
       </div>
       <div className="take-box">
-        <span style={{ fontWeight: 650, fontSize: 15 }}>📝 Notizen & Learnings</span>
+        <span style={{ fontWeight: 650, fontSize: 15 }}>📝 Meine Notizen</span>
+        <span className="tiny">Frei schreiben oder einsprechen – auch unsortiert. Die KI macht daraus unten deine eigene Zusammenfassung.</span>
         {notes.map((n) => (
           <div key={n.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <span style={{ fontSize: 14, lineHeight: 1.4, flex: 1 }}>• {n.text}</span>
             <button type="button" className="x-btn" aria-label="Notiz entfernen" onClick={() => removeNote(m.id, n.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
           </div>
         ))}
-        <form className="block-add" onSubmit={(e) => { e.preventDefault(); addNote(m.id, note); setNote(''); }}>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Gedanke, Zitat, Learning …" aria-label="Neue Notiz" />
-          <button type="submit" className="btn small" disabled={!note.trim()}>+</button>
-        </form>
-        {notes.length > 0 && <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => run('learn')} disabled={!!busy || !hasKey}>{busy === 'learn' ? 'Ich ordne …' : ln ? '↻ Learnings neu strukturieren' : '✨ Von der KI strukturieren lassen'}</button>}
+        <textarea className="input" rows={4} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Gedanken, Zitate, was du mitnimmst …" aria-label="Neue Notiz" />
+        <div style={{ display: 'flex', gap: 8 }}>
+          {canDictate && <button type="button" className={dict.on ? 'pill on' : 'pill'} onClick={dict.toggle} aria-label="Einsprechen">{dict.on ? '■ Stopp' : '🎙 Einsprechen'}</button>}
+          <span style={{ flex: 1 }} />
+          <button type="button" className="btn small" disabled={!note.trim()} onClick={() => { dict.on && dict.toggle(); addNote(m.id, note); setNote(''); }}>Speichern</button>
+        </div>
+        {notes.length > 0 && <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => run('learn')} disabled={!!busy || !hasKey}>{busy === 'learn' ? 'Ich fasse zusammen …' : ln ? '↻ Meine Zusammenfassung erneuern' : '✨ Daraus meine Zusammenfassung machen'}</button>}
+        {ln && <span className="label" style={{ padding: 0, marginTop: 4 }}>Meine Zusammenfassung</span>}
         {ln && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
             {ln.kernaussage && <span style={{ fontSize: 14.5, fontWeight: 600 }}>💡 {ln.kernaussage}</span>}
@@ -85,8 +91,20 @@ function MaterialExtras({ s, m }) {
 
 function MaterialSheet({ s, item, onClose, defaultTopic, cat }) {
   const isNew = item && !item.id;
-  const blank = { title: '', kind: cat?.kind || 'buch', cat: cat?.id, subId: defaultTopic || topicsOf(s)[0]?.id || null, author: '', url: '', note: '' };
+  const blank = { title: '', kind: cat?.kind || 'buch', cat: cat?.id, subId: defaultTopic || topicsOf(s)[0]?.id || null, author: '', url: '', note: '', about: '' };
   const [f, setF] = useState(blank);
+  const [newCat, setNewCat] = useState(null);
+  const [newTopic, setNewTopic] = useState(null);
+  const [filling, setFilling] = useState(false);
+  const fill = async () => {
+    setFilling(true);
+    try {
+      const r = await fillMaterial(s, f.title.trim(), KINDS[f.kind]?.label);
+      const topic = r.thema ? (findTopic(s, r.thema)?.id || ensureTopic(r.thema)) : f.subId;
+      setF((x) => ({ ...x, title: r.titel || x.title, author: x.author || r.autor || '', kind: KINDS[r.art] ? r.art : x.kind, subId: topic || x.subId, about: [r.kurz, r.jahr].filter(Boolean).join(' · ') }));
+      toast(r.unsicher ? 'Nicht sicher erkannt – bitte prüfen' : 'Infos ergänzt');
+    } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setFilling(false); }
+  };
   const [loaded, setLoaded] = useState(null);
   const key = item ? item.id || 'neu' : null;
   useEffect(() => {
@@ -99,21 +117,40 @@ function MaterialSheet({ s, item, onClose, defaultTopic, cat }) {
   }, [key]);
   const m = item?.id ? s.library.find((x) => x.id === item.id) : null;
   const save = () => {
-    if (m) updateMaterial(m.id, { title: f.title, kind: f.kind, subId: f.subId, author: f.author, url: f.url, note: f.note });
-    else if (!addMaterial({ ...f, cat: cat?.id })) return toast('Ist schon in deiner Liste');
+    if (m) updateMaterial(m.id, { title: f.title, kind: f.kind, subId: f.subId, author: f.author, url: f.url, note: f.note, cat: f.cat || m.cat, about: f.about || '' });
+    else if (!addMaterial({ ...f, cat: f.cat || cat?.id })) return toast('Ist schon in deiner Liste');
     toast('Gespeichert');
     onClose();
   };
   return (
     <Sheet open={!!item} title={isNew ? 'Neues Material' : f.title || 'Material'} onClose={onClose}>
-      <Field label="Titel"><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="z.B. Sapiens" /></Field>
+      <div className="field">
+        <span>Titel</span>
+        <div className="block-add">
+          <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="z.B. Sapiens" aria-label="Titel" />
+          <button type="button" className="btn small" style={{ whiteSpace: 'nowrap' }} disabled={!f.title.trim() || filling || !getAi().apiKey} onClick={fill}>{filling ? '…' : '✨ Ausfüllen'}</button>
+        </div>
+        {f.about && <span className="tiny" style={{ color: 'var(--text)' }}>{f.about}</span>}
+      </div>
+      <div className="field">
+        <span>Kategorie</span>
+        <div className="chips">
+          {s.libCats.map((c) => <button key={c.id} type="button" className={(f.cat || cat?.id) === c.id ? 'chip on' : 'chip'} onClick={() => setF({ ...f, cat: c.id })}>{c.name}</button>)}
+          {newCat === null && <button type="button" className="chip soft" onClick={() => setNewCat('')}>+ Neue Kategorie</button>}
+        </div>
+        {newCat !== null && <div className="block-add"><input className="input" autoFocus value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="z.B. Hörbücher" aria-label="Neue Kategorie" /><button type="button" className="btn small" onClick={() => { const id = newCat.trim() && addLibCat(newCat, ''); if (id) setF({ ...f, cat: id }); setNewCat(null); }}>{newCat.trim() ? '+' : '✕'}</button></div>}
+      </div>
       <div className="field">
         <span>Art</span>
         <div className="chips">{Object.entries(KINDS).map(([k, v]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip'} onClick={() => setF({ ...f, kind: k })}>{v.label}</button>)}</div>
       </div>
       <div className="field">
         <span>Thema</span>
-        <div className="chips">{topicsOf(s).map((t) => <button key={t.id} type="button" className={f.subId === t.id ? 'chip on' : 'chip'} onClick={() => setF({ ...f, subId: t.id })}>{t.name}</button>)}</div>
+        <div className="chips">
+          {topicsOf(s).map((t) => <button key={t.id} type="button" className={f.subId === t.id ? 'chip on' : 'chip'} onClick={() => setF({ ...f, subId: t.id })}>{t.name}</button>)}
+          {newTopic === null && <button type="button" className="chip soft" onClick={() => setNewTopic('')}>+ Neues Thema</button>}
+        </div>
+        {newTopic !== null && <div className="block-add"><input className="input" autoFocus value={newTopic} onChange={(e) => setNewTopic(e.target.value)} placeholder="z.B. Psychologie" aria-label="Neues Thema" /><button type="button" className="btn small" onClick={() => { const id = newTopic.trim() && ensureTopic(newTopic); if (id) setF({ ...f, subId: id }); setNewTopic(null); }}>{newTopic.trim() ? '+' : '✕'}</button></div>}
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         <Field label="Autor / Quelle"><input className="input" value={f.author} onChange={(e) => setF({ ...f, author: e.target.value })} /></Field>

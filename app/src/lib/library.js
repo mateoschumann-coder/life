@@ -37,14 +37,14 @@ export function removeTopic(id) {
   });
 }
 
-export function addMaterial({ title, kind = 'buch', subId = null, author = '', url = '', note = '', why = '', status = 'will', cat = null }) {
+export function addMaterial({ title, kind = 'buch', subId = null, author = '', url = '', note = '', why = '', status = 'will', cat = null, about = '' }) {
   const t = String(title || '').trim();
   if (!t) return null;
   const s = store.get();
   if (s.library.some((m) => norm(m.title) === norm(t))) return null;
   const id = uid();
   store.update((d) => {
-    d.library.push({ id, title: t, kind: KINDS[kind] ? kind : 'buch', cat: cat || (kind === 'podcast' && d.libCats.some((c) => c.id === 'podcasts') ? 'podcasts' : d.libCats[0]?.id || 'bibliothek'), subId, author, url, note, why, status, rating: 0, addedAt: today(), startedAt: status === 'aktiv' ? today() : null, finishedAt: null });
+    d.library.push({ id, title: t, kind: KINDS[kind] ? kind : 'buch', cat: cat || (kind === 'podcast' && d.libCats.some((c) => c.id === 'podcasts') ? 'podcasts' : d.libCats[0]?.id || 'bibliothek'), subId, author, url, note, why, about, status, rating: 0, addedAt: today(), startedAt: status === 'aktiv' ? today() : null, finishedAt: null });
   });
   return id;
 }
@@ -164,9 +164,9 @@ const SUMMARY_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      kern: { type: 'string', description: 'Worum geht es? 2–3 Sätze' },
-      punkte: { type: 'array', items: { type: 'string' }, description: '5–8 wichtigste Gedanken/Thesen, je 1 Satz' },
-      fuer_dich: { type: 'string', description: '1–2 Sätze: was davon für Mateo (Profil) besonders relevant ist' },
+      kern: { type: 'string', description: 'Worum geht es? 1–2 kurze Sätze' },
+      punkte: { type: 'array', items: { type: 'string' }, description: '3–5 wichtigste Gedanken, je höchstens 12 Wörter' },
+      fuer_dich: { type: 'string', description: '1 kurzer Satz: was davon für Mateo besonders relevant ist' },
       unsicher: { type: 'boolean', description: 'true, wenn du das Werk nicht sicher kennst' },
     },
     required: ['kern', 'punkte'],
@@ -175,11 +175,11 @@ const SUMMARY_TOOL = {
 export async function summarizeMaterial(s, m) {
   const fetchable = /^https?:\/\//.test(m.url || '') && ['artikel', 'video', 'podcast', 'kurs'].includes(m.kind);
   const base = {
-    system: `Fasse für Mateo das Material zusammen: ${KINDS[m.kind]?.label || 'Buch'} „${m.title}“${m.author ? ` von ${m.author}` : ''}.${fetchable ? ` Wenn möglich, öffne den Link mit web_fetch und fasse den Inhalt der Seite zusammen.` : ' Aus deinem Wissen.'} Kennst du das Werk nicht sicher, sag das (unsicher = true) und erfinde nichts. Was du über Mateo weißt: ${JSON.stringify((s.memory || []).map((x) => x.text)).slice(0, 1500)}. Deutsch, kein Markdown. Antworte mit "zusammenfassung".`,
+    system: `Fasse für Mateo das Material zusammen: ${KINDS[m.kind]?.label || 'Buch'} „${m.title}“${m.author ? ` von ${m.author}` : ''}.${fetchable ? ` Wenn möglich, öffne den Link mit web_fetch und fasse den Inhalt der Seite zusammen.` : ' Aus deinem Wissen.'} KURZ halten (man soll es in 20 Sekunden lesen). Kennst du das Werk nicht sicher, sag das (unsicher = true) und erfinde nichts. Was du über Mateo weißt: ${JSON.stringify((s.memory || []).map((x) => x.text)).slice(0, 1500)}. Deutsch, kein Markdown. Antworte mit "zusammenfassung".`,
     user: fetchable ? `${m.title}\n${m.url}` : m.title,
     tool: SUMMARY_TOOL,
     maxUses: 0,
-    maxTokens: 2000,
+    maxTokens: 1000,
     label: 'Zusammenfassung',
   };
   let r;
@@ -222,7 +222,7 @@ export async function structureNotes(s, m) {
   if (m.note) notes.unshift(m.note);
   if (!notes.length) throw new Error('Erst ein paar Notizen eintragen.');
   const r = await searchWithTool({
-    system: `Ordne Mateos Notizen zu „${m.title}“${m.author ? ` (${m.author})` : ''} in klare Learnings. Nur seine Gedanken verwenden, nichts aus dem Buch dazuerfinden; Formulierungen glätten, Doppeltes zusammenfassen. Deutsch, kein Markdown. Antworte mit "learnings".`,
+    system: `Mache aus Mateos Notizen zu „${m.title}“${m.author ? ` (${m.author})` : ''} eine kurze, gut lesbare eigene Zusammenfassung. Die Notizen können unstrukturiert, diktiert oder stichpunktartig sein – verstehe sie, ordne sie in 2–4 Themen, glätte Formulierungen, fasse Doppeltes zusammen. Nur seine Gedanken verwenden, nichts aus dem Buch dazuerfinden. Kurz halten. Deutsch, kein Markdown. Antworte mit "learnings".`,
     user: notes.map((x) => `- ${x}`).join('\n'),
     tool: LEARN_TOOL,
     maxUses: 0,
@@ -232,4 +232,34 @@ export async function structureNotes(s, m) {
   const learnings = { kernaussage: r.kernaussage || '', themen: r.themen || [], anwenden: r.anwenden || [], at: today() };
   updateMaterial(m.id, { learnings });
   return learnings;
+}
+
+// ---------- v0.87: Infos zum Titel automatisch ausfüllen (ohne Internet, < 0,1 Cent) ----------
+const INFO_TOOL = {
+  name: 'material_info',
+  description: 'Infos zu einem Buch/Material.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      titel: { type: 'string', description: 'korrekter vollständiger Titel' },
+      autor: { type: 'string' },
+      art: { type: 'string', enum: Object.keys(KINDS) },
+      thema: { type: 'string', description: 'passendstes Thema, möglichst eines aus der Liste, sonst kurz neu (1–2 Wörter)' },
+      jahr: { type: 'string' },
+      kurz: { type: 'string', description: '1 Satz, worum es geht' },
+      unsicher: { type: 'boolean', description: 'true, wenn du das Werk nicht sicher kennst' },
+    },
+    required: ['titel'],
+  },
+};
+export async function fillMaterial(s, title, kindHint = '') {
+  const r = await searchWithTool({
+    system: `Ergänze Infos zu einem Werk, das Mateo in seine Lern-Bibliothek aufnimmt. Themen in seiner Bibliothek: ${JSON.stringify(topicsOf(s).map((x) => x.name))}. ${kindHint ? `Vermutete Art: ${kindHint}. ` : ''}Erfinde nichts – kennst du es nicht sicher, setze unsicher = true und lass Autor/Jahr leer. Deutsch. Antworte mit "material_info".`,
+    user: title,
+    tool: INFO_TOOL,
+    maxUses: 0,
+    maxTokens: 600,
+    label: 'Buch-Infos',
+  });
+  return r;
 }

@@ -204,8 +204,8 @@ function Events({ s, city }) {
   };
 
   const mine = s.events.filter((e) => e.stage !== 'besucht' && !e.travel && eventCity(e) === city);
-  const shown = search || null; // v0.71: bleibt beim Stadtwechsel stehen, bis zur nächsten KI-Suche
   const resCity = search?.city || HOME_CITY;
+  const shown = search && resCity === city ? search : null; // v0.87: KI-Vorschläge nur in ihrer Stadt (bleiben, kommen beim Zurückwechseln wieder)
   const upcoming = mine.filter((e) => !e.date || e.date >= t).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
   const past = mine.filter((e) => e.date && e.date < t);
   const fresh = (shown?.results || []).filter((r) => r.status === 'neu');
@@ -543,8 +543,8 @@ function Orte({ s, city }) {
   const subs = cat ? [...new Set(here.filter((p) => catOf(p) === cat && p.subcat).map((p) => p.subcat))] : [];
   const groups = placeCatsOf(s).map((c) => ({ c, items: list.filter((p) => catOf(p) === c).sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || (a.subcat || 'zz').localeCompare(b.subcat || 'zz')) })).filter((g) => g.items.length);
   const cats = [...new Set(here.map(catOf))];
-  const shown = search || null; // v0.71: bleibt beim Stadtwechsel stehen, bis zur nächsten KI-Suche
   const resCity = search?.city || HOME_CITY;
+  const shown = search && resCity === city ? search : null; // v0.87: KI-Vorschläge nur in ihrer Stadt (bleiben, kommen beim Zurückwechseln wieder)
   useEffect(() => { locateCity(store, city); setSel(null); resetAll(); }, [city]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async (query) => {
