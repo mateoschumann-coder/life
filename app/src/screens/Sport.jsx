@@ -159,16 +159,26 @@ function SportsPage({ s }) {
     const text = paste.trim();
     const url = (text.match(/https?:\/\/\S+/) || [''])[0];
     const sportId = pick[0] || s.sports[0]?.id || '';
-    if (!getAi().apiKey) { setF({ name: '', date: '', place: '', url, sportId }); setAdding(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if (!getAi().apiKey) { setF({ name: '', date: '', place: '', url, sportId }); setAdding(true); setTab('meine'); return; }
     setPBusy(true);
     try {
       const r = await parseSportText(s, text);
       const sp = s.sports.find((x) => x.name.toLowerCase() === String(r.sportart || '').toLowerCase());
       setF({ name: r.name || '', date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : '', place: r.ort || '', dist: r.distanz || '', url: url || '', sportId: sp?.id || sportId });
-      setAdding(true); setPaste('');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setAdding(true); setPaste(''); setTab('meine');
       toast(r.name ? 'Bitte kurz prüfen und „Notieren“ tippen' : 'Konnte von der Seite nichts lesen – bitte Name selbst eintragen (Link ist übernommen)');
     } catch (e) { toast(e.message); } finally { setPBusy(false); }
+  };
+  const [fBusy, setFBusy] = useState(false);
+  // KI füllt die übrigen Felder aus dem, was schon eingetragen ist (Name/Link/Ort) – eigene Angaben bleiben
+  const fillAi = async () => {
+    setFBusy(true);
+    try {
+      const r = await parseSportText(s, [f.name, f.place, f.url].filter(Boolean).join(' · '));
+      const sp = s.sports.find((x) => x.name.toLowerCase() === String(r.sportart || '').toLowerCase());
+      setF((o) => ({ ...o, name: /^https?:/.test(o.name) ? r.name || o.name : o.name || r.name || '', url: o.url || ((o.name.match(/https?:\/\/\S+/) || [''])[0]), date: o.date || (/^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : ''), place: o.place || r.ort || '', dist: o.dist || r.distanz || '', sportId: o.sportId || sp?.id || '' }));
+      toast(r.name || r.datum ? 'Ausgefüllt – bitte kurz prüfen' : 'Nichts gefunden – bitte selbst ergänzen');
+    } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel.' : e.message); } finally { setFBusy(false); }
   };
   const search = async (web) => {
     setBusy(web ? 'web' : 'ki');
@@ -206,7 +216,6 @@ function SportsPage({ s }) {
           <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Sport-Events</h1>
-            <button type="button" className="link-btn" onClick={() => { setAdding(!adding); setF({ ...f, sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>{adding ? 'Abbrechen' : '+ Notieren'}</button>
           </div>
         </div>
 
@@ -234,17 +243,6 @@ function SportsPage({ s }) {
         </>}
         <Segmented full options={[{ id: 'meine', label: `Meine Events${going.length + liked.length ? ` · ${going.length + liked.length}` : ''}` }, { id: 'finden', label: 'Events finden' }, { id: 'rechner', label: 'Rechner' }]} value={tab} onChange={setTab} label="Ansicht" />
 
-        {adding && (
-          <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f })) toast('Notiert'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
-            <div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}</div>
-            <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder="z.B. 21K de Buenos Aires" aria-label="Name" autoFocus />
-            <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
-            <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
-            <input className="input" value={f.dist || ''} onChange={(ev) => setF({ ...f, dist: ev.target.value })} placeholder="Distanz, z.B. 21 km (optional)" aria-label="Distanz" />
-            <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
-            <button type="submit" className="btn small" disabled={!f.name.trim() || !f.sportId}>Notieren</button>
-          </form>
-        )}
 
         {tab === 'finden' && <section className="card checkin" style={{ gap: 10 }}>
           <button type="button" className="city-bar" onClick={() => setRegOpen(true)} aria-label="Regionen wählen">
@@ -277,7 +275,7 @@ function SportsPage({ s }) {
               <textarea className="input" style={{ minHeight: 64 }} value={paste} onChange={(ev) => setPaste(ev.target.value)} placeholder="Link oder Text vom Rennen einfügen (Name, Datum, Ort …)" aria-label="Link oder Text einfügen" />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || pBusy} onClick={takeOver}>{pBusy ? 'Ich lese die Seite …' : '✨ Übernehmen'}</button>
-                <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => { setAdding(true); setF({ ...f, sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Selbst eintragen</button>
+                <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); setTab('meine'); }}>Selbst eintragen</button>
               </div>
               <Info>Bei einem Link öffnet die KI die Seite und liest Name, Datum, Ort und Distanz (ca. 0,1 Cent). Du prüfst und speicherst.</Info>
             </div>
@@ -310,6 +308,23 @@ function SportsPage({ s }) {
         </section>}
 
         {tab === 'meine' && <>
+        {/* v0.98 (Mateo): „+ Event notieren“ hier unten statt oben rechts, mit KI-Ausfüllen */}
+        {!adding && <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>+ Event notieren</button>}
+        {adding && (
+          <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f })) toast('Notiert'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
+            <div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}</div>
+            <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder="Name oder Link, z.B. 21K de Buenos Aires" aria-label="Name" />
+            <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
+            <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
+            <input className="input" value={f.dist || ''} onChange={(ev) => setF({ ...f, dist: ev.target.value })} placeholder="Distanz, z.B. 21 km (optional)" aria-label="Distanz" />
+            <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
+            <button type="button" className="btn tint small" disabled={fBusy || !getAi().apiKey || !(f.name.trim() || f.url.trim())} onClick={fillAi}>{fBusy ? 'Ich suche die Daten …' : '✨ Rest mit KI ausfüllen'}</button>
+            <span style={{ display: 'flex', gap: 8 }}>
+              <button type="submit" className="btn small" style={{ flex: 1 }} disabled={!f.name.trim() || !f.sportId}>Notieren</button>
+              <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => setAdding(false)}>Abbrechen</button>
+            </span>
+          </form>
+        )}
         <section className="group">
           <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Ich nehme teil</h2><span className="tiny">{going.length}</span></div>
           <div className="list">

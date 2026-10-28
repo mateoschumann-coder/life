@@ -19,7 +19,8 @@ export function parseSec(v) {
 // Zeit: 75 → 75 s · 115 → 1:15 · 1230 → 12:30 · 13000 → 1:30:00 · Pace: 4 → 4 Min · 43 → 4:3 · 345 → 3:45 · 1030 → 10:30
 export function autoColon(v, kind = 'time') {
   const raw = String(v || '');
-  if (/[.,]/.test(raw)) return raw.replace(/[^\d.,:]/g, ''); // Dezimal (z.B. 58,5 s) unverändert lassen
+  // v0.98: Komma/Punkt (gibt es auf der iPhone-Zahlentastatur) wird zum Doppelpunkt: „1,15“ → „1:15“
+  if (/[.,:]/.test(raw)) return raw.replace(/[.,]/g, ':').replace(/[^\d:]/g, '').replace(/:{2,}/g, ':').replace(/^:/, '');
   const d = raw.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 6);
   if (kind === 'pace') {
     if (d.length <= 1) return d;
@@ -67,8 +68,8 @@ export default function PaceCalc() {
       </div>
       <div className="calc-grid">
         <label className="field"><span>Distanz (m)</span><input className="input" inputMode="decimal" value={meters} onChange={(e) => setMeters(e.target.value)} aria-label="Distanz in Metern" /></label>
-        <label className="field"><span>Zeit</span><input className="input" value={last === 'pace' && ok ? fmtSec(resT) : time} onChange={(e) => { setTime(autoColon(e.target.value, 'time')); setLast('time'); }} placeholder="115 → 1:15" inputMode="decimal" aria-label="Zeit" /></label>
-        <label className="field"><span>Pace (/km)</span><input className="input" value={last === 'time' && ok ? fmtSec(resP) : pace} onChange={(e) => { setPace(autoColon(e.target.value, 'pace')); setLast('pace'); }} placeholder="345 → 3:45" inputMode="decimal" aria-label="Pace pro km" /></label>
+        <label className="field"><span>Zeit</span><input className="input" value={last === 'pace' && ok ? fmtSec(resT) : time} onFocus={() => { if (last === 'pace') { setTime(''); setLast('time'); } }} onChange={(e) => { setTime(autoColon(e.target.value, 'time')); setLast('time'); }} placeholder="115 oder 1,15 → 1:15" inputMode="decimal" aria-label="Zeit" /></label>
+        <label className="field"><span>Pace (/km)</span><input className="input" value={last === 'time' && ok ? fmtSec(resP) : pace} onFocus={() => { if (last === 'time') { setPace(''); setLast('pace'); } }} onChange={(e) => { setPace(autoColon(e.target.value, 'pace')); setLast('pace'); }} placeholder="345 oder 3,45 → 3:45" inputMode="decimal" aria-label="Pace pro km" /></label>
       </div>
       {ok && (
         <>

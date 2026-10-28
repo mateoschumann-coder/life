@@ -12,6 +12,8 @@ import { DateRangeField } from '../components/DateRange';
 import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } from '../lib/invites';
 import { Missing } from './Saeule';
+import RemovedList from '../components/RemovedList';
+import { archiveGathering, archiveInvite, restoreGathering, restoreInvite } from '../lib/actions';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
 const COLOR = '#E8775A';
@@ -53,7 +55,7 @@ function InviteSheet({ open, invite, onClose }) {
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} placeholder="z.B. Dresscode, Geschenk-Idee, wer noch kommt" /></Field>
       <Field label="Link (optional)"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Einladung, Instagram, Karte …" /></Field>
       <button type="button" className="btn" onClick={save} disabled={!f.name.trim()}>Speichern</button>
-      {invite && <button type="button" className="btn danger" onClick={() => { if (confirm(`„${invite.name}“ löschen?`)) { removeInvite(invite.id); onClose(); } }}>Löschen</button>}
+      {invite && <button type="button" className="btn danger" onClick={() => { archiveInvite(invite.id); toast('Rausgenommen – unten zurückholbar'); onClose(); }}>Rausnehmen</button>}
     </Sheet>
   );
 }
@@ -93,6 +95,7 @@ function Invites({ s, sheet, setSheet }) {
           {showDone && <div className="list">{done.map((x) => <Row key={x.id} x={x} />)}</div>}
         </>
       )}
+      <RemovedList items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />
       <InviteSheet open={!!sheet} invite={sheet && sheet !== 'neu' ? (s.invites || []).find((x) => x.id === sheet.id) : null} onClose={() => setSheet(null)} />
     </>
   );
@@ -159,6 +162,7 @@ export function EventsList({ s }) {
             {showDone && <div className="list">{done.map((g) => <Row key={g.id} g={g} />)}</div>}
           </>
         )}
+        <RemovedList items={s.removedGatherings || []} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} />
         </>)}
       </main>
       <Sheet open={open} title="Neues Event" onClose={() => setOpen(false)}>
@@ -462,7 +466,7 @@ function Detail({ s, g }) {
           chips={home ? ['Was kochen?', 'Getränke & Mengen', 'Einladung schreiben', 'Was mitbringen?'] : ['Passenden Ort finden', 'Einladung schreiben', 'Wie reservieren?']}
         />
         <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { done: !g.done }); toast(g.done ? 'Wieder offen' : 'Abgehakt'); if (!g.done) go('/saeule/sozial'); }}>{g.done ? 'Wieder öffnen' : 'Event abhaken (hat stattgefunden)'}</button>
-        <button type="button" className="btn danger" onClick={() => { if (confirm(`„${g.name}“ löschen?`)) { removeGathering(g.id); go('/saeule/sozial'); } }}>Event löschen</button>
+        <button type="button" className="btn danger" onClick={() => { archiveGathering(g.id); toast('Rausgenommen – unten in Sozial zurückholbar'); go('/saeule/sozial'); }}>Event rausnehmen</button>
       </main>
       <TabBar active="bereiche" />
     </>

@@ -347,3 +347,7 @@ export const restorePlace = (id) => moveBetween('removedPlaces', 'places', id, {
 export const archiveSportEvent = (id) => moveBetween('sportEvents', 'removedSportEvents', id, { removedAt: today() });
 export const restoreSportEvent = (id) => moveBetween('removedSportEvents', 'sportEvents', id, { removedAt: null });
 export const purgeRemoved = (key, id) => store.update((s) => { s[key] = (s[key] || []).filter((x) => x.id !== id); });
+export const archiveGathering = (id) => moveBetween('gatherings', 'removedGatherings', id, { removedAt: today() });
+export const restoreGathering = (id) => moveBetween('removedGatherings', 'gatherings', id, { removedAt: null });
+export const archiveInvite = (id) => moveBetween('invites', 'removedInvites', id, { removedAt: today() });
+export const restoreInvite = (id) => moveBetween('removedInvites', 'invites', id, { removedAt: null });
