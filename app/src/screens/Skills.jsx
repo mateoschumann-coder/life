@@ -193,10 +193,6 @@ export function SkillPage({ s, sk, back = { href: '#/skills', label: 'Weiterentw
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Back href={back.href} label={back.label} />
           <h1 className="h1 sm">{sk.name}</h1>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="input goal-input" defaultValue={sk.level} key={sk.id + 'l'} placeholder="Niveau, z.B. A2 / Anfänger" onBlur={(e) => e.target.value !== sk.level && updateSkill(sk.id, { level: e.target.value })} aria-label="Niveau" />
-            <input className="input goal-input" defaultValue={sk.goal} key={sk.id + 'g'} placeholder="Großes Ziel, z.B. im Urlaub plaudern" onBlur={(e) => e.target.value !== sk.goal && updateSkill(sk.id, { goal: e.target.value })} aria-label="Ziel" />
-          </div>
         </div>
 
         <Segmented full options={[{ id: 'todos', label: `✅ To-dos${open.length ? ` · ${open.length}` : ''}` }, { id: 'material', label: `📚 Material${(sk.materials || []).length ? ` · ${(sk.materials || []).length}` : ''}` }]} value={tab} onChange={setTab} label="Ansicht" />
