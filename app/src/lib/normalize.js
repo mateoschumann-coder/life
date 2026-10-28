@@ -52,5 +52,10 @@ export function normalizeGathering(g) {
     });
     g.v93 = true;
   }
+  // v1.03: „Termin/Datum festlegen“ gehört zum Planen
+  if (!g.v103) {
+    g.todos.forEach((x) => { if (/(termin|datum|tag)\b.*(festlegen|finden|klären)|^(termin|datum)$/i.test(String(x.text || '')) && !x.done) x.cat = 'Planen'; });
+    g.v103 = true;
+  }
   return g;
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { store } from '../lib/store';
 import { useStore } from '../lib/store';
 import { addCostCat, addLine, budgetOf, calc, catOf, costCatsOf, removeCostCat, convert, CURRENCIES, fetchRates, money, removeLine, setBudget, setRate, updateLine } from '../lib/budget';
 import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
@@ -74,51 +75,20 @@ function LineRow({ b, x, sub, onOpen }) {
   );
 }
 
-export default function Finanzen() {
-  const s = useStore();
+function Alltag({ s }) {
   const b = budgetOf(s);
   const r = calc(b);
   const [cat, setCat] = useState('miete');
   const [newCat, setNewCat] = useState(null);
   const [editCats, setEditCats] = useState(false);
   const [line, setLine] = useState(null);
-  const [busy, setBusy] = useState(false);
   const other = b.base === 'USD' ? 'EUR' : 'USD';
   const now = new Date();
-  const loadRates = async () => {
-    setBusy(true);
-    try { await fetchRates(); toast('Kurse aktualisiert'); } catch (e) { toast(e.message); } finally { setBusy(false); }
-  };
   const max = Math.max(1, ...r.byCat.map((c) => c.sum));
   const next = [0, 1, 2].map((i) => new Date(now.getFullYear(), now.getMonth() + i, 1));
 
   return (
     <>
-      <main className="screen">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/saeule/persoenlich" label="Persönlich" />
-          <h1 className="h1">Finanzen</h1>
-        </div>
-
-        <section className="card" style={{ gap: 6, padding: '10px 12px' }}>
-          <div className="sec-h" style={{ padding: 0 }}>
-            <span className="label" style={{ padding: 0 }}>Wechselkurse{b.ratesAt ? ` · ${new Date(b.ratesAt).toLocaleDateString('de-DE')}` : ''}</span>
-            <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={loadRates} disabled={busy}>{busy ? '…' : 'Aktuell holen'}</button>
-          </div>
-          <div className="rate-grid">
-            {[
-              { id: 'usdars', label: 'US$ → ARS', value: b.rates.ARS, set: (v) => setRate('ARS', v) },
-              { id: 'eurars', label: '€ → ARS', value: b.rates.ARS / b.rates.EUR, set: (v) => setRate('EUR', b.rates.ARS / v) },
-              { id: 'eurusd', label: '€ → US$', value: 1 / b.rates.EUR, set: (v) => setRate('EUR', 1 / v) },
-            ].map((x) => (
-              <label key={x.id} className="rate-cell">
-                <span className="tiny">{x.label}</span>
-                <input className="input" inputMode="decimal" defaultValue={fmtRate(x.value)} key={fmtRate(x.value)} onBlur={(e) => { const v = Number(String(e.target.value).replace(/\./g, '').replace(',', '.')); if (v > 0 && fmtRate(v) !== fmtRate(x.value)) x.set(v); }} aria-label={`Kurs ${x.label}`} />
-              </label>
-            ))}
-          </div>
-        </section>
-
         <section className="card countdown" style={{ gap: 6, alignItems: 'center', textAlign: 'center' }}>
           <span className="tiny">Pro Tag im {MONTHS[now.getMonth()]} ({r.days} Tage)</span>
           <b style={{ fontSize: 34, color: r.free < 0 ? 'var(--danger)' : 'var(--text)' }}>{money(r.perDay, b.base)}</b>
@@ -190,9 +160,198 @@ export default function Finanzen() {
             })}
           </div>
         </section>
-
-      </main>
       <LineSheet b={b} line={line} onClose={() => setLine(null)} />
+    </>
+  );
+}
+
+function RatesCard({ s }) {
+  const b = budgetOf(s);
+  const [busy, setBusy] = useState(false);
+  const loadRates = async () => {
+    setBusy(true);
+    try { await fetchRates(); toast('Kurse aktualisiert'); } catch (e) { toast(e.message); } finally { setBusy(false); }
+  };
+  return (
+        <section className="card" style={{ gap: 6, padding: '10px 12px' }}>
+          <div className="sec-h" style={{ padding: 0 }}>
+            <span className="label" style={{ padding: 0 }}>Wechselkurse{b.ratesAt ? ` · ${new Date(b.ratesAt).toLocaleDateString('de-DE')}` : ''}</span>
+            <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={loadRates} disabled={busy}>{busy ? '…' : 'Aktuell holen'}</button>
+          </div>
+          <div className="rate-grid">
+            {[
+              { id: 'usdars', label: 'US$ → ARS', value: b.rates.ARS, set: (v) => setRate('ARS', v) },
+              { id: 'eurars', label: '€ → ARS', value: b.rates.ARS / b.rates.EUR, set: (v) => setRate('EUR', b.rates.ARS / v) },
+              { id: 'eurusd', label: '€ → US$', value: 1 / b.rates.EUR, set: (v) => setRate('EUR', 1 / v) },
+            ].map((x) => (
+              <label key={x.id} className="rate-cell">
+                <span className="tiny">{x.label}</span>
+                <input className="input" inputMode="decimal" defaultValue={fmtRate(x.value)} key={fmtRate(x.value)} onBlur={(e) => { const v = Number(String(e.target.value).replace(/\./g, '').replace(',', '.')); if (v > 0 && fmtRate(v) !== fmtRate(x.value)) x.set(v); }} aria-label={`Kurs ${x.label}`} />
+              </label>
+            ))}
+          </div>
+        </section>
+
+  );
+}
+
+// v1.03: Börsen-Indizes als kostenlose TradingView-Mini-Charts (kein Schlüssel nötig); Liste bearbeitbar
+const DEFAULT_TICKERS = [
+  { sym: 'FOREXCOM:NSXUSD', label: 'NASDAQ 100' },
+  { sym: 'FOREXCOM:SPXUSD', label: 'S&P 500' },
+  { sym: 'XETR:DAX', label: 'DAX' },
+  { sym: 'TVC:SX5E', label: 'Euro Stoxx 50' },
+  { sym: 'NYSE:BRK.B', label: 'Berkshire Hathaway' },
+];
+const tickersOf = (s) => s.profile?.tickers || DEFAULT_TICKERS;
+const setTickers = (list) => store.update((x) => { x.profile = { ...(x.profile || {}), tickers: list }; });
+const RANGES = [{ id: '1M', label: '1 Monat' }, { id: '12M', label: '1 Jahr' }, { id: '60M', label: '5 Jahre' }];
+function Ticker({ t, range }) {
+  const dark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const cfg = { symbol: t.sym, width: '100%', height: 170, locale: 'de_DE', dateRange: range, colorTheme: dark ? 'dark' : 'light', isTransparent: true, autosize: true, largeChartUrl: '' };
+  const src = `https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=de_DE#${encodeURIComponent(JSON.stringify(cfg))}`;
+  return (
+    <div className="card" style={{ padding: '8px 10px', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <b style={{ flex: 1, fontSize: 15 }}>{t.label}</b>
+        <a className="link-btn" style={{ fontSize: 13 }} href={`https://www.tradingview.com/symbols/${t.sym.replace(':', '-')}/`} target="_blank" rel="noreferrer">Details ↗</a>
+      </div>
+      <iframe title={t.label} src={src} style={{ width: '100%', height: 170, border: 0, display: 'block' }} loading="lazy" />
+    </div>
+  );
+}
+function Markets({ s }) {
+  const list = tickersOf(s);
+  const [range, setRange] = useState(() => { try { return localStorage.getItem('life-app-fin-range') || '12M'; } catch { return '12M'; } });
+  const [edit, setEdit] = useState(false);
+  const [sym, setSym] = useState('');
+  const [label, setLabel] = useState('');
+  return (
+    <section className="group">
+      <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Märkte</h2><button type="button" className={edit ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎ Bearbeiten'}</button></div>
+      <div className="seg-mini">{RANGES.map((x) => <button key={x.id} type="button" className={range === x.id ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => { setRange(x.id); try { localStorage.setItem('life-app-fin-range', x.id); } catch {} }}>{x.label}</button>)}</div>
+      {edit && (
+        <section className="card" style={{ gap: 8 }}>
+          <div className="chips">{list.map((t) => <button key={t.sym} type="button" className="chip soft" onClick={() => setTickers(list.filter((x) => x.sym !== t.sym))}>{t.label} ✕</button>)}</div>
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const sy = sym.trim().toUpperCase(); if (!sy) return; setTickers([...list.filter((x) => x.sym !== sy), { sym: sy, label: label.trim() || sy }]); setSym(''); setLabel(''); }}>
+            <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name, z.B. Apple" aria-label="Name" />
+            <div className="block-add"><input className="input" value={sym} onChange={(e) => setSym(e.target.value)} placeholder="Kürzel, z.B. NASDAQ:AAPL" aria-label="Kürzel" /><button type="submit" className="btn small" disabled={!sym.trim()}>+</button></div>
+          </form>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <a className="link-btn" style={{ fontSize: 13 }} href="https://www.tradingview.com/symbols/" target="_blank" rel="noreferrer">Kürzel finden ↗</a>
+            <Info>Das Kürzel steht auf TradingView über dem Chart, z.B. „NASDAQ:AAPL“ oder „BCBA:GGAL“.</Info>
+            <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => setTickers(DEFAULT_TICKERS)}>Standard</button>
+          </div>
+        </section>
+      )}
+      {list.map((t) => <Ticker key={t.sym + range} t={t} range={range} />)}
+      <span className="tiny" style={{ padding: '0 4px' }}>Kurse von TradingView, teils verzögert.</span>
+    </section>
+  );
+}
+
+// v1.03: Rentenrechner (Rentenformel): benötigtes Kapital, mögliche Rente oder Sparplan – mit Zins, Inflation, Zahlung am Anfang/Ende
+const num = (v) => Number(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0;
+export function annuity({ mode, amount, capital, years, rate, inflation, due, monthly, dyn }) {
+  const m = monthly ? 12 : 1;
+  const N = Math.max(1, Math.round(years * m));
+  const r = Math.pow(1 + rate / 100, 1 / m) - 1;
+  const g = dyn ? Math.pow(1 + inflation / 100, 1 / m) - 1 : 0;
+  const d = due ? 1 + r : 1;
+  const af = (Math.abs(r - g) < 1e-12 ? N / (1 + r) : (1 - Math.pow((1 + g) / (1 + r), N)) / (r - g)) * d;
+  const ff = (Math.abs(r - g) < 1e-12 ? N * Math.pow(1 + r, N - 1) : (Math.pow(1 + r, N) - Math.pow(1 + g, N)) / (r - g)) * d;
+  const real = Math.pow(1 + inflation / 100, years);
+  const sumPay = (R) => (g ? R * (Math.pow(1 + g, N) - 1) / g : R * N);
+  if (mode === 'kapital') return { value: amount * af, first: amount, last: amount * Math.pow(1 + g, N - 1), paid: sumPay(amount), N };
+  if (mode === 'rente') { const R = af ? capital / af : 0; return { value: R, first: R, last: R * Math.pow(1 + g, N - 1), paid: sumPay(R), N }; }
+  const fv = capital * Math.pow(1 + r, N) + amount * ff;
+  const paid = capital + sumPay(amount);
+  return { value: fv, real: fv / real, paid, interest: fv - paid, N };
+}
+const RMODES = [
+  { id: 'kapital', label: 'Kapital nötig' },
+  { id: 'rente', label: 'Mögliche Rente' },
+  { id: 'sparen', label: 'Sparplan' },
+];
+function RenteRechner({ s }) {
+  const b = budgetOf(s);
+  const [f, setFState] = useState(() => { try { return { mode: 'kapital', amount: '1.000', capital: '200.000', years: '25', rate: '5', inflation: '2', due: true, monthly: true, dyn: true, ...JSON.parse(localStorage.getItem('life-app-rente') || '{}') }; } catch { return { mode: 'kapital', amount: '1.000', capital: '200.000', years: '25', rate: '5', inflation: '2', due: true, monthly: true, dyn: true }; } });
+  const setF = (p) => { const n = { ...f, ...p }; setFState(n); try { localStorage.setItem('life-app-rente', JSON.stringify(n)); } catch {} };
+  const res = annuity({ mode: f.mode, amount: num(f.amount), capital: num(f.capital), years: num(f.years), rate: Number(String(f.rate).replace(',', '.')) || 0, inflation: Number(String(f.inflation).replace(',', '.')) || 0, due: f.due, monthly: f.monthly, dyn: f.dyn });
+  const per = f.monthly ? 'Monat' : 'Jahr';
+  const M = (x) => money(x, b.base);
+  const field = (k, label, ph, suffix) => (
+    <label className="rate-cell"><span className="tiny">{label}</span><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><input className="input" inputMode="decimal" value={f[k]} onChange={(e) => setF({ [k]: e.target.value })} placeholder={ph} style={{ textAlign: 'right' }} />{suffix && <span className="tiny">{suffix}</span>}</span></label>
+  );
+  return (
+    <>
+      <Segmented full options={RMODES} value={f.mode} onChange={(v) => setF({ mode: v })} label="Was berechnen?" />
+      <section className="card" style={{ gap: 10 }}>
+        <span className="tiny">{f.mode === 'kapital' ? 'Wie viel Geld brauche ich, um eine bestimmte Rente zu bekommen?' : f.mode === 'rente' ? 'Wie viel Rente kann ich mir aus meinem Geld auszahlen?' : 'Was wird aus regelmäßigem Sparen?'}</span>
+        <div className="rate-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {f.mode !== 'rente' && field('amount', f.mode === 'sparen' ? `Sparrate pro ${per}` : `Rente pro ${per}`, '1.000', b.base)}
+          {f.mode !== 'kapital' && field('capital', f.mode === 'sparen' ? 'Startkapital' : 'Vorhandenes Kapital', '0', b.base)}
+          {field('years', 'Laufzeit', '25', 'Jahre')}
+          {field('rate', 'Zins pro Jahr', '5', '%')}
+          {field('inflation', 'Inflation pro Jahr', '2', '%')}
+        </div>
+        <div className="field"><span>Zahlung</span><div className="chips">
+          <button type="button" className={f.due ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setF({ due: true })}>Am Anfang (vorschüssig)</button>
+          <button type="button" className={!f.due ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setF({ due: false })}>Am Ende (nachschüssig)</button>
+        </div></div>
+        <div className="field"><span>Wie oft?</span><div className="chips">
+          <button type="button" className={f.monthly ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setF({ monthly: true })}>Monatlich</button>
+          <button type="button" className={!f.monthly ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setF({ monthly: false })}>Jährlich</button>
+        </div></div>
+        <div className="field"><span>{f.mode === 'sparen' ? 'Sparrate steigt mit der Inflation?' : 'Rente steigt mit der Inflation?'}</span><div className="chips">
+          <button type="button" className={f.dyn ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setF({ dyn: true })}>Ja</button>
+          <button type="button" className={!f.dyn ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setF({ dyn: false })}>Nein, fester Betrag</button>
+        </div></div>
+      </section>
+      <section className="card countdown" style={{ gap: 6, alignItems: 'center', textAlign: 'center' }}>
+        <span className="tiny">{f.mode === 'kapital' ? 'Dafür brauchst du heute' : f.mode === 'rente' ? `Mögliche Rente pro ${per}` : `Nach ${num(f.years)} Jahren hast du`}</span>
+        <b style={{ fontSize: 32 }}>{M(res.value)}</b>
+        {f.mode === 'sparen' ? (
+          <span className="sub">In heutiger Kaufkraft ≈ {M(res.real)} · eingezahlt {M(res.paid)} · Zinsen {M(res.interest)}</span>
+        ) : (
+          <span className="sub">{res.N} Zahlungen · erste {M(res.first)}{f.dyn ? ` · letzte ${M(res.last)}` : ''} · ausgezahlt gesamt {M(res.paid)}</span>
+        )}
+        <Info>Rentenformel (Rentenbarwert{f.mode === 'sparen' ? ' bzw. -endwert' : ''}): Zins pro {per} aus dem Jahreszins, {f.dyn ? 'Zahlungen wachsen jedes Mal mit der Inflation (dynamische Rente)' : 'gleich bleibende Zahlungen'}, {f.due ? 'Zahlung jeweils am Anfang der Periode' : 'Zahlung jeweils am Ende der Periode'}. Steuern und Gebühren sind nicht eingerechnet.</Info>
+      </section>
+    </>
+  );
+}
+
+const FTABS = [{ id: 'infos', label: '📊 Finanzinfos' }, { id: 'rechner', label: '🧮 Rechner' }];
+export default function Finanzen() {
+  const s = useStore();
+  const [tab, setTabState] = useState(() => { try { return localStorage.getItem('life-app-fin-tab') || 'infos'; } catch { return 'infos'; } });
+  const setTab = (v) => { setTabState(v); try { localStorage.setItem('life-app-fin-tab', v); } catch {} };
+  const [calcTab, setCalcState] = useState(() => { try { return localStorage.getItem('life-app-fin-calc') || 'alltag'; } catch { return 'alltag'; } });
+  const setCalc = (v) => { setCalcState(v); try { localStorage.setItem('life-app-fin-calc', v); } catch {} };
+  return (
+    <>
+      <main className="screen">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Back href="#/saeule/persoenlich" label="Persönlich" />
+          <h1 className="h1">Finanzen</h1>
+        </div>
+        <Segmented full options={FTABS} value={tab} onChange={setTab} label="Ansicht" />
+        {tab === 'infos' ? (
+          <>
+            <RatesCard s={s} />
+            <Markets s={s} />
+          </>
+        ) : (
+          <>
+            <div className="sub-switch" style={{ alignSelf: 'flex-start' }}>
+              <button type="button" className={calcTab === 'alltag' ? 'on' : ''} onClick={() => setCalc('alltag')}>Alltagsrechner</button>
+              <button type="button" className={calcTab === 'rente' ? 'on' : ''} onClick={() => setCalc('rente')}>Rentenrechner</button>
+            </div>
+            {calcTab === 'rente' ? <RenteRechner s={s} /> : <Alltag s={s} />}
+          </>
+        )}
+      </main>
       <TabBar active="bereiche" />
     </>
   );

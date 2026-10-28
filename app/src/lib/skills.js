@@ -219,3 +219,62 @@ Schon auf der Liste: ${JSON.stringify((sk.todos || []).map((x) => `${x.text}${x.
 Mach aus dem, was er erzählt, klare, abhakbare To-dos (3–8, sinnvoll aufeinander aufbauend, nichts doppelt). Nicht drängeln, nicht motivieren, einfach sauber strukturieren. Ohne Internet, keine URLs. Antworte immer mit "ziele_vorschlagen". Deutsch, kein Markdown.`;
   return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: TODO_TOOL, maxUses: 0, maxTokens: 1200, label: `Ziele: ${sk.name}` });
 }
+
+// ---------- v1.03: Material pro Skill (Arten frei wählbar, z.B. Gitarre → Songs, Sprachen → Podcasts/Vokabeln) ----------
+export const MAT_TYPES = {
+  buch: { label: 'Bücher', one: 'Buch', emoji: '📚', ph: 'z.B. Python Crash Course', author: 'Autor', status: ['Will ich', 'Lese ich', 'Fertig'] },
+  podcast: { label: 'Podcasts', one: 'Podcast', emoji: '🎧', ph: 'z.B. Café Brasil', author: 'Von', status: ['Will ich', 'Höre ich', 'Fertig'] },
+  video: { label: 'Videos', one: 'Video', emoji: '🎬', ph: 'z.B. Akkorde für Anfänger', status: ['Will ich', 'Dabei', 'Fertig'] },
+  kurs: { label: 'Kurse', one: 'Kurs', emoji: '🎓', ph: 'z.B. Kaggle Intro to ML', author: 'Anbieter', status: ['Will ich', 'Mache ich', 'Fertig'] },
+  link: { label: 'Links', one: 'Link', emoji: '🔗', ph: 'z.B. Gute Übersichtsseite' },
+  dokument: { label: 'Dokumente', one: 'Dokument', emoji: '📄', ph: 'z.B. Meine Notizen (Google Drive)' },
+  song: { label: 'Songs', one: 'Song', emoji: '🎸', ph: 'z.B. Wonderwall', author: 'Künstler', status: ['Will lernen', 'Übe ich', 'Kann ich'] },
+  vokabeln: { label: 'Vokabeln', one: 'Vokabel', emoji: '🗣', ph: 'Wort, z.B. saudade', noteLabel: 'Bedeutung' },
+  code: { label: 'Code', one: 'Code-Stück', emoji: '💻', ph: 'z.B. pandas groupby Beispiel', noteLabel: 'Code / Notiz' },
+  uebung: { label: 'Übungen', one: 'Übung', emoji: '🏋️', ph: 'z.B. Barré-Griff 5 Min', status: ['Offen', 'Übe ich', 'Sitzt'] },
+};
+const MUSIC = /gitarre|guitar|klavier|piano|ukulele|singen|gesang|bass|schlagzeug|drums|musik/i;
+export function matTypesOf(sk) {
+  if (sk.matTypes?.length) return sk.matTypes;
+  if (MUSIC.test(sk.name)) return ['song', 'video', 'uebung', 'link'];
+  if (sk.kind === 'sprache') return ['podcast', 'video', 'buch', 'vokabeln', 'link'];
+  return ['kurs', 'video', 'buch', 'link', 'code'];
+}
+export const matTypeInfo = (sk, t) => MAT_TYPES[t] || (sk.customTypes || []).find((x) => x.id === t) || { label: t, one: t, emoji: '📌', ph: 'Titel' };
+export const setMatTypes = (id, list) => updateSkill(id, { matTypes: list });
+export function addCustomType(id, label) {
+  const l = String(label || '').trim();
+  if (!l) return null;
+  const tid = `c${uid().slice(0, 6)}`;
+  store.update((s) => {
+    const sk = (s.skills || []).find((x) => x.id === id);
+    if (!sk) return;
+    sk.customTypes = [...(sk.customTypes || []), { id: tid, label: l, one: l, emoji: '📌', ph: 'Titel' }];
+    sk.matTypes = [...matTypesOf(sk), tid];
+  });
+  return tid;
+}
+export function addMaterialTo(id, m) {
+  const t = String(m.title || '').trim();
+  if (!t) return;
+  store.update((s) => {
+    const sk = (s.skills || []).find((x) => x.id === id);
+    if (!sk) return;
+    sk.materials = [...(sk.materials || []), { id: uid(), type: m.type, title: t, author: m.author || '', url: m.url || '', note: m.note || '', stage: 0, addedAt: today() }];
+  });
+}
+export const updateMaterialOf = (id, mid, patch) => store.update((s) => { const m = ((s.skills || []).find((x) => x.id === id)?.materials || []).find((x) => x.id === mid); if (m) Object.assign(m, patch); });
+export const removeMaterialOf = (id, mid) => store.update((s) => { const sk = (s.skills || []).find((x) => x.id === id); if (sk) sk.materials = (sk.materials || []).filter((x) => x.id !== mid); });
+// kostenlose Such-Links passend zur Art
+export function matSearch(type, q) {
+  const e = encodeURIComponent(q);
+  return ({
+    song: [['Tabs (Ultimate Guitar)', `https://www.ultimate-guitar.com/search.php?search_type=title&value=${e}`], ['YouTube Tutorial', `https://www.youtube.com/results?search_query=${e}+tutorial`]],
+    video: [['YouTube', `https://www.youtube.com/results?search_query=${e}`]],
+    podcast: [['Spotify', `https://open.spotify.com/search/${e}/podcasts`], ['Apple Podcasts', `https://podcasts.apple.com/search?term=${e}`]],
+    buch: [['Google Books', `https://www.google.com/search?tbm=bks&q=${e}`], ['Goodreads', `https://www.goodreads.com/search?q=${e}`]],
+    kurs: [['Coursera', `https://www.coursera.org/search?query=${e}`], ['YouTube', `https://www.youtube.com/results?search_query=${e}+course`]],
+    vokabeln: [['Linguee', `https://www.linguee.de/search?query=${e}`], ['Forvo (Aussprache)', `https://forvo.com/search/${e}/`]],
+    code: [['GitHub', `https://github.com/search?q=${e}&type=code`], ['Stack Overflow', `https://stackoverflow.com/search?q=${e}`]],
+  })[type] || [['Google', `https://www.google.com/search?q=${e}`]];
+}

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addHomeItem, addReminder, deleteReminder, doneReminder, EVERY, LISTS, listOf, REMINDER_PRESETS, removeHomeItem, setHomeCats, suggestItems, updateHomeItem, updateReminder, sellListing, SELL_LINKS, shopLinks,
+  addHomeItem, addReminder, deleteReminder, doneReminder, EVERY, LISTS, listOf, REMINDER_PRESETS, removeHomeItem, setHomeCats, suggestItems, updateHomeItem, updateReminder, sellListing, SELL_LINKS,
 } from '../lib/home';
 import { waLink } from '../lib/logic';
 import { cityOf } from '../lib/outings';
 import PlaceBook from '../components/PlaceBook';
+import SourceLinks from '../components/SourceLinks';
 import { CityChips } from './Ausgehen';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
@@ -198,14 +199,10 @@ function FindItems({ s, listKey }) {
   };
   return (
     <>
-      <section className="card" style={{ gap: 10 }}>
-        <label className="field"><span>Was suchst du?</span><input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. Stehlampe fürs Lesen'} /></label>
-        {q.trim() && (
-          <>
-            <span className="label" style={{ padding: 0 }}>Direkt nachsehen (kostenlos)</span>
-            <div className="chips">{shopLinks(listKey, q).map((x) => <a key={x.url} className="pill link-chip" href={x.url} target="_blank" rel="noreferrer">{x.label}</a>)}</div>
-          </>
-        )}
+      <SourceLinks s={s} area={listKey} instant />
+      <section className="card checkin" style={{ gap: 10 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 16 }}><span className="spark"><Icon name="sparkle" size={14} color="currentColor" /></span>Ideen von der KI</span>
+        <label className="field"><span>Was suchst du? (optional)</span><input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. gemütliche Leselampe'} /></label>
         <span className="label" style={{ padding: 0 }}>Für welchen Bereich?</span>
         <div className="chips">{l.cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCat(c)}>{c}</button>)}</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

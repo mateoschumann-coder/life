@@ -24,6 +24,33 @@ export const SOURCE_AREAS = {
       { id: 'yt', name: 'YouTube', lang: 'de oder es', build: (c) => `https://www.youtube.com/results?search_query=${enc(c.q)}` },
     ],
   },
+  // v1.03: Zuhause → Einrichtung / Kleidung finden (Seiten bearbeitbar wie überall)
+  einrichtung: {
+    title: 'Meine Einrichtungs-Seiten',
+    chips: ['Stehlampe', 'Sofa', 'Regal', 'Teppich', 'Pflanzen', 'Bettwäsche', 'Schreibtisch', 'Vorhänge'],
+    placeholder: 'z.B. Stehlampe fürs Lesen',
+    defaults: [
+      { id: 'ml', name: 'Mercado Libre', lang: 'es', build: (c) => `https://listado.mercadolibre.com.ar/${slug(c.q)}` },
+      { id: 'gshop', name: 'Google Shopping', lang: 'es', build: (c) => `https://www.google.com/search?tbm=shop&q=${enc(c.q)}` },
+      { id: 'sodimac', name: 'Sodimac', lang: 'es', build: (c) => `https://www.sodimac.com.ar/sodimac-ar/search?Ntt=${enc(c.q)}` },
+      { id: 'easy', name: 'Easy', lang: 'es', build: (c) => `https://www.easy.com.ar/${enc(c.q)}?_q=${enc(c.q)}&map=ft` },
+      { id: 'falabella', name: 'Falabella', domain: 'falabella.com.ar', lang: 'es' },
+      { id: 'pinterest', name: 'Pinterest (Ideen)', lang: 'en', build: (c) => `https://www.pinterest.com/search/pins/?q=${enc(c.q + ' deco')}` },
+    ],
+  },
+  kleidung: {
+    title: 'Meine Mode-Seiten',
+    chips: ['Laufjacke', 'Jeans', 'Sneaker', 'Hemd', 'Wintermantel', 'Sportshorts', 'Sonnenbrille'],
+    placeholder: 'z.B. leichte Regenjacke',
+    defaults: [
+      { id: 'ml', name: 'Mercado Libre', lang: 'es', build: (c) => `https://listado.mercadolibre.com.ar/${slug(c.q)}` },
+      { id: 'gshop', name: 'Google Shopping', lang: 'es', build: (c) => `https://www.google.com/search?tbm=shop&q=${enc(c.q)}` },
+      { id: 'dafiti', name: 'Dafiti', lang: 'es', build: (c) => `https://www.dafiti.com.ar/catalog/?q=${enc(c.q)}` },
+      { id: 'zara', name: 'Zara', lang: 'es', build: (c) => `https://www.zara.com/ar/es/search?searchTerm=${enc(c.q)}` },
+      { id: 'nike', name: 'Nike', domain: 'nike.com.ar', lang: 'es' },
+      { id: 'pinterest', name: 'Pinterest (Ideen)', lang: 'en', build: (c) => `https://www.pinterest.com/search/pins/?q=${enc(c.q + ' outfit')}` },
+    ],
+  },
   events: {
     title: 'Meine Event-Seiten',
     placeholder: 'z.B. Was kann ich dieses Wochenende machen?',

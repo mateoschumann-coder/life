@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addGathering, addGuest, addWaGroup, removeWaGroup, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, OCCASIONS, todoCats, SHOP_CATS, TODO_TEMPLATES, updateGathering, updateItem, VENUE_STATUS,
+  addGathering, addGuest, addWaGroup, removeWaGroup, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, occasionOf, templatesOf, saveTemplate, removeTemplate, resetTemplates, PHASES, todoCats, SHOP_CATS, updateGathering, updateItem, VENUE_STATUS,
 } from '../lib/gather';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
@@ -101,6 +101,82 @@ function Invites({ s, sheet, setSheet }) {
   );
 }
 
+// v1.03 (Mateo): Vorlagen hinter einem Knopf; Standard „Leer“; Vorlagen selbst anlegen und bearbeiten
+const lines = (v) => String(v || '').split('\n').map((x) => x.trim()).filter(Boolean);
+function TemplateEditor({ s, open, onClose }) {
+  const all = templatesOf(s);
+  const [ed, setEd] = useState(null); // { key, label, emoji, kind, todos: {phase: text}, shop: {cat: text} }
+  const start = (k) => {
+    const o = k ? all[k] : { label: '', emoji: '📋', kind: 'zuhause', todos: {}, shop: {} };
+    setEd({ key: k, label: o.label, emoji: o.emoji, kind: o.kind, todos: Object.fromEntries(PHASES.map((p) => [p, (o.todos?.[p] || []).join('\n')])), shop: Object.fromEntries(SHOP_CATS.map((c) => [c, (o.shop?.[c] || []).join('\n')])) });
+  };
+  const save = () => {
+    saveTemplate(ed.key, { label: ed.label.trim() || 'Vorlage', emoji: ed.emoji || '📋', kind: ed.kind, todos: Object.fromEntries(PHASES.map((p) => [p, lines(ed.todos[p])])), shop: ed.kind === 'auswaerts' ? {} : Object.fromEntries(SHOP_CATS.map((c) => [c, lines(ed.shop[c])])) });
+    toast('Vorlage gespeichert');
+    setEd(null);
+  };
+  return (
+    <Sheet open={open} title={ed ? (ed.key ? 'Vorlage bearbeiten' : 'Neue Vorlage') : 'Vorlagen bearbeiten'} onClose={() => { setEd(null); onClose(); }}>
+      {!ed ? (
+        <>
+          <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => start(null)}>＋ Neue Vorlage</button>
+          <div className="list">
+            {Object.entries(all).filter(([k]) => k !== 'leer').map(([k, o]) => (
+              <div key={k} className="row compact">
+                <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, color: 'inherit', font: 'inherit' }} onClick={() => start(k)}>
+                  <span className="row-title plain">{o.emoji} {o.label}</span>
+                  <span className="row-meta">{o.kind === 'auswaerts' ? 'Woanders' : o.kind === 'zuhause' ? 'Zu Hause' : 'Beides'} · {PHASES.reduce((n, p) => n + (o.todos?.[p] || []).length, 0)} To-dos{o.kind !== 'auswaerts' ? ` · ${SHOP_CATS.reduce((n, c) => n + (o.shop?.[c] || []).length, 0)} Einkauf` : ''}</span>
+                </button>
+                <button type="button" className="x-btn" aria-label={`${o.label} entfernen`} onClick={() => confirm(`Vorlage „${o.label}“ entfernen? Bestehende Events bleiben unverändert.`) && removeTemplate(k)}><Icon name="x" size={12} color="var(--chev)" /></button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => confirm('Alle Vorlagen auf den Standard zurücksetzen?') && resetTemplates()}>Auf Standard zurücksetzen</button>
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <label className="field" style={{ width: 70 }}><span>Symbol</span><input className="input" value={ed.emoji} onChange={(e) => setEd({ ...ed, emoji: e.target.value })} data-noclear style={{ textAlign: 'center' }} aria-label="Symbol" /></label>
+            <label className="field" style={{ flex: 1 }}><span>Name</span><input className="input" value={ed.label} onChange={(e) => setEd({ ...ed, label: e.target.value })} placeholder="z.B. Weihnachtsessen" /></label>
+          </div>
+          <div className="chips">{[['zuhause', '🏠 Zu Hause'], ['auswaerts', '📍 Woanders'], [null, 'Beides']].map(([k, l]) => <button key={String(k)} type="button" className={ed.kind === k ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEd({ ...ed, kind: k })}>{l}</button>)}</div>
+          <span className="tiny">Ein Eintrag pro Zeile.</span>
+          {PHASES.map((p) => <label key={p} className="field"><span>To-dos · {p}</span><textarea className="input" rows={3} value={ed.todos[p]} onChange={(e) => setEd({ ...ed, todos: { ...ed.todos, [p]: e.target.value } })} /></label>)}
+          {ed.kind !== 'auswaerts' && SHOP_CATS.map((c) => <label key={c} className="field"><span>🛒 Einkauf · {c}</span><textarea className="input" rows={2} value={ed.shop[c]} onChange={(e) => setEd({ ...ed, shop: { ...ed.shop, [c]: e.target.value } })} /></label>)}
+          <div className="sheet-foot">
+            <button type="button" className="btn tint" onClick={() => setEd(null)}>Zurück</button>
+            <button type="button" className="btn" onClick={save}>Speichern</button>
+          </div>
+        </>
+      )}
+    </Sheet>
+  );
+}
+function TemplateButton({ s, kind, value, onPick }) {
+  const [open, setOpen] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const all = templatesOf(s);
+  const cur = all[value] || all.leer;
+  const list = occasionsFor(kind, s);
+  return (
+    <>
+      <button type="button" className="drop-btn" style={{ alignSelf: 'flex-start' }} onClick={() => setOpen(true)} aria-label="Vorlage wählen"><span>📋 Vorlage:</span><b>{cur.emoji} {cur.label}</b><span className="drop-caret">▾</span></button>
+      <Sheet open={open && !edit} title="Vorlage wählen" onClose={() => setOpen(false)}>
+        <div className="list">
+          {list.map(([k, o]) => (
+            <button key={k} type="button" className="row compact" style={{ width: '100%', border: 0, textAlign: 'left', font: 'inherit', color: 'inherit', background: k === value ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'none' }} onClick={() => { onPick(k, o); setOpen(false); }}>
+              <span className="row-main"><span className="row-title plain">{o.emoji} {o.label}</span>{!o.empty && <span className="row-meta">{PHASES.flatMap((p) => o.todos?.[p] || []).slice(0, 4).join(', ')}{PHASES.flatMap((p) => o.todos?.[p] || []).length > 4 ? ' …' : ''}</span>}</span>
+              {k === value && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={() => setEdit(true)}>✎ Vorlagen bearbeiten</button>
+      </Sheet>
+      <TemplateEditor s={s} open={open && edit} onClose={() => setEdit(false)} />
+    </>
+  );
+}
+
 const TAB_KEY = 'life-app-sozial-tab';
 export function EventsList({ s }) {
   const t = today();
@@ -126,7 +202,7 @@ export function EventsList({ s }) {
       <div className="row" style={{ minHeight: 62 }}>
         <Check on={!!g.done} color={COLOR} onClick={() => { updateGathering(g.id, { done: !g.done }); if (!g.done) toast('Abgehakt – hoffentlich war es schön!'); }} label={`${g.name} ${g.done ? 'wieder öffnen' : 'abhaken'}`} />
         <a href={`#/treffen/${g.id}`} className="row-main">
-          <span className={g.done ? 'row-title strong done' : 'row-title strong'}>{OCCASIONS[g.type]?.emoji || (g.kind === 'auswaerts' ? '📍' : '🏠')} {g.name}</span>
+          <span className={g.done ? 'row-title strong done' : 'row-title strong'}>{occasionOf(g.type)?.emoji || (g.kind === 'auswaerts' ? '📍' : '🏠')} {g.name}</span>
           <span className="row-meta">{[g.date ? `${fmtShort(g.date)}${g.time ? `, ${g.time}` : ''}` : 'Datum offen', g.date && g.date >= t && `in ${diffDays(t, g.date)} Tagen`, g.guests.length ? `${yes}/${g.guests.length} zugesagt` : g.expected && `ca. ${g.expected} Gäste`].filter(Boolean).join(' · ')}</span>
         </a>
         <Chevron />
@@ -167,11 +243,11 @@ export function EventsList({ s }) {
       </main>
       <Sheet open={open} title="Neues Event" onClose={() => setOpen(false)}>
         <div className="seg-mini">
-          {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, kind: k, type: OCCASIONS[f.type]?.kind && OCCASIONS[f.type].kind !== k ? '' : f.type })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
+          {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, kind: k, type: occasionOf(f.type)?.kind && occasionOf(f.type).kind !== k ? 'leer' : f.type })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
         </div>
         <div className="field">
-          <span>Anlass – bringt passende To-dos{f.kind === 'zuhause' ? ' und Einkaufsliste' : ''} mit</span>
-          <div className="chips">{occasionsFor(f.kind).map(([k, o]) => <button key={k} type="button" className={f.type === k ? 'chip on' : 'chip'} onClick={() => setF({ ...f, type: f.type === k ? '' : k, name: f.name || (k !== 'sonstiges' ? o.label.split(' /')[0] : '') })}>{o.emoji} {o.label}</button>)}</div>
+          <span>Vorlage – bringt passende To-dos{f.kind === 'zuhause' ? ' und Einkauf' : ''} mit</span>
+          <TemplateButton s={s} kind={f.kind} value={f.type || 'leer'} onPick={(k, o) => setF({ ...f, type: k, name: f.name || (k !== 'leer' && !k.startsWith('allgemein') ? o.label.split(' /')[0] : '') })} />
         </div>
         <span className="tiny">{f.kind === 'zuhause' ? 'Bei dir: Menü, Getränke, Einkauf, Mitbringen, Vorbereitung.' : 'Woanders: Ort finden, reservieren, Gästen Adresse schicken.'}</span>
         <Field label="Was? (darf noch offen sein)"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={f.kind === 'zuhause' ? 'z.B. Asado bei mir' : 'z.B. Geburtstagsessen'} /></Field>
@@ -369,7 +445,7 @@ function Detail({ s, g }) {
           <div className="seg-mini">
             {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={g.kind === k ? 'chip on' : 'chip soft'} onClick={() => setKind(g.id, k)}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
           </div>
-          <div className="box-tabs">{occasionsFor(g.kind).map(([k, o]) => <button key={k} type="button" className={g.type === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setOccasion(g.id, k); toast(o.empty ? "Leer: Vorlage entfernt – selbst füllen oder KI fragen" : `${o.label}: Vorlage ergänzt`); }}>{o.emoji} {o.label}</button>)}</div>
+          <TemplateButton s={s} kind={g.kind} value={g.type || 'leer'} onPick={(k, o) => { setOccasion(g.id, k); toast(o.empty ? 'Leer: Vorlage entfernt – selbst füllen oder KI fragen' : `${o.label}: Vorlage ergänzt`); }} />
         </div>
 
 

@@ -1,6 +1,7 @@
 // Informiert bleiben: Themenbereiche → strukturierte Nachrichten-Links (Google News, letzte 24 h, Woche, Sprachen, YouTube)
 // Ganz ohne KI-Kosten; optional schlägt die KI (ohne Websuche) gezielte Blickwinkel pro Thema vor.
-import { store } from './store';
+import { store, uid } from './store';
+import { searchWithTool } from './outings';
 import { fmtLong, today } from './dates';
 import { aiLinks } from './links';
 
@@ -70,12 +71,12 @@ export const WORLD = [
 // Rubrik direkt (Pfad bekannt) oder über Google News nur auf dieser Seite (letzte Woche)
 export const RUBRIKEN = [
   { id: 'start', label: 'Startseite' },
-  { id: 'politik', label: 'Politik', w: { de: 'Politik', en: 'politics', es: 'política' } },
-  { id: 'wirtschaft', label: 'Wirtschaft', w: { de: 'Wirtschaft', en: 'business economy', es: 'economía' } },
-  { id: 'tech', label: 'Tech & KI', w: { de: 'Technologie KI', en: 'technology AI', es: 'tecnología inteligencia artificial' } },
-  { id: 'sport', label: 'Sport', w: { de: 'Sport', en: 'sport', es: 'deportes' } },
-  { id: 'kultur', label: 'Kultur', w: { de: 'Kultur', en: 'culture', es: 'cultura' } },
-  { id: 'wissen', label: 'Wissenschaft', w: { de: 'Wissenschaft', en: 'science', es: 'ciencia' } },
+  { id: 'politik', label: 'Politik', w: { de: 'Politik', en: 'politics', es: 'política', it: 'politica', fr: 'politique', pt: 'política' } },
+  { id: 'wirtschaft', label: 'Wirtschaft', w: { de: 'Wirtschaft', en: 'business economy', es: 'economía', it: 'economia', fr: 'économie', pt: 'economia' } },
+  { id: 'tech', label: 'Tech & KI', w: { de: 'Technologie KI', en: 'technology AI', es: 'tecnología inteligencia artificial', it: 'tecnologia', fr: 'technologie', pt: 'tecnologia' } },
+  { id: 'sport', label: 'Sport', w: { de: 'Sport', en: 'sport', es: 'deportes', it: 'sport', fr: 'sport', pt: 'esportes' } },
+  { id: 'kultur', label: 'Kultur', w: { de: 'Kultur', en: 'culture', es: 'cultura', it: 'cultura', fr: 'culture', pt: 'cultura' } },
+  { id: 'wissen', label: 'Wissenschaft', w: { de: 'Wissenschaft', en: 'science', es: 'ciencia', it: 'scienza', fr: 'science', pt: 'ciência' } },
 ];
 const o = (name, url, lang, sec = {}) => ({ name, url, lang, sec });
 export const OUTLETS = [
@@ -122,9 +123,9 @@ export const OUTLETS = [
 // Link einer Zeitung für eine Rubrik: { url, direct } – direct = echte Rubrik-Seite, sonst Google-News-Suche auf der Seite
 export function outletLink(x, rubrik = 'start') {
   if (rubrik === 'start') return { url: x.url, direct: true };
-  const p = x.sec[rubrik];
+  const p = (x.sec || {})[rubrik];
   if (p) return { url: /^https?:/.test(p) ? p : new URL(p, new URL(x.url).origin).href, direct: true };
-  const r = RUBRIKEN.find((y) => y.id === rubrik);
+  const r = RUBRIKEN.find((y) => y.id === rubrik) || (store.get().profile?.newsRubriken?.added || []).find((y) => y.id === rubrik);
   const q = `site:${host(x.url)} ${r?.w?.[x.lang] || r?.label || ''}`;
   return { url: `https://www.google.com/search?q=${enc(q)}&tbm=nws&tbs=qdr:w`, direct: false };
 }
@@ -203,3 +204,70 @@ export function addSource({ name, url, note = '', type = '', topics = [] }) {
   return id;
 }
 export const removeSource = (id) => store.update((s) => { s.newsSources = (s.newsSources || []).filter((x) => x.id !== id); });
+
+// ---------- v1.03 (Mateo): alles bearbeitbar – Arten (Zeitungen ist eine davon), Rubriken, Länder, Themen ----------
+const prof = (fn) => store.update((s) => { s.profile = { ...(s.profile || {}) }; fn(s.profile); });
+// Arten
+export const NEWS_TYPES = [{ id: 'zeitungen', label: 'Zeitungen', emoji: '🗞' }, ...SOURCE_TYPES];
+export function newsTypesOf(s) {
+  const c = s.profile?.newsTypes || {};
+  return [...NEWS_TYPES.filter((t) => !(c.hidden || []).includes(t.id)), ...(c.added || [])];
+}
+export const addNewsType = (label) => { const l = String(label || '').trim(); if (!l) return; prof((p) => { const c = p.newsTypes || {}; p.newsTypes = { ...c, added: [...(c.added || []), { id: `t${uid().slice(0, 6)}`, label: l, emoji: '📌' }] }; }); };
+export const removeNewsType = (id) => prof((p) => { const c = p.newsTypes || {}; p.newsTypes = NEWS_TYPES.some((t) => t.id === id) ? { ...c, hidden: [...new Set([...(c.hidden || []), id])] } : { ...c, added: (c.added || []).filter((t) => t.id !== id) }; });
+export const resetNewsTypes = () => prof((p) => { p.newsTypes = {}; });
+// Rubriken
+export function rubrikenOf(s) {
+  const c = s.profile?.newsRubriken || {};
+  return [...RUBRIKEN.filter((r) => r.id === 'start' || !(c.hidden || []).includes(r.id)), ...(c.added || [])];
+}
+export const addRubrik = (label) => { const l = String(label || '').trim(); if (!l) return; prof((p) => { const c = p.newsRubriken || {}; p.newsRubriken = { ...c, added: [...(c.added || []), { id: `r${uid().slice(0, 6)}`, label: l }] }; }); };
+export const removeRubrik = (id) => prof((p) => { const c = p.newsRubriken || {}; p.newsRubriken = RUBRIKEN.some((r) => r.id === id) ? { ...c, hidden: [...new Set([...(c.hidden || []), id])] } : { ...c, added: (c.added || []).filter((r) => r.id !== id) }; });
+export const resetRubriken = () => prof((p) => { p.newsRubriken = {}; });
+// Themen der Quellen
+export const topicsListOf = (s) => s.profile?.newsTopics || [...new Set([...SOURCE_TOPICS, ...(s.newsSources || []).flatMap((x) => x.topics || [])])];
+export const setTopicsList = (list) => prof((p) => { p.newsTopics = list; });
+// Länder mit Zeitungen
+export const countriesOf = (s) => s.profile?.newsCountries || OUTLETS;
+const setCountries = (fn) => store.update((s) => { s.profile = { ...(s.profile || {}) }; const list = JSON.parse(JSON.stringify(s.profile.newsCountries || OUTLETS)); s.profile.newsCountries = fn(list) || list; });
+export const removeCountry = (region) => setCountries((l) => l.filter((c) => c.region !== region));
+export const addCountry = (region, flag, list) => setCountries((l) => [...l.filter((c) => c.region !== region), { region, flag: flag || '🌍', list: list.map((x) => ({ name: x.name, url: x.url, lang: x.lang || 'en', sec: {} })) }]);
+export const addPaper = (region, x) => setCountries((l) => { const c = l.find((y) => y.region === region); if (c && !c.list.some((p) => p.url === x.url)) c.list.push({ name: x.name, url: x.url, lang: x.lang || 'en', sec: {} }); });
+export const removePaper = (region, url) => setCountries((l) => { const c = l.find((y) => y.region === region); if (c) c.list = c.list.filter((p) => p.url !== url); });
+export const resetCountries = () => prof((p) => { delete p.newsCountries; });
+const P = (name, url, lang) => ({ name, url, lang });
+export const COUNTRY_PAPERS = {
+  italien: { region: 'Italien', flag: '🇮🇹', list: [P('Corriere della Sera', 'https://www.corriere.it', 'it'), P('la Repubblica', 'https://www.repubblica.it', 'it'), P('La Stampa', 'https://www.lastampa.it', 'it'), P('Il Sole 24 Ore', 'https://www.ilsole24ore.com', 'it'), P('ANSA', 'https://www.ansa.it', 'it')] },
+  frankreich: { region: 'Frankreich', flag: '🇫🇷', list: [P('Le Monde', 'https://www.lemonde.fr', 'fr'), P('Le Figaro', 'https://www.lefigaro.fr', 'fr'), P('Libération', 'https://www.liberation.fr', 'fr'), P('Les Echos', 'https://www.lesechos.fr', 'fr'), P('France 24', 'https://www.france24.com/fr/', 'fr')] },
+  spanien: { region: 'Spanien', flag: '🇪🇸', list: [P('El País', 'https://elpais.com', 'es'), P('El Mundo', 'https://www.elmundo.es', 'es'), P('La Vanguardia', 'https://www.lavanguardia.com', 'es'), P('Expansión', 'https://www.expansion.com', 'es'), P('ABC', 'https://www.abc.es', 'es')] },
+  brasilien: { region: 'Brasilien', flag: '🇧🇷', list: [P('Folha de S.Paulo', 'https://www.folha.uol.com.br', 'pt'), P('O Globo', 'https://oglobo.globo.com', 'pt'), P('Estadão', 'https://www.estadao.com.br', 'pt'), P('Valor Econômico', 'https://valor.globo.com', 'pt'), P('G1', 'https://g1.globo.com', 'pt')] },
+  portugal: { region: 'Portugal', flag: '🇵🇹', list: [P('Público', 'https://www.publico.pt', 'pt'), P('Expresso', 'https://expresso.pt', 'pt'), P('Observador', 'https://observador.pt', 'pt'), P('Diário de Notícias', 'https://www.dn.pt', 'pt')] },
+  uk: { region: 'Großbritannien', flag: '🇬🇧', list: [P('BBC News', 'https://www.bbc.com/news', 'en'), P('The Guardian', 'https://www.theguardian.com', 'en'), P('The Times', 'https://www.thetimes.co.uk', 'en'), P('Financial Times', 'https://www.ft.com', 'en'), P('The Telegraph', 'https://www.telegraph.co.uk', 'en')] },
+  schweiz: { region: 'Schweiz', flag: '🇨🇭', list: [P('NZZ', 'https://www.nzz.ch', 'de'), P('Tages-Anzeiger', 'https://www.tagesanzeiger.ch', 'de'), P('SRF News', 'https://www.srf.ch/news', 'de'), P('Le Temps', 'https://www.letemps.ch', 'fr')] },
+  oesterreich: { region: 'Österreich', flag: '🇦🇹', list: [P('Der Standard', 'https://www.derstandard.at', 'de'), P('Die Presse', 'https://www.diepresse.com', 'de'), P('ORF News', 'https://orf.at', 'de'), P('Kurier', 'https://kurier.at', 'de')] },
+  mexiko: { region: 'Mexiko', flag: '🇲🇽', list: [P('El Universal', 'https://www.eluniversal.com.mx', 'es'), P('Reforma', 'https://www.reforma.com', 'es'), P('Milenio', 'https://www.milenio.com', 'es'), P('El Financiero', 'https://www.elfinanciero.com.mx', 'es')] },
+  chile: { region: 'Chile', flag: '🇨🇱', list: [P('El Mercurio', 'https://www.emol.com', 'es'), P('La Tercera', 'https://www.latercera.com', 'es'), P('Diario Financiero', 'https://www.df.cl', 'es'), P('BioBioChile', 'https://www.biobiochile.cl', 'es')] },
+  uruguay: { region: 'Uruguay', flag: '🇺🇾', list: [P('El País (UY)', 'https://www.elpais.com.uy', 'es'), P('El Observador', 'https://www.elobservador.com.uy', 'es'), P('la diaria', 'https://ladiaria.com.uy', 'es')] },
+  kolumbien: { region: 'Kolumbien', flag: '🇨🇴', list: [P('El Tiempo', 'https://www.eltiempo.com', 'es'), P('El Espectador', 'https://www.elespectador.com', 'es'), P('Semana', 'https://www.semana.com', 'es')] },
+  china: { region: 'China', flag: '🇨🇳', list: [P('South China Morning Post', 'https://www.scmp.com', 'en'), P('Caixin Global', 'https://www.caixinglobal.com', 'en'), P('Sixth Tone', 'https://www.sixthtone.com', 'en'), P('China Daily', 'https://www.chinadaily.com.cn', 'en')] },
+  japan: { region: 'Japan', flag: '🇯🇵', list: [P('Nikkei Asia', 'https://asia.nikkei.com', 'en'), P('The Japan Times', 'https://www.japantimes.co.jp', 'en'), P('NHK World', 'https://www3.nhk.or.jp/nhkworld/', 'en')] },
+  indien: { region: 'Indien', flag: '🇮🇳', list: [P('The Hindu', 'https://www.thehindu.com', 'en'), P('Times of India', 'https://timesofindia.indiatimes.com', 'en'), P('Indian Express', 'https://indianexpress.com', 'en'), P('Mint', 'https://www.livemint.com', 'en')] },
+  israel: { region: 'Israel', flag: '🇮🇱', list: [P('Haaretz', 'https://www.haaretz.com', 'en'), P('The Times of Israel', 'https://www.timesofisrael.com', 'en'), P('Jerusalem Post', 'https://www.jpost.com', 'en')] },
+  kanada: { region: 'Kanada', flag: '🇨🇦', list: [P('CBC News', 'https://www.cbc.ca/news', 'en'), P('The Globe and Mail', 'https://www.theglobeandmail.com', 'en'), P('Toronto Star', 'https://www.thestar.com', 'en')] },
+};
+const ALIAS = { england: 'uk', grossbritannien: 'uk', 'großbritannien': 'uk', vereinigtes: 'uk', 'österreich': 'oesterreich', austria: 'oesterreich', italy: 'italien', italia: 'italien', france: 'frankreich', spain: 'spanien', 'españa': 'spanien', brazil: 'brasilien', brasil: 'brasilien', mexico: 'mexiko', 'méxico': 'mexiko', colombia: 'kolumbien', japon: 'japan', india: 'indien', canada: 'kanada', suisse: 'schweiz' };
+export function knownCountry(name) {
+  const n = norm(name);
+  const k = COUNTRY_PAPERS[n] ? n : ALIAS[n] || Object.keys(COUNTRY_PAPERS).find((key) => norm(COUNTRY_PAPERS[key].region) === n);
+  return k ? COUNTRY_PAPERS[k] : null;
+}
+const PAPERS_TOOL = {
+  name: 'zeitungen',
+  description: 'Wichtige Nachrichtenseiten eines Landes',
+  input_schema: { type: 'object', properties: { flagge: { type: 'string', description: 'Flaggen-Emoji' }, land: { type: 'string', description: 'Ländername auf Deutsch' }, zeitungen: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, url: { type: 'string', description: 'Startseite, nur wenn sicher bekannt' }, sprache: { type: 'string', description: 'zweistelliger Sprachcode, z.B. de, en, es' } }, required: ['name', 'url'] } } }, required: ['zeitungen'] },
+};
+// KI ohne Internet schlägt 4–6 wichtige, seriöse Nachrichtenseiten vor (unter 1 Cent)
+export async function suggestPapers(country) {
+  const r = await searchWithTool({ system: 'Nenne die 4–6 wichtigsten, seriösen Nachrichtenseiten (Zeitungen/Sender) des Landes mit ihrer Startseite. Gemischt: Leitmedien, Wirtschaft, wenn möglich eine englischsprachige Quelle. Nur URLs, die du sicher kennst. Antworte mit "zeitungen".', user: country, tool: PAPERS_TOOL, maxUses: 0, maxTokens: 1500, label: 'Zeitungen vorschlagen' });
+  return { region: r.land || country, flag: r.flagge || '🌍', list: (r.zeitungen || []).filter((x) => /^https?:\/\//.test(x.url || '')).map((x) => ({ name: x.name, url: x.url, lang: x.sprache || 'en' })) };
+}

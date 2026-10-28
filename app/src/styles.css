@@ -635,3 +635,7 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 /* v1.01 Fußleiste in Fenstern (bleibt unten sichtbar) */
 .sheet-foot { position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom)); display: flex; gap: 8px; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); margin-bottom: calc(-24px - env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); z-index: 3; }
 .sheet-foot .btn { flex: 1; }
+
+/* v1.03: Inhalte in Fenstern nie zusammenquetschen – lange Listen (z.B. Gäste aus Menschen) scrollen jetzt */
+.sheet > * { flex-shrink: 0; }
+.sheet { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
