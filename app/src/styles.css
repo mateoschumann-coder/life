@@ -189,7 +189,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 @keyframes fade { from { opacity: 0; } }
 @keyframes up { from { transform: translateY(40px); opacity: 0.6; } }
 
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 30; background: var(--primary); color: var(--on-primary); padding: 11px 18px; border-radius: 999px; font-size: 15px; font-weight: 500; white-space: nowrap; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); animation: up 0.2s ease-out; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 30; background: var(--primary); color: var(--on-primary); padding: 11px 18px; border-radius: 999px; font-size: 15px; font-weight: 500; white-space: normal; max-width: calc(100vw - 32px); width: max-content; text-align: center; border-radius: 18px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); animation: up 0.2s ease-out; }
 
 /* Heatmap */
 .heat { display: grid; grid-auto-flow: column; }

@@ -14,6 +14,8 @@ import { getAi } from '../lib/ai';
 import { cityHere, searchWithTool } from '../lib/outings';
 import MiniChart from '../components/MiniChart';
 import PaceCalc from '../components/PaceCalc';
+import RemovedList from '../components/RemovedList';
+import { archiveSportEvent, restoreSportEvent } from '../lib/actions';
 import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 import { Missing } from './Saeule';
 
@@ -142,7 +144,7 @@ function SportsPage({ s }) {
   const [adding, setAdding] = useState(false);
   const [f, setF] = useState({ name: '', date: '', place: '', url: '', sportId: '' });
   const [showPast, setShowPast] = useState(false);
-  const [tab, setTabState] = useState(() => { try { return localStorage.getItem('life-app-sport-tab') || 'finden'; } catch { return 'finden'; } });
+  const [tab, setTabState] = useState(() => { try { return localStorage.getItem('life-app-sport-tab') || 'meine'; } catch { return 'meine'; } });
   const setTab = (v) => { setTabState(v); try { localStorage.setItem('life-app-sport-tab', v); } catch {} };
   const all = (s.sportEvents || []).filter((e) => s.sports.some((x) => x.id === e.sportId) && (!pick.length || pick.includes(e.sportId))).sort((a, b) => ((a.date || '9') < (b.date || '9') ? -1 : 1));
   const isPast = (e) => e.status === 'dabei' || (e.date && e.date < t);
@@ -192,7 +194,7 @@ function SportsPage({ s }) {
       </span>
       {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
       {children}
-      <button type="button" className="x-btn" aria-label={`${e.name} löschen`} onClick={() => confirm(`„${e.name}“ löschen?`) && removeSportEvent(e.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+      <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveSportEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
     </div>
   );
   const likedBySport = s.sports.map((sp) => ({ sp, list: liked.filter((e) => e.sportId === sp.id) })).filter((g) => g.list.length);
@@ -230,7 +232,7 @@ function SportsPage({ s }) {
         )}
         {s.sports.length === 0 && !editSports && <span className="sub">Tippe auf den Stift und füg deine Sportarten hinzu.</span>}
         </>}
-        <Segmented full options={[{ id: 'finden', label: 'Events finden' }, { id: 'meine', label: `Meine Events${going.length + liked.length ? ` · ${going.length + liked.length}` : ''}` }, { id: 'rechner', label: 'Rechner' }]} value={tab} onChange={setTab} label="Ansicht" />
+        <Segmented full options={[{ id: 'meine', label: `Meine Events${going.length + liked.length ? ` · ${going.length + liked.length}` : ''}` }, { id: 'finden', label: 'Events finden' }, { id: 'rechner', label: 'Rechner' }]} value={tab} onChange={setTab} label="Ansicht" />
 
         {adding && (
           <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f })) toast('Notiert'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
@@ -343,6 +345,7 @@ function SportsPage({ s }) {
             ))}</div>}
           </section>
         )}
+        <RemovedList items={(s.removedSportEvents || []).filter((e) => !pick.length || pick.includes(e.sportId))} storeKey="removedSportEvents" onRestore={restoreSportEvent} meta={(e) => [e.date && fmtShort(e.date), e.place, s.sports.find((x) => x.id === e.sportId)?.name].filter(Boolean).join(' · ')} />
         </>}
         {tab === 'rechner' && (
           <section className="card" style={{ gap: 10 }}>

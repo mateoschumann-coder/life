@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
-import { addEvent, addPlace, addPlaceCat, addTask, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
+import { addEvent, addPlace, addPlaceCat, addTask, archiveEvent, archivePlace, restoreEvent, restorePlace, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
 import {
   allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
 } from '../lib/outings';
@@ -9,7 +9,9 @@ import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
-import { Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
+import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
+import RemovedList from '../components/RemovedList';
+import { fromHeute } from '../lib/router';
 
 const wd = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
 const TAB_KEY = 'life-app-ausgehen-tab';
@@ -209,11 +211,13 @@ function Events({ s, city, view = 'find' }) {
     toast(stage === 'zugesagt' ? 'Zugesagt und im Kalender' : 'Gemerkt' + (r.date ? ' und am Tag eingetragen' : ''));
   };
 
-  const mine = s.events.filter((e) => e.stage !== 'besucht' && !e.travel && eventCity(e) === city);
+  const mine = s.events.filter((e) => !e.travel && eventCity(e) === city);
+  const [pastOpen, setPastOpen] = useState(false);
   const resCity = search?.city || HOME_CITY;
   const shown = search && resCity === city ? search : null; // v0.87: KI-Vorschläge nur in ihrer Stadt (bleiben, kommen beim Zurückwechseln wieder)
-  const upcoming = mine.filter((e) => !e.date || e.date >= t).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
-  const past = mine.filter((e) => e.date && e.date < t);
+  const upcoming = mine.filter((e) => e.stage !== 'besucht' && (!e.date || e.date >= t)).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+  const past = mine.filter((e) => e.date && e.date < t).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const removed = (s.removedEvents || []).filter((e) => !e.travel && eventCity(e) === city);
   const fresh = (shown?.results || []).filter((r) => r.status === 'neu');
 
   return (
@@ -282,20 +286,10 @@ function Events({ s, city, view = 'find' }) {
       )}
       </>}
 
-      {view === 'mine' && <section className="group">
+      {view === 'mine' && <>
+      <section className="group">
         <div className="list">
-          {upcoming.length === 0 && past.length === 0 && <div className="empty">Noch nichts vorgemerkt. Unter „Finden“ suchen und „Interessiert“ oder „Bin dabei“ tippen.</div>}
-          {past.map((e) => (
-            <div key={e.id} className="row" style={{ minHeight: 64 }}>
-              <DateBadge date={e.date} />
-              <div className="row-main">
-                <span className="row-title plain">{e.name}</span>
-                <span className="row-meta">Warst du da?</span>
-              </div>
-              <button type="button" className="pill on" onClick={() => { setEventStage(e.id, 'besucht'); toast('Schön! Als besucht gespeichert'); }}>Ja</button>
-              <button type="button" className="pill" onClick={() => deleteEvent(e.id)}>Nein</button>
-            </div>
-          ))}
+          {upcoming.length === 0 && <div className="empty">Nichts Anstehendes. Unter „Finden“ suchen und „Interessiert“ oder „Bin dabei“ tippen.</div>}
           {upcoming.map((e) => (
             <div key={e.id} className="row" style={{ minHeight: 64 }}>
               <DateBadge date={e.date} />
@@ -304,11 +298,34 @@ function Events({ s, city, view = 'find' }) {
                 <span className="row-meta">{[e.stage === 'zugesagt' ? 'Dabei' : e.stage === 'interessiert' ? 'Interessiert' : 'Entdeckt', e.time, e.place].filter(Boolean).join(' · ')}</span>
               </div>
               {e.stage !== 'zugesagt' && <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>}
-              <button type="button" className="x-btn" aria-label={`${e.name} entfernen`} onClick={() => deleteEvent(e.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+              <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
             </div>
           ))}
         </div>
-      </section>}
+      </section>
+      {/* v0.97 (Mateo): Vergangenes und Rausgenommenes bleiben unten erhalten */}
+      {past.length > 0 && (
+        <section className="group">
+          <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', padding: 4 }} onClick={() => setPastOpen(!pastOpen)}>{pastOpen ? '▴ Vergangen ausblenden' : `▾ Vergangen (${past.length})${past.some((e) => e.stage !== 'besucht') ? ' – warst du da?' : ''}`}</button>
+          {pastOpen && (
+            <div className="list">
+              {past.map((e) => (
+                <div key={e.id} className="row" style={{ minHeight: 60 }}>
+                  <DateBadge date={e.date} />
+                  <div className="row-main">
+                    <span className="row-title plain">{e.name}</span>
+                    <span className="row-meta">{e.stage === 'besucht' ? '✓ Warst du da' : 'Warst du da?'}</span>
+                  </div>
+                  {e.stage !== 'besucht' && <button type="button" className="pill on" onClick={() => { setEventStage(e.id, 'besucht'); toast('Schön! Als besucht gespeichert'); }}>Ja</button>}
+                  <button type="button" className="pill" onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}>{e.stage === 'besucht' ? '✕' : 'Nein'}</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+      <RemovedList items={removed} storeKey="removedEvents" onRestore={restoreEvent} meta={(e) => [e.date && fmtShort(e.date), e.place].filter(Boolean).join(' · ')} />
+      </>}
     </>
   );
 }
@@ -435,7 +452,7 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} placeholder="z.B. Bester Flat White, gut zum Arbeiten, Terrasse" /></Field>
       <Field label="Link (optional)"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Instagram, Website …" /></Field>
       <button type="button" className="btn" onClick={save} disabled={!f.name.trim()}>Speichern</button>
-      {place && <button type="button" className="btn danger" onClick={() => { if (confirm(`„${place.name}“ löschen?`)) { deletePlace(place.id); onClose(); } }}>Löschen</button>}
+      {place && <button type="button" className="btn danger" onClick={() => { archivePlace(place.id); toast('Rausgenommen – unten zurückholbar'); onClose(); }}>Rausnehmen</button>}
     </Sheet>
   );
 }
@@ -633,6 +650,7 @@ function Orte({ s, city, view = 'mine' }) {
         </section>
       ))}
 
+      <RemovedList items={(s.removedPlaces || []).filter((p) => placeCity(p) === city)} storeKey="removedPlaces" onRestore={restorePlace} meta={(p) => [p.subcat || p.category, p.hood].filter(Boolean).join(' · ')} />
       </>)}
       {view === 'find' && <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Orte in {city} entdecken</span>
@@ -745,6 +763,7 @@ export default function Ausgehen() {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {fromHeute() && <Back href="#/heute" label="Heute" />}
           <span className="eyebrow">{soon.length ? `Diese Woche: ${soon.map((e) => `${e.name} (${fmtShort(e.date)})`).join(', ')}` : 'Events und Lieblingsorte'}</span>
           <h1 className="h1">Ausgehen</h1>
         </div>

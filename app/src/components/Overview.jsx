@@ -54,6 +54,7 @@ function SecPicker({ avail, sel, onChange }) {
 // v0.96 (Mateo): ganze Zeile antippen = zum Bereich (vorher nur der schmale Text/Pfeil – klappte nicht immer)
 const openLink = (link) => {
   if (link === '#/heute') { document.getElementById('tagesliste')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if (link === '#/sport') { try { localStorage.setItem('life-app-sport-tab', 'meine'); } catch {} } // Sport → Meine Events, nicht der Rechner
   markFromHeute(link);
   go(link.replace(/^#/, ''));
 };

@@ -5,7 +5,8 @@ import { store, useStore } from '../lib/store';
 import { daysUntilBirthday, diffDays, fmtShort, relDays, targetText, today } from '../lib/dates';
 import { contactDue, initials, lastContact, peopleOverdue, upcomingBirthdays, waLink, WHEN_IN_MONTH } from '../lib/logic';
 import { logContact } from '../lib/actions';
-import { Check, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { fromHeute } from '../lib/router';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 import ContactImport from '../components/ContactImport';
 
@@ -230,12 +231,15 @@ function KeepTab({ s, t }) {
             <Info>Die App verteilt die Termine von selbst: Wer noch nie gemeldet wurde, bekommt einen Termin irgendwo im ersten Intervall – nicht alle am selben Tag. Danach zählt der letzte Kontakt plus Intervall, mit etwas Spielraum (±15 %), damit es nicht immer derselbe Tag ist. Ab „monatlich“ kannst du zusätzlich Anfang, Mitte oder Ende des Monats wählen. „Läuft von selbst“ = ihr habt sowieso Kontakt, keine Erinnerung.</Info>
           </span>
           {/* v0.96 (Mateo): nach Häufigkeit filtern und sortieren */}
-          <div className="box-tabs">
-            {[{ v: 'alle', label: 'Alle' }, ...RHYTHMS].map((r) => {
-              const n = r.v === 'alle' ? s.people.length : s.people.filter((p) => rhythmValue(p) === r.v).length;
-              if (r.v !== 'alle' && !n) return null;
-              return <button key={r.v} type="button" className={freq === r.v ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setFreq(r.v)}>{r.v === 'alle' ? 'Alle' : r.v === 0 ? 'Kein Ziel' : r.short} · {n}</button>;
-            })}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0 2px', flexWrap: 'wrap' }}>
+            <label className="tiny" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>Zeigen:
+              <select className="input rhythm-sel" style={{ fontWeight: 600, color: freq === 'alle' ? 'var(--text)' : 'var(--accent)' }} value={String(freq)} onChange={(e) => setFreq(e.target.value === 'alle' ? 'alle' : Number(e.target.value))} aria-label="Nach Häufigkeit filtern">
+                {[{ v: 'alle', label: 'Alle' }, ...RHYTHMS].map((r) => {
+                  const n = r.v === 'alle' ? s.people.length : s.people.filter((p) => rhythmValue(p) === r.v).length;
+                  return <option key={r.v} value={String(r.v)}>{r.v === 'alle' ? 'Alle' : r.v === 0 ? 'Kein Ziel' : r.label} ({n})</option>;
+                })}
+              </select>
+            </label>
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '0 2px' }}>
             <span className="tiny">Sortieren:</span>
@@ -277,6 +281,7 @@ export default function Menschen() {
   return (
     <>
       <main className="screen">
+        {fromHeute() && <Back href="#/heute" label="Heute" />}
         <div className="top">
           <h1 className="h1">Menschen</h1>
           <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

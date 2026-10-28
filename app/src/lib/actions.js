@@ -329,3 +329,21 @@ export function deleteMemory(id) {
     s.memory = s.memory.filter((x) => x.id !== id);
   });
 }
+
+// v0.97 (Mateo): Rausnehmen statt Löschen – Events, Orte und Sport-Events wandern in eine eigene Liste
+// („Rausgenommen“), lassen sich zurückholen und erst dort endgültig löschen.
+const moveBetween = (from, to, id, patch) => store.update((s) => {
+  const list = s[from] || [];
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) return;
+  const x = { ...list[i], ...patch };
+  s[from] = list.filter((y) => y.id !== id);
+  s[to] = [...(s[to] || []), x];
+});
+export const archiveEvent = (id) => moveBetween('events', 'removedEvents', id, { removedAt: today() });
+export const restoreEvent = (id) => moveBetween('removedEvents', 'events', id, { removedAt: null });
+export const archivePlace = (id) => moveBetween('places', 'removedPlaces', id, { removedAt: today() });
+export const restorePlace = (id) => moveBetween('removedPlaces', 'places', id, { removedAt: null });
+export const archiveSportEvent = (id) => moveBetween('sportEvents', 'removedSportEvents', id, { removedAt: today() });
+export const restoreSportEvent = (id) => moveBetween('removedSportEvents', 'sportEvents', id, { removedAt: null });
+export const purgeRemoved = (key, id) => store.update((s) => { s[key] = (s[key] || []).filter((x) => x.id !== id); });
