@@ -639,3 +639,17 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 /* v1.03: Inhalte in Fenstern nie zusammenquetschen – lange Listen (z.B. Gäste aus Menschen) scrollen jetzt */
 .sheet > * { flex-shrink: 0; }
 .sheet { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+/* v1.05 Markt-Charts */
+.mk-card { padding: 14px 14px 10px; gap: 6px; }
+.mk-head { display: flex; flex-direction: column; gap: 1px; }
+.mk-title { font-size: 15px; color: var(--muted); font-weight: 600; }
+.mk-price { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.mk-price small { font-size: 13px; font-weight: 500; color: var(--muted); }
+.mk-ch { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mk-when { color: var(--muted); font-weight: 500; }
+.mk-svg { width: 100%; height: 140px; display: block; touch-action: pan-y; margin-top: 4px; }
+.mk-load { height: 140px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; }
+.mk-axis { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mk-ranges { display: flex; justify-content: space-between; gap: 2px; margin-top: 4px; border-top: 1px solid var(--line, rgba(0,0,0,.06)); padding-top: 8px; }
+.mk-ranges button { flex: 1; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--muted); padding: 6px 0; border-radius: 8px; }
+.mk-ranges button.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }

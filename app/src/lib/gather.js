@@ -23,14 +23,19 @@ export const OCCASIONS = {
   allgemein_aus: { label: 'Allgemein', emoji: '📋', kind: 'auswaerts', todos: withBase('auswaerts', {}), shop: {} },
   asado: { label: 'Asado / Grillen', emoji: '🔥', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Fleisch bestellen', 'Grill checken'], Vorbereiten: ['Feuer anmachen', 'Chimichurri machen'] }), shop: { Essen: ['Vacío', 'Chorizo', 'Morcilla', 'Provoleta', 'Brot', 'Salat', 'Chimichurri'], Getränke: ['Bier', 'Wein', 'Fernet', 'Cola', 'Wasser', 'Eis'], Sonstiges: ['Kohle', 'Grillanzünder', 'Servietten'] } },
   geburtstag: { label: 'Geburtstag', emoji: '🎂', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Torte bestellen'], Vorbereiten: ['Dekorieren'] }), shop: { Essen: ['Torte', 'Snacks', 'Chips', 'Fingerfood'], Getränke: ['Sekt', 'Bier', 'Softdrinks', 'Wasser', 'Eis'], Sonstiges: ['Kerzen', 'Deko', 'Servietten', 'Pappbecher'] } },
-  abendessen: { label: 'Abendessen', emoji: '🍝', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Allergien abfragen'], Vorbereiten: ['Tisch decken'] }), shop: { Essen: ['Vorspeise', 'Hauptgericht', 'Dessert', 'Brot'], Getränke: ['Wein', 'Wasser'], Sonstiges: ['Servietten', 'Kerzen'] } },
-  party: { label: 'Party', emoji: '🎉', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Nachbarn informieren'], Vorbereiten: ['Musikbox laden', 'Platz schaffen', 'Playlist'] }), shop: { Essen: ['Chips', 'Nüsse', 'Pizza'], Getränke: ['Bier', 'Fernet', 'Cola', 'Gin', 'Tonic', 'Wasser', 'Eis'], Sonstiges: ['Pappbecher', 'Müllbeutel'] } },
-  spieleabend: { label: 'Spieleabend', emoji: '🎲', kind: 'zuhause', todos: withBase('zuhause', { Vorbereiten: ['Spiele raussuchen'] }), shop: { Essen: ['Chips', 'Salzstangen', 'Popcorn', 'Pizza'], Getränke: ['Bier', 'Softdrinks', 'Wasser'] } },
+  abendessen: { label: 'Abendessen', emoji: '🍝', kind: 'zuhause', mottos: ['Italienisch', 'Mexikanisch', 'Fondue', 'Raclette', 'Asiatisch', 'Tapas'], todos: withBase('zuhause', { Planen: ['Allergien abfragen'], Vorbereiten: ['Tisch decken'] }), shop: { Essen: ['Vorspeise', 'Hauptgericht', 'Dessert', 'Brot'], Getränke: ['Wein', 'Wasser'], Sonstiges: ['Servietten', 'Kerzen'] } },
+  party: { label: 'Party', emoji: '🎉', kind: 'zuhause', mottos: ['80er', '90er', 'Halloween', 'Bad Taste', 'Weiß', 'Karaoke'], todos: withBase('zuhause', { Planen: ['Nachbarn informieren'], Vorbereiten: ['Musikbox laden', 'Platz schaffen', 'Playlist'] }), shop: { Essen: ['Chips', 'Nüsse', 'Pizza'], Getränke: ['Bier', 'Fernet', 'Cola', 'Gin', 'Tonic', 'Wasser', 'Eis'], Sonstiges: ['Pappbecher', 'Müllbeutel'] } },
+  spieleabend: { label: 'Spieleabend', emoji: '🎲', kind: 'zuhause', mottos: ['Brettspiele', 'Poker', 'Quiz', 'Werwolf', 'Videospiele'], todos: withBase('zuhause', { Vorbereiten: ['Spiele raussuchen'] }), shop: { Essen: ['Chips', 'Salzstangen', 'Popcorn', 'Pizza'], Getränke: ['Bier', 'Softdrinks', 'Wasser'] } },
   filmabend: { label: 'Filmabend', emoji: '🎬', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Film wählen'], Vorbereiten: ['TV testen', 'Decken bereitlegen'] }), shop: { Essen: ['Popcorn', 'Chips', 'Schokolade'], Getränke: ['Softdrinks', 'Bier'] } },
   brunch: { label: 'Brunch', emoji: '🥐', kind: 'zuhause', todos: withBase('zuhause', { Vorbereiten: ['Tisch decken', 'Kaffee vorbereiten'] }), shop: { Essen: ['Brötchen', 'Medialunas', 'Eier', 'Käse', 'Aufschnitt', 'Obst', 'Joghurt', 'Marmelade'], Getränke: ['Kaffee', 'Orangensaft', 'Sekt'] } },
-  essen: { label: 'Essen gehen', emoji: '🍽', kind: 'auswaerts', todos: withBase('auswaerts', {}), shop: {} },
-  bar: { label: 'Bar / Ausgehen', emoji: '🍸', kind: 'auswaerts', todos: withBase('auswaerts', { Vorbereiten: ['Heimweg klären'] }), shop: {} },
-  ausflug: { label: 'Ausflug', emoji: '🚐', kind: 'auswaerts', todos: Z(['Termin festlegen', 'Leute einladen', 'Treffpunkt festlegen', 'Transport klären'], ['Wetter checken', 'Proviant packen'], ['Fotos teilen']), shop: {} },
+  // v1.05 (Mateo): „Woanders“ hat eigene Vorlagen – welche Art von Unternehmung? Mit Motto-Ideen und Mitbringen
+  essen: { label: 'Restaurant', emoji: '🍽', kind: 'auswaerts', todos: Z(['Termin festlegen', 'Küche / Motto wählen', 'Restaurant aussuchen', 'Reservieren', 'Leute einladen'], ['Reservierung bestätigen', 'Adresse schicken'], ['Rechnung teilen']), shop: {}, mottos: ['Parrilla', 'Italienisch', 'Sushi', 'Mexikanisch', 'Bodegón', 'Vegetarisch', 'Rooftop', 'Tapas'] },
+  bar: { label: 'Bar / Ausgehen', emoji: '🍸', kind: 'auswaerts', todos: Z(['Termin festlegen', 'Bar aussuchen', 'Leute einladen', 'Tisch reservieren'], ['Treffpunkt schicken', 'Heimweg klären'], ['Rechnung teilen']), shop: {}, mottos: ['Cocktailbar', 'Rooftop', 'Craft-Bier', 'Weinbar', 'Live-Musik', 'Speakeasy', 'Club danach'] },
+  picknick: { label: 'Picknick', emoji: '🧺', kind: 'auswaerts', todos: Z(['Termin festlegen', 'Park aussuchen', 'Leute einladen', 'Wer bringt was'], ['Wetter checken', 'Essen vorbereiten', 'Getränke kühlen', 'Korb packen'], ['Müll mitnehmen']), shop: {}, bring: ['Decke', 'Essen', 'Getränke', 'Becher', 'Besteck', 'Servietten', 'Müllbeutel', 'Musikbox'], mottos: ['Frühstück im Park', 'Sonnenuntergang', 'Wein & Käse', 'Mate & Facturas', 'Am Wasser'] },
+  ausflug: { label: 'Tagesausflug', emoji: '🥾', kind: 'auswaerts', todos: Z(['Ziel aussuchen', 'Termin festlegen', 'Leute einladen', 'Anfahrt planen', 'Tickets checken'], ['Treffpunkt & Uhrzeit schicken', 'Wetter checken', 'Proviant packen'], ['Fotos teilen', 'Kosten teilen']), shop: {}, bring: ['Wasser', 'Snacks', 'Sonnencreme', 'Jacke'], mottos: ['Wandern', 'Strand', 'Weingut', 'Tigre / Delta', 'Estancia', 'Städtchen erkunden', 'Fahrradtour'] },
+  kurztrip: { label: 'Kurztrip / Wochenende', emoji: '🧳', kind: 'auswaerts', todos: Z(['Ziel aussuchen', 'Termin festlegen', 'Budget klären', 'Unterkunft buchen', 'Anreise buchen'], ['Plan vor Ort', 'Dokumente checken', 'Packen'], ['Kosten teilen', 'Fotos teilen']), shop: {}, mottos: ['Uruguay', 'Strand', 'Berge', 'Städtetrip', 'Wellness', 'Natur & Ruhe'] },
+  kultur: { label: 'Konzert & Kultur', emoji: '🎤', kind: 'auswaerts', todos: Z(['Event aussuchen', 'Tickets kaufen', 'Leute einladen'], ['Treffpunkt ausmachen', 'Anfahrt klären'], ['Danach noch was trinken?']), shop: {}, mottos: ['Konzert', 'Theater', 'Stand-up', 'Museum', 'Kino', 'Fußballspiel', 'Festival'] },
+  aktivitaet: { label: 'Sport & Aktivität', emoji: '🏓', kind: 'auswaerts', todos: Z(['Aktivität wählen', 'Platz / Kurs buchen', 'Leute einladen'], ['Ausrüstung packen', 'Treffpunkt schicken'], ['Kosten teilen']), shop: {}, mottos: ['Padel', 'Fußball', 'Bowling', 'Escape Room', 'Klettern', 'Kajak', 'Laufen'] },
 };
 // Vorlagen = Standard + eigene Änderungen (s.profile.evTpl) − ausgeblendete (s.profile.evTplHidden)
 export function templatesOf(s) {
@@ -41,6 +46,15 @@ export function templatesOf(s) {
   for (const [k, o] of Object.entries(own)) if (!OCCASIONS[k]) out[k] = { ...o, own: true };
   return out;
 }
+// v1.05: Standard-Vorlage je Art (⭐ im Auswahl-Fenster änderbar)
+export const DEFAULT_STD = { zuhause: 'allgemein', auswaerts: 'allgemein_aus' };
+export function stdTpl(kind, s = store.get()) {
+  const k = s?.profile?.evTplStd?.[kind];
+  const all = templatesOf(s);
+  if (k && all[k] && (!all[k].kind || all[k].kind === kind)) return k;
+  return all[DEFAULT_STD[kind]] ? DEFAULT_STD[kind] : 'leer';
+}
+export const setStdTpl = (kind, key) => store.update((s) => { s.profile = { ...(s.profile || {}), evTplStd: { ...(s.profile?.evTplStd || {}), [kind]: key } }; });
 export const occasionsFor = (kind, s = store.get()) => Object.entries(templatesOf(s)).filter(([, o]) => !o.kind || o.kind === kind);
 const occOf = (type) => (type ? templatesOf(store.get())[type] || null : null);
 export const occasionOf = occOf;
@@ -48,7 +62,7 @@ export function saveTemplate(key, data) {
   const k = key || `t${uid().slice(0, 6)}`;
   store.update((s) => {
     s.profile = { ...(s.profile || {}) };
-    s.profile.evTpl = { ...(s.profile.evTpl || {}), [k]: { label: data.label || 'Vorlage', emoji: data.emoji || '📋', kind: data.kind || null, todos: data.todos || {}, shop: data.shop || {} } };
+    s.profile.evTpl = { ...(s.profile.evTpl || {}), [k]: { label: data.label || 'Vorlage', emoji: data.emoji || '📋', kind: data.kind || null, todos: data.todos || {}, shop: data.shop || {}, mottos: data.mottos || [], bring: data.bring || [] } };
     s.profile.evTplHidden = (s.profile.evTplHidden || []).filter((x) => x !== k);
   });
   return k;
@@ -85,6 +99,7 @@ const todos = (kind, type) => {
   const cats = [...new Set([...PHASES, ...Object.keys(t)])];
   return cats.flatMap((cat) => [...new Set(t[cat] || [])].map((text) => ({ id: uid(), text, cat, done: false })));
 };
+const bringItems = (type) => (occOf(type)?.bring || []).map((text) => ({ id: uid(), text, who: '', done: false }));
 const shopItems = (type) => Object.entries(occOf(type)?.shop || {}).flatMap(([cat, list]) => list.map((text) => ({ id: uid(), text, cat, who: '', done: false })));
 export const todoCats = (g) => [...new Set([...PHASES, ...g.todos.map((x) => x.cat).filter(Boolean)])];
 
@@ -94,7 +109,7 @@ export function addGathering({ name, date = '', time = '', place = '', desc = ''
   const id = uid();
   const k = occOf(type)?.kind || kind;
   store.update((s) => {
-    s.gatherings.push(normalizeGathering({ id, name: t, date, time, place, desc, kind: k, type: type || '', expected, todos: todos(k, type), shopping: k === 'zuhause' ? shopItems(type) : [], createdAt: today() }));
+    s.gatherings.push(normalizeGathering({ id, name: t, date, time, place, desc, kind: k, type: type || '', expected, todos: todos(k, type), shopping: k === 'zuhause' ? shopItems(type) : [], bring: bringItems(type), createdAt: today() }));
   });
   return id;
 }
@@ -105,6 +120,8 @@ export function setOccasion(gId, type) {
     if (!g || g.type === type) return;
     const oldT = new Set(todos(g.kind, g.type).map((x) => norm(x.text)));
     const oldS = new Set(shopItems(g.type).map((x) => norm(x.text)));
+    const oldB = new Set(bringItems(g.type).map((x) => norm(x.text)));
+    g.bring = (g.bring || []).filter((x) => x.done || x.who || !oldB.has(norm(x.text)));
     g.todos = g.todos.filter((x) => x.done || !oldT.has(norm(x.text)));
     g.shopping = g.shopping.filter((x) => x.done || !oldS.has(norm(x.text)));
     const o = occOf(type);
@@ -112,6 +129,7 @@ export function setOccasion(gId, type) {
     g.type = type;
     for (const x of todos(g.kind, type)) if (!g.todos.some((y) => norm(y.text) === norm(x.text))) g.todos.push(x);
     if (g.kind === 'zuhause') for (const x of shopItems(type)) if (!g.shopping.some((y) => norm(y.text) === norm(x.text))) g.shopping.push(x);
+    for (const x of bringItems(type)) if (!g.bring.some((y) => norm(y.text) === norm(x.text))) g.bring.push(x);
   });
 }
 // Assistent (v0.88): Event anlegen oder – wenn es schon eins mit dem Namen gibt – ergänzen, inkl. Gäste, Einkauf, To-dos
@@ -153,11 +171,9 @@ export function upsertGathering(s, a) {
 export const tplForKind = (type, kind, memo = {}) => {
   if (memo[kind] !== undefined) return memo[kind];
   const o = occOf(type);
-  if (!o || !o.kind) return type || 'leer';
-  if (o.kind === kind) return type;
-  if (type === 'allgemein') return 'allgemein_aus';
-  if (type === 'allgemein_aus') return 'allgemein';
-  return 'leer';
+  if (o && o.kind === kind) return type;
+  if (o && !o.kind && !o.empty) return type; // Vorlage für beide Arten bleibt
+  return stdTpl(kind); // sonst automatisch die Standard-Vorlage der neuen Art
 };
 export function setKind(gId, kind) {
   const g0 = store.get().gatherings.find((x) => x.id === gId);
@@ -319,14 +335,16 @@ const TPL_TOOL = {
       essen: { type: 'array', items: { type: 'string' } },
       getraenke: { type: 'array', items: { type: 'string' } },
       einkauf_sonstiges: { type: 'array', items: { type: 'string' } },
+      mottos: { type: 'array', items: { type: 'string' }, description: 'Motto-/Art-Ideen, je 1–3 Wörter' },
+      mitbringen: { type: 'array', items: { type: 'string' }, description: 'Was jemand mitbringen sollte (v.a. woanders)' },
     },
     required: ['planen', 'vorbereiten', 'sonstiges'],
   },
 };
 export async function editTemplateAI(t, wish) {
   const r = await searchWithTool({
-    system: `Du überarbeitest eine Event-Vorlage für Mateo (lebt in Buenos Aires). Ändere sie genau so, wie er es sagt; was er nicht erwähnt, bleibt gleich. To-dos GANZ kurz (2–4 Wörter), Einkauf je Artikel ein Eintrag, ohne Mengen. Planen = vorher organisieren (z.B. Termin festlegen), Vorbereiten = kurz vorher/am Tag, Sonstiges = danach. ${t.kind === 'auswaerts' ? 'Event ist woanders – kein Einkauf.' : ''} Antworte nur mit "vorlage".`,
-    user: `Vorlage jetzt: ${JSON.stringify({ name: t.label, emoji: t.emoji, planen: t.todos.Planen, vorbereiten: t.todos.Vorbereiten, sonstiges: t.todos.Sonstiges, essen: t.shop.Essen, getraenke: t.shop['Getränke'], einkauf_sonstiges: t.shop.Sonstiges })}\nÄnderungswunsch: ${wish}`,
+    system: `Du überarbeitest eine Event-Vorlage für Mateo (lebt in Buenos Aires). Ändere sie genau so, wie er es sagt; was er nicht erwähnt, bleibt gleich. To-dos GANZ kurz (2–4 Wörter), Einkauf je Artikel ein Eintrag, ohne Mengen. Planen = vorher organisieren (z.B. Termin festlegen), Vorbereiten = kurz vorher/am Tag, Sonstiges = danach. ${t.kind === 'auswaerts' ? 'Event ist woanders (Restaurant, Picknick, Ausflug, Kurztrip …) – kein Einkauf; stattdessen ggf. „mitbringen“. Denk an die Art der Unternehmung.' : ''} Motto-Ideen unter „mottos“. Antworte nur mit "vorlage".`,
+    user: `Vorlage jetzt: ${JSON.stringify({ name: t.label, emoji: t.emoji, planen: t.todos.Planen, vorbereiten: t.todos.Vorbereiten, sonstiges: t.todos.Sonstiges, essen: t.shop.Essen, getraenke: t.shop['Getränke'], einkauf_sonstiges: t.shop.Sonstiges, mottos: t.mottos, mitbringen: t.bring })}\nÄnderungswunsch: ${wish}`,
     tool: TPL_TOOL,
     maxUses: 0,
     maxTokens: 1500,
@@ -336,6 +354,8 @@ export async function editTemplateAI(t, wish) {
     label: r.name || t.label,
     emoji: r.emoji || t.emoji,
     todos: { Planen: r.planen || [], Vorbereiten: r.vorbereiten || [], Sonstiges: r.sonstiges || [] },
+    mottos: r.mottos || t.mottos || [],
+    bring: r.mitbringen || t.bring || [],
     shop: { Essen: r.essen || t.shop.Essen || [], 'Getränke': r.getraenke || t.shop['Getränke'] || [], Sonstiges: r.einkauf_sonstiges || t.shop.Sonstiges || [] },
   };
 }

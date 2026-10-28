@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { fetchChart, RANGES as MRANGES, yOf } from '../lib/markets';
 import { store } from '../lib/store';
 import { useStore } from '../lib/store';
 import { addCostCat, addLine, budgetOf, calc, catOf, costCatsOf, removeCostCat, convert, CURRENCIES, fetchRates, money, removeLine, setBudget, setRate, updateLine } from '../lib/budget';
@@ -213,21 +214,80 @@ const CATALOG = [
   { g: '🪙 Krypto', items: [['BITSTAMP:BTCUSD', 'Bitcoin'], ['BITSTAMP:ETHUSD', 'Ethereum'], ['COINBASE:SOLUSD', 'Solana']] },
   { g: '🛢 Rohstoffe', items: [['TVC:GOLD', 'Gold'], ['TVC:SILVER', 'Silber'], ['TVC:USOIL', 'Öl (WTI)'], ['TVC:UKOIL', 'Öl (Brent)'], ['CAPITALCOM:NATURALGAS', 'Erdgas'], ['CAPITALCOM:COPPER', 'Kupfer']] },
 ];
-// Großer TradingView-Chart: Name oben links, Kurs + Veränderung, Zeitraum-Knöpfe im Chart
-const DATE_RANGES = ['1d|1', '5d|15', '1m|30', '3m|60', '6m|1D', '12m|1D', '60m|1W'];
-function Ticker({ t }) {
+// v1.05: eigener Chart (Yahoo-Daten): Name oben links, Kurs + Veränderung, Linie mit Fläche, Finger drüber = Wert, Zeitraum darunter
+const fmtNum = (v) => { const a = Math.abs(v); return v.toLocaleString('de-DE', { minimumFractionDigits: a < 10 ? 3 : 2, maximumFractionDigits: a < 10 ? 4 : 2 }); };
+const fmtWhen = (t, r) => { const d = new Date(t); if (r === '1d') return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); if (r === '5d') return d.toLocaleDateString('de-DE', { weekday: 'short' }) + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); if (r === '5y') return d.toLocaleDateString('de-DE', { month: 'short', year: 'numeric' }); return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short', ...(r === '1y' ? { year: '2-digit' } : {}) }); };
+const CUR = { USD: '$', EUR: '€', ARS: 'ARS', GBP: '£', JPY: '¥' };
+const RKEY = 'life-app-fin-range2';
+function MiniTV({ t }) {
   const dark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  const cfg = {
-    symbols: [[t.label, `${t.sym}|1D`]], chartOnly: false, width: '100%', height: '100%', locale: 'de_DE', colorTheme: dark ? 'dark' : 'light', autosize: true,
-    showVolume: false, showMA: false, hideDateRanges: false, hideMarketStatus: true, hideSymbolLogo: false, scalePosition: 'right', scaleMode: 'Normal',
-    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontSize: '10', noTimeScale: false, valuesTracking: '1', changeMode: 'price-and-percent',
-    chartType: 'area', lineWidth: 2, lineType: 0, dateRanges: DATE_RANGES, isTransparent: true,
-    lineColor: '#2F5FD0', topColor: 'rgba(47,95,208,0.25)', bottomColor: 'rgba(47,95,208,0)',
+  const cfg = { symbol: t.sym, width: '100%', height: 170, locale: 'de_DE', dateRange: '12M', colorTheme: dark ? 'dark' : 'light', isTransparent: true, autosize: true };
+  return <iframe title={t.label} src={`https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=de_DE#${encodeURIComponent(JSON.stringify(cfg))}`} style={{ width: '100%', height: 170, border: 0, display: 'block' }} loading="lazy" />;
+}
+function Ticker({ t }) {
+  const [range, setRangeS] = useState(() => { try { return localStorage.getItem(RKEY) || '1y'; } catch { return '1y'; } });
+  const setRange = (r) => { setRangeS(r); try { localStorage.setItem(RKEY, r); } catch {} };
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState(null);
+  const [hover, setHover] = useState(null);
+  const svgRef = useRef(null);
+  const y = yOf(t);
+  useEffect(() => {
+    let alive = true;
+    setErr(null);
+    fetchChart(y, range).then((d) => alive && setData(d)).catch((e) => alive && setErr(e.message || 'Fehler'));
+    return () => { alive = false; };
+  }, [y, range]);
+  const W = 320, H = 130, P = 4;
+  let path = '', area = '', last = null, sx = null, sy = null, minV = 0, maxV = 0;
+  if (data) {
+    const vs = data.pts.map((p) => p[1]);
+    minV = Math.min(...vs); maxV = Math.max(...vs);
+    const span = maxV - minV || 1;
+    sx = (i) => P + (i / (data.pts.length - 1)) * (W - 2 * P);
+    sy = (v) => P + (1 - (v - minV) / span) * (H - 2 * P);
+    path = data.pts.map((p, i) => `${i ? 'L' : 'M'}${sx(i).toFixed(1)},${sy(p[1]).toFixed(1)}`).join('');
+    area = `${path}L${sx(data.pts.length - 1).toFixed(1)},${H}L${sx(0).toFixed(1)},${H}Z`;
+    last = data.pts[data.pts.length - 1];
+  }
+  const shown = hover != null && data ? data.pts[hover] : null;
+  const price = shown ? shown[1] : data?.price;
+  const base = data?.prev;
+  const ch = data && base ? price - base : 0;
+  const pct = data && base ? (ch / base) * 100 : 0;
+  const up = ch >= 0;
+  const col = up ? '#1F9D55' : '#D64545';
+  const move = (e) => {
+    if (!data || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const i = Math.round(((cx / rect.width) * W - P) / (W - 2 * P) * (data.pts.length - 1));
+    setHover(Math.max(0, Math.min(data.pts.length - 1, i)));
   };
-  const src = `https://s.tradingview.com/embed-widget/symbol-overview/?locale=de_DE#${encodeURIComponent(JSON.stringify(cfg))}`;
+  const gid = `g${y.replace(/[^a-z0-9]/gi, '')}`;
   return (
-    <div className="card" style={{ padding: 6, gap: 0, overflow: 'hidden' }}>
-      <iframe title={t.label} src={src} style={{ width: '100%', height: 300, border: 0, display: 'block' }} loading="lazy" />
+    <div className="card mk-card">
+      <div className="mk-head">
+        <b className="mk-title">{t.label}</b>
+        {data && <span className="mk-price">{fmtNum(price)} <small>{CUR[data.cur] || data.cur}</small></span>}
+        {data && <span className="mk-ch" style={{ color: col }}>{up ? '▲' : '▼'} {fmtNum(Math.abs(ch))} ({up ? '+' : '−'}{Math.abs(pct).toLocaleString('de-DE', { maximumFractionDigits: 2 })} %)<span className="mk-when"> · {shown ? fmtWhen(shown[0], range) : MRANGES.find((r) => r.id === range)?.label}</span></span>}
+      </div>
+      {err && !data ? (
+        <><MiniTV t={t} /><span className="tiny">Eigener Chart gerade nicht verfügbar ({err}) – Ersatz von TradingView.</span></>
+      ) : !data ? (
+        <div className="mk-load">Lädt …</div>
+      ) : (
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="mk-svg" onMouseMove={move} onMouseLeave={() => setHover(null)} onTouchStart={move} onTouchMove={move} onTouchEnd={() => setHover(null)}>
+          <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={col} stopOpacity="0.22" /><stop offset="100%" stopColor={col} stopOpacity="0" /></linearGradient></defs>
+          {range === '1d' && base >= minV && base <= maxV && <line x1={P} x2={W - P} y1={sy(base)} y2={sy(base)} stroke="var(--muted)" strokeDasharray="3 3" strokeWidth="1" vectorEffect="non-scaling-stroke" opacity="0.6" />}
+          <path d={area} fill={`url(#${gid})`} />
+          <path d={path} fill="none" stroke={col} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+          {shown && <line x1={sx(hover)} x2={sx(hover)} y1={0} y2={H} stroke="var(--muted)" strokeWidth="1" vectorEffect="non-scaling-stroke" />}
+          {(shown || last) && <circle cx={sx(shown ? hover : data.pts.length - 1)} cy={sy((shown || last)[1])} r="3.5" fill={col} stroke="var(--card)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />}
+        </svg>
+      )}
+      {data && <div className="mk-axis"><span>{fmtWhen(data.pts[0][0], range)}</span><span>Hoch {fmtNum(maxV)} · Tief {fmtNum(minV)}</span><span>{fmtWhen(last[0], range)}</span></div>}
+      {!(err && !data) && <div className="mk-ranges">{MRANGES.map((r) => <button key={r.id} type="button" className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>{r.label}</button>)}</div>}
     </div>
   );
 }
@@ -247,13 +307,13 @@ function AddAsset({ open, list, onClose }) {
       ))}
       <section className="card" style={{ gap: 8 }}>
         <b style={{ fontSize: 15 }}>Eigener Wert</b>
-        <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const sy = sym.trim().toUpperCase(); if (!sy) return; setTickers([...list.filter((x) => x.sym !== sy), { sym: sy, label: label.trim() || sy }]); setSym(''); setLabel(''); toast('Hinzugefügt'); }}>
+        <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const sy = sym.trim().toUpperCase(); if (!sy) return; setTickers([...list.filter((x) => x.sym !== sy), { sym: sy, y: sy, label: label.trim() || sy }]); setSym(''); setLabel(''); toast('Hinzugefügt'); }}>
           <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name, z.B. Coca-Cola" aria-label="Name" />
-          <div className="block-add"><input className="input" value={sym} onChange={(e) => setSym(e.target.value)} placeholder="Kürzel, z.B. NYSE:KO" aria-label="Kürzel" /><button type="submit" className="btn small" disabled={!sym.trim()}>+</button></div>
+          <div className="block-add"><input className="input" value={sym} onChange={(e) => setSym(e.target.value)} placeholder="Yahoo-Kürzel, z.B. KO oder ^GDAXI" aria-label="Kürzel" /><button type="submit" className="btn small" disabled={!sym.trim()}>+</button></div>
         </form>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <a className="link-btn" style={{ fontSize: 13 }} href="https://www.tradingview.com/markets/" target="_blank" rel="noreferrer">Kürzel finden ↗</a>
-          <Info>Auf TradingView einen Wert suchen – das Kürzel steht über dem Chart, z.B. „NASDAQ:AAPL“, „BCBA:GGAL“ oder „FX:EURUSD“.</Info>
+          <a className="link-btn" style={{ fontSize: 13 }} href="https://finance.yahoo.com/lookup" target="_blank" rel="noreferrer">Kürzel finden ↗</a>
+          <Info>Auf Yahoo Finance einen Wert suchen – das Kürzel steht neben dem Namen, z.B. „AAPL“ (Apple), „SAP.DE“, „^GDAXI“ (DAX) oder „EURUSD=X“ (Euro/Dollar).</Info>
         </div>
       </section>
     </Sheet>
@@ -288,7 +348,7 @@ function Markets({ s }) {
       )}
       {!edit && list.map((t) => <Ticker key={t.sym} t={t} />)}
       {!list.length && <div className="empty">Noch keine Werte – tipp auf „＋ Wert“.</div>}
-      <span className="tiny" style={{ padding: '0 4px' }}>Zeitraum unten im Chart wählen (1 T · 5 T · 1 M · 3 M · 6 M · 1 J · 5 J). Kurse von TradingView, teils verzögert.</span>
+      <span className="tiny" style={{ padding: '0 4px' }}>Finger über den Chart ziehen = Wert an dem Tag. Kurse von Yahoo Finance, teils verzögert.</span>
       <AddAsset open={add} list={list} onClose={() => setAdd(false)} />
     </section>
   );
