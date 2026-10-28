@@ -107,7 +107,7 @@ export function TabBar({ active }) {
     <nav className="tabbar" aria-label="Hauptnavigation">
       {tab('heute', '#/heute', 'Heute', 'today')}
       {tab('bereiche', '#/bereiche', 'Bereiche', 'grid')}
-      <a href="#/erfassen" className="tab-plus" aria-label="Erfassen">
+      <a href="#/los" onClick={clearFrom} className={active === 'los' ? 'tab-plus on' : 'tab-plus'} aria-label="Was möchtest du tun?">
         <Icon name="plus" size={24} color="currentColor" width={2.4} />
       </a>
       {tab('ausgehen', '#/ausgehen', 'Ausgehen', 'pin')}

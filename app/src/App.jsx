@@ -6,6 +6,7 @@ import Saeule, { Missing } from './screens/Saeule';
 import Bereich from './screens/Bereich';
 import Projekt from './screens/Projekt';
 import Erfassen from './screens/Erfassen';
+import Aktionen from './screens/Aktionen';
 import Menschen from './screens/Menschen';
 import Person from './screens/Person';
 import Radar from './screens/Radar';
@@ -59,6 +60,7 @@ export default function App() {
     case 'treffen': screen = <Treffen key={a || 'liste'} id={a} />; break;
     case 'projekt': screen = <Projekt key={a} id={a} />; break;
     case 'erfassen': screen = <Erfassen />; break;
+    case 'los': screen = <Aktionen />; break;
     case 'menschen': screen = <Menschen />; break;
     case 'person': screen = <Person key={a + (b || '')} id={a} metAt={b} />; break;
     case 'radar': screen = <Radar />; break;

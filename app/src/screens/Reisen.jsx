@@ -19,6 +19,7 @@ import { Back, Chevron, Field, Icon, Sheet, TabBar, toast, Info } from '../compo
 import { Missing } from './Saeule';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { Segmented } from '../components/ui';
+import { tripCountry, tripRegion, tripText } from '../lib/geo';
 
 const COLOR = '#2FA36B';
 // Bei diesen Wörtern sucht der Reise-Chat automatisch im Internet (aktuelle Preise, Verbindungen, Unterkünfte)
@@ -343,10 +344,19 @@ function TripList({ s }) {
   const t = today();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ dest: '', from: '', to: '', budget: '', status: 'geplant' });
-  const trips = [...s.trips].sort((a, b) => (a.from || '9') < (b.from || '9') ? -1 : 1);
+  const allTrips = [...s.trips].sort((a, b) => (a.from || '9') < (b.from || '9') ? -1 : 1);
+  // v1.08: Suche + Filter nach Region/Land
+  const [q, setQ] = useState('');
+  const [reg, setReg] = useState('');
+  const [land, setLand] = useState('');
+  const hit = (x) => (!q.trim() || tripText(x).includes(q.trim().toLowerCase())) && (!reg || tripRegion(x) === reg) && (!land || tripCountry(x) === land);
+  const trips = allTrips.filter(hit);
   const planned = trips.filter((x) => x.status !== 'idee' && (!x.to || x.to >= t));
   const ideas = trips.filter((x) => x.status === 'idee');
   const past = trips.filter((x) => x.status !== 'idee' && x.to && x.to < t);
+  const [ideaSub, setIdeaSubS] = useState(() => { try { return localStorage.getItem('life-app-reisen-ideen') || 'ideen'; } catch { return 'ideen'; } });
+  const setIdeaSub = (v) => { setIdeaSubS(v); try { localStorage.setItem('life-app-reisen-ideen', v); } catch {} };
+  useEffect(() => { try { const v = sessionStorage.getItem('life-open-new-trip'); if (v) { sessionStorage.removeItem('life-open-new-trip'); setF({ dest: '', from: '', to: '', budget: '', status: v }); setOpen(true); } } catch {} }, []);
   const save = () => {
     const id = addTrip({ name: f.dest, dest: f.dest, from: f.from, to: f.to, budget: f.budget, status: f.status });
     setOpen(false);
@@ -405,6 +415,25 @@ function TripList({ s }) {
             <span className="tiny">Preise in</span>
             {Object.entries(TRIP_CURRENCIES).map(([k, l]) => <button key={k} type="button" className={tripCur(s) === k ? 'chip on' : 'chip soft'} style={{ padding: '4px 10px', fontSize: 13 }} onClick={() => store.update((d) => { d.profile = { ...d.profile, tripCurrency: k }; })}>{l}</button>)}
         </div>
+        {view === 'ideen' && <div className="sub-switch" role="group" aria-label="Ideen oder Suche">
+          {[['ideen', `💡 Meine Ideen${ideas.length ? ` · ${ideas.length}` : ''}`], ['suche', '🔍 Ziele suchen']].map(([k, l]) => <button key={k} type="button" className={ideaSub === k ? 'on' : ''} onClick={() => setIdeaSub(k)}>{l}</button>)}
+        </div>}
+        {(view === 'reisen' || ideaSub === 'ideen') && (() => {
+          const pool = allTrips.filter((x) => (view === 'ideen' ? x.status === 'idee' : x.status !== 'idee'));
+          if (pool.length < 2 && !q && !reg && !land) return null;
+          const regions = [...new Set(pool.map(tripRegion).filter(Boolean))].sort();
+          const lands = [...new Set(pool.filter((x) => !reg || tripRegion(x) === reg).map(tripCountry).filter(Boolean))].sort();
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <input className="input small-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={view === 'ideen' ? 'Ideen durchsuchen …' : 'Reisen durchsuchen …'} aria-label="Reisen durchsuchen" />
+              {regions.length > 0 && <div className="box-tabs">
+                <button type="button" className={!reg ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => { setReg(''); setLand(''); }}>🌍 Alle</button>
+                {regions.map((r) => <button key={r} type="button" className={reg === r ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setReg(reg === r ? '' : r); setLand(''); }}>{r}</button>)}
+              </div>}
+              {lands.length > 1 && <div className="box-tabs">{lands.map((c) => <button key={c} type="button" className={land === c ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setLand(land === c ? '' : c)}>{c}</button>)}</div>}
+            </div>
+          );
+        })()}
         {view === 'reisen' && <><section className="group">
           <h2 className="label" style={{ padding: '0 4px' }}>Geplant</h2>
           <div className="list">
@@ -419,8 +448,8 @@ function TripList({ s }) {
           </section>
         )}
         </>}
-        {view === 'ideen' && <><Inspiration s={s} />
-        <section className="group">
+        {view === 'ideen' && ideaSub === 'suche' && <Inspiration s={s} />}
+        {view === 'ideen' && ideaSub === 'ideen' && <><section className="group">
           <div className="sec-h" style={{ padding: '0 4px' }}>
             <h2 className="label" style={{ padding: 0 }}>Meine Ideen</h2>
             {ideas.length > 0 && <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={() => { setGrouping(!grouping); setPicked([]); }}>{grouping ? 'Abbrechen' : 'Gruppieren'}</button>}
@@ -431,7 +460,7 @@ function TripList({ s }) {
             const items = ideas.filter((x) => x.group === g);
             const isClosed = closed[g] && !grouping;
             return (
-              <div key={g} className="list">
+              items.length > 0 && <div key={g} className="idea-group">
                 <div className="row group-head">
                   <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => setClosed({ ...closed, [g]: !closed[g] })}>
                     <span className="row-title strong">📁 {g} {isClosed ? '▸' : '▾'}</span>
@@ -440,11 +469,12 @@ function TripList({ s }) {
                   <button type="button" className="x-btn" aria-label={`Gruppe ${g} umbenennen`} onClick={() => { const n = prompt('Neuer Name der Gruppe', g); if (n && n.trim()) renameGroup(g, n); }}><Icon name="edit" size={13} color="var(--muted)" /></button>
                   <button type="button" className="x-btn" aria-label={`Gruppe ${g} auflösen`} onClick={() => confirm(`Gruppe „${g}“ auflösen? Die Ideen bleiben erhalten.`) && ungroup(g)}><Icon name="x" size={13} color="var(--chev)" /></button>
                 </div>
-                {!isClosed && items.map((tr) => <div key={tr.id} style={{ paddingLeft: 14 }}><Row tr={tr} idea /></div>)}
+                {!isClosed && <div className="list">{items.map((tr) => <div key={tr.id} style={{ paddingLeft: 10 }}><Row tr={tr} idea /></div>)}</div>}
               </div>
             );
           })}
-          {loose.length > 0 && <div className="list">{loose.map((tr) => <Row key={tr.id} tr={tr} idea />)}</div>}
+          {loose.length > 0 && <>{groups.length > 0 && <h2 className="label" style={{ padding: '4px 4px 0' }}>Ohne Gruppe</h2>}<div className="list">{loose.map((tr) => <Row key={tr.id} tr={tr} idea />)}</div></>}
+          {(q || reg || land) && !ideas.length && <div className="empty">Keine Idee passt zur Suche.</div>}
           {grouping && groups.length > 0 && <div className="chips">{groups.map((g) => <button key={g} type="button" className={gname === g ? 'chip on' : 'chip soft'} onClick={() => setGname(g)}>📁 {g}</button>)}</div>}
           {grouping && (
             <form className="block-add" onSubmit={(e) => { e.preventDefault(); doGroup(); }}>

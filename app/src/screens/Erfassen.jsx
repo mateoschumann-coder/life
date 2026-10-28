@@ -51,7 +51,7 @@ AUFGABE JETZT: Mateo hat schnell etwas festgehalten. Sortiere es in die passende
 export default function Erfassen() {
   const s = useStore();
   const [text, setText] = useState('');
-  const [type, setType] = useState('aufgabe');
+  const [type, setType] = useState(() => { try { const v = sessionStorage.getItem('life-erfassen-type'); sessionStorage.removeItem('life-erfassen-type'); return v || 'aufgabe'; } catch { return 'aufgabe'; } });
   const [sorting, setSorting] = useState(null);
   const [ai, setAi] = useState(null); // { inboxId, text, actions, picked }
   const [busy, setBusy] = useState(false);

@@ -223,9 +223,12 @@ export default function Heute() {
             <span className="eyebrow">{fmtLong(t)}</span>
             <h1 className="h1 sm">{greeting(s.profile?.name)}</h1>
           </div>
-          <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen">
-            <Icon name="gear" size={20} width={1.8} />
-          </a>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <a href="#/erfassen" className="btn small" aria-label="Schnell erfassen">＋ Erfassen</a>
+            <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen">
+              <Icon name="gear" size={20} width={1.8} />
+            </a>
+          </div>
         </div>
 
         <Overview s={s} />

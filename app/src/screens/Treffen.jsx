@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDictation } from '../lib/dictate';
 import { getAi } from '../lib/ai';
 const hasKey = () => !!getAi().apiKey;
@@ -223,7 +223,8 @@ export function EventsList({ s }) {
   const done = list.filter((g) => g.done).reverse();
   const [tab, setTabState] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'eigene'; } catch { return 'eigene'; } });
   const setTab = (v) => { setTabState(v); try { localStorage.setItem(TAB_KEY, v); } catch {} };
-  const [invSheet, setInvSheet] = useState(null);
+  const [invSheet, setInvSheet] = useState(() => { try { const v = sessionStorage.getItem('life-open-new-invite'); sessionStorage.removeItem('life-open-new-invite'); return v ? 'neu' : null; } catch { return null; } });
+  useEffect(() => { try { if (sessionStorage.getItem('life-open-new-event')) { sessionStorage.removeItem('life-open-new-event'); setTab('eigene'); setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); } } catch {} }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const save = () => {
     const id = addGathering(f);
     setOpen(false);

@@ -653,3 +653,14 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .mk-ranges { display: flex; justify-content: space-between; gap: 2px; margin-top: 4px; border-top: 1px solid var(--line, rgba(0,0,0,.06)); padding-top: 8px; }
 .mk-ranges button { flex: 1; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--muted); padding: 6px 0; border-radius: 8px; }
 .mk-ranges button.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+/* v1.08 Aktionen */
+.act-group { gap: 8px; }
+.act-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 4px; }
+.act-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; }
+.act-btn { display: flex; align-items: center; gap: 8px; text-align: left; border: 0; border-radius: 14px; padding: 12px; background: var(--card); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,.06)); font: inherit; font-size: 14.5px; font-weight: 600; color: var(--text); min-height: 56px; }
+.act-btn:active { transform: scale(0.98); }
+.act-emoji { font-size: 20px; flex-shrink: 0; }
+/* v1.08 Reisen-Ideen-Gruppen */
+.idea-group { border-radius: 16px; background: var(--card); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,.06)); border-left: 4px solid #4F8EF7; overflow: hidden; }
+.idea-group .group-head { background: color-mix(in srgb, #4F8EF7 9%, transparent); }
+.idea-group .list { box-shadow: none; border-radius: 0; }
