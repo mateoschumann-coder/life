@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { getAi } from '../lib/ai';
 import { clearChat, needsRetry, resend, send, setDraft, setMode, setSpeak, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
@@ -14,6 +14,11 @@ export default function Assistent() {
   const inputRef = useRef(null);
   const ai = getAi();
   const hasKey = !!ai.apiKey;
+  // v1.01: nur der letzte Austausch (letzte eigene Nachricht + Antwort), der Rest auf Wunsch
+  const [showAll, setShowAll] = useState(false);
+  const lastUser = items.map((i) => i.role).lastIndexOf('user');
+  const cut = lastUser > 0 ? lastUser : 0;
+  const visible = showAll ? items : items.slice(cut);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -65,7 +70,8 @@ export default function Assistent() {
             {'Sag oder schreib mir, was du vorhast, z.B. „Erinnere mich Freitag an den Friseur“, „Ich war heute laufen“ oder „Leg ein Projekt für die Brasilien-Reise an“. Ich schlage dir die Änderungen vor, und du bestätigst.'}
           </div>
         )}
-        {items.map((it) =>
+        {cut > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'center', fontSize: 14 }} onClick={() => setShowAll(!showAll)}>{showAll ? 'Nur das letzte Gespräch zeigen' : `Früheren Verlauf anzeigen (${cut} Nachrichten)`}</button>}
+        {visible.map((it) =>
           it.role === 'user' ? (
             <div key={it.id} className="bubble me">{it.text}</div>
           ) : (

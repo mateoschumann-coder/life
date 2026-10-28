@@ -63,7 +63,7 @@ export function collectItems(s) {
   for (const h of (s.healthItems || []).filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date <= addDays(t, 7))) add('vorsorge', { ref: `health:${h.id}`, kind: 'health', id: h.id, text: h.title, area: 'Vorsorge', date: h.date, info: when(h.date, t), link: '#/vorsorge' });
   const shopN = s.shopping.items.filter((x) => !x.done).length;
   if (shopN) add('kueche', { ref: 'shopping', kind: 'link', text: `Einkaufsliste: ${shopN} Sachen`, area: 'Küche', info: s.shopping.items.filter((x) => !x.done).slice(0, 4).map((x) => x.name).join(', '), link: '#/kueche' });
-  for (const m of (s.library || []).filter((m) => m.status === 'aktiv').slice(0, 3)) add('wissen', { ref: `lib:${m.id}`, kind: 'link', text: m.title, area: 'Gerade dabei', info: m.author || '', link: `#/wissen/${m.cat || ''}` });
+  for (const m of (s.library || []).filter((m) => m.status === 'aktiv').slice(0, 3)) add('wissen', { ref: `lib:${m.id}`, kind: 'link', text: m.title, area: 'Gerade dabei', info: m.author || '', link: `#/wissen/${m.kind || ''}` });
   for (const r of (s.reminders || []).filter((r) => r.next <= addDays(t, 3))) add('zuhause', { ref: `reminder:${r.id}`, kind: 'reminder', id: r.id, text: r.title, area: 'Erinnerung', date: r.next, info: when(r.next, t), link: '#/zuhause/erinnerungen' });
   for (const tr of (s.trips || []).filter((tr) => tr.status !== 'idee' && tr.from && tr.from >= t && tr.from <= addDays(t, 45))) {
     const open = tr.todo.filter((x) => !x.done).length;
@@ -196,7 +196,7 @@ export function structure(s) {
   if (shop.length) G('kueche', 'Einkaufsliste', [I(`${shop.length} Sachen`, '#/kueche', shop.slice(0, 3).map((x) => x.name).join(', '))]);
 
   // Lernen & Wissen
-  G('wissen', 'Gerade dabei', (s.library || []).filter((m) => m.status === 'aktiv').map((m) => I(m.title, `#/wissen/${m.cat || ''}`)));
+  G('wissen', 'Gerade dabei', (s.library || []).filter((m) => m.status === 'aktiv').map((m) => I(m.title, `#/wissen/${m.kind || ''}`)));
 
   // Zuhause
   G('zuhause', 'Erinnerungen', (s.reminders || []).filter((r) => r.next && r.next <= addDays(t, 7)).map((r) => I(r.title, '#/zuhause/erinnerungen', short(r.next, t))));

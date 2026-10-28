@@ -129,3 +129,27 @@ export async function findBookPlace(s, { name, area, kind }) {
     city,
   });
 }
+
+// v1.01: „Termin finden“ – KI sucht passende Ärzte/Praxen in der Gegend (1 Websuche, ca. 1 Cent)
+export async function searchDoctors(s, { what, area }) {
+  const city = s.profile?.city || HOME_CITY;
+  return searchWithTool({
+    system: `Du suchst für Mateo passende Ärzte/Praxen/Therapeuten in ${city}. Such einmal im Internet (z.B. Doctoralia, Google Maps, Praxis-Websites) und gib 3–5 Treffer mit Adresse, Telefon und Website zurück – in der genannten Gegend zuerst, gern mit Online-Terminbuchung. Nichts erfinden, Unbekanntes leer lassen. Antworte nur mit "ort_daten".`,
+    user: `${what}${area ? ` – Gegend: ${area}` : ''} (${city})`,
+    tool: FIND_TOOL,
+    maxUses: 1,
+    maxTokens: 3000,
+    label: 'Termin finden',
+    city,
+  });
+}
+// kostenlose Such-Links
+export function doctorLinks(what, area, city = HOME_CITY) {
+  const q = [what, area].filter(Boolean).join(' ');
+  const e = encodeURIComponent;
+  return [
+    { label: 'Doctoralia ↗', url: `https://www.doctoralia.com.ar/buscar?q=${e(what || '')}&loc=${e(area || city)}` },
+    { label: 'Google Maps ↗', url: `https://www.google.com/maps/search/?api=1&query=${e([q, city].filter(Boolean).join(', '))}` },
+    { label: 'Google: Turno online ↗', url: `https://www.google.com/search?q=${e(`${q} ${city} turno online`)}` },
+  ];
+}

@@ -1,3 +1,4 @@
+import { KINDS } from './library';
 // Eigene Werkzeuge (zugeschnittene Seiten) pro Lebensbereich und Unterbereich
 export const AREA_TOOLS = {
   koerper: [
@@ -28,9 +29,8 @@ export const AREA_TOOLS = {
   informiert: [{ href: '#/news', icon: 'news', title: 'Nachrichten & Quellen', text: 'Wichtigste Nachrichtenseiten und deine eigenen Quellen' }],
   finanzen: [{ href: '#/finanzen', icon: 'wallet', title: 'Monatsrechner', text: 'Einnahmen, Sparziel, Fixkosten → was pro Tag bleibt' }],
 };
-const LIB_TEXT = { bibliothek: 'Bücher, Artikel, Videos und Kurse zu deinen Themen', podcasts: 'Podcasts zu deinen Themen – entdecken, hören, merken' };
 export const toolsFor = (areaId, subName, s) => {
-  if (areaId === 'mental') return subName ? [] : (s?.libCats || []).map((c) => ({ href: `#/wissen/${c.id}`, icon: c.icon || 'book', title: c.name, text: LIB_TEXT[c.id] || 'Deine eigene Kategorie mit Empfehlungen' }));
+  if (areaId === 'mental') return subName ? [] : Object.entries(KINDS).map(([k, v]) => ({ href: `#/wissen/${k}`, icon: v.icon, title: v.plural, text: `${(s?.library || []).filter((m) => m.kind === k).length} gespeichert` }));
   return (AREA_TOOLS[areaId] || []).filter((t) => !subName || t.sub === subName);
 };
 

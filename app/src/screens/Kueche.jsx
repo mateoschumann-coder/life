@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import {
   addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe, cuisinesOf, setCuisines, removeCatalogItem,
@@ -278,39 +278,32 @@ function ShopCatalog({ s }) {
   );
 }
 
-// v1.0: eine Liste zusammenstellen (neue Liste oder ✎ an einer Liste): Name ändern, Artikel hinzufügen/entfernen, öffnen
+// v1.01 (Mateo): eine Liste zusammenstellen „wie beim Einkaufen“ – Fenster mit der kompletten Einkaufsansicht
+// (Katalog, Kategorien, Eingabe). Dafür wird die Liste kurz die aktive; „Fertig“ kehrt zur vorherigen zurück.
 function ListEditor({ s, listId, onClose }) {
-  const l = shoppingLists(s).find((x) => x.id === listId);
-  const [text, setText] = useState('');
+  const [prev] = useState(() => s.shopping.listId || 'main');
   const [name, setName] = useState(null);
+  const active = s.shopping.listId || 'main';
+  useEffect(() => { if (listId !== (s.shopping.listId || 'main')) switchShoppingList(listId); }, [listId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const l = shoppingLists(s).find((x) => x.id === listId);
   if (!l) return <Sheet open={false} onClose={onClose} title="" />;
   const nm = name ?? l.name;
   const taken = nm.trim() && nm.trim() !== l.name && listNameTaken(s, nm, l.id);
-  const open = (l.items || []).filter((x) => !x.done);
-  const have = new Set(open.map((x) => nrm(x.name)));
-  const sugg = Object.values(s.shopping.history || {}).filter((h) => !have.has(nrm(h.name))).sort((a, b) => b.count - a.count).slice(0, 12);
-  const add = (e) => { e.preventDefault(); addToList(l.id, text.split(/,|\n/)); setText(''); };
-  const close = () => { if (nm.trim() && nm.trim() !== l.name && !taken) renameShoppingList(l.id, nm); setName(null); onClose(); };
+  const finish = (keep) => {
+    if (nm.trim() && nm.trim() !== l.name && !taken) renameShoppingList(l.id, nm);
+    if (!keep && prev !== listId && shoppingLists(s).some((x) => x.id === prev)) switchShoppingList(prev);
+    else if (keep && prev !== listId) toast(`„${nm.trim() || l.name}“ ist jetzt deine Einkaufsliste`);
+    onClose();
+  };
   return (
-    <Sheet open title={`📋 ${l.name}`} onClose={close}>
+    <Sheet open title={`📋 ${l.name}`} onClose={() => finish(false)}>
       <label className="field"><span>Name</span><input className="input" value={nm} onChange={(e) => setName(e.target.value)} aria-label="Name der Liste" /></label>
       {taken && <span className="tiny" style={{ color: 'var(--danger)', marginTop: -6 }}>Diesen Namen gibt es schon – bitte ändern.</span>}
-      <form className="block-add" onSubmit={add}>
-        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Vacío, Chorizo, Kohle" aria-label="Artikel zur Liste hinzufügen" />
-        <button type="submit" className="btn small" disabled={!text.trim()} aria-label="Hinzufügen">+</button>
-      </form>
-      {sugg.length > 0 && <div className="chips">{sugg.map((h) => <button key={h.name} type="button" className="chip soft small-chip" onClick={() => addToList(l.id, h.name)}>+ {h.name}</button>)}</div>}
-      <div className="list">
-        {open.length === 0 && <div className="empty">Noch leer – oben Artikel eintragen.</div>}
-        {open.map((x) => (
-          <div key={x.id} className="row compact">
-            <span className="row-main"><span className="row-title plain">{x.name}</span></span>
-            <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => removeFromList(l.id, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
-          </div>
-        ))}
+      {active === listId ? <Shopping s={s} editor /> : <span className="sub">Lädt …</span>}
+      <div className="sheet-foot">
+        {prev !== listId && <button type="button" className="btn tint" onClick={() => finish(true)}>Jetzt benutzen</button>}
+        <button type="button" className="btn" onClick={() => finish(false)}>Fertig</button>
       </div>
-      {!l.active && <button type="button" className="btn" onClick={() => { close(); switchShoppingList(l.id); toast(`„${l.name}“ geöffnet`); }}>Diese Liste jetzt öffnen</button>}
-      <button type="button" className={l.active ? 'btn' : 'btn tint'} onClick={close}>Fertig</button>
     </Sheet>
   );
 }
@@ -360,7 +353,7 @@ function ListsSheet({ s, open, onClose, onEdit }) {
   );
 }
 
-function Shopping({ s }) {
+function Shopping({ s, editor = false }) {
   const [text, setText] = useState('');
   const [move, setMove] = useState(null);
   const [lists, setLists] = useState(false);
@@ -380,13 +373,14 @@ function Shopping({ s }) {
         <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Eier, Haferflocken, Bananen" aria-label="Artikel hinzufügen" />
         <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
       </form>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      {!editor && <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button type="button" className="tell" style={{ flexShrink: 0 }} onClick={() => listen('Auf die Einkaufsliste: ')}>
           <Icon name="mic" size={16} /> Einsprechen
         </button>
         <button type="button" className="chip soft" style={{ minWidth: 0, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => setLists(true)} aria-label="Gespeicherte Listen">📋 {activeListName(s)} ▾</button>
-      </div>
-      <ListsSheet s={s} open={lists} onClose={() => setLists(false)} onEdit={(id) => { setLists(false); setEditList(id); }} />
+        {open.length > 0 && <button type="button" className="chip soft" style={{ flexShrink: 0, padding: '6px 10px' }} onClick={() => setSaveAs(true)} aria-label="Als Liste speichern" title="Als Liste speichern">💾</button>}
+      </div>}
+      {!editor && <ListsSheet s={s} open={lists} onClose={() => setLists(false)} onEdit={(id) => { setLists(false); setEditList(id); }} />}
       {editList && <ListEditor s={s} listId={editList} onClose={() => setEditList(null)} />}
       <NameSheet s={s} open={saveAs} title="Als Liste speichern" button="Speichern" onClose={() => setSaveAs(false)} onSubmit={(n) => { if (createShoppingList(n, open)) { toast(`Gespeichert als „${n}“ (${open.length} Artikel)`); setSaveAs(false); } }} />
       <ShopCatalog s={s} />
@@ -419,12 +413,7 @@ function Shopping({ s }) {
           ))}
         </div>
       )}
-      {open.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button type="button" className="chip soft small-chip" onClick={() => setSaveAs(true)}>💾 Als Liste speichern</button>
-          <Info>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal). „Als Liste speichern“ legt eine Kopie mit Namen an, z.B. für den Wocheneinkauf.</Info>
-        </div>
-      )}
+      {open.length > 0 && <Info>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal). 💾 oben = als Liste mit Namen speichern, z.B. für den Wocheneinkauf.</Info>}
       <Sheet open={!!move} title={move ? `„${move.name}“ einsortieren` : ''} onClose={() => setMove(null)}>
         {shopStructure(s).groups.map((g) => (
           <div key={g.id} className="field">

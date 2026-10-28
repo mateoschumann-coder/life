@@ -38,6 +38,7 @@ export async function send(text) {
   if (!content || state.busy) return;
   const base = state.items.map((it) => (it.status === 'open' ? { ...it, status: 'skipped' } : it));
   const withUser = [...base, { id: newId(), role: 'user', text: content, mode: state.mode }];
+  if (state.listening || rec) stopListening();
   set({ items: withUser, draft: '' });
   await run(withUser);
 }
@@ -167,11 +168,19 @@ function begin({ continuous, onError }) {
     return false;
   }
 }
+// v1.01: Erkennung beim Stoppen abhängen – sonst füllen verspätete Ergebnisse den gesendeten Text wieder ins Feld
 export function stopListening() {
   want = null;
-  try {
-    rec?.stop();
-  } catch {}
+  const r = rec;
+  rec = null;
+  if (r) {
+    r.onresult = null;
+    r.onend = null;
+    r.onerror = null;
+    try {
+      r.abort ? r.abort() : r.stop();
+    } catch {}
+  }
   set({ listening: false });
 }
 

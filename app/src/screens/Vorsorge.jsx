@@ -1,26 +1,21 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
-import { addHealthItem, deleteHealthItem, doneHealthItem, updateHealthItem } from '../lib/health';
-import { Back, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { addHealthItem, deleteHealthItem, doneHealthItem, updateHealthItem, healthChat, healthPresetsOf, setHealthPresets } from '../lib/health';
+import { getAi } from '../lib/ai';
+import PlanChat from '../components/PlanChat';
+import { chatOf, saveChatOf } from '../lib/chats';
+import { Back, Field, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
 import { DateRangeField } from '../components/DateRange';
 import PlaceBook, { ItemSheet as PlaceSheet } from '../components/PlaceBook';
-import { bookCats, bookMaps, bookOf, findBookItem } from '../lib/placebook';
+import { addBookItem, bookAreas, bookCats, bookMaps, bookOf, doctorLinks, findBookItem, searchDoctors } from '../lib/placebook';
+import { hoodHere } from '../lib/outings';
 
 const TYPES = [
   { id: 'termin', label: 'Termin', hint: 'Einmalig, z.B. Arzttermin am 12. Nov.' },
   { id: 'routine', label: 'Regelmäßig', hint: 'Wiederkehrend, z.B. Zahnarzt alle 6 Monate' },
   { id: 'verletzung', label: 'Verletzung', hint: 'Beschwerden festhalten – der Coach berücksichtigt sie' },
 ];
-const PRESETS = [
-  { title: 'Zahnarzt-Kontrolle', type: 'routine', everyMonths: 6 },
-  { title: 'Zahnreinigung', type: 'routine', everyMonths: 6 },
-  { title: 'Allgemeiner Check-up', type: 'routine', everyMonths: 12 },
-  { title: 'Hautarzt (Muttermale)', type: 'routine', everyMonths: 12 },
-  { title: 'Augenarzt', type: 'routine', everyMonths: 24 },
-  { title: 'Laufschuhe wechseln', type: 'routine', everyMonths: 6 },
-];
-
 function when(h, t) {
   if (!h.date) return h.type === 'routine' ? 'Erstes Datum festlegen' : 'Ohne Datum';
   const d = diffDays(t, h.date);
@@ -117,36 +112,138 @@ function ItemSheet({ s, open, onClose, item }) {
   );
 }
 
+// v1.01: Schnell hinzufügen – bearbeitbar; Antippen öffnet das Formular mit „Termin“ vorausgewählt
+function Presets({ s, items, onPick }) {
+  const [edit, setEdit] = useState(false);
+  const [txt, setTxt] = useState('');
+  const all = healthPresetsOf(s);
+  const shown = edit ? all : all.filter((p) => !items.some((h) => h.title === p.title && h.status !== 'erledigt'));
+  return (
+    <section className="card" style={{ gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="label" style={{ padding: 0, flex: 1 }}>Schnell hinzufügen</span>
+        <button type="button" className={edit ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎ Bearbeiten'}</button>
+      </div>
+      <div className="chips">
+        {shown.map((p) => (edit
+          ? <button key={p.title} type="button" className="chip soft" onClick={() => setHealthPresets(all.filter((x) => x.title !== p.title))}>{p.title} ✕</button>
+          : <button key={p.title} type="button" className="chip soft" onClick={() => onPick({ title: p.title, type: 'termin', everyMonths: p.everyMonths || '' })}>+ {p.title}</button>))}
+        {!shown.length && !edit && <span className="tiny">Alles schon eingetragen.</span>}
+      </div>
+      {edit && (
+        <form className="block-add" onSubmit={(e) => { e.preventDefault(); const t = txt.trim(); if (t && !all.some((x) => x.title.toLowerCase() === t.toLowerCase())) setHealthPresets([...all, { title: t }]); setTxt(''); }}>
+          <input className="input" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="z.B. Physio, Blutabnahme" aria-label="Schnell-Eintrag hinzufügen" />
+          <button type="submit" className="btn small" disabled={!txt.trim()} aria-label="Hinzufügen">+</button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+const HEALTH_GROUPS = [{
+  key: 'termine',
+  label: 'Termine',
+  title: (x) => x.titel,
+  meta: (x) => [x.art === 'routine' ? `alle ${x.alle_monate || 6} Monate` : x.art === 'verletzung' ? 'Beschwerde' : 'Termin', x.datum && fmtShort(x.datum), x.uhrzeit].filter(Boolean).join(' · '),
+}];
+
+// v1.01: Termin finden – kostenlose Links + KI-Suche, Treffer als Ort speichern oder gleich Termin anlegen
+function FindTermin({ s, onTermin }) {
+  const [what, setWhat] = useState('');
+  const [area, setArea] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);
+  const [saved, setSaved] = useState({});
+  const areas = bookAreas(s, 'vorsorge');
+  const QUICK = ['Zahnarzt', 'Hausarzt', 'Hautarzt', 'Augenarzt', 'Physiotherapie', 'Sportmedizin', 'Blutabnahme'];
+  const run = async () => {
+    setBusy(true);
+    try { setRes(await searchDoctors(s, { what, area })); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel.' : e.message); } finally { setBusy(false); }
+  };
+  const save = (h, i) => {
+    const cat = /zahn|haut|augen|haus|arzt|orthop|hno|kardio|médic|medic|doctor/i.test(what) ? 'arzt' : /physio|osteo|massage|kines/i.test(what) ? 'therapie' : /labor|blut|röntgen|mrt|ultra/i.test(what) ? 'labor' : 'arzt';
+    const id = addBookItem('vorsorge', { name: h.name, cat, sub: '', address: h.adresse || '', area, phone: h.telefon || '', url: h.website || '', status: 'will' });
+    setSaved({ ...saved, [i]: id });
+    return id;
+  };
+  return (
+    <>
+      <section className="card" style={{ gap: 10 }}>
+        <label className="field"><span>Was suchst du?</span><input className="input" value={what} onChange={(e) => setWhat(e.target.value)} placeholder="z.B. Zahnarzt, Physiotherapie" /></label>
+        <div className="chips" style={{ marginTop: -4 }}>{QUICK.map((q) => <button key={q} type="button" className={what === q ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setWhat(q)}>{q}</button>)}</div>
+        <label className="field"><span>Wo ungefähr?</span><input className="input" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Viertel, z.B. Palermo" /></label>
+        <div className="chips" style={{ marginTop: -4 }}>
+          <button type="button" className="chip soft small-chip" onClick={async () => { try { setArea(await hoodHere()); } catch (e) { toast(e.message); } }}>📍 Mein Standort</button>
+          {areas.filter((a) => a !== area).slice(0, 6).map((a) => <button key={a} type="button" className="chip soft small-chip" onClick={() => setArea(a)}>{a}</button>)}
+        </div>
+        {what.trim() && (
+          <>
+            <span className="label" style={{ padding: 0 }}>Direkt nachsehen (kostenlos)</span>
+            <div className="chips">{doctorLinks(what.trim(), area.trim(), s.profile?.city).map((l) => <a key={l.url} className="pill link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button type="button" className="btn small" disabled={busy || !getAi().apiKey} onClick={run}>{busy ? 'Ich suche …' : '✨ KI sucht passende Praxen'}</button>
+              <Info>Eine Internet-Suche, ca. 1 Cent. Treffer kannst du als Ort speichern oder gleich einen Termin anlegen.</Info>
+            </div>
+          </>
+        )}
+      </section>
+      {res && (
+        <section className="card" style={{ gap: 8 }}>
+          {!res.treffer?.length && <span className="sub">{res.hinweis || 'Nichts gefunden – probier die Links oben.'}</span>}
+          {(res.treffer || []).map((h, i) => (
+            <div key={i} className="option" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6, cursor: 'default' }}>
+              <span style={{ fontWeight: 600, fontSize: 15 }}>{h.name}</span>
+              <span className="tiny">{[h.adresse, h.telefon, h.info].filter(Boolean).join(' · ')}</span>
+              <span className="chips">
+                {saved[i] ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ bei Orten gespeichert</span> : <button type="button" className="chip soft small-chip" onClick={() => { save(h, i); toast('Bei Orten gespeichert'); }}>📌 Als Ort speichern</button>}
+                <button type="button" className="chip small-chip" onClick={() => onTermin({ title: `${what.trim() || 'Termin'} – ${h.name}`, type: 'termin', placeId: saved[i] || save(h, i) })}>+ Termin anlegen</button>
+                {h.website && <a className="chip soft small-chip" href={h.website} target="_blank" rel="noreferrer">Website ↗</a>}
+                {h.telefon && <a className="chip soft small-chip" href={`tel:${String(h.telefon).replace(/[^\d+]/g, '')}`}>📞</a>}
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
+    </>
+  );
+}
+
 export default function Vorsorge() {
   const s = useStore();
   const t = today();
   const [sheet, setSheet] = useState(null);
-  const [view, setViewState] = useState(() => { try { return sessionStorage.getItem('life-vorsorge-view') || 'termine'; } catch { return 'termine'; } });
+  const [view, setViewState] = useState(() => { try { const v = sessionStorage.getItem('life-vorsorge-view'); return ['termine', 'finden', 'orte'].includes(v) ? v : 'termine'; } catch { return 'termine'; } });
   const setView = (v) => { setViewState(v); try { sessionStorage.setItem('life-vorsorge-view', v); } catch {} };
+  const [listOpen, setListOpenState] = useState(() => { try { return localStorage.getItem('life-vorsorge-open') !== '0'; } catch { return true; } });
+  const setListOpen = (v) => { setListOpenState(v); try { localStorage.setItem('life-vorsorge-open', v ? '1' : '0'); } catch {} };
   const items = s.healthItems;
   const upcoming = items.filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt').sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
   const injuries = items.filter((h) => h.type === 'verletzung');
   const done = items.filter((h) => h.type === 'termin' && h.status === 'erledigt').slice(-5).reverse();
-  const presets = PRESETS.filter((p) => !items.some((h) => h.title === p.title));
+  const nOrte = bookOf(s, 'vorsorge').items.length;
 
   return (
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
-          <div className="sec-h" style={{ padding: 0 }}>
-            <h1 className="h1">Vorsorge</h1>
-            {view === 'termine' && <button type="button" className="btn small" onClick={() => setSheet({})}>+ Neu</button>}
-          </div>
+          <h1 className="h1">Vorsorge</h1>
         </div>
-        <Segmented full options={[{ id: 'termine', label: 'Termine' }, { id: 'orte', label: `Orte${bookOf(s, 'vorsorge').items.length ? ` (${bookOf(s, 'vorsorge').items.length})` : ''}` }]} value={view} onChange={setView} label="Ansicht" />
-        {view === 'orte' ? <PlaceBook s={s} book="vorsorge" hint="Deine Ärzte, Therapeuten, Apotheke, Labor … – oben „+ Ort“. Beim Termin kannst du den Ort dann auswählen." /> : (<>
-        <span className="sub" style={{ padding: '0 4px' }}>Fällige Termine erscheinen automatisch auf „Heute“.</span>
+        <Segmented full options={[{ id: 'termine', label: 'Termine' }, { id: 'finden', label: 'Termin finden' }, { id: 'orte', label: `Orte${nOrte ? ` (${nOrte})` : ''}` }]} value={view} onChange={setView} label="Ansicht" />
+        {view === 'orte' && <PlaceBook s={s} book="vorsorge" hint="Deine Ärzte, Therapeuten, Apotheke, Labor … – oben „+ Ort“. Beim Termin kannst du den Ort dann auswählen." />}
+        {view === 'finden' && <FindTermin s={s} onTermin={(x) => setSheet(x)} />}
+        {view === 'termine' && (<>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button type="button" className="btn small" onClick={() => setSheet({ type: 'termin' })}>+ Termin</button>
+          <Info>Fällige Termine erscheinen automatisch auf „Heute“. Unten kannst du Termine auch einfach der KI erzählen.</Info>
+        </div>
 
         <section className="group">
-          <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Termine & Routinen</h2></div>
-          <div className="list">
-            {upcoming.length === 0 && <div className="empty">Noch nichts eingetragen.</div>}
+          <button type="button" className="sec-h" style={{ border: 0, background: 'none', width: '100%', cursor: 'pointer', font: 'inherit', color: 'inherit' }} onClick={() => setListOpen(!listOpen)} aria-expanded={listOpen}>
+            <h2 className="h2" style={{ fontSize: 19 }}>Termine & Routinen{upcoming.length ? ` · ${upcoming.length}` : ''}</h2>
+            <span className="tiny">{listOpen ? '▴ Zuklappen' : '▾ Aufklappen'}</span>
+          </button>
+          {listOpen && <div className="list">            {upcoming.length === 0 && <div className="empty">Noch nichts eingetragen.</div>}
             {upcoming.map((h) => {
               const overdue = h.date && h.date < t;
               return (
@@ -161,17 +258,10 @@ export default function Vorsorge() {
                 </div>
               );
             })}
-          </div>
+          </div>}
         </section>
 
-        {presets.length > 0 && (
-          <section className="card" style={{ gap: 10 }}>
-            <span className="label" style={{ padding: 0 }}>Schnell hinzufügen</span>
-            <div className="chips">
-              {presets.map((p) => <button key={p.title} type="button" className="chip soft" onClick={() => setSheet(p)}>+ {p.title}</button>)}
-            </div>
-          </section>
-        )}
+        <Presets s={s} items={items} onPick={(p) => setSheet(p)} />
 
         <section className="group">
           <div className="sec-h">
@@ -200,6 +290,25 @@ export default function Vorsorge() {
             </div>
           </section>
         )}
+        <PlanChat
+          compact
+          title="Termin der KI erzählen"
+          intro="z.B. „Zahnarzt bei Dr. López nächsten Dienstag 10 Uhr“ – ich trage ihn ein."
+          placeholder="Erzähl von deinem Termin …"
+          history={chatOf(s, 'vorsorge')}
+          onSave={(h) => saveChatOf('vorsorge', h)}
+          onAsk={(hist, o) => healthChat(s, hist, o)}
+          prefKey="vorsorge"
+          hideToggles
+          groups={HEALTH_GROUPS}
+          onApply={(sel) => {
+            for (const x of sel.termine || []) {
+              const placeId = x.ort_id && findBookItem(s, 'vorsorge', x.ort_id) ? x.ort_id : '';
+              addHealthItem({ title: x.titel, type: ['termin', 'routine', 'verletzung'].includes(x.art) ? x.art : 'termin', date: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || '') ? x.datum : null, everyMonths: x.art === 'routine' ? x.alle_monate || 6 : null, notes: [x.uhrzeit && `🕒 ${x.uhrzeit}`, x.notiz].filter(Boolean).join(' · '), placeId });
+            }
+          }}
+          chips={[]}
+        />
         </>)}
       </main>
       <ItemSheet s={s} open={!!sheet} item={sheet} onClose={() => setSheet(null)} />

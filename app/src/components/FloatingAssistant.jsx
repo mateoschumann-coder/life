@@ -207,7 +207,14 @@ export default function FloatingAssistant() {
                 aria-label="Nachricht an den Assistenten"
               />
             )}
-            {hasKey && !busy && <span className="tiny">{listening ? 'Ich höre zu. Nochmal auf den Knopf tippen = senden.' : draft.trim() ? 'Auf den Knopf tippen = senden.' : 'Auf den Knopf tippen = sprechen.'}</span>}
+            {hasKey && !busy && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button type="button" className={listening ? 'mic on' : 'mic'} style={{ width: 38, height: 38, flexShrink: 0 }} onClick={() => { unlockSpeech(); if (listening) stopListening(); else startListening({ continuous: true, onError: toast }); }} aria-label={listening ? 'Zuhören beenden' : 'Wieder sprechen'} aria-pressed={listening}>
+                  <Icon name={listening ? 'stop' : 'mic'} size={17} color="currentColor" />
+                </button>
+                <span className="tiny" style={{ flex: 1 }}>{listening ? 'Ich höre zu. Unten auf den Knopf tippen = senden.' : draft.trim() ? 'Unten auf den Knopf tippen = senden.' : reply ? 'Mikro antippen = wieder sprechen.' : 'Mikro oder unten den Knopf antippen = sprechen.'}</span>
+              </div>
+            )}
           </div>
         </div>
       )}

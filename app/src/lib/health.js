@@ -3,6 +3,7 @@ import { store, uid } from './store';
 import { addDays, fmtLong, today } from './dates';
 import { callApi } from './ai';
 import { searchWithTool } from './outings';
+import { bookOf, bookCats } from './placebook';
 
 const now = () => new Date().toISOString();
 const norm = (x) => String(x || '').trim().toLowerCase();
@@ -592,6 +593,55 @@ Antworte immer mit "kueche_antwort". Deutsch, kein Markdown.`;
 }
 
 // ---------- Vorsorge ----------
+// v1.01: Schnell-Hinzufügen bearbeitbar (s.profile.healthPresets)
+export const HEALTH_PRESETS = [
+  { title: 'Zahnarzt-Kontrolle', everyMonths: 6 },
+  { title: 'Zahnreinigung', everyMonths: 6 },
+  { title: 'Allgemeiner Check-up', everyMonths: 12 },
+  { title: 'Hautarzt (Muttermale)', everyMonths: 12 },
+  { title: 'Augenarzt', everyMonths: 24 },
+  { title: 'Laufschuhe wechseln', everyMonths: 6 },
+];
+export const healthPresetsOf = (s) => s.profile?.healthPresets || HEALTH_PRESETS;
+export const setHealthPresets = (list) => store.update((s) => { s.profile = { ...(s.profile || {}), healthPresets: list }; });
+// v1.01: Termine im Gespräch mit der KI anlegen (ohne Internet)
+const HEALTH_TOOL = {
+  name: 'vorsorge_antwort',
+  description: 'Antwort plus Termine zum Übernehmen.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      antwort: { type: 'string', description: 'kurze Antwort, gern mit Rückfrage (z.B. nach Datum/Uhrzeit)' },
+      termine: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            titel: { type: 'string', description: 'kurz, z.B. „Zahnarzt Dr. López“' },
+            art: { type: 'string', enum: ['termin', 'routine', 'verletzung'] },
+            datum: { type: 'string', description: 'YYYY-MM-DD oder leer' },
+            uhrzeit: { type: 'string', description: 'HH:MM oder leer' },
+            alle_monate: { type: 'integer', description: 'nur bei routine' },
+            ort_id: { type: 'string', description: 'ID eines gespeicherten Orts, wenn passend, sonst leer' },
+            notiz: { type: 'string' },
+          },
+          required: ['titel', 'art'],
+        },
+      },
+    },
+    required: ['antwort'],
+  },
+};
+export async function healthChat(s, history, { smart = false } = {}) {
+  const places = bookOf(s, 'vorsorge').items.map((p) => ({ id: p.id, name: p.name, art: [bookCats(s, 'vorsorge').find((c) => c.id === p.cat)?.label, p.sub].filter(Boolean).join(' – ') }));
+  const system = `Du hilfst Mateo in der App „Life“, Arzt-/Vorsorgetermine einzutragen. Heute ist ${fmtLong(today())} (${today()}).
+Seine Termine: ${JSON.stringify(s.healthItems.filter((h) => h.status !== 'erledigt').map((h) => `${h.title} (${h.type}${h.date ? ', ' + h.date : ''})`))}
+Seine gespeicherten Ärzte/Orte: ${JSON.stringify(places)}
+Erzählt er von einem Termin, schlag ihn unter "termine" vor (Datum als YYYY-MM-DD aus „nächsten Dienstag“ usw. berechnen; passt ein gespeicherter Ort, dessen ID als ort_id). Regelmäßiges (z.B. „alle 6 Monate Zahnreinigung“) = routine mit alle_monate. Beschwerden = verletzung. Fehlt das Datum, trotzdem vorschlagen und kurz nachfragen.
+Antworte immer mit "vorsorge_antwort". Deutsch, kein Markdown.`;
+  return searchWithTool({ system, messages: history.map((m) => ({ role: m.role, content: m.text })), tool: HEALTH_TOOL, maxUses: 0, label: 'Vorsorge-Chat', smart });
+}
+
 // type: termin (einmalig mit Datum) · routine (alle X Monate) · verletzung (mit Status)
 export function addHealthItem({ title, type = 'termin', date = null, everyMonths = null, notes = '', placeId = '' }) {
   if (!String(title || '').trim()) return null;

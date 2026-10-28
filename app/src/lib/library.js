@@ -4,12 +4,15 @@ import { today } from './dates';
 import { searchWithTool } from './outings';
 
 export const KINDS = {
-  buch: { label: 'Buch', icon: 'book' },
-  artikel: { label: 'Artikel', icon: 'news' },
-  video: { label: 'Video', icon: 'play' },
-  podcast: { label: 'Podcast', icon: 'mic' },
-  kurs: { label: 'Kurs', icon: 'bulb' },
+  buch: { label: 'Buch', plural: 'Bücher', icon: 'book' },
+  podcast: { label: 'Podcast', plural: 'Podcasts', icon: 'mic' },
+  video: { label: 'Video', plural: 'Videos', icon: 'play' },
+  artikel: { label: 'Artikel', plural: 'Artikel', icon: 'news' },
+  kurs: { label: 'Kurs', plural: 'Kurse', icon: 'bulb' },
+  tipp: { label: 'Tipp', plural: 'Tipps & Tricks', icon: 'sparkle' },
 };
+// v1.01: Bibliothek nach Art geordnet (#/wissen/:art); alte Kategorie-Links (bibliothek/podcasts) werden umgeleitet
+export const kindOfRoute = (id) => (KINDS[id] ? id : id === 'podcasts' ? 'podcast' : null);
 export const STATUS = { will: 'Will ich', aktiv: 'Gerade dabei', fertig: 'Fertig' };
 export const topicsOf = (s) => s.areas.find((a) => a.id === 'mental')?.subs || [];
 const norm = (x) => String(x || '').trim().toLowerCase();
@@ -101,7 +104,7 @@ const toReco = (r, i, fallbackKind) => {
   const kind = KINDS[r.art] ? r.art : fallbackKind || 'buch';
   return { id: 'e' + i + Date.now().toString(36), title: r.titel, kind, author: r.autor || '', why: r.warum || '', url: okUrl(r.url) || linkFor(r.titel, r.autor, kind) };
 };
-const catText = (cat) => (cat?.kind ? `Kategorie „${cat.name}“: empfiehl NUR ${KINDS[cat.kind].label === 'Podcast' ? 'Podcasts (ganze Shows oder einzelne starke Folgen)' : `Material der Art „${KINDS[cat.kind].label}“`}.` : cat ? `Kategorie „${cat.name}“: abwechslungsreich (Bücher, lange Artikel, Videos/Vorträge, Kurse${cat.id === 'bibliothek' ? '' : ', Podcasts'}).` : '');
+const catText = (cat) => (cat?.kind === 'tipp' ? 'Kategorie „Tipps & Tricks“: kurze, praktische Tipps und Lifehacks (z.B. Produktivität, Laufen, Kochen, Tech) – jeder Tipp als eigene Empfehlung mit dem Tipp selbst im Titel und kurzer Erklärung unter "warum".' : cat?.kind ? `Kategorie „${cat.name}“: empfiehl NUR ${KINDS[cat.kind].label === 'Podcast' ? 'Podcasts (ganze Shows oder einzelne starke Folgen)' : `Material der Art „${KINDS[cat.kind].label}“`}.` : cat ? `Kategorie „${cat.name}“: abwechslungsreich (Bücher, lange Artikel, Videos/Vorträge, Kurse${cat.id === 'bibliothek' ? '' : ', Podcasts'}).` : '');
 
 // Kategorien (Bibliothek, Podcasts, eigene)
 export function addLibCat(name, kind = '') {
@@ -146,7 +149,7 @@ const LIB_CHAT_TOOL = {
 };
 export async function libChat(s, cat, history, { web = false, smart = false } = {}) {
   const topics = topicsOf(s).map((t) => t.name);
-  const mine = s.library.filter((m) => m.cat === cat.id).map((m) => `${m.title} (${STATUS[m.status]}${m.rating ? `, ${m.rating}★` : ''}${m.note ? `, Notiz: ${m.note}` : ''})`);
+  const mine = s.library.filter((m) => (cat.kind ? m.kind === cat.kind : m.cat === cat.id)).map((m) => `${m.title} (${STATUS[m.status]}${m.rating ? `, ${m.rating}★` : ''}${m.note ? `, Notiz: ${m.note}` : ''})`);
   const system = `Du bist Mateos Lern-Begleiter in der App „Life“ für „${cat.name}“. ${catText(cat)}
 Seine Themen: ${JSON.stringify(topics)}. Was er in dieser Kategorie hat: ${JSON.stringify(mine)}
 Was du über ihn weißt: ${JSON.stringify(s.memory.map((m) => m.text))}
