@@ -539,3 +539,14 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .field-tool.ft-tidy { font-size: 13px; color: var(--accent); }
 input.ft-on { padding-right: 36px !important; }
 textarea.ft-on { padding-right: 70px !important; }
+
+/* v0.89: Hauptkategorien im Einkaufs-Katalog als große Kacheln (2 pro Zeile) */
+.shop-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.shop-group { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card-2); color: var(--text); font-size: 14.5px; font-weight: 600; text-align: left; cursor: pointer; }
+.shop-group.on { background: var(--accent); border-color: var(--accent); color: var(--on-primary, #fff); }
+.shop-group .sg-emoji { font-size: 19px; }
+.shop-group .sg-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-group .sg-count { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 10px; background: rgba(0,0,0,.08); }
+.shop-group.on .sg-count { background: rgba(255,255,255,.25); }
+.mini-btn { flex: none; width: 26px; height: 30px; border: 0; padding: 0; border-radius: 8px; background: none; color: var(--chev); font-size: 15px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.mini-btn:disabled { opacity: .25; }

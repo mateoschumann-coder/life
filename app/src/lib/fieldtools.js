@@ -6,25 +6,63 @@ import { getAi } from './ai';
 import { searchWithTool } from './outings';
 import { toast } from '../components/ui';
 
+// v0.89 (Mateo): nicht schöner Fließtext, sondern klar gegliedert – Oberthemen, Unterthemen, Stichpunkte mit dem Wichtigsten
+const PUNKTE = { type: 'array', items: { type: 'string' }, description: 'kurze Stichpunkte (meist 3–10 Wörter), das Wichtigste zuerst' };
 const TIDY_TOOL = {
-  name: 'text_geordnet',
-  description: 'Gibt den geordneten Text zurück.',
-  input_schema: { type: 'object', properties: { text: { type: 'string', description: 'Der geordnete Text – nur der Text, ohne Einleitung' } }, required: ['text'] },
+  name: 'text_gegliedert',
+  description: 'Der Text, gegliedert in Themen, Unterthemen und Stichpunkte.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      kern: { type: 'string', description: 'Optional: die wichtigste Aussage in einem kurzen Satz (nur bei längeren Texten)' },
+      themen: {
+        type: 'array',
+        description: 'Oberthemen in sinnvoller Reihenfolge',
+        items: {
+          type: 'object',
+          properties: {
+            titel: { type: 'string', description: '1–4 Wörter' },
+            punkte: PUNKTE,
+            unterthemen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string' }, punkte: PUNKTE }, required: ['titel', 'punkte'] }, description: 'Nur wenn ein Thema mehrere klar getrennte Aspekte hat' },
+          },
+          required: ['titel'],
+        },
+      },
+    },
+    required: ['themen'],
+  },
 };
+// Gliederung → Text, der in jedem Feld lesbar bleibt (■ Oberthema, ▸ Unterthema, • Punkt)
+export function outlineText(r) {
+  const out = [];
+  if (r?.kern) out.push(`💡 ${r.kern}`, '');
+  for (const th of r?.themen || []) {
+    out.push(`■ ${th.titel}`);
+    for (const p of th.punkte || []) out.push(`• ${p}`);
+    for (const u of th.unterthemen || []) {
+      out.push(`  ▸ ${u.titel}`);
+      for (const p of u.punkte || []) out.push(`    – ${p}`);
+    }
+    out.push('');
+  }
+  return out.join('\n').trim();
+}
 export async function tidyText(text, context = '') {
   const r = await searchWithTool({
-    system: `Du ordnest Text, den Mateo eingesprochen oder schnell getippt hat${context ? ` (Feld: „${context}“)` : ''}.
-Regeln: ALLE Inhalte behalten, nichts erfinden, nichts weglassen, keine Einleitung, keine Bewertung. Gleiche Sprache wie der Text.
-Diktier- und Tippfehler korrigieren, Füllwörter streichen, Zusammengehöriges zusammenfassen und sinnvoll sortieren.
-Mehrere Gedanken → kurze Stichpunkte mit „• “ (bei klaren Themen eine kurze Zwischenzeile „Thema:“ davor). Ein einzelner Gedanke → ein sauberer Satz.
-Kein Markdown (keine **, keine #). Antworte nur mit "text_geordnet".`,
+    system: `Du gliederst Text, den Mateo eingesprochen oder schnell getippt hat${context ? ` (Feld: „${context}“)` : ''}.
+Ziel: KEIN schöner Fließtext, sondern eine klare Gliederung zum Überfliegen:
+- Oberthemen (1–4 Wörter) → darunter kurze Stichpunkte mit den wichtigsten Inhalten (das Wichtigste zuerst).
+- Hat ein Thema mehrere klar getrennte Aspekte, Unterthemen mit eigenen Stichpunkten bilden.
+- Bei längeren Texten oben die wichtigste Aussage als „kern“.
+- Kurzer Text mit nur einem Gedanken: ein Thema mit 1–3 Stichpunkten.
+Regeln: ALLE Inhalte behalten (Zahlen, Namen, Termine), nichts erfinden, Doppeltes zusammenfassen, Diktierfehler und Füllwörter entfernen. Gleiche Sprache wie der Text. Antworte nur mit "text_gegliedert".`,
     user: text,
     tool: TIDY_TOOL,
     maxUses: 0,
-    maxTokens: 2500,
+    maxTokens: 3000,
     label: 'Text ordnen',
   });
-  return String(r?.text || '').trim();
+  return outlineText(r);
 }
 
 const OK_TYPES = /^(text|search|url|email|tel|number|)$/;

@@ -263,24 +263,70 @@ export const SHOP_CATS = [
 ];
 const LEGACY_CAT = { drogerie: 'koerper', obst: 'obst' };
 const catalogOf = (c) => (c.items ? c.items.split('|') : []).map((x) => ({ name: x.replace(/\?$/, ''), optional: x.endsWith('?') }));
-// Katalog einer Kategorie inkl. eigener Artikel (s.shopping.catalog[catId])
-export const shopCatalog = (s, catId) => {
-  const c = SHOP_CATS.find((x) => x.id === catId);
-  const own = (s.shopping.catalog?.[catId] || []).map((name) => ({ name, own: true }));
-  return [...(c ? catalogOf(c) : []), ...own];
+
+// v0.89: Struktur bearbeitbar – s.shopping.structure = { groups: [{id,label,emoji}], cats: [{id,group,label,emoji,items:[{name,optional}]}] }
+// Fehlt sie, gilt der Standard (Mateos Liste) + eigene Katalog-Artikel aus älteren Versionen (s.shopping.catalog).
+const defaultStructure = (s) => ({
+  groups: SHOP_GROUPS.map((g) => ({ ...g })),
+  cats: SHOP_CATS.map((c) => ({ id: c.id, group: c.group, label: c.label, emoji: c.emoji, items: [...catalogOf(c), ...((s?.shopping?.catalog?.[c.id]) || []).map((name) => ({ name, optional: false }))] })),
+});
+export function shopStructure(s) {
+  const st = s?.shopping?.structure;
+  const base = st && st.groups?.length ? { groups: st.groups, cats: st.cats || [] } : defaultStructure(s);
+  if (!base.cats.some((c) => c.id === 'sonstiges')) base.cats = [...base.cats, { id: 'sonstiges', group: base.groups[base.groups.length - 1]?.id, label: 'Sonstiges', emoji: '🛒', items: [] }];
+  return base;
+}
+// geordnete Kategorien (nach Gruppen-Reihenfolge), „Sonstiges“ immer zuletzt
+export function shopCats(s) {
+  const st = shopStructure(s);
+  const order = st.groups.map((g) => g.id);
+  const cats = st.cats.filter((c) => c.id !== 'sonstiges');
+  return [...order.flatMap((g) => cats.filter((c) => c.group === g)), ...cats.filter((c) => !order.includes(c.group)), st.cats.find((c) => c.id === 'sonstiges')];
+}
+const editStructure = (fn) => store.update((s) => {
+  const st = JSON.parse(JSON.stringify(shopStructure(s)));
+  fn(st);
+  s.shopping.structure = st;
+  delete s.shopping.catalog;
+});
+const sid = () => `x${uid().slice(0, 8)}`;
+const move = (list, i, d) => { const j = i + d; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; };
+export const shopEdit = {
+  addGroup: (label) => editStructure((st) => { const l = String(label || '').trim(); if (l) st.groups.push({ id: sid(), label: l, emoji: '📦' }); }),
+  updateGroup: (id, patch) => editStructure((st) => Object.assign(st.groups.find((g) => g.id === id) || {}, patch)),
+  removeGroup: (id) => editStructure((st) => {
+    if (st.groups.length <= 1) return;
+    st.groups = st.groups.filter((g) => g.id !== id);
+    st.cats = st.cats.filter((c) => c.group !== id || c.id === 'sonstiges');
+    st.cats.forEach((c) => { if (c.group === id) c.group = st.groups[st.groups.length - 1].id; });
+  }),
+  moveGroup: (id, d) => editStructure((st) => move(st.groups, st.groups.findIndex((g) => g.id === id), d)),
+  addCat: (group, label) => { let id = null; editStructure((st) => { const l = String(label || '').trim(); if (!l) return; id = sid(); st.cats.push({ id, group, label: l, emoji: '🛒', items: [] }); }); return id; },
+  updateCat: (id, patch) => editStructure((st) => Object.assign(st.cats.find((c) => c.id === id) || {}, patch)),
+  removeCat: (id) => editStructure((st) => { if (id !== 'sonstiges') st.cats = st.cats.filter((c) => c.id !== id); }),
+  moveCat: (id, d) => editStructure((st) => {
+    const c = st.cats.find((x) => x.id === id);
+    if (!c) return;
+    const same = st.cats.filter((x) => x.group === c.group);
+    const i = same.indexOf(c);
+    const other = same[i + d];
+    if (!other) return;
+    const a = st.cats.indexOf(c);
+    const b = st.cats.indexOf(other);
+    [st.cats[a], st.cats[b]] = [st.cats[b], st.cats[a]];
+  }),
+  addItem: (catId, name) => editStructure((st) => { const n = String(name || '').trim(); const c = st.cats.find((x) => x.id === catId); if (n && c && !c.items.some((x) => norm(x.name) === norm(n))) c.items.push({ name: n, optional: false }); }),
+  removeItem: (catId, name) => editStructure((st) => { const c = st.cats.find((x) => x.id === catId); if (c) c.items = c.items.filter((x) => norm(x.name) !== norm(name)); }),
+  toggleOptional: (catId, name) => editStructure((st) => { const it = st.cats.find((x) => x.id === catId)?.items.find((x) => norm(x.name) === norm(name)); if (it) it.optional = !it.optional; }),
+  reset: () => store.update((s) => { delete s.shopping.structure; }),
 };
-export const addCatalogItem = (catId, name) => store.update((s) => {
-  const n = String(name || '').trim();
-  if (!n) return;
-  s.shopping.catalog = { ...(s.shopping.catalog || {}) };
-  const list = s.shopping.catalog[catId] || [];
-  if (!list.some((x) => norm(x) === norm(n))) s.shopping.catalog[catId] = [...list, n];
-  s.shopping.catMap = { ...(s.shopping.catMap || {}), [norm(n)]: catId };
-});
-export const removeCatalogItem = (catId, name) => store.update((s) => {
-  if (!s.shopping.catalog?.[catId]) return;
-  s.shopping.catalog = { ...s.shopping.catalog, [catId]: s.shopping.catalog[catId].filter((x) => norm(x) !== norm(name)) };
-});
+// Katalog einer Kategorie
+export const shopCatalog = (s, catId) => (shopStructure(s).cats.find((c) => c.id === catId)?.items || []);
+export const addCatalogItem = (catId, name) => {
+  shopEdit.addItem(catId, name);
+  store.update((s) => { s.shopping.catMap = { ...(s.shopping.catMap || {}), [norm(name)]: catId }; });
+};
+export const removeCatalogItem = (catId, name) => shopEdit.removeItem(catId, name);
 const ITEM_CAT = Object.fromEntries(SHOP_CATS.flatMap((c) => catalogOf(c).map((x) => [norm(x.name), c.id])));
 const WORDS = SHOP_CATS.map((c) => [c.id, c.words.split(' ').filter(Boolean)]);
 export function guessShopCat(name) {
@@ -295,8 +341,15 @@ export function guessShopCat(name) {
   if (best) return best[0];
   return 'sonstiges';
 }
-const validCat = (c) => (c && SHOP_CATS.some((x) => x.id === c) ? c : LEGACY_CAT[c] || null);
-export const shopCatOf = (s, it) => validCat(it.cat) || validCat(s.shopping.catMap?.[norm(it.name)]) || (s.shopping.catalog && Object.entries(s.shopping.catalog).find(([, l]) => l.some((x) => norm(x) === norm(it.name)))?.[0]) || guessShopCat(it.name);
+export function shopCatOf(s, it) {
+  const cats = shopStructure(s).cats;
+  const has = (c) => c && cats.some((x) => x.id === c);
+  const valid = (c) => (has(c) ? c : has(LEGACY_CAT[c]) ? LEGACY_CAT[c] : null);
+  const n = norm(it.name);
+  const inCatalog = cats.find((c) => c.items.some((x) => norm(x.name) === n))?.id;
+  const guess = guessShopCat(it.name);
+  return valid(it.cat) || valid(s.shopping.catMap?.[n]) || inCatalog || (has(guess) ? guess : 'sonstiges');
+}
 export function setShoppingCat(id, cat) {
   store.update((s) => {
     const it = s.shopping.items.find((x) => x.id === id);

@@ -38,20 +38,38 @@ function TidyPill({ value, onChange, disabled }) {
     }}>{busy ? 'Ordne …' : '✨ Ordnen'}</button>
   );
 }
+// v0.89: gegliederter Text (■ Oberthema, ▸ Unterthema, • / – Punkt, 💡 Kern) schön anzeigen
+export function StructuredText({ text }) {
+  const lines = String(text || '').split('\n');
+  if (!lines.some((l) => /^\s*(■|▸|💡)/.test(l))) return <span style={{ whiteSpace: 'pre-wrap' }}>{text.startsWith('•') ? text : `• ${text}`}</span>;
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {lines.map((l, i) => {
+        const x = l.trim();
+        if (!x) return <span key={i} style={{ height: 4 }} />;
+        if (x.startsWith('💡')) return <span key={i} style={{ fontWeight: 600 }}>{x}</span>;
+        if (x.startsWith('■')) return <span key={i} style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.3, color: 'var(--muted)', marginTop: 4 }}>{x.slice(1).trim()}</span>;
+        if (x.startsWith('▸')) return <span key={i} style={{ fontWeight: 650, paddingLeft: 10 }}>{x.slice(1).trim()}</span>;
+        if (x.startsWith('–')) return <span key={i} style={{ paddingLeft: 24 }}>– {x.slice(1).trim()}</span>;
+        return <span key={i} style={{ paddingLeft: 2 }}>{x.startsWith('•') ? x : `• ${x}`}</span>;
+      })}
+    </span>
+  );
+}
 function NoteItem({ m, n }) {
   const [edit, setEdit] = useState(null);
   const dict = useDictation(edit || '', (v) => setEdit(typeof v === 'function' ? v(edit || '') : v));
   if (edit === null) {
     return (
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <button type="button" onClick={() => setEdit(n.text)} style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', flex: 1, fontSize: 14, lineHeight: 1.4, color: 'var(--text)', whiteSpace: 'pre-wrap' }} aria-label="Notiz bearbeiten">{n.text.startsWith('•') ? n.text : `• ${n.text}`}</button>
+        <button type="button" onClick={() => setEdit(n.text)} style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', flex: 1, fontSize: 14, lineHeight: 1.4, color: 'var(--text)', whiteSpace: 'pre-wrap' }} aria-label="Notiz bearbeiten"><StructuredText text={n.text} /></button>
         <button type="button" className="x-btn" aria-label="Notiz entfernen" onClick={() => removeNote(m.id, n.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
       </div>
     );
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <textarea className="input" rows={5} value={edit} onChange={(e) => setEdit(e.target.value)} aria-label="Notiz bearbeiten" autoFocus />
+      <textarea className="input" rows={Math.max(5, Math.min(16, edit.split("\n").length + 1))} value={edit} onChange={(e) => setEdit(e.target.value)} aria-label="Notiz bearbeiten" autoFocus />
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {canDictate && <button type="button" className={dict.on ? 'pill on' : 'pill'} onClick={dict.toggle}>{dict.on ? '■ Stopp' : '🎙'}</button>}
         <TidyPill value={edit} onChange={setEdit} />
@@ -100,8 +118,8 @@ function MaterialExtras({ s, m }) {
         <span style={{ fontWeight: 650, fontSize: 15 }}>📝 Meine Notizen</span>
         <span className="tiny">Frei schreiben oder einsprechen – auch unsortiert. „✨ Ordnen“ räumt den Text auf, Notiz antippen = bearbeiten. Unten macht die KI daraus deine eigene Zusammenfassung.</span>
         {notes.map((n) => <NoteItem key={n.id} m={m} n={n} />)}
-        <textarea className="input" rows={4} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Gedanken, Zitate, was du mitnimmst …" aria-label="Neue Notiz" />
-        <div style={{ display: 'flex', gap: 8 }}>
+        <textarea className="input" rows={Math.max(4, Math.min(16, note.split("\n").length + 1))} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Gedanken, Zitate, was du mitnimmst …" aria-label="Neue Notiz" />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {canDictate && <button type="button" className={dict.on ? 'pill on' : 'pill'} onClick={dict.toggle} aria-label="Einsprechen">{dict.on ? '■ Stopp' : '🎙 Einsprechen'}</button>}
           <TidyPill value={note} onChange={setNote} />
           <span style={{ flex: 1 }} />
@@ -115,7 +133,13 @@ function MaterialExtras({ s, m }) {
             {ln.themen.map((th, i) => (
               <div key={i}>
                 <span className="label" style={{ padding: 0 }}>{th.titel}</span>
-                <ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 14, lineHeight: 1.4 }}>{th.punkte.map((x, j) => <li key={j}>{x}</li>)}</ul>
+                {th.punkte?.length > 0 && <ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 14, lineHeight: 1.4 }}>{th.punkte.map((x, j) => <li key={j}>{x}</li>)}</ul>}
+                {(th.unterthemen || []).map((u, k) => (
+                  <div key={k} style={{ marginTop: 6, paddingLeft: 10, borderLeft: '2px solid var(--line)' }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 650 }}>{u.titel}</span>
+                    <ul style={{ margin: '2px 0 0', paddingLeft: 18, fontSize: 14, lineHeight: 1.4 }}>{u.punkte.map((x, j) => <li key={j}>{x}</li>)}</ul>
+                  </div>
+                ))}
               </div>
             ))}
             {ln.anwenden?.length > 0 && <div><span className="label" style={{ padding: 0 }}>Umsetzen</span><ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 14 }}>{ln.anwenden.map((x, j) => <li key={j}>{x}</li>)}</ul></div>}

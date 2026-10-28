@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import {
-  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, SHOP_CATS, SHOP_GROUPS, shopCatalog, addCatalogItem, removeCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
+  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -158,16 +158,63 @@ function Recipes({ s }) {
 }
 
 const nrm = (x) => String(x || '').trim().toLowerCase();
-// v0.88: Katalog nach Mateos Kategorien – Gruppe wählen, Kategorie für Kategorie durchgehen, Artikel antippen = auf die Liste
+// v0.88/0.89: Katalog nach Mateos Kategorien – Hauptkategorie wählen, Unterkategorie für Unterkategorie durchgehen,
+// Artikel antippen = auf die Liste. „✎ Bearbeiten“: Haupt- und Unterkategorien umbenennen, verschieben, löschen, neu anlegen; Artikel entfernen.
+function StructureSheet({ s, open, onClose }) {
+  const st = shopStructure(s);
+  const [newGroup, setNewGroup] = useState('');
+  const [newCat, setNewCat] = useState({});
+  const nameInput = (value, onSave, label, style) => <input className="input" defaultValue={value} key={value} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== value && onSave(e.target.value.trim())} aria-label={label} style={style} />;
+  const emojiInput = (value, onSave) => <input className="input" defaultValue={value} key={value} onBlur={(e) => e.target.value.trim() !== value && onSave(e.target.value.trim())} aria-label="Symbol" data-noclear="" style={{ width: 38, flex: 'none', textAlign: 'center', padding: '6px 2px', minHeight: 38, fontSize: 17 }} />;
+  return (
+    <Sheet open={open} title="Kategorien bearbeiten" onClose={onClose}>
+      <span className="tiny">Namen antippen zum Ändern. ↑↓ verschiebt, ✕ löscht. Artikel auf deiner Liste bleiben erhalten (landen sonst unter „Sonstiges“).</span>
+      {st.groups.map((g, gi) => (
+        <section key={g.id} className="card" style={{ gap: 8, padding: 12 }}>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {emojiInput(g.emoji, (v) => shopEdit.updateGroup(g.id, { emoji: v }))}
+            {nameInput(g.label, (v) => shopEdit.updateGroup(g.id, { label: v }), 'Hauptkategorie', { flex: 1, minWidth: 0, fontWeight: 650, padding: '8px 10px', minHeight: 42 })}
+            <button type="button" className="mini-btn" disabled={gi === 0} onClick={() => shopEdit.moveGroup(g.id, -1)} aria-label="Nach oben">↑</button>
+            <button type="button" className="mini-btn" disabled={gi === st.groups.length - 1} onClick={() => shopEdit.moveGroup(g.id, 1)} aria-label="Nach unten">↓</button>
+            {st.groups.length > 1 && <button type="button" className="mini-btn" onClick={() => confirm(`„${g.label}“ mit allen Unterkategorien löschen?`) && shopEdit.removeGroup(g.id)} aria-label="Hauptkategorie löschen"><Icon name="x" size={12} color="var(--danger)" /></button>}
+          </div>
+          {st.cats.filter((c) => c.group === g.id).map((c, ci, arr) => (
+            <div key={c.id} style={{ display: 'flex', gap: 4, alignItems: 'center', paddingLeft: 8 }}>
+              {emojiInput(c.emoji, (v) => shopEdit.updateCat(c.id, { emoji: v }))}
+              {c.id === 'sonstiges' ? <span style={{ flex: 1, fontSize: 15 }}>{c.label}</span> : nameInput(c.label, (v) => shopEdit.updateCat(c.id, { label: v }), 'Unterkategorie', { flex: 1, minWidth: 0, fontSize: 15, padding: '7px 10px', minHeight: 38 })}
+              <button type="button" className="mini-btn" disabled={ci === 0} onClick={() => shopEdit.moveCat(c.id, -1)} aria-label="Nach oben">↑</button>
+              <button type="button" className="mini-btn" disabled={ci === arr.length - 1} onClick={() => shopEdit.moveCat(c.id, 1)} aria-label="Nach unten">↓</button>
+              {c.id !== 'sonstiges' ? <button type="button" className="mini-btn" onClick={() => confirm(`Unterkategorie „${c.label}“ löschen?`) && shopEdit.removeCat(c.id)} aria-label="Unterkategorie löschen"><Icon name="x" size={11} color="var(--chev)" /></button> : <span className="mini-btn" />}
+            </div>
+          ))}
+          <form className="block-add" style={{ paddingLeft: 14 }} onSubmit={(e) => { e.preventDefault(); shopEdit.addCat(g.id, newCat[g.id]); setNewCat({ ...newCat, [g.id]: '' }); }}>
+            <input className="input" value={newCat[g.id] || ''} onChange={(e) => setNewCat({ ...newCat, [g.id]: e.target.value })} placeholder={`+ Unterkategorie in „${g.label}“`} aria-label={`Neue Unterkategorie in ${g.label}`} />
+            <button type="submit" className="btn small" disabled={!(newCat[g.id] || '').trim()}>+</button>
+          </form>
+        </section>
+      ))}
+      <form className="block-add" onSubmit={(e) => { e.preventDefault(); shopEdit.addGroup(newGroup); setNewGroup(''); }}>
+        <input className="input" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="+ Neue Hauptkategorie, z.B. Haustier" aria-label="Neue Hauptkategorie" />
+        <button type="submit" className="btn small" disabled={!newGroup.trim()}>+</button>
+      </form>
+      <button type="button" className="btn" onClick={onClose}>Fertig</button>
+      <button type="button" className="link-btn" style={{ alignSelf: 'center' }} onClick={() => confirm('Alle Kategorien und Katalog-Artikel auf den Standard zurücksetzen?') && shopEdit.reset()}>Auf Standard zurücksetzen</button>
+    </Sheet>
+  );
+}
+
 function ShopCatalog({ s }) {
   const [open, setOpenState] = useState(() => { try { return localStorage.getItem('life-app-shopcat-open') !== '0'; } catch { return true; } });
   const setOpen = (v) => { setOpenState(v); try { localStorage.setItem('life-app-shopcat-open', v ? '1' : '0'); } catch {} };
-  const [catId, setCatId] = useState('obst');
+  const st = shopStructure(s);
+  const all = shopCats(s);
+  const [catId, setCatId] = useState(all[0]?.id);
   const [own, setOwn] = useState('');
   const [edit, setEdit] = useState(false);
-  const cur = SHOP_CATS.find((c) => c.id === catId) || SHOP_CATS[0];
-  const cats = SHOP_CATS.filter((c) => c.group === cur.group);
-  const steps = SHOP_CATS.filter((c) => c.id !== 'sonstiges');
+  const [structOpen, setStructOpen] = useState(false);
+  const cur = all.find((c) => c.id === catId) || all[0];
+  const cats = all.filter((c) => c.group === cur.group);
+  const steps = all.filter((c) => c.id !== 'sonstiges');
   const next = steps[steps.findIndex((c) => c.id === cur.id) + 1];
   const onList = new Map(s.shopping.items.filter((x) => !x.done).map((x) => [nrm(x.name), x.id]));
   const list = shopCatalog(s, cur.id);
@@ -176,42 +223,55 @@ function ShopCatalog({ s }) {
     if (id) removeShopping(id);
     else addShopping(name);
   };
-  const countIn = (c) => shopCatalog(s, c.id).filter((x) => onList.has(nrm(x.name))).length;
+  const countIn = (c) => (c.items || []).filter((x) => onList.has(nrm(x.name))).length;
+  const groupCount = (g) => all.filter((c) => c.group === g.id).reduce((n, c) => n + countIn(c), 0);
   return (
-    <section className="card" style={{ gap: 10 }}>
-      <button type="button" className="row-main" style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', flexDirection: 'row', alignItems: 'center', display: 'flex', gap: 8 }} onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span style={{ fontWeight: 650, fontSize: 15, flex: 1 }}>📋 Aus dem Katalog antippen</span>
-        <span className="tiny">{open ? 'Einklappen' : 'Öffnen'}</span>
-      </button>
+    <section className="card" style={{ gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button type="button" style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', flex: 1, fontWeight: 650, fontSize: 15, color: 'var(--text)' }} onClick={() => setOpen(!open)} aria-expanded={open}>📋 Aus dem Katalog antippen</button>
+        {open && <button type="button" className="pill" onClick={() => setStructOpen(true)}>✎ Bearbeiten</button>}
+        <button type="button" className="link-btn" style={{ fontSize: 12.5 }} onClick={() => setOpen(!open)}>{open ? 'Einklappen' : 'Öffnen'}</button>
+      </div>
       {open && (<>
-        <div className="seg-mini">
-          {SHOP_GROUPS.map((g) => <button key={g.id} type="button" className={cur.group === g.id ? 'chip on' : 'chip soft'} onClick={() => setCatId(SHOP_CATS.find((c) => c.group === g.id).id)}>{g.emoji} {g.label}</button>)}
+        <div className="shop-groups">
+          {st.groups.map((g) => {
+            const first = all.find((c) => c.group === g.id);
+            const n = groupCount(g);
+            return (
+              <button key={g.id} type="button" className={cur.group === g.id ? 'shop-group on' : 'shop-group'} onClick={() => first && setCatId(first.id)} disabled={!first}>
+                <span className="sg-emoji">{g.emoji || '📦'}</span>
+                <span className="sg-label">{g.label}</span>
+                {n > 0 && <span className="sg-count">{n}</span>}
+              </button>
+            );
+          })}
         </div>
         <div className="box-tabs">
           {cats.map((c) => { const n = countIn(c); return <button key={c.id} type="button" className={c.id === cur.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCatId(c.id)}>{c.emoji} {c.label}{n ? ` · ${n}` : ''}</button>; })}
         </div>
         <div className="chips">
-          {list.length === 0 && <span className="tiny">Noch keine Artikel – füg unten eigene hinzu.</span>}
+          {list.length === 0 && <span className="tiny">Noch keine Artikel – füg unten welche hinzu.</span>}
           {list.map((x) => {
             const on = onList.has(nrm(x.name));
             return (
-              <button key={x.name} type="button" className={on ? 'chip on' : 'chip'} style={x.optional && !on ? { opacity: 0.7 } : undefined} onClick={() => (edit && x.own ? removeCatalogItem(cur.id, x.name) : toggle(x.name))} aria-pressed={on}>
-                {on ? '✓ ' : ''}{x.name}{edit && x.own ? ' ✕' : ''}
+              <button key={x.name} type="button" className={edit ? 'chip soft' : on ? 'chip on' : 'chip'} style={x.optional && !on && !edit ? { opacity: 0.7 } : undefined} onClick={() => (edit ? shopEdit.removeItem(cur.id, x.name) : toggle(x.name))} aria-pressed={on}>
+                {!edit && on ? '✓ ' : ''}{x.name}{edit ? ' ✕' : ''}
               </button>
             );
           })}
         </div>
-        <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (!own.trim()) return; addCatalogItem(cur.id, own); addShopping(own.trim()); setOwn(''); }}>
-          <input className="input" value={own} onChange={(e) => setOwn(e.target.value)} placeholder={`Eigener Artikel in „${cur.label}“`} aria-label="Eigenen Katalog-Artikel hinzufügen" />
+        <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (!own.trim()) return; addCatalogItem(cur.id, own); if (!edit) addShopping(own.trim()); setOwn(''); }}>
+          <input className="input" value={own} onChange={(e) => setOwn(e.target.value)} placeholder={`Artikel in „${cur.label}“ ergänzen`} aria-label="Eigenen Katalog-Artikel hinzufügen" />
           <button type="submit" className="btn small" disabled={!own.trim()}>+</button>
         </form>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {list.some((x) => x.own) && <button type="button" className={edit ? 'pill on' : 'pill'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Eigene entfernen'}</button>}
+          {list.length > 0 && <button type="button" className={edit ? 'pill on' : 'pill'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Artikel entfernen'}</button>}
           <span style={{ flex: 1 }} />
-          {next && <button type="button" className="btn small sec" onClick={() => setCatId(next.id)}>Weiter: {next.emoji} {next.label} ›</button>}
+          {next && !edit && <button type="button" className="btn small sec" onClick={() => setCatId(next.id)}>Weiter: {next.emoji} {next.label} ›</button>}
         </div>
-        <span className="tiny">Antippen = auf die Liste (nochmal = wieder runter). Helle Artikel sind optional. Eigene Artikel merkt sich der Katalog.</span>
+        <span className="tiny">{edit ? 'Antippen = Artikel aus dem Katalog entfernen.' : 'Antippen = auf die Liste (nochmal = wieder runter). Helle Artikel sind optional.'}</span>
       </>)}
+      <StructureSheet s={s} open={structOpen} onClose={() => setStructOpen(false)} />
     </section>
   );
 }
@@ -238,7 +298,7 @@ function Shopping({ s }) {
       </button>
       <ShopCatalog s={s} />
       {open.length === 0 && <div className="list"><div className="empty">Die Liste ist leer.</div></div>}
-      {SHOP_CATS.map((c) => {
+      {shopCats(s).map((c) => {
         const items = open.filter((x) => shopCatOf(s, x) === c.id);
         if (!items.length) return null;
         return (
@@ -268,11 +328,11 @@ function Shopping({ s }) {
       )}
       {open.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal).</span>}
       <Sheet open={!!move} title={move ? `„${move.name}“ einsortieren` : ''} onClose={() => setMove(null)}>
-        {SHOP_GROUPS.map((g) => (
+        {shopStructure(s).groups.map((g) => (
           <div key={g.id} className="field">
             <span>{g.emoji} {g.label}</span>
             <div className="chips">
-              {SHOP_CATS.filter((c) => c.group === g.id).map((c) => <button key={c.id} type="button" className={move && shopCatOf(s, move) === c.id ? 'chip on' : 'chip'} onClick={() => { setShoppingCat(move.id, c.id); setMove(null); }}>{c.emoji} {c.label}</button>)}
+              {shopCats(s).filter((c) => c.group === g.id).map((c) => <button key={c.id} type="button" className={move && shopCatOf(s, move) === c.id ? 'chip on' : 'chip'} onClick={() => { setShoppingCat(move.id, c.id); setMove(null); }}>{c.emoji} {c.label}</button>)}
             </div>
           </div>
         ))}

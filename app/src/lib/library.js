@@ -219,7 +219,7 @@ const LEARN_TOOL = {
     type: 'object',
     properties: {
       kernaussage: { type: 'string', description: 'Die eine wichtigste Erkenntnis, 1 Satz' },
-      themen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string' }, punkte: { type: 'array', items: { type: 'string' } } }, required: ['titel', 'punkte'] }, description: '2–5 Themen mit Mateos Punkten, sauber formuliert' },
+      themen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string', description: '1–4 Wörter' }, punkte: { type: 'array', items: { type: 'string' }, description: 'kurze Stichpunkte, das Wichtigste zuerst' }, unterthemen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string' }, punkte: { type: 'array', items: { type: 'string' } } }, required: ['titel', 'punkte'] }, description: 'nur wenn ein Thema mehrere klar getrennte Aspekte hat' } }, required: ['titel'] }, description: '2–5 Oberthemen mit Mateos Punkten als kurze Stichpunkte' },
       anwenden: { type: 'array', items: { type: 'string' }, description: '1–3 konkrete Ideen, wie Mateo das umsetzen kann' },
     },
     required: ['themen'],
@@ -230,7 +230,7 @@ export async function structureNotes(s, m) {
   if (m.note) notes.unshift(m.note);
   if (!notes.length) throw new Error('Erst ein paar Notizen eintragen.');
   const r = await searchWithTool({
-    system: `Mache aus Mateos Notizen zu „${m.title}“${m.author ? ` (${m.author})` : ''} eine kurze, gut lesbare eigene Zusammenfassung. Die Notizen können unstrukturiert, diktiert oder stichpunktartig sein – verstehe sie, ordne sie in 2–4 Themen, glätte Formulierungen, fasse Doppeltes zusammen. Nur seine Gedanken verwenden, nichts aus dem Buch dazuerfinden. Kurz halten. Deutsch, kein Markdown. Antworte mit "learnings".`,
+    system: `Mache aus Mateos Notizen zu „${m.title}“${m.author ? ` (${m.author})` : ''} eine klar gegliederte eigene Zusammenfassung zum Überfliegen – keinen Fließtext. Die Notizen können unstrukturiert, diktiert oder stichpunktartig sein – verstehe sie und ordne sie in 2–5 Oberthemen mit kurzen Stichpunkten (das Wichtigste zuerst), bei mehreren Aspekten mit Unterthemen; fasse Doppeltes zusammen. Nur seine Gedanken verwenden, nichts aus dem Buch dazuerfinden. Kurz halten. Deutsch, kein Markdown. Antworte mit "learnings".`,
     user: notes.map((x) => `- ${x}`).join('\n'),
     tool: LEARN_TOOL,
     maxUses: 0,
