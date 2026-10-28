@@ -172,7 +172,7 @@ function SkillMaterial({ sk }) {
   );
 }
 
-function SkillPage({ s, sk }) {
+export function SkillPage({ s, sk, back = { href: '#/skills', label: 'Weiterentwicklung' } }) {
   const [tab, setTabState] = useState(() => { try { return localStorage.getItem('life-app-skill-tab') || 'todos'; } catch { return 'todos'; } });
   const setTab = (v) => { setTabState(v); try { localStorage.setItem('life-app-skill-tab', v); } catch {} };
   const [text, setText] = useState('');
@@ -191,7 +191,7 @@ function SkillPage({ s, sk }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/skills" label="Weiterentwicklung" />
+          <Back href={back.href} label={back.label} />
           <h1 className="h1 sm">{sk.name}</h1>
           <div style={{ display: 'flex', gap: 8 }}>
             <input className="input goal-input" defaultValue={sk.level} key={sk.id + 'l'} placeholder="Niveau, z.B. A2 / Anfänger" onBlur={(e) => e.target.value !== sk.level && updateSkill(sk.id, { level: e.target.value })} aria-label="Niveau" />

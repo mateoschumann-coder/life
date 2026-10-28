@@ -94,7 +94,7 @@ export function collectItems(s) {
 // Kurzer Stand pro Bereich (auch wenn nichts ansteht) – damit die KI fragen oder anstoßen kann
 function facts(s) {
   const t = today();
-  const hobbies = (s.hobbies || []).map((h) => `${h.name} (${h.items.filter((x) => x.status !== 'geschafft').length} offen, ${h.items.filter((x) => x.status === 'geschafft').length} geschafft)`);
+  const hobbies = (s.hobbies || []).map((h) => `${h.name} (${(h.todos || []).filter((x) => !x.done).length} To-dos offen, ${(h.materials || []).length} Material)`);
   const b = s.budget;
   return {
     sport: { sportarten: s.sports.map((x) => x.name), gemerkt: (s.sportEvents || []).filter((e) => e.status === 'interessiert').length, angemeldet: (s.sportEvents || []).filter((e) => e.status === 'angemeldet').map((e) => `${e.name} ${e.date || ''}`) },
@@ -209,7 +209,7 @@ export function structure(s) {
   G('reisen', 'Ideen', [...groups.map((g) => I(`📁 ${g}`, '#/reisen', `${ideas.filter((x) => x.group === g).length}`)), ...ideas.filter((x) => !x.group).map((x) => I(x.name, `#/reisen/${x.id}`))]);
 
   // Hobbys
-  G('hobbys', 'Offen', (s.hobbies || []).map((h) => { const n = (h.items || []).filter((x) => x.status !== 'geschafft').length; return n ? I(h.name, `#/hobbys/${h.id}`, `${n}`) : null; }));
+  G('hobbys', 'Offen', (s.hobbies || []).map((h) => { const n = (h.todos || []).filter((x) => !x.done).length; return n ? I(h.name, `#/hobbys/${h.id}`, `${n}`) : null; }));
 
   // Finanzen
   const b = s.budget;

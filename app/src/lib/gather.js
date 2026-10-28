@@ -19,8 +19,8 @@ export const TODO_TEMPLATES = {
 const withBase = (kind, extra) => Object.fromEntries(PHASES.map((p) => [p, [...new Set([...(TODO_TEMPLATES[kind][p] || []), ...(extra[p] || [])])]]));
 export const OCCASIONS = {
   leer: { label: 'Leer – selbst füllen', emoji: '✏️', kind: null, empty: true, todos: {}, shop: {} },
-  allgemein: { label: 'Allgemein (zu Hause)', emoji: '📋', kind: 'zuhause', todos: withBase('zuhause', {}), shop: {} },
-  allgemein_aus: { label: 'Allgemein (woanders)', emoji: '📋', kind: 'auswaerts', todos: withBase('auswaerts', {}), shop: {} },
+  allgemein: { label: 'Allgemein', emoji: '📋', kind: 'zuhause', todos: withBase('zuhause', {}), shop: {} },
+  allgemein_aus: { label: 'Allgemein', emoji: '📋', kind: 'auswaerts', todos: withBase('auswaerts', {}), shop: {} },
   asado: { label: 'Asado / Grillen', emoji: '🔥', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Fleisch bestellen', 'Grill checken'], Vorbereiten: ['Feuer anmachen', 'Chimichurri machen'] }), shop: { Essen: ['Vacío', 'Chorizo', 'Morcilla', 'Provoleta', 'Brot', 'Salat', 'Chimichurri'], Getränke: ['Bier', 'Wein', 'Fernet', 'Cola', 'Wasser', 'Eis'], Sonstiges: ['Kohle', 'Grillanzünder', 'Servietten'] } },
   geburtstag: { label: 'Geburtstag', emoji: '🎂', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Torte bestellen'], Vorbereiten: ['Dekorieren'] }), shop: { Essen: ['Torte', 'Snacks', 'Chips', 'Fingerfood'], Getränke: ['Sekt', 'Bier', 'Softdrinks', 'Wasser', 'Eis'], Sonstiges: ['Kerzen', 'Deko', 'Servietten', 'Pappbecher'] } },
   abendessen: { label: 'Abendessen', emoji: '🍝', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Allergien abfragen'], Vorbereiten: ['Tisch decken'] }), shop: { Essen: ['Vorspeise', 'Hauptgericht', 'Dessert', 'Brot'], Getränke: ['Wein', 'Wasser'], Sonstiges: ['Servietten', 'Kerzen'] } },
@@ -149,16 +149,27 @@ export function upsertGathering(s, a) {
   return id;
 }
 // Art wechseln: Vorlage der neuen Art ergänzen, unerledigte Punkte der alten Vorlage entfernen
+// v1.04: Art wechseln merkt sich die Vorlage je Art (zurückwechseln holt sie wieder); passt sie nicht, gilt „Leer“
+export const tplForKind = (type, kind, memo = {}) => {
+  if (memo[kind] !== undefined) return memo[kind];
+  const o = occOf(type);
+  if (!o || !o.kind) return type || 'leer';
+  if (o.kind === kind) return type;
+  if (type === 'allgemein') return 'allgemein_aus';
+  if (type === 'allgemein_aus') return 'allgemein';
+  return 'leer';
+};
 export function setKind(gId, kind) {
+  const g0 = store.get().gatherings.find((x) => x.id === gId);
+  if (!g0 || g0.kind === kind) return;
+  const next = tplForKind(g0.type, kind, g0.tplByKind || {});
   store.update((s) => {
     const g = s.gatherings.find((x) => x.id === gId);
-    if (!g || g.kind === kind) return;
-    const old = new Set(todos(g.kind, g.type).map((x) => norm(x.text)));
-    g.todos = g.todos.filter((x) => x.done || !old.has(norm(x.text)));
-    if (occOf(g.type)?.kind && occOf(g.type).kind !== kind) g.type = '';
-    for (const x of todos(kind, g.type)) if (!g.todos.some((y) => norm(y.text) === norm(x.text))) g.todos.push(x);
+    if (!g) return;
+    g.tplByKind = { ...(g.tplByKind || {}), [g.kind]: g.type || 'leer' };
     g.kind = kind;
   });
+  setOccasion(gId, next);
 }
 export function addItem(gId, list, obj) {
   const text = String(obj.text || obj.name || '').trim();
@@ -292,3 +303,39 @@ export function addWaGroup(name, link) {
   return id;
 }
 export const removeWaGroup = (id) => store.update((s) => { s.waGroups = (s.waGroups || []).filter((x) => x.id !== id); });
+
+// v1.04: Vorlage mit der KI ändern (sprechen oder tippen), ohne Internet
+const TPL_TOOL = {
+  name: 'vorlage',
+  description: 'Überarbeitete Event-Vorlage',
+  input_schema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+      emoji: { type: 'string' },
+      planen: { type: 'array', items: { type: 'string' } },
+      vorbereiten: { type: 'array', items: { type: 'string' } },
+      sonstiges: { type: 'array', items: { type: 'string' } },
+      essen: { type: 'array', items: { type: 'string' } },
+      getraenke: { type: 'array', items: { type: 'string' } },
+      einkauf_sonstiges: { type: 'array', items: { type: 'string' } },
+    },
+    required: ['planen', 'vorbereiten', 'sonstiges'],
+  },
+};
+export async function editTemplateAI(t, wish) {
+  const r = await searchWithTool({
+    system: `Du überarbeitest eine Event-Vorlage für Mateo (lebt in Buenos Aires). Ändere sie genau so, wie er es sagt; was er nicht erwähnt, bleibt gleich. To-dos GANZ kurz (2–4 Wörter), Einkauf je Artikel ein Eintrag, ohne Mengen. Planen = vorher organisieren (z.B. Termin festlegen), Vorbereiten = kurz vorher/am Tag, Sonstiges = danach. ${t.kind === 'auswaerts' ? 'Event ist woanders – kein Einkauf.' : ''} Antworte nur mit "vorlage".`,
+    user: `Vorlage jetzt: ${JSON.stringify({ name: t.label, emoji: t.emoji, planen: t.todos.Planen, vorbereiten: t.todos.Vorbereiten, sonstiges: t.todos.Sonstiges, essen: t.shop.Essen, getraenke: t.shop['Getränke'], einkauf_sonstiges: t.shop.Sonstiges })}\nÄnderungswunsch: ${wish}`,
+    tool: TPL_TOOL,
+    maxUses: 0,
+    maxTokens: 1500,
+    label: 'Vorlage mit KI',
+  });
+  return {
+    label: r.name || t.label,
+    emoji: r.emoji || t.emoji,
+    todos: { Planen: r.planen || [], Vorbereiten: r.vorbereiten || [], Sonstiges: r.sonstiges || [] },
+    shop: { Essen: r.essen || t.shop.Essen || [], 'Getränke': r.getraenke || t.shop['Getränke'] || [], Sonstiges: r.einkauf_sonstiges || t.shop.Sonstiges || [] },
+  };
+}

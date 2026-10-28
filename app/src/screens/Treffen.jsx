@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { useDictation } from '../lib/dictate';
+import { getAi } from '../lib/ai';
+const hasKey = () => !!getAi().apiKey;
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addGathering, addGuest, addWaGroup, removeWaGroup, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, occasionOf, templatesOf, saveTemplate, removeTemplate, resetTemplates, PHASES, todoCats, SHOP_CATS, updateGathering, updateItem, VENUE_STATUS,
+  addGathering, addGuest, addWaGroup, removeWaGroup, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, occasionOf, templatesOf, saveTemplate, removeTemplate, resetTemplates, tplForKind, editTemplateAI, PHASES, todoCats, SHOP_CATS, updateGathering, updateItem, VENUE_STATUS,
 } from '../lib/gather';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
@@ -106,6 +109,22 @@ const lines = (v) => String(v || '').split('\n').map((x) => x.trim()).filter(Boo
 function TemplateEditor({ s, open, onClose }) {
   const all = templatesOf(s);
   const [ed, setEd] = useState(null); // { key, label, emoji, kind, todos: {phase: text}, shop: {cat: text} }
+  const [wish, setWish] = useState('');
+  const [busy, setBusy] = useState(false);
+  const dict = useDictation(wish, setWish);
+  const runAI = async () => {
+    if (!wish.trim()) return;
+    dict.stop?.();
+    setBusy(true);
+    try {
+      const cur = { label: ed.label, emoji: ed.emoji, kind: ed.kind, todos: Object.fromEntries(PHASES.map((p) => [p, lines(ed.todos[p])])), shop: Object.fromEntries(SHOP_CATS.map((c) => [c, lines(ed.shop[c])])) };
+      const r = await editTemplateAI(cur, wish.trim());
+      setEd({ ...ed, label: ed.label || r.label, emoji: r.emoji || ed.emoji, todos: Object.fromEntries(PHASES.map((p) => [p, (r.todos[p] || []).join('\n')])), shop: Object.fromEntries(SHOP_CATS.map((c) => [c, (r.shop[c] || []).join('\n')])) });
+      setWish('');
+      toast('Von der KI geändert – prüfen und speichern');
+    } catch (e) { toast(e.message || 'Hat nicht geklappt'); }
+    setBusy(false);
+  };
   const start = (k) => {
     const o = k ? all[k] : { label: '', emoji: '📋', kind: 'zuhause', todos: {}, shop: {} };
     setEd({ key: k, label: o.label, emoji: o.emoji, kind: o.kind, todos: Object.fromEntries(PHASES.map((p) => [p, (o.todos?.[p] || []).join('\n')])), shop: Object.fromEntries(SHOP_CATS.map((c) => [c, (o.shop?.[c] || []).join('\n')])) });
@@ -140,6 +159,15 @@ function TemplateEditor({ s, open, onClose }) {
             <label className="field" style={{ flex: 1 }}><span>Name</span><input className="input" value={ed.label} onChange={(e) => setEd({ ...ed, label: e.target.value })} placeholder="z.B. Weihnachtsessen" /></label>
           </div>
           <div className="chips">{[['zuhause', '🏠 Zu Hause'], ['auswaerts', '📍 Woanders'], [null, 'Beides']].map(([k, l]) => <button key={String(k)} type="button" className={ed.kind === k ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEd({ ...ed, kind: k })}>{l}</button>)}</div>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <b style={{ fontSize: 15 }}>✨ Mit der KI {ed.key ? 'ändern' : 'erstellen'}</b>
+            <textarea className="input" rows={2} value={wish} onChange={(e) => setWish(e.target.value)} placeholder={ed.key ? 'z.B. „Füg Nachtisch hinzu und streich die Deko“' : 'z.B. „Weihnachtsessen für 10 Leute mit Fondue“'} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className={dict.on ? 'btn small danger' : 'btn small tint'} onClick={dict.toggle}>{dict.on ? '■ Stopp' : '🎙 Sprechen'}</button>
+              <button type="button" className="btn small" disabled={busy || !wish.trim() || !hasKey()} onClick={runAI}>{busy ? 'Denkt nach …' : ed.key ? '✨ Ändern' : '✨ Erstellen'}</button>
+            </div>
+            {!hasKey() && <span className="tiny">Dafür braucht es den KI-Schlüssel (Einstellungen).</span>}
+          </div>
           <span className="tiny">Ein Eintrag pro Zeile.</span>
           {PHASES.map((p) => <label key={p} className="field"><span>To-dos · {p}</span><textarea className="input" rows={3} value={ed.todos[p]} onChange={(e) => setEd({ ...ed, todos: { ...ed.todos, [p]: e.target.value } })} /></label>)}
           {ed.kind !== 'auswaerts' && SHOP_CATS.map((c) => <label key={c} className="field"><span>🛒 Einkauf · {c}</span><textarea className="input" rows={2} value={ed.shop[c]} onChange={(e) => setEd({ ...ed, shop: { ...ed.shop, [c]: e.target.value } })} /></label>)}
@@ -243,7 +271,7 @@ export function EventsList({ s }) {
       </main>
       <Sheet open={open} title="Neues Event" onClose={() => setOpen(false)}>
         <div className="seg-mini">
-          {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, kind: k, type: occasionOf(f.type)?.kind && occasionOf(f.type).kind !== k ? 'leer' : f.type })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
+          {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => f.kind !== k && setF({ ...f, kind: k, type: tplForKind(f.type || 'leer', k, f.tplByKind || {}), tplByKind: { ...(f.tplByKind || {}), [f.kind]: f.type || 'leer' } })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
         </div>
         <div className="field">
           <span>Vorlage – bringt passende To-dos{f.kind === 'zuhause' ? ' und Einkauf' : ''} mit</span>

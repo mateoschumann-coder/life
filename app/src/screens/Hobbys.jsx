@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkillPage } from './Skills';
 import { useStore } from '../lib/store';
 import { addHobby, addHobbyItem, HOBBY_KINDS, hobbyChat, searchLink, removeHobby, removeHobbyItem, updateHobby, updateHobbyItem } from '../lib/leisure';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -24,17 +25,17 @@ function HobbyList({ s }) {
             {s.hobbies.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
           </div>
         </div>
-        {s.hobbies.length === 0 && <div className="notice">Füg deine Hobbys hinzu. Zu jedem führst du eine Liste (z.B. Songs: offen / geschafft) und kannst im Chat nach Neuem fragen.</div>}
+        {s.hobbies.length === 0 && <div className="notice">Füg deine Hobbys hinzu. Zu jedem gibt es To-dos und Material (z.B. bei Gitarre: Songs, Videos, Übungen) – wie bei der Weiterentwicklung.</div>}
         <div className="list">
           {s.hobbies.map((h) => {
-            const open = h.items.filter((x) => x.status !== 'geschafft').length;
-            const doneN = h.items.filter((x) => x.status === 'geschafft').length;
+            const open = (h.todos || []).filter((x) => !x.done).length;
+            const mat = (h.materials || []).length;
             return (
               <div key={h.id} className="row" style={{ minHeight: 62 }}>
                 <span className="block-icon" style={{ background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: COLOR }}><Icon name="sparkle" size={16} /></span>
                 <a href={`#/hobbys/${h.id}`} className="row-main">
                   <span className="row-title strong">{h.name}</span>
-                  <span className="row-meta">{[h.level, `${open} offen`, doneN && `${doneN} geschafft`].filter(Boolean).join(' · ')}</span>
+                  <span className="row-meta">{[h.level, open ? `${open} To-dos offen` : 'Keine offenen To-dos', mat && `${mat} Material`].filter(Boolean).join(' · ')}</span>
                 </a>
                 {edit ? <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`„${h.name}“ entfernen?`) && removeHobby(h.id)}>Entfernen</button> : <Chevron />}
               </div>
@@ -148,5 +149,5 @@ export default function Hobbys({ id }) {
   const s = useStore();
   if (!id) return <HobbyList s={s} />;
   const h = s.hobbies.find((x) => x.id === id);
-  return h ? <HobbyDetail s={s} h={h} /> : <Missing />;
+  return h ? <SkillPage s={s} sk={h} back={{ href: '#/hobbys', label: 'Hobbys' }} /> : <Missing />;
 }

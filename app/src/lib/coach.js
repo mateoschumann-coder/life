@@ -130,7 +130,7 @@ function coachData(s) {
     rezepte: (s.recipes || []).map((r) => r.title).slice(0, 15),
     erinnerungen_bald: (s.reminders || []).filter((r) => r.next <= addDays(t, 5)).map((r) => ({ titel: r.title, datum: r.next })),
     zuhause_offen: Object.fromEntries(Object.entries(s.home || {}).map(([k, l]) => [k, (l.items || []).filter((x) => !x.done).map((x) => `${x.cat}: ${x.text}`).slice(0, 8)])),
-    hobbys: (s.hobbies || []).map((h) => ({ hobby: h.name, niveau: h.level || undefined, geschmack: h.goal || undefined, offen: h.items.filter((x) => x.status !== 'geschafft').map((x) => x.title).slice(0, 5), geschafft: h.items.filter((x) => x.status === 'geschafft').map((x) => x.title).slice(-5) })),
+    hobbys: (s.hobbies || []).map((h) => ({ hobby: h.name, niveau: h.level || undefined, geschmack: h.goal || undefined, offen: (h.todos || []).filter((x) => !x.done).map((x) => x.text).slice(0, 5), material: (h.materials || []).map((x) => x.title).slice(-5) })),
     reisen_bald: (s.trips || []).filter((tr) => !tr.to || tr.to >= t).map((tr) => ({ reise: tr.name, von: tr.from, offen: tr.todo.filter((x) => !x.done).map((x) => x.text) })),
     eigene_treffen: (s.gatherings || []).filter((g) => !g.date || g.date >= t).map((g) => ({ name: g.name, datum: g.date, gaeste: g.guests.length, zugesagt: g.guests.filter((x) => x.status === 'zugesagt').length, nicht_eingeladen: g.guests.filter((x) => x.status === 'offen').length, einkauf_offen: g.shopping.filter((x) => !x.done).length })),
     event_vorlieben: s.profile?.eventPrefs || [],

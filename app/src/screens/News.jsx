@@ -77,14 +77,16 @@ function Outlets({ s }) {
   const label = rubs.find((r) => r.id === cur)?.label;
   return (
     <>
-      <div className="box-tabs">
-        {rubs.map((r) => <button key={r.id} type="button" className={cur === r.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setRub(r.id)}>{r.label}</button>)}
-        <button type="button" className="chip soft" onClick={() => setEditRub(true)} aria-label="Rubriken bearbeiten">✎</button>
-      </div>
-      {cur !== 'start' && <Info>Direkt zur Rubrik – bei 🔎 sucht Google News die Rubrik auf dieser Seite (letzte Woche).</Info>}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button type="button" className="btn small" onClick={() => setAddC(true)}>+ Land</button>
-        <button type="button" className={editC ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEditC(!editC)}>{editC ? 'Fertig' : '✎ Länder & Zeitungen'}</button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="box-tabs">
+          {rubs.map((r) => <button key={r.id} type="button" className={cur === r.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setRub(r.id)}>{r.label}</button>)}
+          <button type="button" className="chip soft" onClick={() => setEditRub(true)} aria-label="Rubriken bearbeiten">✎</button>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="button" className="btn small" onClick={() => setAddC(true)}>+ Land</button>
+          <button type="button" className={editC ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEditC(!editC)}>{editC ? 'Fertig' : '✎ Länder & Zeitungen'}</button>
+          {cur !== 'start' && <Info>Direkt zur Rubrik – bei 🔎 sucht Google News die Rubrik auf dieser Seite (letzte Woche).</Info>}
+        </div>
       </div>
       {countries.map((g) => {
         const isClosed = closed.includes(g.region);

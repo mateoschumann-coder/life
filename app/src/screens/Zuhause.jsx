@@ -7,7 +7,7 @@ import {
 import { waLink } from '../lib/logic';
 import { cityOf } from '../lib/outings';
 import PlaceBook from '../components/PlaceBook';
-import SourceLinks from '../components/SourceLinks';
+import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { CityChips } from './Ausgehen';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
@@ -193,14 +193,16 @@ function FindItems({ s, listKey }) {
   const [cat, setCat] = useState(l.cats[0]);
   const [sugg, setSugg] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useSearchMode('zuhause-' + listKey, 'links');
   const run = async () => {
     setBusy(true);
     try { setSugg(await suggestItems(s, listKey, cat, q.trim())); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
   };
   return (
     <>
-      <SourceLinks s={s} area={listKey} instant />
-      <section className="card checkin" style={{ gap: 10 }}>
+      <ModeToggle mode={mode} onChange={setMode} />
+      {mode === 'links' && <SourceLinks s={s} area={listKey} instant />}
+      {mode === 'ki' && <section className="card checkin" style={{ gap: 10 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 16 }}><span className="spark"><Icon name="sparkle" size={14} color="currentColor" /></span>Ideen von der KI</span>
         <label className="field"><span>Was suchst du? (optional)</span><input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. gemütliche Leselampe'} /></label>
         <span className="label" style={{ padding: 0 }}>Für welchen Bereich?</span>
@@ -209,8 +211,8 @@ function FindItems({ s, listKey }) {
           <button type="button" className="btn small" disabled={busy || !getAi().apiKey} onClick={run}>{busy ? 'Ich überlege …' : '✨ KI-Ideen'}</button>
           <Info>Die KI schlägt 4–6 passende Sachen vor (ohne Internet, unter 1 Cent). „Merken“ setzt sie auf deine Liste „Will ich haben“.</Info>
         </div>
-      </section>
-      {sugg && (
+      </section>}
+      {mode === 'ki' && sugg && (
         <section className="card" style={{ gap: 8 }}>
           {!sugg.length && <span className="sub">Keine Ideen – anders formulieren?</span>}
           {sugg.map((v) => (

@@ -30,12 +30,14 @@ export function addSkill(name) {
   });
   return id;
 }
-export const updateSkill = (id, patch) => store.update((s) => Object.assign((s.skills || []).find((x) => x.id === id) || {}, patch));
+// v1.04: Hobbys nutzen dieselben Funktionen (To-dos + Material) – Suche in Skills und Hobbys
+export const findSk = (s, id) => (s.skills || []).find((x) => x.id === id) || (s.hobbies || []).find((x) => x.id === id);
+export const updateSkill = (id, patch) => store.update((s) => Object.assign(findSk(s, id) || {}, patch));
 export const removeSkill = (id) => store.update((s) => { s.skills = (s.skills || []).filter((x) => x.id !== id); });
 // Heute dran gewesen (an/aus); zählt auch als Aktivität im Bereich Weiterentwicklung
 export function togglePractice(id, day = today()) {
   store.update((s) => {
-    const sk = (s.skills || []).find((x) => x.id === id);
+    const sk = findSk(s, id);
     if (!sk) return;
     if (sk.log.includes(day)) sk.log = sk.log.filter((d) => d !== day);
     else {
@@ -174,7 +176,7 @@ Gib Ideen, was er auf Basis dessen, was er schon macht, noch lernen oder ausprob
 export function addSkillTodos(id, texts) {
   let n = 0;
   store.update((s) => {
-    const sk = (s.skills || []).find((x) => x.id === id);
+    const sk = findSk(s, id);
     if (!sk) return;
     sk.todos = sk.todos || [];
     for (const raw of texts) {
@@ -186,7 +188,7 @@ export function addSkillTodos(id, texts) {
 }
 export function toggleSkillTodo(id, todoId) {
   store.update((s) => {
-    const sk = (s.skills || []).find((x) => x.id === id);
+    const sk = findSk(s, id);
     const it = sk?.todos?.find((x) => x.id === todoId);
     if (!it) return;
     it.done = !it.done;
@@ -195,7 +197,7 @@ export function toggleSkillTodo(id, todoId) {
   });
 }
 export const removeSkillTodo = (id, todoId) => store.update((s) => {
-  const sk = (s.skills || []).find((x) => x.id === id);
+  const sk = findSk(s, id);
   if (sk) sk.todos = (sk.todos || []).filter((x) => x.id !== todoId);
 });
 export const todoStats = (sk) => ({ done: (sk.todos || []).filter((x) => x.done).length, all: (sk.todos || []).length, next: (sk.todos || []).find((x) => !x.done) });
@@ -234,10 +236,13 @@ export const MAT_TYPES = {
   uebung: { label: 'Übungen', one: 'Übung', emoji: '🏋️', ph: 'z.B. Barré-Griff 5 Min', status: ['Offen', 'Übe ich', 'Sitzt'] },
 };
 const MUSIC = /gitarre|guitar|klavier|piano|ukulele|singen|gesang|bass|schlagzeug|drums|musik/i;
+export const LANG_RE = /portug|italien|spanisch|englisch|franz|deutsch|japan|chines|russ|sprache|language/i;
+const isLang = (sk) => sk.kind === 'sprache' || !!sk.lang || LANG_RE.test(sk.name || '');
 export function matTypesOf(sk) {
-  if (sk.matTypes?.length) return sk.matTypes;
+  if (sk.matTypes?.length) return isLang(sk) && sk.matTypes.includes('vokabeln') ? ['vokabeln', ...sk.matTypes.filter((x) => x !== 'vokabeln')] : sk.matTypes;
   if (MUSIC.test(sk.name)) return ['song', 'video', 'uebung', 'link'];
-  if (sk.kind === 'sprache') return ['podcast', 'video', 'buch', 'vokabeln', 'link'];
+  if (sk.hobby) return /schach|chess/i.test(sk.name) ? ['uebung', 'video', 'buch', 'link'] : /foto|zeichn|malen|kochen|backen/i.test(sk.name) ? ['video', 'uebung', 'link', 'buch'] : ['video', 'buch', 'uebung', 'link'];
+  if (isLang(sk)) return ['vokabeln', 'podcast', 'video', 'buch', 'link'];
   return ['kurs', 'video', 'buch', 'link', 'code'];
 }
 export const matTypeInfo = (sk, t) => MAT_TYPES[t] || (sk.customTypes || []).find((x) => x.id === t) || { label: t, one: t, emoji: '📌', ph: 'Titel' };
@@ -247,7 +252,7 @@ export function addCustomType(id, label) {
   if (!l) return null;
   const tid = `c${uid().slice(0, 6)}`;
   store.update((s) => {
-    const sk = (s.skills || []).find((x) => x.id === id);
+    const sk = findSk(s, id);
     if (!sk) return;
     sk.customTypes = [...(sk.customTypes || []), { id: tid, label: l, one: l, emoji: '📌', ph: 'Titel' }];
     sk.matTypes = [...matTypesOf(sk), tid];
@@ -258,13 +263,13 @@ export function addMaterialTo(id, m) {
   const t = String(m.title || '').trim();
   if (!t) return;
   store.update((s) => {
-    const sk = (s.skills || []).find((x) => x.id === id);
+    const sk = findSk(s, id);
     if (!sk) return;
     sk.materials = [...(sk.materials || []), { id: uid(), type: m.type, title: t, author: m.author || '', url: m.url || '', note: m.note || '', stage: 0, addedAt: today() }];
   });
 }
-export const updateMaterialOf = (id, mid, patch) => store.update((s) => { const m = ((s.skills || []).find((x) => x.id === id)?.materials || []).find((x) => x.id === mid); if (m) Object.assign(m, patch); });
-export const removeMaterialOf = (id, mid) => store.update((s) => { const sk = (s.skills || []).find((x) => x.id === id); if (sk) sk.materials = (sk.materials || []).filter((x) => x.id !== mid); });
+export const updateMaterialOf = (id, mid, patch) => store.update((s) => { const m = (findSk(s, id)?.materials || []).find((x) => x.id === mid); if (m) Object.assign(m, patch); });
+export const removeMaterialOf = (id, mid) => store.update((s) => { const sk = findSk(s, id); if (sk) sk.materials = (sk.materials || []).filter((x) => x.id !== mid); });
 // kostenlose Such-Links passend zur Art
 export function matSearch(type, q) {
   const e = encodeURIComponent(q);

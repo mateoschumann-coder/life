@@ -17,7 +17,7 @@ export function addHobby(name, level = '') {
   if (ex) return ex.id;
   const id = uid();
   store.update((s) => {
-    s.hobbies.push({ id, name: t, level, goal: '', items: [], createdAt: today() });
+    s.hobbies.push({ id, name: t, level, goal: '', items: [], todos: [], materials: [], hobby: true, createdAt: today() });
   });
   return id;
 }
@@ -29,8 +29,11 @@ export function addHobbyItem(hobbyId, { title, kind = 'idee', why = '', url = ''
   const id = uid();
   store.update((s) => {
     const h = s.hobbies.find((x) => x.id === hobbyId);
-    if (!h || h.items.some((x) => norm(x.title) === norm(t))) return;
-    h.items.push({ id, title: t, kind: HOBBY_KINDS[kind] ? kind : 'idee', why, url, status: 'offen', addedAt: today() });
+    if (!h) return;
+    // v1.04: Ideen → To-dos, Songs/Videos/… → Material (wie Weiterentwicklung)
+    if (!HOBBY_KINDS[kind] || kind === 'idee') { h.todos = h.todos || []; if (!h.todos.some((x) => norm(x.text) === norm(t))) h.todos.push({ id, text: t, done: false }); return; }
+    h.materials = h.materials || [];
+    if (!h.materials.some((x) => norm(x.title) === norm(t))) h.materials.push({ id, type: kind, title: t, author: '', url, note: why, stage: 0, addedAt: today() });
   });
   return id;
 }

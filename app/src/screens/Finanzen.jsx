@@ -205,47 +205,91 @@ const DEFAULT_TICKERS = [
 ];
 const tickersOf = (s) => s.profile?.tickers || DEFAULT_TICKERS;
 const setTickers = (list) => store.update((x) => { x.profile = { ...(x.profile || {}), tickers: list }; });
-const RANGES = [{ id: '1M', label: '1 Monat' }, { id: '12M', label: '1 Jahr' }, { id: '60M', label: '5 Jahre' }];
-function Ticker({ t, range }) {
+// v1.04: Katalog zum schnellen Hinzufügen (Indizes, Währungen, Aktien, Krypto, Rohstoffe)
+const CATALOG = [
+  { g: '📈 Indizes', items: [['FOREXCOM:NSXUSD', 'NASDAQ 100'], ['FOREXCOM:SPXUSD', 'S&P 500'], ['FOREXCOM:DJI', 'Dow Jones'], ['XETR:DAX', 'DAX'], ['TVC:SX5E', 'Euro Stoxx 50'], ['TVC:UKX', 'FTSE 100'], ['TVC:NI225', 'Nikkei 225'], ['BCBA:IMV', 'Merval'], ['AMEX:URTH', 'MSCI World (ETF)']] },
+  { g: '💱 Währungen', items: [['FX:EURUSD', 'Euro / US$'], ['FX_IDC:USDARS', 'US$ / Peso (offiziell)'], ['FX_IDC:EURARS', 'Euro / Peso'], ['FX:GBPUSD', 'Pfund / US$'], ['FX:USDJPY', 'US$ / Yen'], ['FX:USDCHF', 'US$ / Franken'], ['FX_IDC:USDBRL', 'US$ / Real']] },
+  { g: '🏢 Aktien', items: [['NASDAQ:AAPL', 'Apple'], ['NASDAQ:MSFT', 'Microsoft'], ['NASDAQ:NVDA', 'Nvidia'], ['NASDAQ:AMZN', 'Amazon'], ['NASDAQ:GOOGL', 'Alphabet'], ['NASDAQ:META', 'Meta'], ['NASDAQ:TSLA', 'Tesla'], ['NASDAQ:MELI', 'Mercado Libre'], ['NYSE:YPF', 'YPF'], ['NASDAQ:GGAL', 'Grupo Galicia'], ['XETR:SAP', 'SAP'], ['XETR:SIE', 'Siemens'], ['NYSE:BRK.B', 'Berkshire Hathaway']] },
+  { g: '🪙 Krypto', items: [['BITSTAMP:BTCUSD', 'Bitcoin'], ['BITSTAMP:ETHUSD', 'Ethereum'], ['COINBASE:SOLUSD', 'Solana']] },
+  { g: '🛢 Rohstoffe', items: [['TVC:GOLD', 'Gold'], ['TVC:SILVER', 'Silber'], ['TVC:USOIL', 'Öl (WTI)'], ['TVC:UKOIL', 'Öl (Brent)'], ['CAPITALCOM:NATURALGAS', 'Erdgas'], ['CAPITALCOM:COPPER', 'Kupfer']] },
+];
+// Großer TradingView-Chart: Name oben links, Kurs + Veränderung, Zeitraum-Knöpfe im Chart
+const DATE_RANGES = ['1d|1', '5d|15', '1m|30', '3m|60', '6m|1D', '12m|1D', '60m|1W'];
+function Ticker({ t }) {
   const dark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  const cfg = { symbol: t.sym, width: '100%', height: 170, locale: 'de_DE', dateRange: range, colorTheme: dark ? 'dark' : 'light', isTransparent: true, autosize: true, largeChartUrl: '' };
-  const src = `https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=de_DE#${encodeURIComponent(JSON.stringify(cfg))}`;
+  const cfg = {
+    symbols: [[t.label, `${t.sym}|1D`]], chartOnly: false, width: '100%', height: '100%', locale: 'de_DE', colorTheme: dark ? 'dark' : 'light', autosize: true,
+    showVolume: false, showMA: false, hideDateRanges: false, hideMarketStatus: true, hideSymbolLogo: false, scalePosition: 'right', scaleMode: 'Normal',
+    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontSize: '10', noTimeScale: false, valuesTracking: '1', changeMode: 'price-and-percent',
+    chartType: 'area', lineWidth: 2, lineType: 0, dateRanges: DATE_RANGES, isTransparent: true,
+    lineColor: '#2F5FD0', topColor: 'rgba(47,95,208,0.25)', bottomColor: 'rgba(47,95,208,0)',
+  };
+  const src = `https://s.tradingview.com/embed-widget/symbol-overview/?locale=de_DE#${encodeURIComponent(JSON.stringify(cfg))}`;
   return (
-    <div className="card" style={{ padding: '8px 10px', gap: 4 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <b style={{ flex: 1, fontSize: 15 }}>{t.label}</b>
-        <a className="link-btn" style={{ fontSize: 13 }} href={`https://www.tradingview.com/symbols/${t.sym.replace(':', '-')}/`} target="_blank" rel="noreferrer">Details ↗</a>
-      </div>
-      <iframe title={t.label} src={src} style={{ width: '100%', height: 170, border: 0, display: 'block' }} loading="lazy" />
+    <div className="card" style={{ padding: 6, gap: 0, overflow: 'hidden' }}>
+      <iframe title={t.label} src={src} style={{ width: '100%', height: 300, border: 0, display: 'block' }} loading="lazy" />
     </div>
+  );
+}
+function AddAsset({ open, list, onClose }) {
+  const [sym, setSym] = useState('');
+  const [label, setLabel] = useState('');
+  const has = (sy) => list.some((x) => x.sym === sy);
+  const toggle = (sy, l) => setTickers(has(sy) ? list.filter((x) => x.sym !== sy) : [...list, { sym: sy, label: l }]);
+  return (
+    <Sheet open={open} title="Werte hinzufügen" onClose={onClose}>
+      <span className="tiny">Antippen = hinzufügen, nochmal = entfernen.</span>
+      {CATALOG.map((c) => (
+        <section key={c.g} className="group" style={{ gap: 6 }}>
+          <h2 className="label" style={{ padding: '0 2px' }}>{c.g}</h2>
+          <div className="chips">{c.items.map(([sy, l]) => <button key={sy} type="button" className={has(sy) ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => toggle(sy, l)}>{has(sy) ? '✓ ' : '＋ '}{l}</button>)}</div>
+        </section>
+      ))}
+      <section className="card" style={{ gap: 8 }}>
+        <b style={{ fontSize: 15 }}>Eigener Wert</b>
+        <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const sy = sym.trim().toUpperCase(); if (!sy) return; setTickers([...list.filter((x) => x.sym !== sy), { sym: sy, label: label.trim() || sy }]); setSym(''); setLabel(''); toast('Hinzugefügt'); }}>
+          <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name, z.B. Coca-Cola" aria-label="Name" />
+          <div className="block-add"><input className="input" value={sym} onChange={(e) => setSym(e.target.value)} placeholder="Kürzel, z.B. NYSE:KO" aria-label="Kürzel" /><button type="submit" className="btn small" disabled={!sym.trim()}>+</button></div>
+        </form>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <a className="link-btn" style={{ fontSize: 13 }} href="https://www.tradingview.com/markets/" target="_blank" rel="noreferrer">Kürzel finden ↗</a>
+          <Info>Auf TradingView einen Wert suchen – das Kürzel steht über dem Chart, z.B. „NASDAQ:AAPL“, „BCBA:GGAL“ oder „FX:EURUSD“.</Info>
+        </div>
+      </section>
+    </Sheet>
   );
 }
 function Markets({ s }) {
   const list = tickersOf(s);
-  const [range, setRange] = useState(() => { try { return localStorage.getItem('life-app-fin-range') || '12M'; } catch { return '12M'; } });
   const [edit, setEdit] = useState(false);
-  const [sym, setSym] = useState('');
-  const [label, setLabel] = useState('');
+  const [add, setAdd] = useState(false);
+  const move = (i, d) => { const l = [...list]; const j = i + d; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; setTickers(l); };
   return (
     <section className="group">
-      <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Märkte</h2><button type="button" className={edit ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎ Bearbeiten'}</button></div>
-      <div className="seg-mini">{RANGES.map((x) => <button key={x.id} type="button" className={range === x.id ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => { setRange(x.id); try { localStorage.setItem('life-app-fin-range', x.id); } catch {} }}>{x.label}</button>)}</div>
+      <div className="sec-h">
+        <h2 className="h2" style={{ fontSize: 19 }}>Märkte</h2>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="chip soft small-chip" onClick={() => setAdd(true)}>＋ Wert</button>
+          <button type="button" className={edit ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎'}</button>
+        </div>
+      </div>
       {edit && (
-        <section className="card" style={{ gap: 8 }}>
-          <div className="chips">{list.map((t) => <button key={t.sym} type="button" className="chip soft" onClick={() => setTickers(list.filter((x) => x.sym !== t.sym))}>{t.label} ✕</button>)}</div>
-          <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const sy = sym.trim().toUpperCase(); if (!sy) return; setTickers([...list.filter((x) => x.sym !== sy), { sym: sy, label: label.trim() || sy }]); setSym(''); setLabel(''); }}>
-            <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name, z.B. Apple" aria-label="Name" />
-            <div className="block-add"><input className="input" value={sym} onChange={(e) => setSym(e.target.value)} placeholder="Kürzel, z.B. NASDAQ:AAPL" aria-label="Kürzel" /><button type="submit" className="btn small" disabled={!sym.trim()}>+</button></div>
-          </form>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <a className="link-btn" style={{ fontSize: 13 }} href="https://www.tradingview.com/symbols/" target="_blank" rel="noreferrer">Kürzel finden ↗</a>
-            <Info>Das Kürzel steht auf TradingView über dem Chart, z.B. „NASDAQ:AAPL“ oder „BCBA:GGAL“.</Info>
-            <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => setTickers(DEFAULT_TICKERS)}>Standard</button>
-          </div>
-        </section>
+        <div className="list">
+          {list.map((t, i) => (
+            <div key={t.sym} className="row compact">
+              <span className="row-main"><span className="row-title plain">{t.label}</span><span className="row-meta">{t.sym}</span></span>
+              <button type="button" className="x-btn" aria-label="nach oben" onClick={() => move(i, -1)}>↑</button>
+              <button type="button" className="x-btn" aria-label="nach unten" onClick={() => move(i, 1)}>↓</button>
+              <button type="button" className="x-btn" aria-label={`${t.label} entfernen`} onClick={() => setTickers(list.filter((x) => x.sym !== t.sym))}><Icon name="x" size={12} color="var(--chev)" /></button>
+            </div>
+          ))}
+          <button type="button" className="link-btn" style={{ fontSize: 13, padding: 10 }} onClick={() => setTickers(DEFAULT_TICKERS)}>Auf Standard zurücksetzen</button>
+        </div>
       )}
-      {list.map((t) => <Ticker key={t.sym + range} t={t} range={range} />)}
-      <span className="tiny" style={{ padding: '0 4px' }}>Kurse von TradingView, teils verzögert.</span>
+      {!edit && list.map((t) => <Ticker key={t.sym} t={t} />)}
+      {!list.length && <div className="empty">Noch keine Werte – tipp auf „＋ Wert“.</div>}
+      <span className="tiny" style={{ padding: '0 4px' }}>Zeitraum unten im Chart wählen (1 T · 5 T · 1 M · 3 M · 6 M · 1 J · 5 J). Kurse von TradingView, teils verzögert.</span>
+      <AddAsset open={add} list={list} onClose={() => setAdd(false)} />
     </section>
   );
 }

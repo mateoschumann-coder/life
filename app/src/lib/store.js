@@ -76,6 +76,23 @@ function migrate(s) {
   }
   // Version 0.94: importierte Kontakte bekamen automatisch „monatlich melden“ → alle waren sofort fällig.
   // Rhythmus nur bei Freunden mit Standard 30 Tage und noch keinem notierten Kontakt entfernen (einmalig)
+  // Version 1.04: Hobbys sind aufgebaut wie Weiterentwicklung (To-dos + Material) – alte Ideen umziehen (einmalig)
+  if (!s.profile?.mig104) {
+    const LAST = { song: 2, video: 2, buch: 2, uebung: 2, link: 0 };
+    for (const h of s.hobbies || []) {
+      h.hobby = true;
+      h.todos = h.todos || [];
+      h.materials = h.materials || [];
+      for (const it of h.items || []) {
+        const done = it.status === 'geschafft';
+        if (!it.kind || it.kind === 'idee') h.todos.push({ id: it.id, text: it.title, done, doneAt: done ? it.doneAt || null : null });
+        else h.materials.push({ id: it.id, type: it.kind, title: it.title, author: '', url: it.url || '', note: it.why || it.note || '', stage: done ? LAST[it.kind] ?? 0 : 0, addedAt: it.addedAt || '' });
+      }
+      if ((h.items || []).length) h.itemsOld = h.items;
+      h.items = [];
+    }
+    s.profile = { ...(s.profile || {}), mig104: true };
+  }
   if (!s.profile?.mig094) {
     for (const p of s.people || []) if (p.category === 'freunde' && p.contactEvery === 30 && !(p.contacts || []).length) p.contactEvery = null;
     s.profile = { ...(s.profile || {}), mig094: true };
