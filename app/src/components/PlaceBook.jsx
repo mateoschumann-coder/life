@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { addBookCat, addBookItem, addBookSub, BOOK_STATUS, bookAreas, rememberArea, bookCats, bookMaps, bookOf, findBookPlace, mapsSearch, removeBookCat, removeBookItem, restoreBookCats, telOf, updateBookItem } from '../lib/placebook';
 import { getAi } from '../lib/ai';
-import { hoodHere } from '../lib/outings';
+import { hoodHere, HOME_CITY } from '../lib/outings';
 import { Field, Icon, Sheet, toast } from './ui';
 
 function Stars({ value, onChange }) {
@@ -14,7 +14,7 @@ function Stars({ value, onChange }) {
   );
 }
 
-export function ItemSheet({ s, book, cats, item, onClose, onSaved }) {
+export function ItemSheet({ s, book, cats, item, onClose, onSaved, city = null }) {
   const isNew = item && !item.id;
   const [f, setF] = useState(null);
   const [newSub, setNewSub] = useState('');
@@ -38,7 +38,7 @@ export function ItemSheet({ s, book, cats, item, onClose, onSaved }) {
     if (String(f.area || '').trim()) rememberArea(f.area);
     let url = String(f.url || '').trim();
     if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
-    const data = { ...f, sub, url };
+    const data = { ...f, sub, url, ...(city && !f.city ? { city } : {}) };
     let id = item.id;
     if (isNew) id = addBookItem(book, data);
     else updateBookItem(book, item.id, data);
@@ -125,9 +125,9 @@ export function ItemSheet({ s, book, cats, item, onClose, onSaved }) {
   );
 }
 
-export default function PlaceBook({ s, book, hint }) {
+export default function PlaceBook({ s, book, hint, city = null }) {
   const cats = bookCats(s, book);
-  const items = bookOf(s, book).items;
+  const items = bookOf(s, book).items.filter((x) => !city || (x.city || HOME_CITY) === city);
   const [cat, setCat] = useState('alle');
   const [sub, setSub] = useState('');
   const [edit, setEdit] = useState(false);
@@ -200,7 +200,7 @@ export default function PlaceBook({ s, book, hint }) {
           </div>
         ))}
       </div>
-      <ItemSheet s={s} book={book} cats={cats} item={sheet} onClose={() => setSheet(null)} />
+      <ItemSheet s={s} book={book} cats={cats} item={sheet} city={city} onClose={() => setSheet(null)} />
     </>
   );
 }

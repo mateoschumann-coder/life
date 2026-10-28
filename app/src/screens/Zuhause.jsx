@@ -2,19 +2,32 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addHomeItem, addReminder, deleteReminder, doneReminder, EVERY, LISTS, listOf, REMINDER_PRESETS, removeHomeItem, setHomeCats, suggestItems, updateHomeItem, updateReminder,
+  addHomeItem, addReminder, deleteReminder, doneReminder, EVERY, LISTS, listOf, REMINDER_PRESETS, removeHomeItem, setHomeCats, suggestItems, updateHomeItem, updateReminder, sellListing, SELL_LINKS, shopLinks,
 } from '../lib/home';
+import { waLink } from '../lib/logic';
+import { cityOf } from '../lib/outings';
+import PlaceBook from '../components/PlaceBook';
+import { CityChips } from './Ausgehen';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
-import { Back, Check, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Field, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
 const COLOR = '#2FA36B';
+// v1.02 (Mateo): drei Bereiche – Allgemein (To-dos | Erinnern), Einrichtung, Kleidung (je Liste | Finden | Orte)
 const TABS = [
-  { id: 'haushalt', label: 'Haushalt' },
-  { id: 'erinnerungen', label: 'Erinnern' },
+  { id: 'allgemein', label: 'Allgemein' },
   { id: 'einrichtung', label: 'Einrichtung' },
   { id: 'kleidung', label: 'Kleidung' },
 ];
+const sub = (key, def) => { try { return localStorage.getItem(`life-app-zuhause-${key}`) || def; } catch { return def; } };
+const setSub = (key, v) => { try { localStorage.setItem(`life-app-zuhause-${key}`, v); } catch {} };
+function SubSwitch({ k, options, value, onChange }) {
+  return (
+    <div className="sub-switch" style={{ alignSelf: 'flex-start' }}>
+      {options.map((o) => <button key={o.id} type="button" className={value === o.id ? 'on' : ''} onClick={() => { setSub(k, o.id); onChange(o.id); }}>{o.label}</button>)}
+    </div>
+  );
+}
 
 // ---------- Liste mit Kategorien (Haushalt, Einrichtung, Kleidung) ----------
 function CatList({ s, listKey }) {
@@ -26,11 +39,7 @@ function CatList({ s, listKey }) {
   const [edit, setEdit] = useState(false);
   const [catText, setCatText] = useState('');
   const [showDone, setShowDone] = useState(false);
-  const [q, setQ] = useState('');
-  const [sugg, setSugg] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-  const hasKey = !!getAi().apiKey;
+  const [give, setGive] = useState(null);
   const items = l.items.filter((x) => (!cat || x.cat === cat) && (!def.kinds || (x.kind || 'brauche') === kind));
   const open = items.filter((x) => !x.done);
   const done = items.filter((x) => x.done);
@@ -43,19 +52,6 @@ function CatList({ s, listKey }) {
     addHomeItem(listKey, { text, cat: cat || defCat, kind });
     setText('');
   };
-  const search = async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      setSugg(await suggestItems(s, listKey, cat, q.trim()));
-      setQ('');
-    } catch (e2) {
-      setErr(e2.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e2.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <>
       {def.kinds && <Segmented full options={Object.entries(def.kinds).map(([id, label]) => ({ id, label }))} value={kind} onChange={setKind} label="Art" />}
@@ -88,10 +84,11 @@ function CatList({ s, listKey }) {
             {open.filter((x) => x.cat === c).map((x) => (
               <div key={x.id} className="row" style={{ minHeight: 48 }}>
                 <Check on={false} color={COLOR} onClick={() => updateHomeItem(listKey, x.id, { done: true })} label={`${x.text} erledigt`} />
-                <span className="row-main">
+                <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, color: 'inherit', font: 'inherit' }} onClick={() => (x.kind === 'weggeben' ? setGive(x) : null)} disabled={x.kind !== 'weggeben'}>
                   <span className="row-title plain">{x.text}</span>
-                  {(x.price || x.note) && <span className="row-meta">{[x.price, x.note].filter(Boolean).join(' · ')}</span>}
-                </span>
+                  {(x.price || x.note || x.giveTo || x.sale) && <span className="row-meta">{[x.giveTo && `🎁 an ${x.giveTo}`, x.sale && `💰 ${x.sale.preis || 'Anzeige fertig'}`, x.price, x.note].filter(Boolean).join(' · ')}</span>}
+                  {x.kind === 'weggeben' && !x.giveTo && !x.sale && <span className="row-meta" style={{ color: 'var(--accent)' }}>Antippen: verkaufen oder verschenken</span>}
+                </button>
                 {x.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
                 <button type="button" className="x-btn" aria-label={`${x.text} löschen`} onClick={() => removeHomeItem(listKey, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
@@ -113,19 +110,113 @@ function CatList({ s, listKey }) {
         </div>
       )}
 
-      {def.search && (
-        <section className="card checkin" style={{ gap: 12 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
-            <span className="spark"><Icon name="sparkle" size={15} color="currentColor" /></span>
-            Ideen finden{cat ? `: ${cat}` : ''}
-          </span>
-          <form className="block-add" onSubmit={(e) => { e.preventDefault(); search(); }}>
-            <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. „Laufjacke für Regen, schlicht“' : 'z.B. „gemütliche Leselampe, warmes Licht“'} aria-label="Wonach suchen" />
-            <button type="submit" className="btn small" disabled={busy || !hasKey}>{busy ? '…' : 'Los'}</button>
-          </form>
-          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche passende Ideen … (ca. 20 Sek.)</span></div>}
-          {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-          {!busy && sugg && sugg.map((v) => (
+      <GiveSheet s={s} listKey={listKey} item={give} onClose={() => setGive(null)} />
+    </>
+  );
+}
+
+// v1.02: Weggeben – verkaufen (KI schreibt die Anzeige) oder an jemanden geben (WhatsApp)
+function GiveSheet({ s, listKey, item, onClose }) {
+  const [mode, setMode] = useState('verkaufen');
+  const [extra, setExtra] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [ad, setAd] = useState(null);
+  const [q, setQ] = useState('');
+  const [who, setWho] = useState(null); // { name, phone }
+  const [msg, setMsg] = useState('');
+  const [loaded, setLoaded] = useState(null);
+  if (item && loaded !== item.id) { setLoaded(item.id); setMode(item.giveTo ? 'geben' : 'verkaufen'); setAd(item.sale || null); setExtra(''); setWho(item.giveTo ? { name: item.giveTo, phone: item.givePhone || '' } : null); setMsg(''); setQ(''); }
+  if (!item) return <Sheet open={false} onClose={onClose} title="" />;
+  const write = async () => {
+    setBusy(true);
+    try { const r = await sellListing(s, item, extra); setAd({ titel: r.titel || item.text, text: r.text || '', preis: r.preis || '', tipps: r.tipps || '' }); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel.' : e.message); } finally { setBusy(false); }
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(`${ad.titel}\n\n${ad.text}${ad.preis ? `\n\n${ad.preis}` : ''}`); toast('Kopiert – in der Verkaufs-App einfügen'); } catch { toast('Kopieren ging nicht – Text markieren und kopieren'); } };
+  const people = (s.people || []).filter((p) => p.phone && (!q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase()))).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 12);
+  const pick = (p) => { setWho({ name: p.name, phone: p.phone }); setMsg(`Hola ${p.name.split(' ')[0]}! Ich gebe „${item.text}“ weg – magst du es haben? 🙂`); };
+  const wa = who?.phone ? `${waLink({ phone: who.phone })}?text=${encodeURIComponent(msg)}` : null;
+  return (
+    <Sheet open title={`Weggeben: ${item.text}`} onClose={onClose}>
+      <Segmented full options={[{ id: 'verkaufen', label: '💰 Verkaufen' }, { id: 'geben', label: '🎁 Jemandem geben' }]} value={mode} onChange={setMode} label="Wie?" />
+      {mode === 'verkaufen' ? (
+        <>
+          <label className="field"><span>Details (optional)</span><input className="input" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="z.B. 2 Jahre alt, kaum benutzt, 120 × 60 cm" /></label>
+          <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} disabled={busy || !getAi().apiKey} onClick={write}>{busy ? 'Ich schreibe …' : ad ? '✨ Neu schreiben' : '✨ Anzeige schreiben lassen'}</button>
+          {ad && (
+            <>
+              <label className="field"><span>Titel</span><input className="input" value={ad.titel} onChange={(e) => setAd({ ...ad, titel: e.target.value })} /></label>
+              <label className="field"><span>Text</span><textarea className="input" rows={5} value={ad.text} onChange={(e) => setAd({ ...ad, text: e.target.value })} /></label>
+              <label className="field"><span>Preis</span><input className="input" value={ad.preis} onChange={(e) => setAd({ ...ad, preis: e.target.value })} /></label>
+              {ad.tipps && <span className="tiny">💡 {ad.tipps}</span>}
+              <div className="chips">
+                <button type="button" className="chip on" onClick={copy}>📋 Text kopieren</button>
+                {SELL_LINKS.map((l) => <a key={l.url} className="pill link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}
+              </div>
+              <button type="button" className="btn" onClick={() => { updateHomeItem(listKey, item.id, { sale: ad, giveTo: '' }); toast('Anzeige gespeichert'); onClose(); }}>Speichern</button>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          {who ? (
+            <>
+              <div className="chips" style={{ alignItems: 'center' }}><span className="chip on">🎁 {who.name}</span><button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={() => setWho(null)}>ändern</button></div>
+              <label className="field"><span>Nachricht</span><textarea className="input" rows={3} value={msg} onChange={(e) => setMsg(e.target.value)} /></label>
+              <div className="chips">
+                {wa && <a className="btn small" href={wa} target="_blank" rel="noreferrer" onClick={() => updateHomeItem(listKey, item.id, { giveTo: who.name, givePhone: who.phone })}>📲 WhatsApp öffnen</a>}
+                <button type="button" className="btn small tint" onClick={() => { updateHomeItem(listKey, item.id, { giveTo: who.name, givePhone: who.phone || '' }); toast(`Vorgemerkt für ${who.name}`); onClose(); }}>Nur vormerken</button>
+              </div>
+              {!wa && <span className="tiny">Keine Telefonnummer – nur vormerken möglich.</span>}
+            </>
+          ) : (
+            <>
+              <label className="field"><span>An wen?</span><input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name suchen oder eintippen" /></label>
+              {q.trim() && !people.some((p) => p.name.toLowerCase() === q.trim().toLowerCase()) && <button type="button" className="chip soft" style={{ alignSelf: 'flex-start' }} onClick={() => { setWho({ name: q.trim(), phone: '' }); setMsg(''); }}>+ „{q.trim()}“ (ohne Nummer)</button>}
+              <div className="list">
+                {people.map((p) => <button key={p.id} type="button" className="row compact" style={{ width: '100%', border: 0, textAlign: 'left', font: 'inherit', color: 'inherit', background: 'none' }} onClick={() => pick(p)}><span className="row-main"><span className="row-title plain">{p.name}</span></span><span className="tiny">📲</span></button>)}
+                {!people.length && <div className="empty">Keine passenden Kontakte mit Telefonnummer.</div>}
+              </div>
+            </>
+          )}
+        </>
+      )}
+      {(item.giveTo || item.sale) && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => { updateHomeItem(listKey, item.id, { done: true }); toast('Weggegeben ✓'); onClose(); }}>✓ Ist weg – abhaken</button>}
+    </Sheet>
+  );
+}
+
+// v1.02: Sachen finden – kostenlose Links zu Shops + KI-Ideen (ohne Internet)
+function FindItems({ s, listKey }) {
+  const l = listOf(s, listKey);
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState(l.cats[0]);
+  const [sugg, setSugg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try { setSugg(await suggestItems(s, listKey, cat, q.trim())); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <section className="card" style={{ gap: 10 }}>
+        <label className="field"><span>Was suchst du?</span><input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. Stehlampe fürs Lesen'} /></label>
+        {q.trim() && (
+          <>
+            <span className="label" style={{ padding: 0 }}>Direkt nachsehen (kostenlos)</span>
+            <div className="chips">{shopLinks(listKey, q).map((x) => <a key={x.url} className="pill link-chip" href={x.url} target="_blank" rel="noreferrer">{x.label}</a>)}</div>
+          </>
+        )}
+        <span className="label" style={{ padding: 0 }}>Für welchen Bereich?</span>
+        <div className="chips">{l.cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCat(c)}>{c}</button>)}</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button type="button" className="btn small" disabled={busy || !getAi().apiKey} onClick={run}>{busy ? 'Ich überlege …' : '✨ KI-Ideen'}</button>
+          <Info>Die KI schlägt 4–6 passende Sachen vor (ohne Internet, unter 1 Cent). „Merken“ setzt sie auf deine Liste „Will ich haben“.</Info>
+        </div>
+      </section>
+      {sugg && (
+        <section className="card" style={{ gap: 8 }}>
+          {!sugg.length && <span className="sub">Keine Ideen – anders formulieren?</span>}
+          {sugg.map((v) => (
             <div key={v.id} className="option" style={{ alignItems: 'center' }}>
               <span className="row-main">
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{v.text}</span>
@@ -133,11 +224,36 @@ function CatList({ s, listKey }) {
                 {v.why && <span className="tiny" style={{ color: 'var(--text)' }}>{v.why}</span>}
               </span>
               {v.url && <a className="x-btn" href={v.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-              <button type="button" className="pill on" onClick={() => { addHomeItem(listKey, { text: v.text, cat: cat || defCat, kind: 'brauche', price: v.price, url: v.url, note: v.shop }); setSugg(sugg.filter((x) => x.id !== v.id)); toast('Auf der Liste'); }}>Merken</button>
+              <button type="button" className="pill on" onClick={() => { addHomeItem(listKey, { text: v.text, cat, kind: 'brauche', price: v.price, url: v.url, note: v.shop }); setSugg(sugg.filter((x) => x.id !== v.id)); toast('Auf der Liste'); }}>Merken</button>
             </div>
           ))}
         </section>
       )}
+    </>
+  );
+}
+
+function ThingsArea({ s, listKey }) {
+  const [part, setPart] = useState(() => sub(listKey, 'liste'));
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <SubSwitch k={listKey} value={part} onChange={setPart} options={[{ id: 'liste', label: '📋 Liste' }, { id: 'finden', label: '🔍 Finden' }, { id: 'orte', label: '📍 Orte' }]} />
+        {part === 'orte' && <CityChips s={s} compact />}
+      </div>
+      {part === 'liste' && <CatList key={listKey} s={s} listKey={listKey} />}
+      {part === 'finden' && <FindItems s={s} listKey={listKey} />}
+      {part === 'orte' && <PlaceBook s={s} book={listKey} city={cityOf(s)} hint={listKey === 'kleidung' ? 'Läden für Kleidung, Schuhe, Second Hand … – oben „+ Ort“.' : 'Möbel, Deko, Baumarkt … – oben „+ Ort“.'} />}
+    </>
+  );
+}
+
+function General({ s, initial }) {
+  const [part, setPart] = useState(() => initial || sub('allgemein', 'todos'));
+  return (
+    <>
+      <SubSwitch k="allgemein" value={part} onChange={setPart} options={[{ id: 'todos', label: '✅ To-dos' }, { id: 'erinnern', label: '🔔 Erinnern' }]} />
+      {part === 'erinnern' ? <Reminders s={s} /> : <CatList key="haushalt" s={s} listKey="haushalt" />}
     </>
   );
 }
@@ -214,18 +330,19 @@ function Reminders({ s }) {
   );
 }
 
-export default function Zuhause({ tab = 'haushalt' }) {
+export default function Zuhause({ tab = 'allgemein' }) {
   const s = useStore();
-  const current = TABS.some((x) => x.id === tab) ? tab : 'haushalt';
+  const current = tab === 'haushalt' || tab === 'erinnerungen' ? 'allgemein' : TABS.some((x) => x.id === tab) ? tab : 'allgemein';
+  const initial = tab === 'erinnerungen' ? 'erinnern' : tab === 'haushalt' ? 'todos' : null;
   return (
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/saeule/persoenlich" label="Zuhause" />
+          <Back href="#/saeule/persoenlich" label="Persönlich" />
           <h1 className="h1">Zuhause</h1>
         </div>
         <Segmented full options={TABS} value={current} onChange={(v) => go(`/zuhause/${v}`)} label="Ansicht" />
-        {current === 'erinnerungen' ? <Reminders s={s} /> : <CatList key={current} s={s} listKey={current} />}
+        {current === 'allgemein' ? <General s={s} initial={initial} /> : <ThingsArea key={current} s={s} listKey={current} />}
       </main>
       <TabBar active="bereiche" />
     </>

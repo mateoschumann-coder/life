@@ -4,16 +4,20 @@ import { addDays, fmtLong, today } from './dates';
 import { searchWithTool } from './outings';
 
 export const LISTS = {
-  haushalt: { title: 'Haushalt', icon: 'home', cats: ['Bad', 'Küche', 'Wohnzimmer', 'Schlafzimmer', 'Allgemein'], placeholder: 'z.B. Duschvorhang waschen' },
-  einrichtung: { title: 'Einrichtung', icon: 'sparkle', cats: ['Wohnzimmer', 'Schlafzimmer', 'Küche', 'Bad', 'Arbeitsplatz', 'Balkon'], placeholder: 'z.B. Stehlampe fürs Lesen', search: true },
-  kleidung: { title: 'Kleidung', icon: 'shirt', cats: ['Oberteile', 'Hosen', 'Schuhe', 'Jacken', 'Sport', 'Accessoires'], placeholder: 'z.B. Leichte Regenjacke', search: true, kinds: { brauche: 'Brauche ich', weggeben: 'Weggeben' } },
+  haushalt: { title: 'To-dos', icon: 'home', cats: ['Putzen', 'Aufräumen', 'Müll', 'Wäsche', 'Reparieren', 'Allgemein'], placeholder: 'z.B. Bad putzen' },
+  einrichtung: { title: 'Einrichtung', icon: 'sparkle', cats: ['Wohnzimmer', 'Schlafzimmer', 'Küche', 'Bad', 'Arbeitsplatz', 'Balkon'], placeholder: 'z.B. Stehlampe fürs Lesen', search: true, kinds: { brauche: 'Will ich haben', weggeben: 'Weggeben' } },
+  kleidung: { title: 'Kleidung', icon: 'shirt', cats: ['Oberteile', 'Hosen', 'Schuhe', 'Jacken', 'Sport', 'Accessoires'], placeholder: 'z.B. Leichte Regenjacke', search: true, kinds: { brauche: 'Will ich haben', weggeben: 'Weggeben' } },
 };
 const norm = (x) => String(x || '').trim().toLowerCase();
-export const listOf = (s, key) => s.home?.[key] || { cats: LISTS[key].cats, items: [] };
+const OLD_HAUSHALT = ['Bad', 'Küche', 'Wohnzimmer', 'Schlafzimmer', 'Allgemein'];
+// v1.02: alte Raum-Kategorien der Haushalt-Liste → neue Aufgaben-Kategorien, solange noch nichts eingetragen ist
+const fresh = (key, l) => (key === 'haushalt' && l && !l.items.length && l.cats.join('|') === OLD_HAUSHALT.join('|') ? { ...l, cats: LISTS.haushalt.cats } : l);
+export const listOf = (s, key) => fresh(key, s.home?.[key]) || { cats: LISTS[key].cats, items: [] };
 
 function ensure(s, key) {
   if (!s.home) s.home = {};
   if (!s.home[key]) s.home[key] = { cats: [...LISTS[key].cats], items: [] };
+  s.home[key] = fresh(key, s.home[key]);
   return s.home[key];
 }
 export function addHomeItem(key, { text, cat, kind = 'brauche', price = '', url = '', note = '' }) {
@@ -126,4 +130,46 @@ Antworte aus deinem Wissen (ohne Internet) mit "vorschlaege_zeigen": 4 bis 6 kon
   return (input.vorschlaege || []).filter((v) => v && v.titel).map((v, i) => ({
     id: 'v' + i + Date.now().toString(36), text: v.titel, price: v.preis || '', shop: v.shop || '', why: v.warum || '', url: `https://listado.mercadolibre.com.ar/${encodeURIComponent((v.suchbegriff || v.titel).replace(/[,–]/g, ' ').trim().replace(/\s+/g, '-'))}`,
   }));
+}
+
+// ---------- v1.02: Weggeben – verkaufen (KI schreibt die Anzeige) oder an jemanden geben ----------
+const SELL_TOOL = {
+  name: 'anzeige',
+  description: 'Verkaufsanzeige für einen gebrauchten Gegenstand',
+  input_schema: {
+    type: 'object',
+    properties: {
+      titel: { type: 'string', description: 'kurzer Anzeigentitel auf Spanisch (Argentinien), max. 60 Zeichen' },
+      text: { type: 'string', description: 'Anzeigentext auf Spanisch, 3–6 kurze Zeilen: Zustand, Maße/Größe falls genannt, Abholung in Buenos Aires' },
+      preis: { type: 'string', description: 'realistischer Preisvorschlag in ARS für gebraucht, z.B. „ARS 45.000“' },
+      tipps: { type: 'string', description: '1–2 Sätze auf Deutsch: Fotos, wo am besten verkaufen' },
+    },
+    required: ['titel', 'text'],
+  },
+};
+export async function sellListing(s, item, extra = '') {
+  return searchWithTool({
+    system: `Du schreibst für Mateo (lebt in Buenos Aires) eine ehrliche, kurze Verkaufsanzeige für Mercado Libre / Facebook Marketplace. Nichts erfinden, was er nicht sagt (Marke, Zustand) – lieber neutral formulieren. Antworte mit "anzeige".`,
+    user: `Gegenstand: ${item.text}${item.note ? ` – Notiz: ${item.note}` : ''}${extra ? ` – Details: ${extra}` : ''}`,
+    tool: SELL_TOOL,
+    maxUses: 0,
+    maxTokens: 1500,
+    label: 'Verkaufsanzeige',
+  });
+}
+export const SELL_LINKS = [
+  { label: 'Mercado Libre: verkaufen ↗', url: 'https://www.mercadolibre.com.ar/vender' },
+  { label: 'Facebook Marketplace ↗', url: 'https://www.facebook.com/marketplace/create/item' },
+];
+// Such-Links zum Kaufen (kostenlos)
+export function shopLinks(key, q) {
+  const e = encodeURIComponent;
+  const t = String(q || '').trim();
+  const ml = `https://listado.mercadolibre.com.ar/${e(t.replace(/\s+/g, '-'))}`;
+  const base = [
+    { label: 'Mercado Libre ↗', url: ml },
+    { label: 'Google Shopping ↗', url: `https://www.google.com/search?tbm=shop&q=${e(t)}` },
+  ];
+  if (key === 'kleidung') return [...base, { label: 'Dafiti ↗', url: `https://www.dafiti.com.ar/catalog/?q=${e(t)}` }, { label: 'Zara ↗', url: `https://www.zara.com/ar/es/search?searchTerm=${e(t)}` }, { label: 'Pinterest (Ideen) ↗', url: `https://www.pinterest.com/search/pins/?q=${e(t + ' outfit')}` }];
+  return [...base, { label: 'Sodimac ↗', url: `https://www.sodimac.com.ar/sodimac-ar/search?Ntt=${e(t)}` }, { label: 'Easy ↗', url: `https://www.easy.com.ar/${e(t)}?_q=${e(t)}&map=ft` }, { label: 'Pinterest (Ideen) ↗', url: `https://www.pinterest.com/search/pins/?q=${e(t + ' deco')}` }];
 }

@@ -203,7 +203,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.01 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.02 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>

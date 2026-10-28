@@ -32,7 +32,7 @@ export const SECTIONS = [
   { key: 'vorsorge', name: 'Vorsorge', link: '#/vorsorge', icon: 'medical', areaId: 'koerper' },
   { key: 'kueche', name: 'Küche', link: '#/kueche', icon: 'pot', areaId: 'koerper' },
   { key: 'wissen', name: 'Lernen & Wissen', link: '#/wissen', icon: 'bulb', areaId: 'mental' },
-  { key: 'zuhause', name: 'Zuhause', link: '#/zuhause/haushalt', icon: 'home', areaId: 'zuhause' },
+  { key: 'zuhause', name: 'Zuhause', link: '#/zuhause/allgemein', icon: 'home', areaId: 'zuhause' },
   { key: 'reisen', name: 'Reisen', link: '#/reisen', icon: 'plane', areaId: 'freizeit' },
   { key: 'hobbys', name: 'Hobbys', link: '#/hobbys', icon: 'star', areaId: 'freizeit' },
   { key: 'finanzen', name: 'Finanzen', link: '#/finanzen', icon: 'wallet', areaId: 'finanzen' },

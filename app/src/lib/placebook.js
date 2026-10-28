@@ -18,6 +18,26 @@ export const BOOKS = {
     { id: 'drogerie', label: 'Drogerie', emoji: '🧴' },
     { id: 'haushalt', label: 'Haushaltswaren', emoji: '🏠' },
   ],
+  // v1.02: Zuhause → Einrichtung / Kleidung (pro Stadt)
+  einrichtung: [
+    { id: 'moebel', label: 'Möbel', emoji: '🛋', subs: ['Sofas', 'Betten', 'Tische & Stühle', 'Regale'] },
+    { id: 'deko', label: 'Deko', emoji: '🖼' },
+    { id: 'lampen', label: 'Lampen', emoji: '💡' },
+    { id: 'textil', label: 'Textilien', emoji: '🧺', subs: ['Bettwäsche', 'Teppiche', 'Vorhänge'] },
+    { id: 'kueche', label: 'Küche & Haushalt', emoji: '🍳' },
+    { id: 'baumarkt', label: 'Baumarkt', emoji: '🔨' },
+    { id: 'pflanzen', label: 'Pflanzen', emoji: '🪴' },
+    { id: 'second', label: 'Second Hand & Antik', emoji: '♻️' },
+  ],
+  kleidung: [
+    { id: 'mode', label: 'Mode', emoji: '👕', subs: ['Basics', 'Elegant', 'Streetwear'] },
+    { id: 'schuhe', label: 'Schuhe', emoji: '👟' },
+    { id: 'sport', label: 'Sportbekleidung', emoji: '🏃' },
+    { id: 'outlet', label: 'Outlet', emoji: '🏷' },
+    { id: 'second', label: 'Second Hand', emoji: '♻️' },
+    { id: 'accessoires', label: 'Accessoires', emoji: '🕶' },
+    { id: 'schneider', label: 'Schneider & Reparatur', emoji: '🧵' },
+  ],
   vorsorge: [
     { id: 'arzt', label: 'Ärzte', emoji: '🩺', subs: ['Hausarzt', 'Zahnarzt', 'Augenarzt', 'Hautarzt', 'Orthopäde', 'HNO', 'Kardiologe', 'Sportmedizin'] },
     { id: 'therapie', label: 'Therapie', emoji: '💆', subs: ['Physiotherapie', 'Osteopathie', 'Massage', 'Psychotherapie'] },

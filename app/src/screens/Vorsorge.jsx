@@ -148,7 +148,7 @@ const HEALTH_GROUPS = [{
 }];
 
 // v1.01: Termin finden – kostenlose Links + KI-Suche, Treffer als Ort speichern oder gleich Termin anlegen
-function FindTermin({ s, onTermin }) {
+function FindTermin({ s, onTermin, items }) {
   const [what, setWhat] = useState('');
   const [area, setArea] = useState('');
   const [busy, setBusy] = useState(false);
@@ -168,6 +168,32 @@ function FindTermin({ s, onTermin }) {
   };
   return (
     <>
+      <div className="sec-h" style={{ padding: '0 4px' }}><h2 className="h2" style={{ fontSize: 19 }}>Termin eintragen</h2></div>
+      <section className="card" style={{ gap: 10 }}>
+        <span className="label" style={{ padding: 0 }}>Selbst</span>
+        <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => onTermin({ type: 'termin' })}>+ Termin</button>
+      </section>
+      <Presets s={s} items={items} onPick={onTermin} />
+        <PlanChat
+          compact
+          title="Mit der KI eintragen"
+          intro="z.B. „Zahnarzt bei Dr. López nächsten Dienstag 10 Uhr“ – ich trage ihn ein."
+          placeholder="Erzähl von deinem Termin …"
+          history={chatOf(s, 'vorsorge')}
+          onSave={(h) => saveChatOf('vorsorge', h)}
+          onAsk={(hist, o) => healthChat(s, hist, o)}
+          prefKey="vorsorge"
+          hideToggles
+          groups={HEALTH_GROUPS}
+          onApply={(sel) => {
+            for (const x of sel.termine || []) {
+              const placeId = x.ort_id && findBookItem(s, 'vorsorge', x.ort_id) ? x.ort_id : '';
+              addHealthItem({ title: x.titel, type: ['termin', 'routine', 'verletzung'].includes(x.art) ? x.art : 'termin', date: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || '') ? x.datum : null, everyMonths: x.art === 'routine' ? x.alle_monate || 6 : null, notes: [x.uhrzeit && `🕒 ${x.uhrzeit}`, x.notiz].filter(Boolean).join(' · '), placeId });
+            }
+          }}
+          chips={[]}
+        />
+      <div className="sec-h" style={{ padding: '0 4px' }}><h2 className="h2" style={{ fontSize: 19 }}>Arzt / Praxis finden</h2></div>
       <section className="card" style={{ gap: 10 }}>
         <label className="field"><span>Was suchst du?</span><input className="input" value={what} onChange={(e) => setWhat(e.target.value)} placeholder="z.B. Zahnarzt, Physiotherapie" /></label>
         <div className="chips" style={{ marginTop: -4 }}>{QUICK.map((q) => <button key={q} type="button" className={what === q ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setWhat(q)}>{q}</button>)}</div>
@@ -229,21 +255,17 @@ export default function Vorsorge() {
           <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
           <h1 className="h1">Vorsorge</h1>
         </div>
-        <Segmented full options={[{ id: 'termine', label: 'Termine' }, { id: 'finden', label: 'Termin finden' }, { id: 'orte', label: `Orte${nOrte ? ` (${nOrte})` : ''}` }]} value={view} onChange={setView} label="Ansicht" />
+        <Segmented full options={[{ id: 'termine', label: 'Termine' }, { id: 'finden', label: 'Finden' }, { id: 'orte', label: `Orte${nOrte ? ` (${nOrte})` : ''}` }]} value={view} onChange={setView} label="Ansicht" />
         {view === 'orte' && <PlaceBook s={s} book="vorsorge" hint="Deine Ärzte, Therapeuten, Apotheke, Labor … – oben „+ Ort“. Beim Termin kannst du den Ort dann auswählen." />}
-        {view === 'finden' && <FindTermin s={s} onTermin={(x) => setSheet(x)} />}
+        {view === 'finden' && <FindTermin s={s} items={items} onTermin={(x) => setSheet(x)} />}
         {view === 'termine' && (<>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button type="button" className="btn small" onClick={() => setSheet({ type: 'termin' })}>+ Termin</button>
-          <Info>Fällige Termine erscheinen automatisch auf „Heute“. Unten kannst du Termine auch einfach der KI erzählen.</Info>
-        </div>
 
         <section className="group">
           <button type="button" className="sec-h" style={{ border: 0, background: 'none', width: '100%', cursor: 'pointer', font: 'inherit', color: 'inherit' }} onClick={() => setListOpen(!listOpen)} aria-expanded={listOpen}>
             <h2 className="h2" style={{ fontSize: 19 }}>Termine & Routinen{upcoming.length ? ` · ${upcoming.length}` : ''}</h2>
             <span className="tiny">{listOpen ? '▴ Zuklappen' : '▾ Aufklappen'}</span>
           </button>
-          {listOpen && <div className="list">            {upcoming.length === 0 && <div className="empty">Noch nichts eingetragen.</div>}
+          {listOpen && <div className="list">            {upcoming.length === 0 && <div className="empty">Noch keine Termine. Neue legst du unter „Termin finden“ an – selbst oder mit der KI.</div>}
             {upcoming.map((h) => {
               const overdue = h.date && h.date < t;
               return (
@@ -261,7 +283,6 @@ export default function Vorsorge() {
           </div>}
         </section>
 
-        <Presets s={s} items={items} onPick={(p) => setSheet(p)} />
 
         <section className="group">
           <div className="sec-h">
@@ -290,25 +311,6 @@ export default function Vorsorge() {
             </div>
           </section>
         )}
-        <PlanChat
-          compact
-          title="Termin der KI erzählen"
-          intro="z.B. „Zahnarzt bei Dr. López nächsten Dienstag 10 Uhr“ – ich trage ihn ein."
-          placeholder="Erzähl von deinem Termin …"
-          history={chatOf(s, 'vorsorge')}
-          onSave={(h) => saveChatOf('vorsorge', h)}
-          onAsk={(hist, o) => healthChat(s, hist, o)}
-          prefKey="vorsorge"
-          hideToggles
-          groups={HEALTH_GROUPS}
-          onApply={(sel) => {
-            for (const x of sel.termine || []) {
-              const placeId = x.ort_id && findBookItem(s, 'vorsorge', x.ort_id) ? x.ort_id : '';
-              addHealthItem({ title: x.titel, type: ['termin', 'routine', 'verletzung'].includes(x.art) ? x.art : 'termin', date: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || '') ? x.datum : null, everyMonths: x.art === 'routine' ? x.alle_monate || 6 : null, notes: [x.uhrzeit && `🕒 ${x.uhrzeit}`, x.notiz].filter(Boolean).join(' · '), placeId });
-            }
-          }}
-          chips={[]}
-        />
         </>)}
       </main>
       <ItemSheet s={s} open={!!sheet} item={sheet} onClose={() => setSheet(null)} />

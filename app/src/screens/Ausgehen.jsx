@@ -49,7 +49,7 @@ function SearchChips({ s, kind, defaults, disabled, onPick }) {
 
 // Städte (v0.40): zwischen Buenos Aires, Frankfurt … wechseln – gilt für Events und Orte, bearbeitbar
 // Stadt (v0.65): eine Zeile mit der aktuellen Stadt, „Wechseln“ öffnet die Liste aller Städte (Suche, nach Land)
-function CityChips({ s, compact }) {
+export function CityChips({ s, compact }) {
   const [open, setOpen] = useState(false);
   const cur = cityOf(s);
   const known = allCities(s);

@@ -13,7 +13,7 @@ import { TOOL_AREAS } from '../lib/tools';
 import { addLibCat, KINDS, removeLibCat } from '../lib/library';
 import { Missing } from './Saeule';
 
-export const DIRECT = { entwicklung: '#/skills', informiert: '#/news', mental: '#/wissen', zuhause: '#/zuhause/haushalt', finanzen: '#/finanzen' };
+export const DIRECT = { entwicklung: '#/skills', informiert: '#/news', mental: '#/wissen', zuhause: '#/zuhause/allgemein', finanzen: '#/finanzen' };
 
 const RANGES = [
   { id: 4, label: '4 Wo.' },
