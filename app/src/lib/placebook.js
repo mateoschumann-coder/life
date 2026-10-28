@@ -66,6 +66,21 @@ export function addBookItem(book, item) {
 }
 export const updateBookItem = (book, id, patch) => upd(book, (b) => Object.assign(b.items.find((x) => x.id === id) || {}, patch));
 export const removeBookItem = (book, id) => upd(book, (b) => { b.items = b.items.filter((x) => x.id !== id); });
+// v1.0: schon eingegebene Viertel („Wo ungefähr?“) merken → beim nächsten Mal als Knöpfe
+export function bookAreas(s, book) {
+  const n = {};
+  for (const x of bookOf(s, book).items) { const a = String(x.area || '').trim(); if (a) n[a] = (n[a] || 0) + 1; }
+  for (const a of s.profile?.bookAreas || []) if (!n[a]) n[a] = 0.5;
+  return Object.keys(n).sort((a, b) => n[b] - n[a] || a.localeCompare(b, 'de'));
+}
+export const rememberArea = (area) => store.update((s) => {
+  const a = String(area || '').trim();
+  if (!a) return;
+  s.profile = { ...(s.profile || {}), bookAreas: [...new Set([...(s.profile?.bookAreas || []), a])] };
+});
+export const forgetArea = (area) => store.update((s) => {
+  s.profile = { ...(s.profile || {}), bookAreas: (s.profile?.bookAreas || []).filter((x) => x !== area) };
+});
 export const findBookItem = (s, book, id) => bookOf(s, book).items.find((x) => x.id === id) || null;
 
 export const bookMaps = (x) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([x.name, x.address || x.area].filter(Boolean).join(', '))}`;

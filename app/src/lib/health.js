@@ -437,6 +437,10 @@ export function removeShopping(id) {
     s.shopping.items = s.shopping.items.filter((x) => x.id !== id);
   });
 }
+// v1.0: Küchen-Auswahl im Kühlschrank-Modus bearbeitbar (s.profile.cuisines)
+export const DEFAULT_CUISINES = ['Argentinisch', 'Italienisch', 'Deutsch', 'Mediterran', 'Asiatisch', 'Mexikanisch', 'Indisch', 'Orientalisch'];
+export const cuisinesOf = (s) => s.profile?.cuisines || DEFAULT_CUISINES;
+export const setCuisines = (list) => store.update((s) => { s.profile = { ...(s.profile || {}), cuisines: [...new Set(list.map((x) => String(x).trim()).filter(Boolean))] }; });
 // v0.99: gespeicherte Einkaufslisten mit Namen. Die aktive Liste bleibt in s.shopping.items (alles andere arbeitet damit),
 // die anderen liegen in s.shopping.lists = [{ id, name, items }]; Name der aktiven: s.shopping.listName.
 export const DEFAULT_LIST = 'Einkaufsliste';
@@ -452,18 +456,34 @@ export function listNameTaken(s, name, exceptId = null) {
 const parkActive = (s) => {
   s.shopping.lists = [...(s.shopping.lists || []), { id: s.shopping.listId || 'main', name: activeListName(s), items: s.shopping.items }];
 };
-export function createShoppingList(name) {
+// v1.0: neue Liste wird nur angelegt (nicht gleich geöffnet) → Fenster zum Zusammenstellen; items optional (z.B. „Als Liste speichern“)
+export function createShoppingList(name, items = []) {
   const n = String(name || '').trim();
-  let ok = false;
+  let id = null;
   store.update((s) => {
     if (!n || listNameTaken(s, n)) return;
-    parkActive(s);
-    s.shopping.items = [];
-    s.shopping.listId = uid();
-    s.shopping.listName = n;
-    ok = true;
+    id = uid();
+    s.shopping.lists = [...(s.shopping.lists || []), { id, name: n, items: items.map((x) => ({ id: uid(), name: x.name, done: false, cat: x.cat, addedAt: now() })) }];
   });
-  return ok;
+  return id;
+}
+// Artikel einer beliebigen Liste (aktive = s.shopping.items)
+const listItems = (s, id) => (id === (s.shopping.listId || 'main') ? s.shopping.items : (s.shopping.lists || []).find((l) => l.id === id)?.items);
+export function addToList(id, names) {
+  const list = (Array.isArray(names) ? names : [names]).map((n) => String(n || '').trim()).filter(Boolean);
+  store.update((s) => {
+    const items = listItems(s, id);
+    if (!items) return;
+    list.forEach((name) => { if (!items.some((x) => !x.done && norm(x.name) === norm(name))) items.push({ id: uid(), name, done: false, addedAt: now() }); });
+  });
+}
+export function removeFromList(id, itemId) {
+  store.update((s) => {
+    const items = listItems(s, id);
+    if (!items) return;
+    const i = items.findIndex((x) => x.id === itemId);
+    if (i >= 0) items.splice(i, 1);
+  });
 }
 export function switchShoppingList(id) {
   store.update((s) => {

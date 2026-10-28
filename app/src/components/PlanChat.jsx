@@ -34,7 +34,7 @@ function ViewItem({ g, x, done, onAction }) {
       {open && g.details && <div style={{ fontSize: 14.5, lineHeight: 1.45 }}>{g.details(x)}</div>}
       <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <button type="button" className="chip soft small-chip" onClick={() => setOpen(!open)}>{open ? 'Zuklappen ▴' : `${g.viewLabel || 'Ansehen'} ▾`}</button>
-        {done ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ {g.action.doneLabel || 'Gespeichert'}</span> : <button type="button" className="chip small-chip" onClick={onAction}>{g.action.label}</button>}
+        {done ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ {g.action.doneLabel || 'Gespeichert'}</span> : (open || !g.details) && <button type="button" className="chip small-chip" onClick={onAction}>{g.action.label}</button>}
         {x?.url && <a className="chip soft small-chip" href={x.url} target="_blank" rel="noreferrer">Quelle ↗</a>}
       </span>
     </div>
@@ -166,7 +166,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
                     <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <span className="label" style={{ padding: 0 }}>{g.label}</span>
                       {m.proposal[g.key].map((x, i) => (g.action ? (
-                        <ViewItem key={i} g={g} x={x} done={!!m.done?.[g.key]?.[i]} onAction={() => { g.action.run(x); onSave(history.map((y) => (y.id === m.id ? { ...y, done: { ...(y.done || {}), [g.key]: Object.assign([], y.done?.[g.key] || [], { [i]: true }) } } : y))); }} />
+                        <ViewItem key={i} g={g} x={x} done={!!m.done?.[g.key]?.[i]} onAction={() => g.action.run(x, () => onSave(history.map((y) => (y.id === m.id ? { ...y, done: { ...(y.done || {}), [g.key]: Object.assign([], y.done?.[g.key] || [], { [i]: true }) } } : y))))} />
                       ) : editing && editing.id === m.id && editing.key === g.key && editing.i === i ? (
                         <form key={i} className="block-add" onSubmit={(e) => { e.preventDefault(); saveEdit(); }}>
                           <input className="input" autoFocus value={editing.val} onChange={(e) => setEditing({ ...editing, val: e.target.value })} aria-label="Vorschlag bearbeiten" />

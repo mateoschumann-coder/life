@@ -346,6 +346,22 @@ export function cityHere() {
   });
 }
 
+// v1.0: Aktueller Standort → Stadtviertel (für „Wo ungefähr?“ im Orte-Verzeichnis)
+export function hoodHere() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('Standort nicht verfügbar'));
+    navigator.geolocation.getCurrentPosition(async (p) => {
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=16&accept-language=es&lat=${p.coords.latitude}&lon=${p.coords.longitude}`).then((x) => x.json());
+        const a = r?.address || {};
+        const hood = a.suburb || a.neighbourhood || a.quarter || a.city_district || a.borough || '';
+        if (!hood) return reject(new Error('Viertel nicht erkannt'));
+        resolve(hood);
+      } catch { reject(new Error('Viertel nicht erkannt')); }
+    }, () => reject(new Error('Standort nicht freigegeben')), { timeout: 10000, maximumAge: 300000 });
+  });
+}
+
 // Google-Maps-Suche zum Prüfen eines Ortes (kostenlos)
 export const mapsUrl = (name, address, city = HOME_CITY) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, address, city].filter(Boolean).join(', '))}`;
 

@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import {
-  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
-  activeListName, shoppingLists, listNameTaken, createShoppingList, switchShoppingList, renameShoppingList, deleteShoppingList,
+  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe, cuisinesOf, setCuisines, removeCatalogItem,
+  activeListName, shoppingLists, listNameTaken, createShoppingList, addToList, removeFromList, switchShoppingList, renameShoppingList, deleteShoppingList,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
 import PlaceBook from '../components/PlaceBook';
@@ -278,51 +278,85 @@ function ShopCatalog({ s }) {
   );
 }
 
-// v0.99: gespeicherte Listen mit Namen – oben „Liste erstellen“, darunter alle Listen zum Wechseln
-function ListsSheet({ s, open, onClose }) {
+// v1.0: eine Liste zusammenstellen (neue Liste oder ✎ an einer Liste): Name ändern, Artikel hinzufügen/entfernen, öffnen
+function ListEditor({ s, listId, onClose }) {
+  const l = shoppingLists(s).find((x) => x.id === listId);
+  const [text, setText] = useState('');
+  const [name, setName] = useState(null);
+  if (!l) return <Sheet open={false} onClose={onClose} title="" />;
+  const nm = name ?? l.name;
+  const taken = nm.trim() && nm.trim() !== l.name && listNameTaken(s, nm, l.id);
+  const open = (l.items || []).filter((x) => !x.done);
+  const have = new Set(open.map((x) => nrm(x.name)));
+  const sugg = Object.values(s.shopping.history || {}).filter((h) => !have.has(nrm(h.name))).sort((a, b) => b.count - a.count).slice(0, 12);
+  const add = (e) => { e.preventDefault(); addToList(l.id, text.split(/,|\n/)); setText(''); };
+  const close = () => { if (nm.trim() && nm.trim() !== l.name && !taken) renameShoppingList(l.id, nm); setName(null); onClose(); };
+  return (
+    <Sheet open title={`📋 ${l.name}`} onClose={close}>
+      <label className="field"><span>Name</span><input className="input" value={nm} onChange={(e) => setName(e.target.value)} aria-label="Name der Liste" /></label>
+      {taken && <span className="tiny" style={{ color: 'var(--danger)', marginTop: -6 }}>Diesen Namen gibt es schon – bitte ändern.</span>}
+      <form className="block-add" onSubmit={add}>
+        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Vacío, Chorizo, Kohle" aria-label="Artikel zur Liste hinzufügen" />
+        <button type="submit" className="btn small" disabled={!text.trim()} aria-label="Hinzufügen">+</button>
+      </form>
+      {sugg.length > 0 && <div className="chips">{sugg.map((h) => <button key={h.name} type="button" className="chip soft small-chip" onClick={() => addToList(l.id, h.name)}>+ {h.name}</button>)}</div>}
+      <div className="list">
+        {open.length === 0 && <div className="empty">Noch leer – oben Artikel eintragen.</div>}
+        {open.map((x) => (
+          <div key={x.id} className="row compact">
+            <span className="row-main"><span className="row-title plain">{x.name}</span></span>
+            <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => removeFromList(l.id, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+          </div>
+        ))}
+      </div>
+      {!l.active && <button type="button" className="btn" onClick={() => { close(); switchShoppingList(l.id); toast(`„${l.name}“ geöffnet`); }}>Diese Liste jetzt öffnen</button>}
+      <button type="button" className={l.active ? 'btn' : 'btn tint'} onClick={close}>Fertig</button>
+    </Sheet>
+  );
+}
+
+// Name abfragen (neue Liste / „Als Liste speichern“), doppelte Namen → Hinweis
+function NameSheet({ s, open, title, button, onSubmit, onClose }) {
   const [name, setName] = useState('');
-  const [edit, setEdit] = useState(null); // { id, name }
-  const all = shoppingLists(s);
   const taken = name.trim() && listNameTaken(s, name);
-  const editTaken = edit && edit.name.trim() && listNameTaken(s, edit.name, edit.id);
-  const create = (e) => {
-    e.preventDefault();
-    if (!name.trim() || taken) return;
-    if (createShoppingList(name)) { toast(`Neue Liste „${name.trim()}“`); setName(''); onClose(); }
-  };
+  const submit = (e) => { e.preventDefault(); if (!name.trim() || taken) return; onSubmit(name.trim()); setName(''); };
+  return (
+    <Sheet open={open} title={title} onClose={() => { setName(''); onClose(); }}>
+      <form className="field" onSubmit={submit}>
+        <span>Name</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="z.B. Asado Samstag" aria-label="Name der Liste" />
+        {taken && <span className="tiny" style={{ color: 'var(--danger)' }}>Eine Liste mit diesem Namen gibt es schon – bitte einen anderen Namen wählen.</span>}
+        <button type="submit" className="btn" disabled={!name.trim() || !!taken}>{button}</button>
+      </form>
+    </Sheet>
+  );
+}
+
+// v0.99: gespeicherte Listen – oben „Liste erstellen“, darunter alle Listen (antippen = öffnen, ✎ = zusammenstellen)
+function ListsSheet({ s, open, onClose, onEdit }) {
+  const [naming, setNaming] = useState(false);
+  const all = shoppingLists(s);
   const openCount = (l) => (l.items || []).filter((x) => !x.done).length;
   return (
-    <Sheet open={open} title="Einkaufslisten" onClose={() => { setEdit(null); onClose(); }}>
-      <form className="field" onSubmit={create}>
-        <span>＋ Liste erstellen</span>
-        <div className="block-add">
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, z.B. Asado Samstag" aria-label="Name der neuen Liste" />
-          <button type="submit" className="btn small" disabled={!name.trim() || !!taken}>Erstellen</button>
-        </div>
-        {taken && <span className="tiny" style={{ color: 'var(--danger)' }}>Eine Liste mit diesem Namen gibt es schon – bitte einen anderen Namen wählen.</span>}
-      </form>
-      <span className="label" style={{ padding: '0 4px' }}>Meine Listen</span>
-      <div className="list">
-        {all.map((l) => (edit && edit.id === l.id ? (
-          <form key={l.id} className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!editTaken && renameShoppingList(l.id, edit.name)) setEdit(null); }}>
-            <div className="block-add">
-              <input className="input" autoFocus value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} aria-label="Liste umbenennen" />
-              <button type="submit" className="btn small" disabled={!edit.name.trim() || !!editTaken}>OK</button>
+    <>
+      <Sheet open={open && !naming} title="Einkaufslisten" onClose={onClose}>
+        <button type="button" className="btn" onClick={() => setNaming(true)}>＋ Liste erstellen</button>
+        <span className="label" style={{ padding: '0 4px' }}>Meine Listen</span>
+        <div className="list">
+          {all.map((l) => (
+            <div key={l.id} className="row" style={{ minHeight: 50 }}>
+              <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => { if (!l.active) { switchShoppingList(l.id); toast(`„${l.name}“ geöffnet`); } onClose(); }}>
+                <span className="row-title plain" style={{ fontWeight: l.active ? 700 : 500 }}>{l.active ? '✓ ' : ''}{l.name}</span>
+                <span className="tiny">{openCount(l)} Artikel{l.active ? ' · gerade offen' : ''}</span>
+              </button>
+              <button type="button" className="x-btn" aria-label={`${l.name} bearbeiten`} onClick={() => onEdit(l.id)}><Icon name="edit" size={14} color="var(--muted)" /></button>
+              {all.length > 1 && <button type="button" className="x-btn" aria-label={`${l.name} löschen`} onClick={() => confirm(`Liste „${l.name}“ löschen?`) && deleteShoppingList(l.id)}><Icon name="x" size={12} color="var(--chev)" /></button>}
             </div>
-            {editTaken && <span className="tiny" style={{ color: 'var(--danger)' }}>Diesen Namen gibt es schon – bitte ändern.</span>}
-          </form>
-        ) : (
-          <div key={l.id} className="row" style={{ minHeight: 50 }}>
-            <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => { if (!l.active) { switchShoppingList(l.id); toast(`„${l.name}“ geöffnet`); } onClose(); }}>
-              <span className="row-title plain" style={{ fontWeight: l.active ? 700 : 500 }}>{l.active ? '✓ ' : ''}{l.name}</span>
-              <span className="tiny">{openCount(l)} offen{l.active ? ' · gerade offen' : ''}</span>
-            </button>
-            <button type="button" className="x-btn" aria-label={`${l.name} umbenennen`} onClick={() => setEdit({ id: l.id, name: l.name })}><Icon name="edit" size={14} color="var(--muted)" /></button>
-            {all.length > 1 && <button type="button" className="x-btn" aria-label={`${l.name} löschen`} onClick={() => confirm(`Liste „${l.name}“ löschen?`) && deleteShoppingList(l.id)}><Icon name="x" size={12} color="var(--chev)" /></button>}
-          </div>
-        )))}
-      </div>
-    </Sheet>
+          ))}
+        </div>
+      </Sheet>
+      <NameSheet s={s} open={open && naming} title="Neue Liste" button="Erstellen & zusammenstellen" onClose={() => setNaming(false)} onSubmit={(n) => { const id = createShoppingList(n); setNaming(false); if (id) onEdit(id); }} />
+    </>
   );
 }
 
@@ -330,6 +364,8 @@ function Shopping({ s }) {
   const [text, setText] = useState('');
   const [move, setMove] = useState(null);
   const [lists, setLists] = useState(false);
+  const [editList, setEditList] = useState(null);
+  const [saveAs, setSaveAs] = useState(false);
   const open = s.shopping.items.filter((x) => !x.done);
   const done = s.shopping.items.filter((x) => x.done);
   const sugg = shoppingSuggestions(s);
@@ -350,7 +386,9 @@ function Shopping({ s }) {
         </button>
         <button type="button" className="chip soft" style={{ minWidth: 0, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => setLists(true)} aria-label="Gespeicherte Listen">📋 {activeListName(s)} ▾</button>
       </div>
-      <ListsSheet s={s} open={lists} onClose={() => setLists(false)} />
+      <ListsSheet s={s} open={lists} onClose={() => setLists(false)} onEdit={(id) => { setLists(false); setEditList(id); }} />
+      {editList && <ListEditor s={s} listId={editList} onClose={() => setEditList(null)} />}
+      <NameSheet s={s} open={saveAs} title="Als Liste speichern" button="Speichern" onClose={() => setSaveAs(false)} onSubmit={(n) => { if (createShoppingList(n, open)) { toast(`Gespeichert als „${n}“ (${open.length} Artikel)`); setSaveAs(false); } }} />
       <ShopCatalog s={s} />
       {open.length === 0 && <div className="list"><div className="empty">Die Liste ist leer.</div></div>}
       {shopCats(s).map((c) => {
@@ -381,7 +419,12 @@ function Shopping({ s }) {
           ))}
         </div>
       )}
-      {open.length > 0 && <Info>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal).</Info>}
+      {open.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="button" className="chip soft small-chip" onClick={() => setSaveAs(true)}>💾 Als Liste speichern</button>
+          <Info>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal). „Als Liste speichern“ legt eine Kopie mit Namen an, z.B. für den Wocheneinkauf.</Info>
+        </div>
+      )}
       <Sheet open={!!move} title={move ? `„${move.name}“ einsortieren` : ''} onClose={() => setMove(null)}>
         {shopStructure(s).groups.map((g) => (
           <div key={g.id} className="field">
@@ -403,12 +446,8 @@ function Shopping({ s }) {
   );
 }
 
-// v0.99: KI-Rezepte zum Ansehen (Zutaten + Schritte), Speichern als Rezept nur auf Wunsch
-const saveAiRecipe = (r, cat) => {
-  addRecipe({ title: r.titel, category: cat, ingredients: r.zutaten || [], steps: r.schritte || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '', minutes: r.minuten || null });
-  toast(`Gespeichert in „${cat}“`);
-};
-const kitchenGroups = (cat) => [
+// v0.99/v1.0: KI-Rezepte nur ansehen; erst wenn eins gut ist: „Rezept speichern“ → Kategorie wählen
+const kitchenGroups = (onSave) => [
   {
     key: 'rezepte',
     label: 'Rezepte',
@@ -421,7 +460,7 @@ const kitchenGroups = (cat) => [
         {x.schritte && <div><span className="label" style={{ padding: 0 }}>Zubereitung</span><div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{x.schritte}</div></div>}
       </div>
     ),
-    action: { label: '＋ Als Rezept speichern', doneLabel: 'Als Rezept gespeichert', run: (x) => saveAiRecipe(x, cat) },
+    action: { label: '💾 Rezept speichern', doneLabel: 'Als Rezept gespeichert', run: onSave },
   },
   { key: 'einkaufen', label: 'Auf die Einkaufsliste', title: (x) => x },
 ];
@@ -431,64 +470,99 @@ const MODES = {
   kuehlschrank: { label: '🧊 Aus dem Kühlschrank', intro: 'Oben auswählen und „Rezept erstellen“ – oder hier schreiben.', placeholder: 'Was hast du noch da?', chips: [] },
   diktieren: { label: '🎙 Rezept diktieren', intro: 'Mikro antippen und dein Rezept erzählen – ich schreibe es sauber auf.', placeholder: 'Erzähl dein Rezept …', chips: [] },
 };
-const CUISINES = ['Argentinisch', 'Italienisch', 'Deutsch', 'Mediterran', 'Asiatisch', 'Mexikanisch', 'Indisch', 'Orientalisch'];
 
-// v0.99 (Mateo): „Was hast du da?“ und „Welche Küche?“ nebeneinander (je ein Fenster zum Auswählen),
-// Küche standardmäßig „Alle“, Knopf „✨ Rezept erstellen“ ohne etwas tippen zu müssen
+// v0.99/v1.0 (Mateo): „Was hast du da?“ und „Welche Küche?“ nebeneinander, je ein Fenster zum Auswählen.
+// Beide Listen bearbeitbar: „+“ fügt dauerhaft hinzu (Zutat → Einkaufs-Katalog der Kategorie, Küche → s.profile.cuisines),
+// „✎ Bearbeiten“ entfernt Einträge. Küche standardmäßig „Alle“. „✨ Rezept erstellen“ ohne Tippen.
 function FridgePicker({ s, onAsk, disabled }) {
   const cats = shopCats(s).filter((c) => c && c.group === 'essen' && c.id !== 'sonstiges');
   const [catId, setCatId] = useState(cats[0]?.id);
   const [sel, setSel] = useState([]);
-  const [own, setOwn] = useState('');
+  const [newIng, setNewIng] = useState('');
   const [cuis, setCuis] = useState([]); // leer = Alle
-  const [ownCuis, setOwnCuis] = useState('');
+  const [newCuis, setNewCuis] = useState('');
   const [sheet, setSheet] = useState(null); // 'zutaten' | 'kueche'
+  const [edit, setEdit] = useState(false);
   const cur = cats.find((c) => c.id === catId) || cats[0];
   const items = cur ? shopCatalog(s, cur.id) : [];
+  const allCuis = cuisinesOf(s);
   const clean = (n) => String(n).replace(/\s*\([^)]*\)/g, '').replace(/\?$/, '').trim();
   const tog = (n) => setSel(sel.includes(n) ? sel.filter((x) => x !== n) : [...sel, n]);
   const inCat = (c) => shopCatalog(s, c.id).filter((x) => sel.includes(clean(x.name))).length;
-  const extra = own.split(/,|\n/).map((x) => x.trim()).filter(Boolean);
-  const all = [...sel, ...extra];
-  const kitchens = [...cuis, ...ownCuis.split(/,|\n/).map((x) => x.trim()).filter(Boolean)];
-  const ask = () => onAsk(`Ich habe da: ${all.join(', ')}.${kitchens.length ? ` Küche: ${kitchens.join(' oder ')}.` : ' Küche: egal.'} Was kann ich daraus kochen?`);
+  const ask = () => onAsk(`Ich habe da: ${sel.join(', ')}.${cuis.length ? ` Küche: ${cuis.join(' oder ')}.` : ' Küche: egal.'} Was kann ich daraus kochen?`);
   const short = (list, none) => (list.length ? (list.length <= 2 ? list.join(', ') : `${list.slice(0, 2).join(', ')} +${list.length - 2}`) : none);
+  const addIng = (e) => {
+    e.preventDefault();
+    const names = newIng.split(/,|\n/).map((x) => x.trim()).filter(Boolean);
+    if (!names.length || !cur) return;
+    names.forEach((n) => addCatalogItem(cur.id, n));
+    setSel([...new Set([...sel, ...names])]);
+    setNewIng('');
+  };
+  const addCuis = (e) => {
+    e.preventDefault();
+    const n = newCuis.trim();
+    if (!n) return;
+    if (!allCuis.some((x) => x.toLowerCase() === n.toLowerCase())) setCuisines([...allCuis, n]);
+    setCuis([...new Set([...cuis, allCuis.find((x) => x.toLowerCase() === n.toLowerCase()) || n])]);
+    setNewCuis('');
+  };
+  const close = () => { setSheet(null); setEdit(false); };
+  const editBtn = <button type="button" className={edit ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎ Bearbeiten'}</button>;
   return (
     <section className="card" style={{ gap: 8, padding: '10px 12px' }}>
       <div className="fridge-pair">
         <button type="button" className="fridge-btn" onClick={() => setSheet('zutaten')}>
           <span className="tiny">🥕 Was hast du da?</span>
-          <span className="fridge-val">{short(all, 'Antippen')}</span>
+          <span className="fridge-val">{short(sel, 'Antippen')}</span>
         </button>
         <button type="button" className="fridge-btn" onClick={() => setSheet('kueche')}>
           <span className="tiny">🍽 Welche Küche?</span>
-          <span className="fridge-val">{short(kitchens, 'Alle')}</span>
+          <span className="fridge-val">{short(cuis, 'Alle')}</span>
         </button>
       </div>
-      <button type="button" className="btn small" disabled={disabled || !all.length} onClick={ask}>✨ Rezept erstellen</button>
-      {!all.length && <span className="tiny">Erst Zutaten wählen – tippen musst du nichts.</span>}
-      <Sheet open={sheet === 'zutaten'} title={`Was hast du da?${all.length ? ` · ${all.length}` : ''}`} onClose={() => setSheet(null)}>
+      {(sel.length > 0 || cuis.length > 0) && (
+        <div className="chips">
+          {sel.map((n) => <button key={n} type="button" className="chip soft small-chip" onClick={() => tog(n)} aria-label={`${n} entfernen`}>{n} ✕</button>)}
+          {cuis.map((n) => <button key={'k' + n} type="button" className="chip soft small-chip" onClick={() => setCuis(cuis.filter((x) => x !== n))} aria-label={`${n} entfernen`}>🍽 {n} ✕</button>)}
+        </div>
+      )}
+      <button type="button" className="btn small" disabled={disabled || !sel.length} onClick={ask}>✨ Rezept erstellen</button>
+      {!sel.length && <span className="tiny">Erst Zutaten wählen – tippen musst du nichts.</span>}
+      <Sheet open={sheet === 'zutaten'} title={`Was hast du da?${sel.length ? ` · ${sel.length}` : ''}`} onClose={close}>
         <div className="box-tabs">
           {cats.map((c) => { const n = inCat(c); return <button key={c.id} type="button" className={cur?.id === c.id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCatId(c.id)}>{c.emoji} {c.label}{n ? ` · ${n}` : ''}</button>; })}
         </div>
+        <form className="block-add" onSubmit={addIng}>
+          <input className="input" value={newIng} onChange={(e) => setNewIng(e.target.value)} placeholder={cur ? `Zutat zu „${cur.label}“ hinzufügen` : 'Zutat hinzufügen'} aria-label="Zutat hinzufügen" />
+          <button type="submit" className="btn small" disabled={!newIng.trim()} aria-label="Hinzufügen">+</button>
+        </form>
         <div className="chips">
-          {items.map((x) => { const n = clean(x.name); return <button key={x.name} type="button" className={sel.includes(n) ? 'chip on small-chip' : 'chip small-chip'} onClick={() => tog(n)}>{n}</button>; })}
+          {items.map((x) => { const n = clean(x.name); return edit
+            ? <button key={x.name} type="button" className="chip soft small-chip" onClick={() => { removeCatalogItem(cur.id, x.name); setSel(sel.filter((y) => y !== n)); }}>{n} ✕</button>
+            : <button key={x.name} type="button" className={sel.includes(n) ? 'chip on small-chip' : 'chip small-chip'} onClick={() => tog(n)}>{n}</button>; })}
+          {!items.length && <span className="tiny">Noch nichts – oben mit „+“ hinzufügen.</span>}
         </div>
-        <label className="field"><span>Sonst noch? (optional)</span>
-          <input className="input" value={own} onChange={(e) => setOwn(e.target.value)} placeholder="z.B. Reste vom Hähnchen" aria-label="Weitere Zutaten" />
-        </label>
-        {sel.length > 0 && <span className="tiny">Gewählt: {sel.join(', ')} · <button type="button" className="link-btn" style={{ fontSize: 12, padding: 0 }} onClick={() => setSel([])}>leeren</button></span>}
-        <button type="button" className="btn" onClick={() => setSheet(null)}>Fertig</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {editBtn}
+          {sel.length > 0 && <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => setSel([])}>Auswahl leeren</button>}
+          <Info>Hinzugefügte Zutaten werden gemerkt (auch im Einkaufs-Katalog). Im Bearbeiten-Modus antippen = entfernen.</Info>
+        </div>
+        <button type="button" className="btn" onClick={close}>Fertig</button>
       </Sheet>
-      <Sheet open={sheet === 'kueche'} title="Welche Küche?" onClose={() => setSheet(null)}>
+      <Sheet open={sheet === 'kueche'} title="Welche Küche?" onClose={close}>
+        <form className="block-add" onSubmit={addCuis}>
+          <input className="input" value={newCuis} onChange={(e) => setNewCuis(e.target.value)} placeholder="Küche hinzufügen, z.B. Peruanisch" aria-label="Küche hinzufügen" />
+          <button type="submit" className="btn small" disabled={!newCuis.trim()} aria-label="Hinzufügen">+</button>
+        </form>
         <div className="chips">
-          <button type="button" className={!cuis.length ? 'chip on' : 'chip soft'} onClick={() => setCuis([])}>Alle</button>
-          {CUISINES.map((c) => <button key={c} type="button" className={cuis.includes(c) ? 'chip on' : 'chip soft'} onClick={() => setCuis(cuis.includes(c) ? cuis.filter((x) => x !== c) : [...cuis, c])}>{c}</button>)}
+          {!edit && <button type="button" className={!cuis.length ? 'chip on' : 'chip soft'} onClick={() => setCuis([])}>Alle</button>}
+          {allCuis.map((c) => (edit
+            ? <button key={c} type="button" className="chip soft" onClick={() => { setCuisines(allCuis.filter((x) => x !== c)); setCuis(cuis.filter((x) => x !== c)); }}>{c} ✕</button>
+            : <button key={c} type="button" className={cuis.includes(c) ? 'chip on' : 'chip soft'} onClick={() => setCuis(cuis.includes(c) ? cuis.filter((x) => x !== c) : [...cuis, c])}>{c}</button>))}
         </div>
-        <label className="field"><span>Andere Küche? (optional)</span>
-          <input className="input" value={ownCuis} onChange={(e) => setOwnCuis(e.target.value)} placeholder="z.B. Peruanisch" aria-label="Andere Küche" />
-        </label>
-        <button type="button" className="btn" onClick={() => setSheet(null)}>Fertig</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{editBtn}</div>
+        <button type="button" className="btn" onClick={close}>Fertig</button>
       </Sheet>
     </section>
   );
@@ -506,9 +580,16 @@ function RecipeFinder({ s }) {
 }
 function KitchenChat({ s }) {
   const [mode, setMode] = useState('neu');
-  const [cat, setCat] = useState(s.recipeCats[0] || 'Airfryer');
+  const [saving, setSaving] = useState(null); // { r, done }
   const sendRef = useRef(null);
   const m = MODES[mode];
+  const save = (cat) => {
+    const r = saving.r;
+    addRecipe({ title: r.titel, category: cat, ingredients: r.zutaten || [], steps: r.schritte || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '', minutes: r.minuten || null });
+    saving.done();
+    setSaving(null);
+    toast(`Gespeichert in „${cat}“`);
+  };
   return (
     <>
       <div className="box-tabs">
@@ -524,19 +605,15 @@ function KitchenChat({ s }) {
         placeholder={m.placeholder}
         history={chatOf(s, 'kueche')}
         onSave={(h) => saveChatOf('kueche', h)}
-        onAsk={(hist, o) => kitchenChat(s, hist, { ...o, mode, cat })}
+        onAsk={(hist, o) => kitchenChat(s, hist, { ...o, mode })}
         prefKey="kueche"
-        groups={kitchenGroups(cat)}
-        onApply={(sel) => {
-          if (sel.einkaufen?.length) addShopping(sel.einkaufen);
-        }}
+        groups={kitchenGroups((r, done) => (s.recipeCats.length > 1 ? setSaving({ r, done }) : (setSaving(null), addRecipe({ title: r.titel, category: s.recipeCats[0] || 'Airfryer', ingredients: r.zutaten || [], steps: r.schritte || '', minutes: r.minuten || null }), done(), toast('Rezept gespeichert'))))}
+        onApply={(sel) => { if (sel.einkaufen?.length) addShopping(sel.einkaufen); }}
         chips={m.chips}
-        extra={s.recipeCats.length > 1 ? (
-          <label className="tiny" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>Rezepte speichern in
-            <select className="input" style={{ width: 'auto', minHeight: 30, padding: '2px 8px', fontSize: 13 }} value={cat} onChange={(e) => setCat(e.target.value)}>{s.recipeCats.map((c) => <option key={c}>{c}</option>)}</select>
-          </label>
-        ) : null}
       />
+      <Sheet open={!!saving} title={saving ? `„${saving.r.titel}“ speichern in …` : ''} onClose={() => setSaving(null)}>
+        <div className="chips">{s.recipeCats.map((c) => <button key={c} type="button" className="chip soft" onClick={() => save(c)}>{c}</button>)}</div>
+      </Sheet>
     </>
   );
 }
