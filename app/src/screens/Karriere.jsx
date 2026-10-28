@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, today } from '../lib/dates';
 import { addTask } from '../lib/actions';
 import {
   addCheck, addDoc, addJob, addSearch, analyzeJob, importJobs, fillJobProfile, WORK_MODES, applyFunnel, careerChat, claudeBrief, funnelChat, removeCheck, removeDoc, removeJob, removeSearch,
   STAGES, stageOf, toggleCheck, toggleDoc, updateJob, updateSearch,
+  checksOf, stageCheck, checkCount, JOB_PREP, SEARCH_TODOS, SEARCH_PREP, ensureList, catList, suggestSearchPrep, researchJob,
 } from '../lib/career';
+import GroupedChecklist from '../components/GroupedChecklist';
+import { DateRangeField } from '../components/DateRange';
 import { chatOf, saveChatOf } from '../lib/chats';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
@@ -41,7 +44,7 @@ function Funnel({ jobs }) {
 // v0.73: Karte pro Stelle mit Steckbrief (aufklappbar)
 function JobRow({ j, s, showSearch = false }) {
   const [open, setOpen] = useState(false);
-  const done = j.checklist.filter((x) => x.done).length;
+  const cc = checkCount(j);
   const search = s.jobSearches.find((x) => x.id === j.searchId);
   const facts = [j.location, WORK_MODES[j.mode], j.salary].filter(Boolean);
   const has = (j.tasks || []).length || (j.reqs || []).length || j.about;
@@ -51,7 +54,7 @@ function JobRow({ j, s, showSearch = false }) {
         <a href={`#/karriere/job/${j.id}`} className="row-main" style={{ color: 'inherit', textDecoration: 'none' }}>
           <span className="row-title strong">{j.title}{j.company ? ` · ${j.company}` : ''}</span>
           {facts.length > 0 && <span className="row-meta" style={{ color: 'var(--text)' }}>{facts.join(' · ')}</span>}
-          <span className="row-meta">{[showSearch && stageOf(j.status).label, `${done}/${j.checklist.length} erledigt`, j.deadline && `bis ${fmtShort(j.deadline)}`, showSearch && search?.name].filter(Boolean).join(' · ')}</span>
+          <span className="row-meta">{[showSearch && stageOf(j.status).label, `${cc.done}/${cc.all} erledigt`, j.deadline && `bis ${fmtShort(j.deadline)}`, showSearch && search?.name].filter(Boolean).join(' · ')}</span>
         </a>
         {has ? <button type="button" className="x-btn" style={{ width: 34 }} aria-label={open ? 'Steckbrief zuklappen' : 'Steckbrief zeigen'} onClick={() => setOpen(!open)}>{open ? '▴' : '▾'}</button> : <a href={`#/karriere/job/${j.id}`} aria-label="Öffnen"><Chevron /></a>}
       </div>
@@ -183,7 +186,43 @@ const CHAT_GROUPS = [
 
 const FUNNEL_GROUPS = [{ key: 'aenderungen', label: 'In den Trichter', title: (x) => `${x.titel}${x.firma ? ` · ${x.firma}` : ''}`, meta: (x) => [`→ ${stageOf(x.phase).label}`, x.notiz].filter(Boolean).join(' · ') }];
 
+// v0.92: Reiter-Leiste wie bei Events
+function MainTabs({ tabs, cur, onChange }) {
+  return (
+    <div className="box-tabs main-tabs">
+      {tabs.map(([k, l, n]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => onChange(k)}>{l}{n ? ` · ${n}` : ''}</button>)}
+    </div>
+  );
+}
+const useTab = (key, init) => {
+  const [v, setV] = useState(() => { try { return sessionStorage.getItem(key) || init; } catch { return init; } });
+  return [v, (x) => { setV(x); try { sessionStorage.setItem(key, x); } catch {} }];
+};
+// v0.92: Vorbereitung für die ganze Suche – Liste + KI-Vorschläge zum Antippen
+function SearchPrep({ s, search }) {
+  const [busy, setBusy] = useState(false);
+  const [sugg, setSugg] = useState(null);
+  useEffect(() => { if (!search.prep) ensureList('sprep', search.id); }, [search.id, !!search.prep]);
+  const list = search.prep || [];
+  const left = (sugg || []).filter((x) => !list.some((y) => y.text.toLowerCase() === x.text.toLowerCase()));
+  return (
+    <>
+      <span className="sub" style={{ marginTop: -4 }}>Was du allgemein drauf haben solltest, um dich für „{search.name}“ gut zu bewerben.</span>
+      <GroupedChecklist items={list} cats={Object.keys(SEARCH_PREP)} color={BLUE} tabKey={`life-sprep-${search.id}`} onAdd={(text, cat) => catList.add('sprep', search.id, text, cat)} onToggle={(id) => catList.toggle('sprep', search.id, id)} onRemove={(id) => catList.remove('sprep', search.id, id)} placeholder="Neuer Punkt" />
+      <section className="card" style={{ gap: 8 }}>
+        <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} disabled={busy || !getAi().apiKey} onClick={async () => { setBusy(true); try { setSugg(await suggestSearchPrep(s, search)); } catch (e) { toast(errText(e)); } finally { setBusy(false); } }}>{busy ? 'Ich überlege …' : '✨ Was sollte ich noch können/wissen?'}</button>
+        {left.length > 0 && <><span className="tiny">Antippen = auf die Liste</span><div className="chips">{left.map((x) => <button key={x.text} type="button" className="chip" onClick={() => catList.add('sprep', search.id, x.text, SEARCH_PREP[x.teil] ? x.teil : 'Fähigkeiten')}>+ {x.text} <span className="tiny">· {x.teil}</span></button>)}</div></>}
+        {sugg && !left.length && <span className="tiny">Alles schon auf der Liste.</span>}
+        <span className="tiny">Ohne Internet, nutzt die Anforderungen deiner gespeicherten Stellen (unter 0,1 Cent).</span>
+      </section>
+    </>
+  );
+}
+
 function SearchPage({ s, search }) {
+  const [tab, setTab] = useTab(`life-search-tab-${search.id}`, 'uebersicht');
+  const [stage, setStage] = useTab(`life-search-stage-${search.id}`, 'alle');
+  useEffect(() => { if (tab === 'todos' && !search.todos) ensureList('todos', search.id); }, [tab, search.id, !!search.todos]);
   const [manual, setManual] = useState({ title: '', company: '', url: '', description: '', status: 'interessiert' });
   const [adding, setAdding] = useState(false);
   const [imp, setImp] = useState(null); // Text/Link(s) zum Übernehmen
@@ -218,11 +257,19 @@ function SearchPage({ s, search }) {
           <input className="input goal-input" defaultValue={search.goal} key={search.id + 'g'} placeholder="Was ist dir wichtig? (hilft der KI)" onBlur={(e) => e.target.value !== search.goal && updateSearch(search.id, { goal: e.target.value })} aria-label="Ziel" />
         </div>
 
-        <Funnel jobs={jobs} />
+        <MainTabs cur={tab} onChange={setTab} tabs={[['uebersicht', 'Übersicht', 0], ['stellen', 'Stellen', jobs.filter(active).length], ['todos', 'To-dos', (search.todos || []).filter((x) => !x.done).length], ['prep', 'Vorbereitung', (search.prep || []).filter((x) => !x.done).length]]} />
 
-        <section className="group">
+        {tab === 'uebersicht' && <>
+        <Funnel jobs={jobs} />
+        <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => { setTab('stellen'); setAdding(true); }}>+ Stelle hinzufügen</button>
+        </>}
+
+        {tab === 'stellen' && <section className="group">
+          <div className="box-tabs">
+            {[{ id: 'alle', short: 'Alle' }, ...STAGES].map((st) => { const n = st.id === 'alle' ? jobs.length : jobs.filter((j) => j.status === st.id).length; return <button key={st.id} type="button" className={stage === st.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setStage(st.id)}>{st.short}{n ? ` · ${n}` : ''}</button>; })}
+          </div>
           <div className="sec-h">
-            <h2 className="h2" style={{ fontSize: 19 }}>Stellen</h2>
+            <h2 className="h2" style={{ fontSize: 19 }}>{stage === 'alle' ? 'Alle Stellen' : stageOf(stage).label}</h2>
             <span style={{ display: 'flex', gap: 14 }}>
               {!adding && <button type="button" className="link-btn" onClick={() => setImp(imp === null ? '' : null)}>📥 Übernehmen</button>}
               <button type="button" className="link-btn" onClick={() => { setAdding(!adding); setImp(null); }}>{adding ? 'Abbrechen' : '+ Selbst'}</button>
@@ -270,8 +317,8 @@ function SearchPage({ s, search }) {
               <button type="submit" className="btn small" disabled={!manual.title.trim()}>Hinzufügen</button>
             </form>
           )}
-          {jobs.length === 0 && <div className="list"><div className="empty">Noch keine Stellen. Erzähl oben, wo du dich beworben hast oder was dich interessiert – oder trag sie selbst ein.</div></div>}
-          {STAGES.map((st) => {
+          {jobs.length === 0 && <div className="list"><div className="empty">Noch keine Stellen. Erzähl in der Übersicht, wo du dich beworben hast – oder trag sie hier selbst ein.</div></div>}
+          {stage === 'alle' ? STAGES.map((st) => {
             const list = jobs.filter((j) => j.status === st.id);
             if (!list.length) return null;
             return (
@@ -280,10 +327,18 @@ function SearchPage({ s, search }) {
                 <div className="list">{list.map((j) => <JobRow key={j.id} j={j} s={s} />)}</div>
               </div>
             );
-          })}
-        </section>
+          }) : (
+            <div className="list">
+              {jobs.filter((j) => j.status === stage).length === 0 && <div className="empty">Keine Stellen in „{stageOf(stage).label}“.</div>}
+              {jobs.filter((j) => j.status === stage).map((j) => <JobRow key={j.id} j={j} s={s} />)}
+            </div>
+          )}
+        </section>}
 
-        <PlanChat
+        {tab === 'todos' && <GroupedChecklist items={search.todos || []} cats={Object.keys(SEARCH_TODOS)} color={BLUE} tabKey={`life-stodo-${search.id}`} onAdd={(text, cat) => catList.add('todos', search.id, text, cat)} onToggle={(id) => catList.toggle('todos', search.id, id)} onRemove={(id) => catList.remove('todos', search.id, id)} placeholder="Neues To-do" />}
+        {tab === 'prep' && <SearchPrep s={s} search={search} />}
+
+        {tab === 'uebersicht' && <PlanChat
           title="Erzähl, wie es läuft"
           intro="Sag oder schreib einfach, was passiert ist – z.B. „Bei Kaszek beworben, Mercado Libre hat abgesagt, Donnerstag Gespräch bei Ualá“ – oder füg eine Stellenanzeige ein. Ich trage alles in den Trichter ein."
           history={chatOf(s, key)}
@@ -294,9 +349,9 @@ function SearchPage({ s, search }) {
           groups={FUNNEL_GROUPS}
           onApply={apply}
           placeholder="Was hat sich getan? Oder Anzeige einfügen …"
-        />
+        />}
 
-        <button type="button" className="btn danger" onClick={() => { if (confirm(`Suche „${search.name}“ löschen? Stellen, die nur „Interessiert“ sind, werden mitgelöscht.`)) { removeSearch(search.id); go('/karriere'); } }}>Suche löschen</button>
+        {tab === 'uebersicht' && <button type="button" className="btn danger" onClick={() => { if (confirm(`Suche „${search.name}“ löschen? Stellen, die nur „Interessiert“ sind, werden mitgelöscht.`)) { removeSearch(search.id); go('/karriere'); } }}>Suche löschen</button>}
       </main>
       <TabBar active="bereiche" />
     </>
@@ -340,10 +395,87 @@ function List({ title, items }) {
   if (!items?.length) return null;
   return <div className="analysis-list"><b>{title}</b>{items.map((x, i) => <span key={i}>– {x}</span>)}</div>;
 }
+// v0.92: Phase als eine Klappe statt vieler Knöpfe
+function StageMenu({ job }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: 'relative', alignSelf: 'flex-start' }}>
+      <button type="button" className="drop-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Phase der Bewerbung"><span className="tiny">Phase:</span><span>{stageOf(job.status).label}</span><span className="drop-caret">▾</span></button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
+          <div className="drop-menu">
+            {STAGES.map((st) => <button key={st.id} type="button" className={st.id === job.status ? 'on' : ''} onClick={() => { updateJob(job.id, { status: st.id }); setOpen(false); }}>{st.label}{st.id === job.status ? ' ✓' : ''}</button>)}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// v0.92: Vorbereitung auf diese Stelle – KI-Recherche (mit/ohne Internet) + Liste nach Teilen
+function JobPrep({ s, job }) {
+  const [busy, setBusy] = useState(null);
+  useEffect(() => { if (!job.prep) ensureList('prep', job.id); }, [job.id, !!job.prep]);
+  const r = job.research;
+  const run = async (web) => {
+    setBusy(web ? 'web' : 'fast');
+    try { await researchJob(s, job, { web }); toast('Recherche fertig – Punkte ergänzt'); } catch (e) { toast(errText(e)); } finally { setBusy(null); }
+  };
+  return (
+    <>
+      <section className="card checkin" style={{ gap: 10 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}><span className="spark"><Icon name="sparkle" size={15} color="currentColor" /></span> Recherche zu {job.company || 'der Firma'}</span>
+        <div className="search-row">
+          <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => run(true)}>{busy === 'web' ? 'Ich recherchiere …' : '🔍 Mit Internet'}</button>
+          <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => run(false)}>{busy === 'fast' ? '…' : 'Ohne Internet'}</button>
+        </div>
+        <span className="tiny">Mit Internet: Firma, News, Kultur, wer interviewt – ca. 3–4 Cent. Ohne Internet: aus dem Wissen der KI, unter 0,1 Cent.</span>
+        {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Infos zu {job.company || 'der Firma'} …</span></div>}
+        {!busy && r && (
+          <>
+            <span className="tiny">Stand {fmtShort(r.date)}{r.web ? ' · mit Internet' : ' · ohne Internet'}</span>
+            {r.firma && <p className="coach-summary">{r.firma}</p>}
+            <List title="Aktuelles" items={r.news} />
+            {r.kultur && <div className="analysis-list"><b>Kultur</b><span>{r.kultur}</span></div>}
+            <List title="Menschen" items={r.menschen} />
+            <List title="Wahrscheinliche Fragen" items={r.fragen} />
+            <List title="Deine Rückfragen" items={r.eigene_fragen} />
+            {(r.quellen || []).length > 0 && <div className="chips">{r.quellen.slice(0, 6).map((q) => <a key={q.url} className="link-chip" href={q.url} target="_blank" rel="noreferrer">{(q.titel || q.url).slice(0, 40)} ↗</a>)}</div>}
+          </>
+        )}
+        <div className="chips">
+          {job.company && <a className="pill" href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`${job.company} recruiter`)}`} target="_blank" rel="noreferrer">👤 Recruiter (LinkedIn) ↗</a>}
+          {job.company && <a className="pill" href={`https://www.google.com/search?q=${encodeURIComponent(`${job.company} interview ${job.title}`)}`} target="_blank" rel="noreferrer">💬 Interview-Erfahrungen ↗</a>}
+          {job.company && <a className="pill" href={`https://www.google.com/search?q=${encodeURIComponent(job.company)}&tbm=nws`} target="_blank" rel="noreferrer">📰 News ↗</a>}
+        </div>
+      </section>
+      <GroupedChecklist items={job.prep || []} cats={Object.keys(JOB_PREP)} color={BLUE} tabKey={`life-jprep-${job.id}`} onAdd={(text, cat) => catList.add('prep', job.id, text, cat)} onToggle={(id) => catList.toggle('prep', job.id, id)} onRemove={(id) => catList.remove('prep', job.id, id)} placeholder="Vorbereiten" />
+    </>
+  );
+}
+
+// v0.92: To-dos pro Phase – jede Phase hat ihre eigene Liste, die erhalten bleibt
+function JobTodos({ job }) {
+  const items = [];
+  const stageOfItem = {};
+  for (const st of STAGES) for (const x of checksOf(job, st.id)) { items.push({ ...x, cat: st.short }); stageOfItem[x.id] = st.id; }
+  const byShort = Object.fromEntries(STAGES.map((st) => [st.short, st.id]));
+  return (
+    <>
+      <span className="sub" style={{ marginTop: -4 }}>Jede Phase hat ihre eigene Checkliste – beim Phasenwechsel bleibt alles erhalten.</span>
+      <GroupedChecklist key={job.id + job.status} items={items} cats={STAGES.map((st) => st.short)} initialTab={stageOf(job.status).short} allowNewCat={false} tabProgress color={BLUE}
+        onAdd={(text, cat) => stageCheck.add(job.id, byShort[cat] || job.status, text)}
+        onToggle={(id) => stageCheck.toggle(job.id, stageOfItem[id], id)}
+        onRemove={(id) => stageCheck.remove(job.id, stageOfItem[id], id)} placeholder="Neuer Schritt" />
+    </>
+  );
+}
+
 function JobPage({ s, job }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
-  const [text, setText] = useState('');
+  const [tab, setTab] = useTab(`life-job-tab-${job.id}`, 'ueberblick');
   const a = job.analysis;
   const search = s.jobSearches.find((x) => x.id === job.searchId);
   const run = async (smart) => {
@@ -351,7 +483,7 @@ function JobPage({ s, job }) {
     setErr(null);
     try {
       await analyzeJob(s, job, { smart });
-      toast('Analyse fertig – Checkliste ergänzt');
+      toast('Analyse fertig – To-dos ergänzt');
     } catch (e) {
       setErr(errText(e));
     } finally {
@@ -367,23 +499,26 @@ function JobPage({ s, job }) {
       prompt('Zum Kopieren markieren:', t);
     }
   };
-  const done = job.checklist.filter((x) => x.done).length;
+  const cc = checkCount(job);
   return (
     <>
       <main className="screen">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <Back href={search ? `#/karriere/suche/${search.id}` : '#/karriere'} label={search?.name || 'Jobsuche'} />
           <input className="input title-input" defaultValue={job.title} key={job.id + 't'} onBlur={(e) => e.target.value.trim() && e.target.value !== job.title && updateJob(job.id, { title: e.target.value.trim() })} aria-label="Stelle" />
           <div style={{ display: 'flex', gap: 8 }}>
             <input className="input goal-input" defaultValue={job.company} key={job.id + 'c'} placeholder="Firma" onBlur={(e) => e.target.value !== job.company && updateJob(job.id, { company: e.target.value })} aria-label="Firma" />
             {job.url && <a className="pill" href={job.url} target="_blank" rel="noreferrer" style={{ alignSelf: 'center' }}>Anzeige</a>}
           </div>
+          <StageMenu job={job} />
         </div>
 
-        <div className="box-tabs main-tabs" role="radiogroup" aria-label="Phase">
-          {STAGES.map((st) => <button key={st.id} type="button" className={job.status === st.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => updateJob(job.id, { status: st.id })}>{st.short}</button>)}
-        </div>
+        <MainTabs cur={tab} onChange={setTab} tabs={[['ueberblick', 'Überblick', 0], ['todos', 'To-dos', cc.all - cc.done], ['prep', 'Vorbereitung', (job.prep || []).filter((x) => !x.done).length]]} />
 
+        {tab === 'todos' && <JobTodos job={job} />}
+        {tab === 'prep' && <JobPrep s={s} job={job} />}
+
+        {tab === 'ueberblick' && <>
         <JobProfile s={s} job={job} />
 
         <section className="card" style={{ gap: 8 }}>
@@ -416,30 +551,13 @@ function JobPage({ s, job }) {
           <span className="tiny">Kopiert Stelle, Analyse und dein Profil als Text – in Claude einfügen und dort Anschreiben, Lebenslauf und Interview vorbereiten.</span>
         </section>
 
-        <section className="group">
-          <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Checkliste für diese Stelle</h2><span className="tiny">{done} von {job.checklist.length}</span></div>
-          <div className="chips">{JOB_CHIPS.filter((c) => !job.checklist.some((x) => x.text === c)).map((c) => <button key={c} type="button" className="chip soft" style={{ fontSize: 13, padding: '5px 10px' }} onClick={() => addCheck(job.id, c)}>+ {c}</button>)}</div>
-          <div className="list">
-            {[...job.checklist.filter((x) => !x.done), ...job.checklist.filter((x) => x.done)].map((x) => (
-              <div key={x.id} className="row" style={{ minHeight: 46 }}>
-                <Check on={x.done} color={BLUE} onClick={() => toggleCheck(job.id, x.id)} label={x.text} />
-                <span className="row-main"><span className={x.done ? 'row-title plain done' : 'row-title plain'}>{x.text}</span></span>
-                <button type="button" className="x-btn" aria-label={`${x.text} löschen`} onClick={() => removeCheck(job.id, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
-              </div>
-            ))}
-            <form className="inline-add" onSubmit={(e) => { e.preventDefault(); addCheck(job.id, text); setText(''); }}>
-              <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Weiterer Schritt" aria-label="Weiterer Schritt" />
-              <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
-            </form>
-          </div>
-        </section>
-
         <section className="card" style={{ gap: 8 }}>
           <span className="label" style={{ padding: 0 }}>Notizen & Frist</span>
           <textarea className="input" defaultValue={job.note} key={job.id + 'no'} placeholder="Kontakte, Gesprächsnotizen, Gehalt …" onBlur={(e) => e.target.value !== job.note && updateJob(job.id, { note: e.target.value })} aria-label="Notizen" />
-          <label className="field" style={{ margin: 0 }}><span>Bewerbungsfrist</span><input className="input" type="date" value={job.deadline || ''} onChange={(e) => updateJob(job.id, { deadline: e.target.value })} /></label>
+          <div className="field"><span>Bewerbungsfrist</span><DateRangeField single from={job.deadline || ''} to="" onChange={(v) => updateJob(job.id, { deadline: v.from || '' })} placeholder="Keine Frist" title="Bewerbungsfrist" /></div>
         </section>
         <button type="button" className="btn danger" onClick={() => { if (confirm('Stelle löschen?')) { removeJob(job.id); go(search ? `/karriere/suche/${search.id}` : '/karriere'); } }}>Stelle löschen</button>
+        </>}
       </main>
       <TabBar active="bereiche" />
     </>

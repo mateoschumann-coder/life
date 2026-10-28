@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Check, Icon } from './ui';
 
-export default function GroupedChecklist({ items, cats = [], onAdd, onToggle, onRemove, onTemplate, color = '#2FA36B', placeholder = 'Neuer Punkt', meta, extraTabs = [], tabKey }) {
+export default function GroupedChecklist({ items, cats = [], onAdd, onToggle, onRemove, onTemplate, color = '#2FA36B', placeholder = 'Neuer Punkt', meta, extraTabs = [], tabKey, initialTab, allowNewCat = true, tabProgress = false }) {
   const [extraCats, setExtraCats] = useState([]);
   const order = [...new Set([...cats, ...items.map((x) => x.cat).filter(Boolean), ...extraCats])];
   // extraTabs mit „after“ werden hinter dem genannten Teil eingereiht (z.B. Einkauf nach „Planen“)
@@ -13,12 +13,13 @@ export default function GroupedChecklist({ items, cats = [], onAdd, onToggle, on
     tabs.push(...extraTabs.filter((e) => e.after === c));
   }
   tabs.push(...extraTabs.filter((e) => !e.after || !order.includes(e.after)));
-  const [act, setActState] = useState(() => { try { return (tabKey && sessionStorage.getItem(tabKey)) || null; } catch { return null; } });
+  const [act, setActState] = useState(() => { try { return (tabKey && sessionStorage.getItem(tabKey)) || initialTab || null; } catch { return initialTab || null; } });
   const setAct = (k) => { setActState(k); try { if (tabKey) sessionStorage.setItem(tabKey, k); } catch {} };
   const cur = tabs.find((t) => t.key === act) || tabs[0];
   const [text, setText] = useState('');
   const [newCat, setNewCat] = useState(null);
-  const done = items.filter((x) => x.done).length;
+  const pItems = tabProgress && cur?.list ? cur.list : items;
+  const done = pItems.filter((x) => x.done).length;
   const add = (e) => {
     e.preventDefault();
     if (!text.trim() || !cur) return;
@@ -28,10 +29,10 @@ export default function GroupedChecklist({ items, cats = [], onAdd, onToggle, on
   const list = cur?.list || [];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {items.length > 0 && (
+      {pItems.length > 0 && (
         <div className="progress-line">
-          <div className="progress" style={{ flex: 1 }}><div style={{ width: `${(done / items.length) * 100}%`, background: color }} /></div>
-          <span className="tiny">{done} von {items.length}</span>
+          <div className="progress" style={{ flex: 1 }}><div style={{ width: `${(done / pItems.length) * 100}%`, background: color }} /></div>
+          <span className="tiny">{done} von {pItems.length}</span>
         </div>
       )}
       <div className="box-tabs">
@@ -44,7 +45,7 @@ export default function GroupedChecklist({ items, cats = [], onAdd, onToggle, on
             </button>
           );
         })}
-        {onAdd && (newCat === null
+        {onAdd && allowNewCat && (newCat === null
           ? <button type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} onClick={() => setNewCat('')} aria-label="Neuer Teil">+</button>
           : (
             <form style={{ display: 'flex', gap: 4 }} onSubmit={(e) => { e.preventDefault(); const n = newCat.trim(); if (n) { setExtraCats([...extraCats, n]); setAct(n); } setNewCat(null); }}>

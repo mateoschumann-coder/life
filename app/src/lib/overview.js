@@ -127,7 +127,7 @@ const TOOL = {
           type: 'object',
           properties: {
             key: { type: 'string', enum: SECTIONS.map((x) => x.key) },
-            text: { type: 'string', description: 'Höchstens 1 kurzer Satz (max. 12 Wörter): das Wichtigste, worauf Mateo achten sollte (Frist, Überfälliges, Lücke). Die Einträge selbst NICHT aufzählen – die zeigt die App schon.' },
+            text: { type: 'string', description: 'Kurze Zusammenfassung, 1 Satz, max. 14 Wörter: was in diesem Bereich gerade ansteht und worauf achten (Frist, Überfälliges, nächster Schritt). Konkret, z.B. „China-Reise: Route steht, Flüge noch offen“.' },
           },
           required: ['key', 'text'],
         },
@@ -140,12 +140,12 @@ export async function askOverview(s) {
   const items = collectItems(s);
   const t = today();
   const system = `Du schreibst für Mateo eine strukturierte Übersicht seiner App „Life“. Heute ist ${fmtLong(t)} (${t}).
-Die App zeigt pro Bereich schon die einzelnen Einträge als Liste. Du ergänzt pro Bereich höchstens EINEN kurzen Hinweis (max. 12 Wörter), nur wenn es etwas Wichtiges gibt (Frist, Überfälliges, lange nichts passiert) – sonst den Bereich weglassen. Nur aus den Daten, nichts erfinden, keine Aufzählung der Einträge. Reihenfolge: ${SECTIONS.map((x) => x.key).join(', ')}. Deutsch, kein Markdown. Antworte mit "ueberblick_geben".`;
+Schreib für JEDEN Bereich mit Einträgen eine kurze Zusammenfassung (1 Satz, max. 14 Wörter): was gerade ansteht und worauf er achten sollte. Die App zeigt daneben Knöpfe zu den einzelnen Einträgen. Nur aus den Daten, nichts erfinden, keine Aufzählung der Einträge. Reihenfolge: ${SECTIONS.map((x) => x.key).join(', ')}. Deutsch, kein Markdown. Antworte mit "ueberblick_geben".`;
   const byKey = {};
   for (const i of items) (byKey[i.sec] = byKey[i.sec] || []).push([i.text, i.area, i.info].filter(Boolean).join(' · '));
   const f = facts(s);
   const input = SECTIONS.map((x) => ({ key: x.key, bereich: x.name, offen: byKey[x.key] || [], stand: f[x.key] }));
-  const r = await searchWithTool({ system, user: JSON.stringify(input), tool: TOOL, maxUses: 0, maxTokens: 1000, label: 'Überblick' });
+  const r = await searchWithTool({ system, user: JSON.stringify(input), tool: TOOL, maxUses: 0, maxTokens: 1500, label: 'Überblick' });
   const v = {
     date: t, at: new Date().toISOString(), kind: 'hint', lage: r.lage || '',
     sections: (r.bereiche || []).filter((b) => secOf(b.key) && b.text).map((b) => ({ key: b.key, text: b.text }))

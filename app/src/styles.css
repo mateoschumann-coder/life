@@ -570,3 +570,16 @@ textarea.ft-on { padding-right: 70px !important; }
 .drop-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 41; min-width: 180px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 4px; display: flex; flex-direction: column; }
 .drop-menu button { text-align: left; border: 0; background: none; padding: 11px 12px; border-radius: 10px; font-size: 15px; color: var(--text); cursor: pointer; }
 .drop-menu button.on { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+/* v0.92: Überblick – Zeile pro Bereich: Zusammenfassung | Knöpfe | Pfeil über volle Höhe */
+.ov-rows { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--card); }
+.ov-row { display: flex; align-items: stretch; min-height: 64px; border-bottom: 1px solid var(--line); }
+.ov-row:last-child { border-bottom: 0; }
+.ov-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 10px 8px 10px 12px; color: inherit; text-decoration: none; }
+.ov-row-title { display: flex; align-items: center; gap: 6px; font-weight: 650; font-size: 14.5px; }
+.ov-row-text { font-size: 13px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ov-row-chips { flex: 0 0 auto; max-width: 42%; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 4px; padding: 8px 0; }
+.ov-mini { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 4px 9px; border-radius: 10px; background: var(--accent-bg); color: var(--accent); font-size: 12.5px; font-weight: 600; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-mini i { font-style: normal; font-weight: 500; opacity: .75; font-size: 11.5px; }
+.ov-mini.more { background: var(--card-2); color: var(--muted); }
+.ov-row-arrow { flex: 0 0 34px; display: flex; align-items: center; justify-content: center; color: var(--chev); font-size: 22px; text-decoration: none; margin-left: 4px; border-left: 1px solid var(--line); }
+.ov-row-arrow:active, .ov-row-main:active { background: var(--card-2); }

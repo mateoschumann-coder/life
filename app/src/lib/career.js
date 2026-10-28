@@ -55,7 +55,7 @@ export function addJob({ searchId = null, title, company = '', url = '', locatio
   const id = uid();
   store.update((d) => {
     ensureCareer(d);
-    d.jobs.push({ id, searchId, title: t, company, url: okUrl(url), location, note, deadline: okDate(deadline), status: STAGES.some((x) => x.id === status) ? status : 'interessiert', description: String(description || ''), about, mode, salary, tasks: Array.isArray(tasks) ? tasks : [], reqs: Array.isArray(reqs) ? reqs : [], analysis: null, checklist: items(DEFAULT_CHECK), createdAt: today(), updatedAt: today() });
+    d.jobs.push({ id, searchId, title: t, company, url: okUrl(url), location, note, deadline: okDate(deadline), status: STAGES.some((x) => x.id === status) ? status : 'interessiert', description: String(description || ''), about, mode, salary, tasks: Array.isArray(tasks) ? tasks : [], reqs: Array.isArray(reqs) ? reqs : [], analysis: null, checklist: [], createdAt: today(), updatedAt: today() });
   });
   return id;
 }
@@ -169,7 +169,8 @@ Analysiere die Stelle ehrlich und konkret. Wenn keine Stellenanzeige eingefügt 
     const j = d.jobs.find((x) => x.id === job.id);
     if (!j) return;
     j.analysis = analysis;
-    for (const t of r.checkliste || []) if (!j.checklist.some((x) => norm(x.text) === norm(t))) j.checklist.push({ id: uid(), text: t, done: false });
+    materialize(j, j.status);
+    for (const t of r.checkliste || []) if (!j.checks[j.status].some((x) => norm(x.text) === norm(t))) j.checks[j.status].push({ id: uid(), text: shortStep(t), done: false });
   });
   return analysis;
 }
@@ -334,4 +335,119 @@ export async function fillJobProfile(s, job) {
   if (!job.description && x.description) patch.description = x.description;
   updateJob(job.id, patch);
   return patch;
+}
+
+// ---------- v0.92 (Mateo): Checkliste pro Phase, Vorbereitung pro Stelle, To-dos + Vorbereitung pro Suche ----------
+const shortStep = (x) => { let s = String(x || '').trim(); if (s.length > 40) s = s.replace(/\s*[(:–—].*$/, '').trim(); return s; };
+export const STAGE_CHECKS = {
+  interessiert: ['Anzeige genau lesen', 'Passung prüfen', 'Lebenslauf anpassen', 'Anschreiben schreiben', 'Kontakt in der Firma suchen', 'Bewerbung abschicken'],
+  beworben: ['Bestätigung abwarten', 'Recruiter auf LinkedIn vernetzen', 'Nach 1 Woche nachfassen'],
+  rueckmeldung: ['Termin vereinbaren', 'Gesprächspartner herausfinden', 'Eigene Bewerbung nochmal lesen'],
+  gespraech: ['Interviewer recherchieren', 'Eigene Story üben', 'STAR-Beispiele vorbereiten', 'Rückfragen vorbereiten', 'Technik / Outfit checken', 'Danke-Mail schicken'],
+  angebot: ['Angebot prüfen', 'Gehalt verhandeln', 'Starttermin klären', 'Anderen Firmen Bescheid geben'],
+  abgesagt: ['Feedback erfragen', 'Learnings notieren', 'Kontakt halten'],
+};
+const tplChecks = (st) => (STAGE_CHECKS[st] || []).map((text, i) => ({ id: `tpl-${st}-${i}`, text, done: false }));
+// Liste einer Phase: gespeichert – sonst alte Checkliste (für die aktuelle Phase) – sonst Vorlage
+export function checksOf(j, st) {
+  if (j.checks?.[st]) return j.checks[st];
+  if (st === j.status && (j.checklist || []).length) return j.checklist;
+  return tplChecks(st);
+}
+function materialize(j, st) {
+  j.checks = j.checks || {};
+  if (!j.checks[st]) j.checks[st] = checksOf(j, st).map((x) => ({ ...x }));
+}
+export const stageCheck = {
+  toggle: (jobId, st, id) => store.update((s) => { const j = s.jobs.find((x) => x.id === jobId); if (!j) return; materialize(j, st); const it = j.checks[st].find((x) => x.id === id); if (it) it.done = !it.done; }),
+  add: (jobId, st, text) => { const tx = shortStep(text); if (!tx) return; store.update((s) => { const j = s.jobs.find((x) => x.id === jobId); if (!j) return; materialize(j, st); if (!j.checks[st].some((x) => norm(x.text) === norm(tx))) j.checks[st].push({ id: uid(), text: tx, done: false }); }); },
+  remove: (jobId, st, id) => store.update((s) => { const j = s.jobs.find((x) => x.id === jobId); if (!j) return; materialize(j, st); j.checks[st] = j.checks[st].filter((x) => x.id !== id); }),
+};
+export const checkCount = (j) => { const l = checksOf(j, j.status); return { done: l.filter((x) => x.done).length, all: l.length }; };
+
+// Allgemeine Listen mit Teilen (cat): Vorbereitung einer Stelle, To-dos und Vorbereitung einer Suche
+export const JOB_PREP = {
+  Unternehmen: ['Geschäftsmodell verstehen', 'Aktuelle News lesen', 'Produkt ausprobieren', 'Wettbewerber kennen'],
+  Rolle: ['Anforderungen mit mir abgleichen', 'Passende Beispiele sammeln'],
+  Menschen: ['Recruiter ansehen (LinkedIn)', 'Interviewer recherchieren', 'Kontakt im Team suchen'],
+  Fragen: ['Eigene Fragen notieren', 'Gehaltsvorstellung festlegen'],
+};
+export const SEARCH_TODOS = {
+  Unterlagen: ['Lebenslauf aktualisieren', 'Anschreiben-Vorlage', 'LinkedIn-Profil anpassen', 'Zeugnisse sammeln', 'Arbeitsproben / Portfolio'],
+  Suche: ['Job-Alerts einrichten', 'Zielfirmen-Liste', 'Jobportale auswählen'],
+  Netzwerk: ['Kontakte anschreiben', 'Event / Meetup besuchen'],
+};
+export const SEARCH_PREP = {
+  Fähigkeiten: ['Typische Anforderungen sammeln', 'Lücken schließen', 'Tools sicher beherrschen'],
+  'Markt & Branche': ['Wichtigste Firmen kennen', 'Gehaltsniveau kennen', 'Trends kennen'],
+  Rolle: ['Arbeitsalltag verstehen', 'Mit Leuten in der Rolle sprechen'],
+};
+const catItems = (tpl) => Object.entries(tpl).flatMap(([cat, list]) => list.map((text) => ({ id: uid(), text, cat, done: false })));
+const LISTS = { prep: { coll: 'jobs', tpl: JOB_PREP }, todos: { coll: 'jobSearches', tpl: SEARCH_TODOS }, sprep: { coll: 'jobSearches', tpl: SEARCH_PREP } };
+// Liste holen (Vorlage beim ersten Mal anlegen)
+export function listOf(obj, key) { return obj[key] || null; }
+export function ensureList(kind, id) {
+  const { coll, tpl } = LISTS[kind];
+  const field = kind === 'sprep' ? 'prep' : kind;
+  store.update((s) => { const o = (s[coll] || []).find((x) => x.id === id); if (o && !o[field]) o[field] = catItems(tpl); });
+}
+export const catList = {
+  add: (kind, id, text, cat) => { const { coll } = LISTS[kind]; const field = kind === 'sprep' ? 'prep' : kind; const tx = shortStep(text); if (!tx) return; store.update((s) => { const o = (s[coll] || []).find((x) => x.id === id); if (!o) return; o[field] = o[field] || []; if (!o[field].some((x) => norm(x.text) === norm(tx))) o[field].push({ id: uid(), text: tx, cat, done: false }); }); },
+  toggle: (kind, id, itemId) => { const { coll } = LISTS[kind]; const field = kind === 'sprep' ? 'prep' : kind; store.update((s) => { const it = ((s[coll] || []).find((x) => x.id === id)?.[field] || []).find((x) => x.id === itemId); if (it) it.done = !it.done; }); },
+  remove: (kind, id, itemId) => { const { coll } = LISTS[kind]; const field = kind === 'sprep' ? 'prep' : kind; store.update((s) => { const o = (s[coll] || []).find((x) => x.id === id); if (o) o[field] = (o[field] || []).filter((x) => x.id !== itemId); }); },
+};
+
+// KI: Vorbereitung für die ganze Suche vorschlagen (ohne Internet)
+const PREP_TOOL = {
+  name: 'vorbereitung_vorschlagen',
+  description: 'Konkrete, kurze Punkte zur Vorbereitung.',
+  input_schema: { type: 'object', properties: { punkte: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: 'GANZ kurz, 2–6 Wörter, z.B. „SQL-Window-Functions üben“' }, teil: { type: 'string' } }, required: ['text', 'teil'] } } }, required: ['punkte'] },
+};
+export async function suggestSearchPrep(s, search) {
+  const jobs = (s.jobs || []).filter((j) => j.searchId === search.id);
+  const r = await searchWithTool({
+    system: `Du bist Karriere-Coach. Mateo sucht Jobs als „${search.name}“${search.goal ? ` (wichtig: ${search.goal})` : ''}. Was du über ihn weißt: ${profile(s)}
+Schlag 6–10 konkrete Punkte vor, was er beherrschen/wissen sollte, um sich für solche Stellen gut zu bewerben – Fähigkeiten (konkrete Tools/Methoden), Markt & Branche (Firmen, Gehälter, Trends), Rolle (Alltag, typische Cases). Nutze die Anforderungen der gespeicherten Stellen. Nichts doppeln, was schon auf der Liste steht. Teil = einer von: Fähigkeiten, Markt & Branche, Rolle.`,
+    user: JSON.stringify({ anforderungen: jobs.flatMap((j) => j.reqs || []).slice(0, 40), schon_auf_der_liste: (search.prep || []).map((x) => x.text) }),
+    tool: PREP_TOOL, maxUses: 0, maxTokens: 1500, label: 'Jobsuche: Vorbereitung',
+  });
+  return r?.punkte || [];
+}
+
+// KI-Recherche zu einer Stelle: Firma, News, Kultur, Menschen, Interviewfragen – mit Internet (bis 3 Suchen) oder ohne
+const RESEARCH_TOOL = {
+  name: 'recherche_geben',
+  description: 'Recherche zur Bewerbung, kurz und konkret.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      firma: { type: 'string', description: '2–3 Sätze: Was macht die Firma, Größe, Finanzierung/Eigentümer, Markt' },
+      news: { type: 'array', items: { type: 'string' }, description: 'Aktuelle Entwicklungen (mit Monat/Jahr), max. 4' },
+      kultur: { type: 'string', description: 'Werte, Arbeitsweise, was sie bei Kandidaten mögen – 1–2 Sätze' },
+      menschen: { type: 'array', items: { type: 'string' }, description: 'Wer wahrscheinlich interviewt (Rollen, ggf. Namen aus öffentlichen Quellen) und worauf achten' },
+      fragen: { type: 'array', items: { type: 'string' }, description: 'Wahrscheinliche Interviewfragen, max. 6' },
+      eigene_fragen: { type: 'array', items: { type: 'string' }, description: 'Kluge Rückfragen, die Mateo stellen kann, max. 4' },
+      vorbereitung: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: '2–5 Wörter' }, teil: { type: 'string', enum: Object.keys(JOB_PREP) } }, required: ['text', 'teil'] }, description: 'Konkrete Vorbereitungs-Punkte für die Checkliste' },
+      quellen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string' }, url: { type: 'string' } }, required: ['url'] }, description: 'Nur echte Links aus den Suchergebnissen' },
+    },
+    required: ['firma'],
+  },
+};
+export async function researchJob(s, job, { web = true } = {}) {
+  const r = await searchWithTool({
+    system: `Du bereitest Mateo auf eine Bewerbung vor. Heute ist ${fmtLong(today())}. Was du über ihn weißt: ${profile(s)}
+Recherchiere ${web ? 'mit der Websuche (höchstens 3 Suchen: Firma + News, Firma + Kultur/Glassdoor/Interview, Personen/Team auf LinkedIn)' : 'aus deinem Wissen (ohne Internet – sag bei Unsicherheit „vermutlich“)'} und gib kurz und konkret zurück: Firma, aktuelle News, Kultur, Menschen (wer interviewt wohl, worauf achten), wahrscheinliche Fragen, kluge Rückfragen, Vorbereitungs-Punkte. Deutsch, ohne Markdown. Antworte mit "recherche_geben".`,
+    user: JSON.stringify({ stelle: job.title, firma: job.company, ort: job.location, link: job.url || undefined, anzeige: (job.description || '').slice(0, 3000) || undefined, aufgaben: job.tasks, anforderungen: job.reqs }),
+    tool: RESEARCH_TOOL, maxUses: web ? 3 : 0, maxTokens: 4000, label: web ? 'Bewerbung: Recherche (Internet)' : 'Bewerbung: Recherche',
+  });
+  const okUrl2 = (u) => (/^https?:\/\//.test(u || '') ? u : '');
+  const research = { date: today(), web, ...r, quellen: (r.quellen || []).filter((q) => okUrl2(q.url)) };
+  store.update((d) => {
+    const j = d.jobs.find((x) => x.id === job.id);
+    if (!j) return;
+    j.research = research;
+    j.prep = j.prep || catItems(JOB_PREP);
+    for (const x of r.vorbereitung || []) { const tx = shortStep(x.text); if (tx && !j.prep.some((y) => norm(y.text) === norm(tx))) j.prep.push({ id: uid(), text: tx, cat: JOB_PREP[x.teil] ? x.teil : 'Unternehmen', done: false }); }
+  });
+  return research;
 }
