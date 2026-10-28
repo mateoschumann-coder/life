@@ -17,7 +17,7 @@ import { buildSystem, getAi, TOOL } from '../lib/ai';
 import { locate, searchWithTool } from '../lib/outings';
 import { today } from '../lib/dates';
 import { DateRangeField } from '../components/DateRange';
-import { AreaSelect, Field, Sheet, SubSelect, TabBar, toast, Info } from '../components/ui';
+import { AreaSelect, Back, Field, Sheet, SubSelect, TabBar, toast, Info } from '../components/ui';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
 export const TARGETS = [
@@ -82,7 +82,8 @@ export default function Erfassen() {
   return (
     <>
       <main className="screen">
-        <div className="top">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Back href="#/heute" label="Heute" />
           <h1 className="h1">Erfassen</h1>
         </div>
         <section className="card">

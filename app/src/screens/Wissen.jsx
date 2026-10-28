@@ -1,3 +1,4 @@
+import { takeFlag } from '../lib/flags';
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort } from '../lib/dates';
@@ -239,7 +240,7 @@ function CategoryPage({ s, cat }) {
   const topics = topicsOf(s);
   const [topic, setTopic] = useState(null);
   const [status, setStatus] = useState('will');
-  const [sheet, setSheet] = useState(null);
+  const [sheet, setSheet] = useState(() => (takeFlag('life-open-new-material') ? { subId: topic, kind: cat.kind } : null));
   const [edit, setEdit] = useState(false);
   const [topicText, setTopicText] = useState('');
   const mine = s.library.filter((m) => m.kind === cat.kind);

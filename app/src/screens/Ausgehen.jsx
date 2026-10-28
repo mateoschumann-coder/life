@@ -1,3 +1,4 @@
+import { takeFlag } from '../lib/flags';
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
@@ -543,7 +544,7 @@ function Orte({ s, city, view = 'mine' }) {
   const [tagSel, setTagSel] = useState([]);
   const [fsheet, setFsheet] = useState(null); // 'viertel' | 'art' | 'sterne' | 'mehr'
   const [newHood, setNewHood] = useState('');
-  const [sheet, setSheet] = useState(null); // null | 'neu' | place
+  const [sheet, setSheet] = useState(() => (takeFlag('life-open-new-place') ? 'neu' : null)); // null | 'neu' | place
   const [q, setQ] = useState('');
   const [mq, setMq] = useState(''); // v0.95: Suche in meinen Orten
   const [search, setSearch] = useState(lastPlaceSearch);
@@ -765,7 +766,7 @@ export default function Ausgehen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {fromHeute() && <Back href="#/heute" label="Heute" />}
           <span className="eyebrow">{soon.length ? `Diese Woche: ${soon.map((e) => `${e.name} (${fmtShort(e.date)})`).join(', ')}` : 'Events und Lieblingsorte'}</span>
-          <h1 className="h1">Ausgehen</h1>
+          <div className="top" style={{ padding: 0 }}><h1 className="h1">Ausgehen</h1><a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a></div>
         </div>
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
         {/* v0.96 (Mateo): Umschalter und Stadt in EINER Zeile */}

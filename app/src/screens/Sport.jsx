@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { takeFlag } from '../lib/flags';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
@@ -142,6 +143,7 @@ function SportsPage({ s }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [adding, setAdding] = useState(false);
+  useEffect(() => { if (takeFlag('life-open-new-sport')) { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: pick[0] || s.sports[0]?.id || '' }); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [f, setF] = useState({ name: '', date: '', place: '', url: '', sportId: '' });
   const [showPast, setShowPast] = useState(false);
   const [tab, setTabState] = useState(() => { try { return localStorage.getItem('life-app-sport-tab') || 'meine'; } catch { return 'meine'; } });

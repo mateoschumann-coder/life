@@ -1,30 +1,30 @@
 // v1.08 (Mateo): Zentrale Stelle – jede Aktion mit einem Tipp direkt auf der richtigen Seite (Knopf in der Mitte der Tab-Leiste)
 import { useState } from 'react';
 import { go } from '../lib/router';
-import { Segmented, TabBar } from '../components/ui';
+import { Icon, Segmented, TabBar } from '../components/ui';
 
 const ls = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const ss = (k, v) => { try { sessionStorage.setItem(k, v); } catch {} };
 // Erfassen mit vorgewählter Art
-const capture = (type) => () => { ss('life-erfassen-type', type); go('/erfassen'); };
 
 export const ACTIONS = [
-  { id: 'eintragen', title: '✍️ Eintragen', hint: 'Schnell etwas festhalten', items: [
-    ['✅', 'Aufgabe', capture('aufgabe')],
-    ['💡', 'Idee', capture('idee')],
-    ['🛒', 'Einkauf', capture('einkauf')],
-    ['📍', 'Ort (Bar, Restaurant …)', capture('ort')],
+  { id: 'eintragen', title: '✍️ Eintragen', hint: 'Direkt im passenden Bereich eintragen', items: [
+    ['✅', 'Aufgabe', () => { ss('life-focus-task', '1'); go('/heute'); }],
+    ['🛒', 'Einkauf', () => { ls('life-app-kueche-tab', 'einkauf'); go('/kueche'); }],
+    ['📍', 'Ort (Bar, Restaurant …)', () => { ls('life-app-ausgehen-tab', 'orte'); ls('life-app-places-view', 'mine'); ss('life-open-new-place', '1'); go('/ausgehen'); }],
     ['👤', 'Person', () => go('/person/neu')],
     ['🎉', 'Eigenes Event', () => { ss('life-open-new-event', '1'); go('/treffen'); }],
     ['💌', 'Einladung von anderen', () => { ls('life-app-sozial-tab', 'andere'); ss('life-open-new-invite', '1'); go('/treffen'); }],
-    ['🏃', 'Sport-Event / Rennen', capture('sport')],
-    ['🩺', 'Arzttermin', () => { ss('life-vorsorge-view', 'finden'); go('/vorsorge'); }],
-    ['💼', 'Bewerbung', capture('bewerbung')],
-    ['📚', 'Buch, Podcast, Video …', capture('lernen')],
-    ['🎯', 'Skill-Ziel', capture('skill')],
-    ['🔔', 'Erinnerung', capture('erinnerung')],
-    ['💸', 'Fixkosten', capture('fixkosten')],
-    ['🔗', 'Notiz / Link', capture('notiz')],
+    ['🏃', 'Sport-Event / Rennen', () => { ls('life-app-sport-tab', 'meine'); ss('life-open-new-sport', '1'); go('/sport'); }],
+    ['🩺', 'Arzttermin', () => { ss('life-vorsorge-view', 'termine'); ss('life-open-new-termin', '1'); go('/vorsorge'); }],
+    ['💼', 'Bewerbung', () => go('/karriere')],
+    ['📖', 'Buch', () => { ss('life-open-new-material', '1'); go('/wissen/buch'); }],
+    ['🎧', 'Podcast', () => { ss('life-open-new-material', '1'); go('/wissen/podcast'); }],
+    ['🎬', 'Video', () => { ss('life-open-new-material', '1'); go('/wissen/video'); }],
+    ['🎯', 'Skill-Ziel', () => go('/skills')],
+    ['🔔', 'Erinnerung', () => { ls('life-app-zuhause-allgemein', 'erinnern'); go('/zuhause/allgemein'); }],
+    ['💸', 'Fixkosten', () => { ls('life-app-fin-tab', 'rechner'); ls('life-app-fin-calc', 'alltag'); go('/finanzen'); }],
+    ['🧳', 'Reise-Idee', () => { ls('life-app-reisen-tab', 'ideen'); ls('life-app-reisen-ideen', 'ideen'); ss('life-open-new-trip', 'idee'); go('/reisen'); }],
   ] },
   { id: 'finden', title: '🔍 Finden & Suchen', hint: 'Direkt zur passenden Suche', items: [
     ['🎶', 'Event suchen', () => { ls('life-app-ausgehen-tab', 'events'); ls('life-app-events-view', 'find'); go('/ausgehen'); }],
@@ -65,7 +65,7 @@ export default function Aktionen() {
   return (
     <>
       <main className="screen">
-        <h1 className="h1">Was möchtest du tun?</h1>
+        <div className="top"><h1 className="h1">Was möchtest du tun?</h1><a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a></div>
         <Segmented full options={[{ id: 'eintragen', label: '✍️ Eintragen' }, { id: 'finden', label: '🔍 Finden' }, { id: 'planen', label: '🗺 Planen' }]} value={part} onChange={(v) => { setPart(v); setQ(''); }} label="Bereich" />
         <input className="input small-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Alle Aktionen durchsuchen …" aria-label="Aktion suchen" />
         {groups.map((g) => (

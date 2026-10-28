@@ -1,3 +1,4 @@
+import { takeFlag } from '../lib/flags';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
@@ -237,7 +238,7 @@ function FindTermin({ s, onTermin, items }) {
 export default function Vorsorge() {
   const s = useStore();
   const t = today();
-  const [sheet, setSheet] = useState(null);
+  const [sheet, setSheet] = useState(() => (takeFlag('life-open-new-termin') ? { type: 'termin' } : null));
   const [view, setViewState] = useState(() => { try { const v = sessionStorage.getItem('life-vorsorge-view'); return ['termine', 'finden', 'orte'].includes(v) ? v : 'termine'; } catch { return 'termine'; } });
   const setView = (v) => { setViewState(v); try { sessionStorage.setItem('life-vorsorge-view', v); } catch {} };
   const [listOpen, setListOpenState] = useState(() => { try { return localStorage.getItem('life-vorsorge-open') !== '0'; } catch { return true; } });

@@ -1,6 +1,6 @@
 // Bereiche: die drei Säulen mit ihren Lebensbereichen – direkt antippbar, ohne Ampel/Aktivität (Mateo, v0.34)
 import { useStore } from '../lib/store';
-import { AreaIcon, Chevron, Dot, TabBar } from '../components/ui';
+import { AreaIcon, Chevron, Dot, Icon, TabBar } from '../components/ui';
 import { DIRECT } from './Bereich';
 
 const SOZIAL = [
@@ -16,6 +16,7 @@ export default function Bereiche() {
       <main className="screen">
         <div className="top">
           <h1 className="h1">Bereiche</h1>
+          <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a>
         </div>
         {s.pillars.map((p) => {
           const rows = p.id === 'sozial' ? SOZIAL : s.areas.filter((a) => a.pillarId === p.id).map((a) => ({ id: a.id, name: a.name, icon: a.icon, href: DIRECT[a.id] || `#/bereich/${a.id}` }));

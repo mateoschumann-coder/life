@@ -284,12 +284,13 @@ export default function Menschen() {
         {fromHeute() && <Back href="#/heute" label="Heute" />}
         <div className="top">
           <h1 className="h1">Menschen</h1>
-          <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button type="button" className="link-btn" onClick={() => setImp(true)}>Aus Kontakten</button>
-            <a href="#/person/neu" className="icon-btn" aria-label="Person hinzufügen"><Icon name="plus" size={18} width={2.2} /></a>
-          </span>
+          <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a>
         </div>
         <Segmented full options={[{ id: 'liste', label: `Liste · ${s.people.length}` }, { id: 'kontakt', label: `Im Kontakt bleiben${dueN ? ` · ${dueN}` : ''}` }]} value={tab} onChange={setTab} label="Ansicht" />
+        {tab === 'liste' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a href="#/person/neu" className="btn small">＋ Person</a>
+          <button type="button" className="btn tint small" onClick={() => setImp(true)}>📇 Aus Kontakten</button>
+        </div>}
         {tab === 'liste' ? <ListTab s={s} t={t} /> : <KeepTab s={s} t={t} />}
       </main>
       <ContactImport s={s} open={imp} onClose={() => setImp(false)} />

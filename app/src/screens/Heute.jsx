@@ -1,3 +1,4 @@
+import { takeFlag } from '../lib/flags';
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, diffDays, dueText, fmtLong, parseKey, relDays, startOfWeek, targetText, today } from '../lib/dates';
@@ -119,6 +120,7 @@ export default function Heute() {
   const [weekStart, setWeekStart] = useState(startOfWeek(t));
   const [range, setRange] = useState('woche');
   const [newTask, setNewTask] = useState('');
+  useEffect(() => { if (takeFlag('life-focus-task')) setTimeout(() => { const el = document.querySelector('#tagesliste input[aria-label="Neue Aufgabe"]'); el?.scrollIntoView({ block: 'center' }); el?.focus(); }, 350); }, []);
   const [newTime, setNewTime] = useState('');
   const isToday = day === t;
   const pillarColor = (areaId) => pillarOf(s, areaOf(s, areaId)?.pillarId)?.color || 'var(--accent)';
@@ -224,7 +226,7 @@ export default function Heute() {
             <h1 className="h1 sm">{greeting(s.profile?.name)}</h1>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <a href="#/erfassen" className="btn small" aria-label="Schnell erfassen">＋ Erfassen</a>
+            <a href="#/erfassen" className="icon-btn" aria-label="Schnell erfassen"><Icon name="plus" size={20} width={2.2} /></a>
             <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen">
               <Icon name="gear" size={20} width={1.8} />
             </a>
