@@ -257,7 +257,7 @@ export default function Heute() {
         </section>
 
         {/* Tagesliste */}
-        <section className="group">
+        <section className="group" id="tagesliste">
           <div className="sec-h">
             <h2 className="h2">{dayLabel}</h2>
             {checkable.length > 0 && <span className="sub">{doneCount}/{checkable.length} erledigt</span>}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort, today } from '../lib/dates';
-import { waLink } from '../lib/logic';
+import { waLink, WHEN_IN_MONTH } from '../lib/logic';
 import { deletePerson, logContact, savePerson } from '../lib/actions';
 import { Back, Field, TabBar, toast } from '../components/ui';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
@@ -82,6 +82,12 @@ export default function Person({ id, metAt }) {
               {RHYTHMS.map((r) => <option key={r.label} value={r.v}>{r.label}</option>)}
             </select>
           </Field>
+          {Number(form.contactEvery) >= 28 && (
+            <div className="field">
+              <span>Ungefähr wann im Monat?</span>
+              <div className="chips">{WHEN_IN_MONTH.map((w) => <button key={w.id} type="button" className={(form.when || '') === w.id ? 'chip on' : 'chip soft'} onClick={() => setForm((f) => ({ ...f, when: w.id }))}>{w.id ? w.label : 'Egal'}</button>)}</div>
+            </div>
+          )}
           {form.category === 'neu' && (
             <Field label="Kennengelernt bei (optional)">
               <input className="input" value={form.metAt || ''} onChange={set('metAt')} placeholder="z.B. Startup-Meetup Palermo" />

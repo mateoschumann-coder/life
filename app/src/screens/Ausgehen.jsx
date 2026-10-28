@@ -583,7 +583,7 @@ function Orte({ s, city, view = 'mine' }) {
   return (
     <>
       {view === 'mine' && (<>
-      <input className="input" type="search" value={mq} onChange={(e) => setMq(e.target.value)} placeholder={`In meinen Orten suchen (${here.length})`} aria-label="Meine Orte durchsuchen" />
+      <input className="input small-input" type="search" value={mq} onChange={(e) => setMq(e.target.value)} placeholder={`🔎 Suchen in ${here.length} Orten`} aria-label="Meine Orte durchsuchen" />
       {/* v0.66 (Mateo): kompakt – vier Filter-Knöpfe, jeder öffnet eine Auswahl (mehrere möglich) */}
       <div className="filter-row">
         <button type="button" className={hoodSel.length ? 'chip on' : 'chip soft'} onClick={() => setFsheet('viertel')}>🏘 {label('Viertel', hoodSel)}</button>
@@ -749,12 +749,14 @@ export default function Ausgehen() {
           <h1 className="h1">Ausgehen</h1>
         </div>
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
-        <CityChips s={s} />
-        {/* v0.95 (Mateo): klar getrennt – Gemerktes und Suche nebeneinander statt untereinander */}
-        <div className="sub-switch">
-          {tab === 'events'
-            ? [['find', '🔍 Finden'], ['mine', `⭐ Meine Events${evN ? ` · ${evN}` : ''}`]].map(([k, l]) => <button key={k} type="button" className={eview === k ? 'on' : ''} onClick={() => setEview(k)}>{l}</button>)
-            : [['mine', `📌 Meine Orte${plN ? ` · ${plN}` : ''}`], ['find', '🔍 Neue finden']].map(([k, l]) => <button key={k} type="button" className={pview === k ? 'on' : ''} onClick={() => setPview(k)}>{l}</button>)}
+        {/* v0.96 (Mateo): Umschalter und Stadt in EINER Zeile */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="sub-switch" style={{ flex: '1 1 auto', minWidth: 0 }}>
+            {tab === 'events'
+              ? [['find', '🔍 Finden'], ['mine', `⭐ Meine${evN ? ` · ${evN}` : ''}`]].map(([k, l]) => <button key={k} type="button" className={eview === k ? 'on' : ''} onClick={() => setEview(k)}>{l}</button>)
+              : [['mine', `📌 Meine${plN ? ` · ${plN}` : ''}`], ['find', '🔍 Neu']].map(([k, l]) => <button key={k} type="button" className={pview === k ? 'on' : ''} onClick={() => setPview(k)}>{l}</button>)}
+          </div>
+          <div style={{ flex: '0 1 42%', minWidth: 0, display: 'flex' }}><CityChips s={s} compact /></div>
         </div>
         {tab === 'events' ? <Events s={s} city={cityOf(s)} view={eview} /> : <Orte s={s} city={cityOf(s)} view={pview} />}
       </main>

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { SECTIONS, askOverview, loadOverview, structure } from '../lib/overview';
 import { getAi } from '../lib/ai';
 import { today } from '../lib/dates';
-import { markFromHeute } from '../lib/router';
+import { markFromHeute, go } from '../lib/router';
 import { Icon } from './ui';
 
 let running = null;
@@ -51,31 +51,38 @@ function SecPicker({ avail, sel, onChange }) {
 }
 
 // Zeile: links Zusammenfassung, darunter ▾ zum Aufklappen der Direkt-Knöpfe, rechts Pfeil über die ganze Höhe
+// v0.96 (Mateo): ganze Zeile antippen = zum Bereich (vorher nur der schmale Text/Pfeil – klappte nicht immer)
+const openLink = (link) => {
+  if (link === '#/heute') { document.getElementById('tagesliste')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  markFromHeute(link);
+  go(link.replace(/^#/, ''));
+};
 function SecRow({ x, groups, hint }) {
   const [open, setOpen] = useState(false);
   const items = groups.flatMap((g) => g.items).filter((i) => i.link);
   const chips = items.slice(0, 6);
   const more = groups.reduce((n, g) => n + g.items.length, 0) - chips.length;
+  const stop = (e) => e.stopPropagation();
   return (
-    <div className="ov-row">
+    <div className="ov-row" role="link" tabIndex={0} aria-label={`${x.name} öffnen`} onClick={() => openLink(x.link)} onKeyDown={(e) => e.key === 'Enter' && openLink(x.link)}>
       <div className="ov-row-body">
-        <a href={x.link} className="ov-row-main" onClick={() => markFromHeute(x.link)}>
+        <div className="ov-row-main">
           <span className="ov-row-title"><Icon name={x.icon} size={14} color="var(--accent)" /> {x.name}</span>
           <span className="ov-row-text">{hint ? `✨ ${hint}` : localSummary(groups) || 'Nichts Offenes'}</span>
-        </a>
+        </div>
         {chips.length > 0 && (
-          <button type="button" className="ov-expand" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? '▴ weniger' : `▾ ${items.length} ${items.length === 1 ? 'Eintrag' : 'Einträge'}`}</button>
+          <button type="button" className="ov-expand" onClick={(e) => { stop(e); setOpen(!open); }} aria-expanded={open}>{open ? '▴ weniger' : `▾ ${items.length} ${items.length === 1 ? 'Eintrag' : 'Einträge'}`}</button>
         )}
         {open && chips.length > 0 && (
-          <div className="ov-row-chips">
+          <div className="ov-row-chips" onClick={stop}>
             {chips.map((i, k) => (i.ext
               ? <a key={k} className="ov-mini" href={i.link} target="_blank" rel="noreferrer">{i.text}</a>
-              : <a key={k} className="ov-mini" href={i.link} onClick={() => markFromHeute(i.link)}>{i.text}{i.info ? <i>{i.info}</i> : null}</a>))}
-            {more > 0 && <a className="ov-mini more" href={x.link} onClick={() => markFromHeute(x.link)}>+{more}</a>}
+              : <button key={k} type="button" className="ov-mini" onClick={() => openLink(i.link)}>{i.text}{i.info ? <i>{i.info}</i> : null}</button>))}
+            {more > 0 && <button type="button" className="ov-mini more" onClick={() => openLink(x.link)}>+{more}</button>}
           </div>
         )}
       </div>
-      <a href={x.link} className="ov-row-arrow" onClick={() => markFromHeute(x.link)} aria-label={`${x.name} öffnen`}>›</a>
+      <span className="ov-row-arrow" aria-hidden="true">›</span>
     </div>
   );
 }

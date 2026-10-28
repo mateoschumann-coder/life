@@ -5,7 +5,7 @@ import { store, useStore } from '../lib/store';
 import { daysUntilBirthday, diffDays, fmtShort, relDays, targetText, today } from '../lib/dates';
 import { contactDue, initials, lastContact, peopleOverdue, upcomingBirthdays, waLink, WHEN_IN_MONTH } from '../lib/logic';
 import { logContact } from '../lib/actions';
-import { Check, Icon, Info, Segmented, TabBar, toast } from '../components/ui';
+import { Check, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 import ContactImport from '../components/ContactImport';
 
@@ -143,16 +143,44 @@ function DueRow({ x, t, soon }) {
   );
 }
 
+// v0.96 (Mateo): Rhythmus und Zeitpunkt in einem Fenster statt zwei Auswahllisten übereinander
+export function RhythmSheet({ p, onClose }) {
+  if (!p) return <Sheet open={false} onClose={onClose} title="" />;
+  const v = rhythmValue(p);
+  return (
+    <Sheet open title={p.name} onClose={onClose}>
+      <div className="field">
+        <span>Wie oft willst du dich melden?</span>
+        <div className="chips">{RHYTHMS.map((r) => <button key={r.v} type="button" className={v === r.v ? 'chip on' : 'chip soft'} onClick={() => setRhythm(p.id, r.v)}>{r.v === 0 ? 'Kein Ziel' : r.label}</button>)}</div>
+      </div>
+      {v >= 28 && (
+        <div className="field">
+          <span>Ungefähr wann im Monat?</span>
+          <div className="chips">{WHEN_IN_MONTH.map((w) => <button key={w.id} type="button" className={(p.when || '') === w.id ? 'chip on' : 'chip soft'} onClick={() => setWhen(p.id, w.id)}>{w.id ? `${w.label} (${w.from}.–${w.to}.)` : 'Egal'}</button>)}</div>
+        </div>
+      )}
+      <button type="button" className="btn" onClick={onClose}>Fertig</button>
+    </Sheet>
+  );
+}
+
 // v0.95 (Mateo): zwei Teile – „Melde dich mal“ und „Wie oft melden?“
 function KeepTab({ s, t }) {
   const [part, setPartState] = useState(() => remember('life-app-people-part', 'melden'));
   const setPart = (v) => { setPartState(v); keep('life-app-people-part', v); };
-  const [filter, setFilterState] = useState(() => remember('life-app-people-cat2', 'alle'));
-  const setFilter = (v) => { setFilterState(v); keep('life-app-people-cat2', v); };
   const due = peopleOverdue(s, t);
   const soon = peopleOverdue(s, t, 7).filter((x) => x.late < 0);
   const bdays = upcomingBirthdays(s, t, 30);
-  const people = s.people.filter((p) => inCat(p, filter)).sort((a, b) => a.name.localeCompare(b.name, 'de')); // alphabetisch – springt beim Ändern nicht weg
+  const [freq, setFreq] = useState('alle');
+  const [sort, setSortState] = useState(() => remember('life-app-people-sort', 'az'));
+  const setSort = (v) => { setSortState(v); keep('life-app-people-sort', v); };
+  const [editP, setEditP] = useState(null);
+  const [msort, setMsortState] = useState(() => remember('life-app-people-msort', 'faellig'));
+  const setMsort = (v) => { setMsortState(v); keep('life-app-people-msort', v); };
+  // Rang für „Häufig zuerst“: Läuft von selbst → wöchentlich → … → halbjährlich → kein Ziel
+  const rank = (p) => { const v = rhythmValue(p); return v === -1 ? 0 : v > 0 ? v : 9999; };
+  const people = s.people.filter((p) => freq === 'alle' || rhythmValue(p) === freq)
+    .sort((a, b) => (sort === 'az' ? 0 : sort === 'oft' ? rank(a) - rank(b) : rank(b) - rank(a)) || a.name.localeCompare(b.name, 'de'));
   return (
     <>
       <div className="seg-mini">
@@ -163,9 +191,15 @@ function KeepTab({ s, t }) {
         <>
           <section className="group">
             <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Jetzt dran</h2><span className="sub">{due.length}</span></div>
+            {due.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '0 2px', flexWrap: 'wrap' }}>
+                <span className="tiny">Sortieren:</span>
+                {[['faellig', 'Am längsten fällig'], ['oft', 'Häufig zuerst'], ['selten', 'Selten zuerst']].map(([k, l]) => <button key={k} type="button" className={msort === k ? 'mini-chip on' : 'mini-chip'} onClick={() => setMsort(k)}>{l}</button>)}
+              </div>
+            )}
             <div className="list">
               {due.length === 0 && <div className="empty">{s.people.some((p) => p.contactEvery) ? 'Gerade niemand – alle im Rhythmus 👍' : 'Unter „Wie oft melden?“ für die wichtigen Menschen einen Rhythmus wählen – dann erscheinen sie hier, wenn es Zeit ist.'}</div>}
-              {due.map((x) => <DueRow key={x.person.id} x={x} t={t} />)}
+              {[...due].sort((a, b) => (msort === 'oft' ? rank(a.person) - rank(b.person) : msort === 'selten' ? rank(b.person) - rank(a.person) : 0) || b.late - a.late).map((x) => <DueRow key={x.person.id} x={x} t={t} />)}
             </div>
           </section>
           {soon.length > 0 && (
@@ -192,37 +226,41 @@ function KeepTab({ s, t }) {
       ) : (
         <section className="group">
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 4px' }}>
-            <span className="sub">Rhythmus und ungefährer Zeitpunkt pro Person</span>
+            <span className="sub" style={{ flex: 1 }}>Person antippen = Rhythmus festlegen</span>
             <Info>Die App verteilt die Termine von selbst: Wer noch nie gemeldet wurde, bekommt einen Termin irgendwo im ersten Intervall – nicht alle am selben Tag. Danach zählt der letzte Kontakt plus Intervall, mit etwas Spielraum (±15 %), damit es nicht immer derselbe Tag ist. Ab „monatlich“ kannst du zusätzlich Anfang, Mitte oder Ende des Monats wählen. „Läuft von selbst“ = ihr habt sowieso Kontakt, keine Erinnerung.</Info>
           </span>
-          <CatChips s={s} filter={filter} setFilter={setFilter} />
+          {/* v0.96 (Mateo): nach Häufigkeit filtern und sortieren */}
+          <div className="box-tabs">
+            {[{ v: 'alle', label: 'Alle' }, ...RHYTHMS].map((r) => {
+              const n = r.v === 'alle' ? s.people.length : s.people.filter((p) => rhythmValue(p) === r.v).length;
+              if (r.v !== 'alle' && !n) return null;
+              return <button key={r.v} type="button" className={freq === r.v ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setFreq(r.v)}>{r.v === 'alle' ? 'Alle' : r.v === 0 ? 'Kein Ziel' : r.short} · {n}</button>;
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '0 2px' }}>
+            <span className="tiny">Sortieren:</span>
+            {[['az', 'A–Z'], ['oft', 'Häufig zuerst'], ['selten', 'Selten zuerst']].map(([k, l]) => <button key={k} type="button" className={sort === k ? 'mini-chip on' : 'mini-chip'} onClick={() => setSort(k)}>{l}</button>)}
+          </div>
           <div className="list">
             {people.length === 0 && <div className="empty">Niemand in dieser Auswahl.</div>}
             {people.map((p) => {
               const last = lastContact(p);
               const d = contactDue(p, t);
               const v = rhythmValue(p);
-              const monthly = (p.contactEvery || 0) >= 28 && !p.natural;
+              const w = WHEN_IN_MONTH.find((x) => x.id === p.when && x.from);
+              const label = v === -1 ? 'Läuft von selbst' : v > 0 ? `${RHYTHMS.find((r) => r.v === v)?.short || targetText(v)}${w && v >= 28 ? ` · ${w.label}` : ''}` : 'Kein Ziel';
               return (
-                <div key={p.id} className="row compact" style={{ alignItems: 'center' }}>
-                  <a href={`#/person/${p.id}`} className="row-main">
+                <button key={p.id} type="button" className="row compact" style={{ width: '100%', border: 0, textAlign: 'left', font: 'inherit', color: 'inherit', background: 'none' }} onClick={() => setEditP(p.id)}>
+                  <span className="row-main">
                     <span className="row-title plain">{p.name}</span>
                     <span className="row-meta">{p.natural ? 'Kein Erinnern nötig' : d ? (d <= t ? 'Jetzt dran' : `Nächstes Mal ~${fmtShort(d)}`) : last ? `Zuletzt ${relDays(diffDays(last, t))}` : 'Kein Rhythmus'}</span>
-                  </a>
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-                    <select className="input rhythm-sel" style={{ fontWeight: v ? 650 : 400, color: v > 0 ? 'var(--accent)' : v === -1 ? '#2FA36B' : 'var(--sub)' }} value={v} onChange={(e) => setRhythm(p.id, Number(e.target.value))} aria-label={`Rhythmus für ${p.name}`}>
-                      {RHYTHMS.map((r) => <option key={r.v} value={r.v}>{r.v === 0 ? 'Kein Ziel' : r.short}</option>)}
-                    </select>
-                    {monthly && (
-                      <select className="input rhythm-sel" style={{ fontSize: 12 }} value={p.when || ''} onChange={(e) => setWhen(p.id, e.target.value)} aria-label={`Wann im Monat für ${p.name}`}>
-                        {WHEN_IN_MONTH.map((w) => <option key={w.id} value={w.id}>{w.id ? `${w.label} des Monats` : 'Wann? egal'}</option>)}
-                      </select>
-                    )}
                   </span>
-                </div>
+                  <span className="pill" style={{ fontSize: 12.5, color: v > 0 ? 'var(--accent)' : v === -1 ? '#2FA36B' : 'var(--sub)', whiteSpace: 'nowrap' }}>{label} ▾</span>
+                </button>
               );
             })}
           </div>
+          <RhythmSheet p={s.people.find((x) => x.id === editP)} onClose={() => setEditP(null)} />
         </section>
       )}
     </>
