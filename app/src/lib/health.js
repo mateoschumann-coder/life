@@ -238,8 +238,8 @@ export const SHOP_GROUPS = [
 ];
 export const SHOP_CATS = [
   { id: 'obst', group: 'essen', label: 'Obst', emoji: '🍎', items: 'Äpfel|Bananen|Zitronen|Limetten|Orangen|Mandarinen/Clementinen|Birnen?|Weintrauben?|Erdbeeren?|Heidelbeeren?|Himbeeren?|Kiwi?|Mango?|Ananas?|Melone?|Grapefruit?|Granatapfel?|Kaki (Persimone)?|Avocados|Beeren (TK oder Import)?', words: 'apfel äpfel banane birne orange zitrone limette traube beere erdbeere heidelbeere himbeere mango ananas kiwi melone avocado mandarine clementine grapefruit kaki granatapfel obst manzana banana pera naranja limón mandarina pomelo uva frutilla fresa arándano palta kiwi granada fruta fruit' },
-  { id: 'salat', group: 'essen', label: 'Gemüse – Salate', emoji: '🥬', items: 'Eisbergsalat|Kopfsalat|Mischsalat|Rucola|Feldsalat?|Spinat (frisch)?|Babyspinat?|Römersalat?|Radicchio?', words: 'salat rucola spinat feldsalat eisberg lechuga rúcula espinaca' },
-  { id: 'gemuese', group: 'essen', label: 'Gemüse – Anderes', emoji: '🥕', items: 'Tomaten|Kirschtomaten|Gurken|Paprika (rot/gelb/grün)|Zwiebeln|Rote Zwiebeln|Knoblauch|Kartoffeln|Süßkartoffeln?|Karotten|Zucchini|Brokkoli|Blumenkohl?|Champignons|Lauch?|Frühlingszwiebeln|Sellerie?|Aubergine?|Mais (Kolben)?|Kürbis?|Ingwer|Petersilie|Basilikum|Schnittlauch?|Koriander?|Minze?', words: 'tomate tomaten gurke gurken paprika zwiebel zwiebeln knoblauch kartoffel kartoffeln süßkartoffel karotte karotten möhre brokkoli zucchini aubergine pilz pilze champignon lauch sellerie kürbis mais kräuter petersilie basilikum ingwer gemüse pepino morrón cebolla ajo papa batata zanahoria brócoli zapallito berenjena hongo champiñón puerro apio calabaza choclo perejil albahaca jengibre verdura vegetable' },
+  { id: 'gemuese', group: 'essen', label: 'Gemüse', emoji: '🥕', items: 'Tomaten|Kirschtomaten|Gurken|Paprika (rot/gelb/grün)|Zwiebeln|Rote Zwiebeln|Knoblauch|Kartoffeln|Süßkartoffeln?|Karotten|Zucchini|Brokkoli|Blumenkohl?|Champignons|Lauch?|Frühlingszwiebeln|Sellerie?|Aubergine?|Mais (Kolben)?|Kürbis?|Ingwer|Petersilie|Basilikum|Schnittlauch?|Koriander?|Minze?', words: 'tomate tomaten gurke gurken paprika zwiebel zwiebeln knoblauch kartoffel kartoffeln süßkartoffel karotte karotten möhre brokkoli zucchini aubergine pilz pilze champignon lauch sellerie kürbis mais kräuter petersilie basilikum ingwer gemüse pepino morrón cebolla ajo papa batata zanahoria brócoli zapallito berenjena hongo champiñón puerro apio calabaza choclo perejil albahaca jengibre verdura vegetable' },
+  { id: 'salat', group: 'essen', label: 'Salate', emoji: '🥬', items: 'Eisbergsalat|Kopfsalat|Mischsalat|Rucola|Feldsalat?|Spinat (frisch)?|Babyspinat?|Römersalat?|Radicchio?', words: 'salat rucola spinat feldsalat eisberg lechuga rúcula espinaca' },
   { id: 'fleisch', group: 'essen', label: 'Fleisch & Fisch', emoji: '🥩', items: 'Hähnchenbrust|Hähnchenschenkel?|Hackfleisch (Rind)|Hackfleisch (gemischt)?|Rindersteak?|Schweinefilet?|Schnitzel?|Bratwurst?|Lachs|Fischfilets (z. B. Kabeljau)?|Thunfisch (frisch)?|Garnelen?', words: 'fleisch hähnchen hähnchenbrust huhn hühnchen pute rind hack hackfleisch steak schwein schinken salami wurst speck lachs kabeljau thunfisch fisch fischfilet garnele garnelen shrimp carne pollo pechuga milanesa bife vacío asado cerdo jamón salame chorizo panceta salmón atún pescado langostino chicken beef' },
   { id: 'aufschnitt', group: 'essen', label: 'Wurst & Aufschnitt', emoji: '🥓', items: 'Kochschinken|Salami|Putenbrust (Aufschnitt)|Schinken (roh)?|Leberwurst?|Wiener Würstchen?|Speck / Bacon|Chorizo?', words: 'schinken kochschinken salami aufschnitt leberwurst würstchen wiener speck bacon mortadella jamón salame fiambre panceta' },
   { id: 'veggie', group: 'essen', label: 'Vegetarische Proteine & Hülsenfrüchte', emoji: '🫘', items: 'Tofu|Kichererbsen|Rote Linsen|Schwarze Bohnen|Kidneybohnen|Weiße Bohnen?|Hummus|Falafel?|Tempeh?|Edamame?', words: 'kichererbsen bohnen linsen tofu tempeh seitan hummus garbanzos porotos lentejas' },
@@ -270,6 +270,7 @@ const catalogOf = (c) => (c.items ? c.items.split('|') : []).map((x) => ({ name:
 // Fehlt sie, gilt der Standard (Mateos Liste) + eigene Katalog-Artikel aus älteren Versionen (s.shopping.catalog).
 const defaultStructure = (s) => ({
   v90: true,
+  v99: true,
   groups: SHOP_GROUPS.map((g) => ({ ...g })),
   cats: SHOP_CATS.map((c) => ({ id: c.id, group: c.group, label: c.label, emoji: c.emoji, items: [...catalogOf(c), ...((s?.shopping?.catalog?.[c.id]) || []).map((name) => ({ name, optional: false }))] })),
 });
@@ -291,13 +292,32 @@ function withDefaults90(st) {
   out.v90 = true;
   return out;
 }
+// v0.99 (Mateo): „Gemüse – Anderes“ → „Gemüse“, „Gemüse – Salate“ → „Salate“, Gemüse vor Salate
+function fix99(st) {
+  const out = JSON.parse(JSON.stringify(st));
+  const g = out.cats.find((c) => c.id === 'gemuese');
+  const sa = out.cats.find((c) => c.id === 'salat');
+  if (g && g.label === 'Gemüse – Anderes') g.label = 'Gemüse';
+  if (sa && sa.label === 'Gemüse – Salate') sa.label = 'Salate';
+  if (g && sa && g.group === sa.group) {
+    const a = out.cats.indexOf(g);
+    const b = out.cats.indexOf(sa);
+    if (a > b) { out.cats.splice(a, 1); out.cats.splice(b, 0, g); }
+  }
+  out.v99 = true;
+  return out;
+}
 export function shopStructure(s) {
   let st = s?.shopping?.structure;
+  if (st && st.groups?.length && !st.v99) {
+    st = fix99(st.v90 ? st : withDefaults90(st));
+    setTimeout(() => store.update((x) => { const y = x.shopping.structure; if (y && !y.v99) x.shopping.structure = fix99(y.v90 ? y : withDefaults90(y)); }), 0);
+  }
   if (st && st.groups?.length && !st.v90) {
     st = withDefaults90(st);
     setTimeout(() => store.update((x) => { if (x.shopping.structure && !x.shopping.structure.v90) x.shopping.structure = withDefaults90(x.shopping.structure); }), 0);
   }
-  const base = st && st.groups?.length ? { v90: !!st.v90, groups: st.groups, cats: st.cats || [] } : defaultStructure(s);
+  const base = st && st.groups?.length ? { v90: !!st.v90, v99: !!st.v99, groups: st.groups, cats: st.cats || [] } : defaultStructure(s);
   if (!base.cats.some((c) => c.id === 'sonstiges')) base.cats = [...base.cats, { id: 'sonstiges', group: base.groups[base.groups.length - 1]?.id, label: 'Sonstiges', emoji: '🛒', items: [] }];
   return base;
 }
@@ -415,6 +435,65 @@ export function clearBought() {
 export function removeShopping(id) {
   store.update((s) => {
     s.shopping.items = s.shopping.items.filter((x) => x.id !== id);
+  });
+}
+// v0.99: gespeicherte Einkaufslisten mit Namen. Die aktive Liste bleibt in s.shopping.items (alles andere arbeitet damit),
+// die anderen liegen in s.shopping.lists = [{ id, name, items }]; Name der aktiven: s.shopping.listName.
+export const DEFAULT_LIST = 'Einkaufsliste';
+export const activeListName = (s) => s.shopping.listName || DEFAULT_LIST;
+export function shoppingLists(s) {
+  const act = { id: s.shopping.listId || 'main', name: activeListName(s), items: s.shopping.items, active: true };
+  return [act, ...(s.shopping.lists || [])];
+}
+export function listNameTaken(s, name, exceptId = null) {
+  const n = norm(name);
+  return shoppingLists(s).some((l) => l.id !== exceptId && norm(l.name) === n);
+}
+const parkActive = (s) => {
+  s.shopping.lists = [...(s.shopping.lists || []), { id: s.shopping.listId || 'main', name: activeListName(s), items: s.shopping.items }];
+};
+export function createShoppingList(name) {
+  const n = String(name || '').trim();
+  let ok = false;
+  store.update((s) => {
+    if (!n || listNameTaken(s, n)) return;
+    parkActive(s);
+    s.shopping.items = [];
+    s.shopping.listId = uid();
+    s.shopping.listName = n;
+    ok = true;
+  });
+  return ok;
+}
+export function switchShoppingList(id) {
+  store.update((s) => {
+    const target = (s.shopping.lists || []).find((l) => l.id === id);
+    if (!target) return;
+    s.shopping.lists = s.shopping.lists.filter((l) => l.id !== id);
+    parkActive(s);
+    s.shopping.items = target.items || [];
+    s.shopping.listId = target.id;
+    s.shopping.listName = target.name;
+  });
+}
+export function renameShoppingList(id, name) {
+  const n = String(name || '').trim();
+  let ok = false;
+  store.update((s) => {
+    if (!n || listNameTaken(s, n, id)) return;
+    if (id === (s.shopping.listId || 'main')) s.shopping.listName = n;
+    else { const l = (s.shopping.lists || []).find((x) => x.id === id); if (!l) return; l.name = n; }
+    ok = true;
+  });
+  return ok;
+}
+export function deleteShoppingList(id) {
+  store.update((s) => {
+    if (id === (s.shopping.listId || 'main')) {
+      const next = (s.shopping.lists || [])[0];
+      if (next) { s.shopping.lists = s.shopping.lists.slice(1); s.shopping.items = next.items || []; s.shopping.listId = next.id; s.shopping.listName = next.name; }
+      else { s.shopping.items = []; s.shopping.listId = 'main'; s.shopping.listName = DEFAULT_LIST; }
+    } else s.shopping.lists = (s.shopping.lists || []).filter((l) => l.id !== id);
   });
 }
 export function shoppingSuggestions(s, max = 14) {

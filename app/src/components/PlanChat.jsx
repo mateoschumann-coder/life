@@ -22,6 +22,25 @@ const savePrefs = (k, v) => {
 };
 
 // groups: [{ key, label, title: (x) => string, meta?: (x) => string, links?: (x) => [{ label, url }] }]
+// v0.99: Vorschlag zum Ansehen (z.B. Rezept): Titel + „Ansehen ▾“ mit Details, eigene Aktion (z.B. „Als Rezept speichern“) statt Häkchen
+function ViewItem({ g, x, done, onAction }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="option" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6, cursor: 'default' }}>
+      <button type="button" style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2, color: 'inherit', font: 'inherit' }} onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>{g.title(x)}</span>
+        {g.meta && g.meta(x) && <span className="tiny">{g.meta(x)}</span>}
+      </button>
+      {open && g.details && <div style={{ fontSize: 14.5, lineHeight: 1.45 }}>{g.details(x)}</div>}
+      <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button type="button" className="chip soft small-chip" onClick={() => setOpen(!open)}>{open ? 'Zuklappen ▴' : `${g.viewLabel || 'Ansehen'} ▾`}</button>
+        {done ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ {g.action.doneLabel || 'Gespeichert'}</span> : <button type="button" className="chip small-chip" onClick={onAction}>{g.action.label}</button>}
+        {x?.url && <a className="chip soft small-chip" href={x.url} target="_blank" rel="noreferrer">Quelle ↗</a>}
+      </span>
+    </div>
+  );
+}
+
 export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null, compact = false, extra = null, maxChips = 4, sendRef = null }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -146,7 +165,9 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
                   {groups.filter((g) => m.proposal[g.key]).map((g) => (
                     <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <span className="label" style={{ padding: 0 }}>{g.label}</span>
-                      {m.proposal[g.key].map((x, i) => (editing && editing.id === m.id && editing.key === g.key && editing.i === i ? (
+                      {m.proposal[g.key].map((x, i) => (g.action ? (
+                        <ViewItem key={i} g={g} x={x} done={!!m.done?.[g.key]?.[i]} onAction={() => { g.action.run(x); onSave(history.map((y) => (y.id === m.id ? { ...y, done: { ...(y.done || {}), [g.key]: Object.assign([], y.done?.[g.key] || [], { [i]: true }) } } : y))); }} />
+                      ) : editing && editing.id === m.id && editing.key === g.key && editing.i === i ? (
                         <form key={i} className="block-add" onSubmit={(e) => { e.preventDefault(); saveEdit(); }}>
                           <input className="input" autoFocus value={editing.val} onChange={(e) => setEditing({ ...editing, val: e.target.value })} aria-label="Vorschlag bearbeiten" />
                           <button type="submit" className="btn small">OK</button>
@@ -165,9 +186,9 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
                       )))}
                     </div>
                   ))}
-                  {m.applied ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ Übernommen</span> : (
+                  {!groups.some((g) => !g.action && m.proposal[g.key]) ? null : m.applied ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ Übernommen</span> : (
                     <button type="button" className="btn small" onClick={() => apply(m)} disabled={!Object.values(m.picked || {}).some((l) => l.some(Boolean))}>
-                      Ausgewählte übernehmen ({Object.values(m.picked || {}).reduce((n, l) => n + l.filter(Boolean).length, 0)})
+                      {groups.some((g) => g.action && m.proposal[g.key]) ? 'Ausgewählte auf die Liste' : 'Ausgewählte übernehmen'} ({Object.values(m.picked || {}).reduce((n, l) => n + l.filter(Boolean).length, 0)})
                     </button>
                   )}
                 </div>

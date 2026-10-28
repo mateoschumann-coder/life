@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import {
   addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
+  activeListName, shoppingLists, listNameTaken, createShoppingList, switchShoppingList, renameShoppingList, deleteShoppingList,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
 import PlaceBook from '../components/PlaceBook';
@@ -277,9 +278,58 @@ function ShopCatalog({ s }) {
   );
 }
 
+// v0.99: gespeicherte Listen mit Namen – oben „Liste erstellen“, darunter alle Listen zum Wechseln
+function ListsSheet({ s, open, onClose }) {
+  const [name, setName] = useState('');
+  const [edit, setEdit] = useState(null); // { id, name }
+  const all = shoppingLists(s);
+  const taken = name.trim() && listNameTaken(s, name);
+  const editTaken = edit && edit.name.trim() && listNameTaken(s, edit.name, edit.id);
+  const create = (e) => {
+    e.preventDefault();
+    if (!name.trim() || taken) return;
+    if (createShoppingList(name)) { toast(`Neue Liste „${name.trim()}“`); setName(''); onClose(); }
+  };
+  const openCount = (l) => (l.items || []).filter((x) => !x.done).length;
+  return (
+    <Sheet open={open} title="Einkaufslisten" onClose={() => { setEdit(null); onClose(); }}>
+      <form className="field" onSubmit={create}>
+        <span>＋ Liste erstellen</span>
+        <div className="block-add">
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, z.B. Asado Samstag" aria-label="Name der neuen Liste" />
+          <button type="submit" className="btn small" disabled={!name.trim() || !!taken}>Erstellen</button>
+        </div>
+        {taken && <span className="tiny" style={{ color: 'var(--danger)' }}>Eine Liste mit diesem Namen gibt es schon – bitte einen anderen Namen wählen.</span>}
+      </form>
+      <span className="label" style={{ padding: '0 4px' }}>Meine Listen</span>
+      <div className="list">
+        {all.map((l) => (edit && edit.id === l.id ? (
+          <form key={l.id} className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!editTaken && renameShoppingList(l.id, edit.name)) setEdit(null); }}>
+            <div className="block-add">
+              <input className="input" autoFocus value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} aria-label="Liste umbenennen" />
+              <button type="submit" className="btn small" disabled={!edit.name.trim() || !!editTaken}>OK</button>
+            </div>
+            {editTaken && <span className="tiny" style={{ color: 'var(--danger)' }}>Diesen Namen gibt es schon – bitte ändern.</span>}
+          </form>
+        ) : (
+          <div key={l.id} className="row" style={{ minHeight: 50 }}>
+            <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => { if (!l.active) { switchShoppingList(l.id); toast(`„${l.name}“ geöffnet`); } onClose(); }}>
+              <span className="row-title plain" style={{ fontWeight: l.active ? 700 : 500 }}>{l.active ? '✓ ' : ''}{l.name}</span>
+              <span className="tiny">{openCount(l)} offen{l.active ? ' · gerade offen' : ''}</span>
+            </button>
+            <button type="button" className="x-btn" aria-label={`${l.name} umbenennen`} onClick={() => setEdit({ id: l.id, name: l.name })}><Icon name="edit" size={14} color="var(--muted)" /></button>
+            {all.length > 1 && <button type="button" className="x-btn" aria-label={`${l.name} löschen`} onClick={() => confirm(`Liste „${l.name}“ löschen?`) && deleteShoppingList(l.id)}><Icon name="x" size={12} color="var(--chev)" /></button>}
+          </div>
+        )))}
+      </div>
+    </Sheet>
+  );
+}
+
 function Shopping({ s }) {
   const [text, setText] = useState('');
   const [move, setMove] = useState(null);
+  const [lists, setLists] = useState(false);
   const open = s.shopping.items.filter((x) => !x.done);
   const done = s.shopping.items.filter((x) => x.done);
   const sugg = shoppingSuggestions(s);
@@ -294,9 +344,13 @@ function Shopping({ s }) {
         <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Eier, Haferflocken, Bananen" aria-label="Artikel hinzufügen" />
         <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
       </form>
-      <button type="button" className="tell" style={{ alignSelf: 'flex-start' }} onClick={() => listen('Auf die Einkaufsliste: ')}>
-        <Icon name="mic" size={16} /> Einkaufsliste einsprechen
-      </button>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button type="button" className="tell" style={{ flexShrink: 0 }} onClick={() => listen('Auf die Einkaufsliste: ')}>
+          <Icon name="mic" size={16} /> Einsprechen
+        </button>
+        <button type="button" className="chip soft" style={{ minWidth: 0, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => setLists(true)} aria-label="Gespeicherte Listen">📋 {activeListName(s)} ▾</button>
+      </div>
+      <ListsSheet s={s} open={lists} onClose={() => setLists(false)} />
       <ShopCatalog s={s} />
       {open.length === 0 && <div className="list"><div className="empty">Die Liste ist leer.</div></div>}
       {shopCats(s).map((c) => {
@@ -349,51 +403,93 @@ function Shopping({ s }) {
   );
 }
 
-const KITCHEN_GROUPS = [
-  { key: 'rezepte', label: 'Rezepte speichern', title: (x) => x.titel, meta: (x) => [x.minuten && `${x.minuten} Min`, (x.zutaten || []).length && `${x.zutaten.length} Zutaten`, x.warum].filter(Boolean).join(' · ') },
+// v0.99: KI-Rezepte zum Ansehen (Zutaten + Schritte), Speichern als Rezept nur auf Wunsch
+const saveAiRecipe = (r, cat) => {
+  addRecipe({ title: r.titel, category: cat, ingredients: r.zutaten || [], steps: r.schritte || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '', minutes: r.minuten || null });
+  toast(`Gespeichert in „${cat}“`);
+};
+const kitchenGroups = (cat) => [
+  {
+    key: 'rezepte',
+    label: 'Rezepte',
+    title: (x) => x.titel,
+    meta: (x) => [x.minuten && `${x.minuten} Min`, (x.zutaten || []).length && `${x.zutaten.length} Zutaten`, x.warum].filter(Boolean).join(' · '),
+    viewLabel: 'Rezept ansehen',
+    details: (x) => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {(x.zutaten || []).length > 0 && <div><span className="label" style={{ padding: 0 }}>Zutaten</span><ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>{x.zutaten.map((z, i) => <li key={i}>{z}</li>)}</ul></div>}
+        {x.schritte && <div><span className="label" style={{ padding: 0 }}>Zubereitung</span><div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{x.schritte}</div></div>}
+      </div>
+    ),
+    action: { label: '＋ Als Rezept speichern', doneLabel: 'Als Rezept gespeichert', run: (x) => saveAiRecipe(x, cat) },
+  },
   { key: 'einkaufen', label: 'Auf die Einkaufsliste', title: (x) => x },
 ];
 
 const MODES = {
   neu: { label: '🍳 Neues Rezept', intro: 'Worauf hast du Lust? Ich schlage Rezepte vor.', placeholder: 'z.B. Airfryer Hähnchen, proteinreich …', chips: ['Was koche ich heute?', 'Proteinreich nach dem Lauf', 'Schnelles Frühstück', 'Wochenplan + Einkauf'] },
-  kuehlschrank: { label: '🧊 Aus dem Kühlschrank', intro: 'Oben antippen, was du da hast – oder hier schreiben.', placeholder: 'Was hast du noch da?', chips: [] },
+  kuehlschrank: { label: '🧊 Aus dem Kühlschrank', intro: 'Oben auswählen und „Rezept erstellen“ – oder hier schreiben.', placeholder: 'Was hast du noch da?', chips: [] },
   diktieren: { label: '🎙 Rezept diktieren', intro: 'Mikro antippen und dein Rezept erzählen – ich schreibe es sauber auf.', placeholder: 'Erzähl dein Rezept …', chips: [] },
 };
 const CUISINES = ['Argentinisch', 'Italienisch', 'Deutsch', 'Mediterran', 'Asiatisch', 'Mexikanisch', 'Indisch', 'Orientalisch'];
 
-// v0.93 (Mateo): Zutaten wie im Einkaufs-Katalog nach Kategorien antippen + Ziel-Küche wählen
+// v0.99 (Mateo): „Was hast du da?“ und „Welche Küche?“ nebeneinander (je ein Fenster zum Auswählen),
+// Küche standardmäßig „Alle“, Knopf „✨ Rezept erstellen“ ohne etwas tippen zu müssen
 function FridgePicker({ s, onAsk, disabled }) {
-  const cats = shopCats(s).filter((c) => c && c.group === 'essen');
+  const cats = shopCats(s).filter((c) => c && c.group === 'essen' && c.id !== 'sonstiges');
   const [catId, setCatId] = useState(cats[0]?.id);
   const [sel, setSel] = useState([]);
   const [own, setOwn] = useState('');
-  const [cuis, setCuis] = useState([]);
+  const [cuis, setCuis] = useState([]); // leer = Alle
+  const [ownCuis, setOwnCuis] = useState('');
+  const [sheet, setSheet] = useState(null); // 'zutaten' | 'kueche'
   const cur = cats.find((c) => c.id === catId) || cats[0];
   const items = cur ? shopCatalog(s, cur.id) : [];
   const clean = (n) => String(n).replace(/\s*\([^)]*\)/g, '').replace(/\?$/, '').trim();
   const tog = (n) => setSel(sel.includes(n) ? sel.filter((x) => x !== n) : [...sel, n]);
   const inCat = (c) => shopCatalog(s, c.id).filter((x) => sel.includes(clean(x.name))).length;
-  const ask = () => {
-    const extra = own.split(/,|\n/).map((x) => x.trim()).filter(Boolean);
-    const all = [...sel, ...extra];
-    onAsk(`Ich habe da: ${all.join(', ')}.${cuis.length ? ` Küche: ${cuis.join(' oder ')}.` : ''} Was kann ich daraus kochen?`);
-  };
+  const extra = own.split(/,|\n/).map((x) => x.trim()).filter(Boolean);
+  const all = [...sel, ...extra];
+  const kitchens = [...cuis, ...ownCuis.split(/,|\n/).map((x) => x.trim()).filter(Boolean)];
+  const ask = () => onAsk(`Ich habe da: ${all.join(', ')}.${kitchens.length ? ` Küche: ${kitchens.join(' oder ')}.` : ' Küche: egal.'} Was kann ich daraus kochen?`);
+  const short = (list, none) => (list.length ? (list.length <= 2 ? list.join(', ') : `${list.slice(0, 2).join(', ')} +${list.length - 2}`) : none);
   return (
     <section className="card" style={{ gap: 8, padding: '10px 12px' }}>
-      <span style={{ fontWeight: 650, fontSize: 15 }}>Was hast du da?{sel.length ? ` · ${sel.length}` : ''}</span>
-      <div className="box-tabs">
-        {cats.map((c) => { const n = inCat(c); return <button key={c.id} type="button" className={cur?.id === c.id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCatId(c.id)}>{c.emoji} {c.label}{n ? ` · ${n}` : ''}</button>; })}
+      <div className="fridge-pair">
+        <button type="button" className="fridge-btn" onClick={() => setSheet('zutaten')}>
+          <span className="tiny">🥕 Was hast du da?</span>
+          <span className="fridge-val">{short(all, 'Antippen')}</span>
+        </button>
+        <button type="button" className="fridge-btn" onClick={() => setSheet('kueche')}>
+          <span className="tiny">🍽 Welche Küche?</span>
+          <span className="fridge-val">{short(kitchens, 'Alle')}</span>
+        </button>
       </div>
-      <div className="chips">
-        {items.map((x) => { const n = clean(x.name); return <button key={x.name} type="button" className={sel.includes(n) ? 'chip on small-chip' : 'chip small-chip'} onClick={() => tog(n)}>{n}</button>; })}
-      </div>
-      <input className="input" value={own} onChange={(e) => setOwn(e.target.value)} placeholder="Sonst noch? z.B. Reste vom Hähnchen" aria-label="Weitere Zutaten" />
-      {sel.length > 0 && <span className="tiny">Gewählt: {sel.join(', ')} · <button type="button" className="link-btn" style={{ fontSize: 12, padding: 0 }} onClick={() => setSel([])}>leeren</button></span>}
-      <span className="tiny" style={{ marginBottom: -2 }}>Welche Küche? (optional, mehrere möglich)</span>
-      <div className="chips">
-        {CUISINES.map((c) => <button key={c} type="button" className={cuis.includes(c) ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCuis(cuis.includes(c) ? cuis.filter((x) => x !== c) : [...cuis, c])}>{c}</button>)}
-      </div>
-      <button type="button" className="btn small" disabled={disabled || (!sel.length && !own.trim())} onClick={ask}>✨ Rezepte daraus</button>
+      <button type="button" className="btn small" disabled={disabled || !all.length} onClick={ask}>✨ Rezept erstellen</button>
+      {!all.length && <span className="tiny">Erst Zutaten wählen – tippen musst du nichts.</span>}
+      <Sheet open={sheet === 'zutaten'} title={`Was hast du da?${all.length ? ` · ${all.length}` : ''}`} onClose={() => setSheet(null)}>
+        <div className="box-tabs">
+          {cats.map((c) => { const n = inCat(c); return <button key={c.id} type="button" className={cur?.id === c.id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCatId(c.id)}>{c.emoji} {c.label}{n ? ` · ${n}` : ''}</button>; })}
+        </div>
+        <div className="chips">
+          {items.map((x) => { const n = clean(x.name); return <button key={x.name} type="button" className={sel.includes(n) ? 'chip on small-chip' : 'chip small-chip'} onClick={() => tog(n)}>{n}</button>; })}
+        </div>
+        <label className="field"><span>Sonst noch? (optional)</span>
+          <input className="input" value={own} onChange={(e) => setOwn(e.target.value)} placeholder="z.B. Reste vom Hähnchen" aria-label="Weitere Zutaten" />
+        </label>
+        {sel.length > 0 && <span className="tiny">Gewählt: {sel.join(', ')} · <button type="button" className="link-btn" style={{ fontSize: 12, padding: 0 }} onClick={() => setSel([])}>leeren</button></span>}
+        <button type="button" className="btn" onClick={() => setSheet(null)}>Fertig</button>
+      </Sheet>
+      <Sheet open={sheet === 'kueche'} title="Welche Küche?" onClose={() => setSheet(null)}>
+        <div className="chips">
+          <button type="button" className={!cuis.length ? 'chip on' : 'chip soft'} onClick={() => setCuis([])}>Alle</button>
+          {CUISINES.map((c) => <button key={c} type="button" className={cuis.includes(c) ? 'chip on' : 'chip soft'} onClick={() => setCuis(cuis.includes(c) ? cuis.filter((x) => x !== c) : [...cuis, c])}>{c}</button>)}
+        </div>
+        <label className="field"><span>Andere Küche? (optional)</span>
+          <input className="input" value={ownCuis} onChange={(e) => setOwnCuis(e.target.value)} placeholder="z.B. Peruanisch" aria-label="Andere Küche" />
+        </label>
+        <button type="button" className="btn" onClick={() => setSheet(null)}>Fertig</button>
+      </Sheet>
     </section>
   );
 }
@@ -430,11 +526,9 @@ function KitchenChat({ s }) {
         onSave={(h) => saveChatOf('kueche', h)}
         onAsk={(hist, o) => kitchenChat(s, hist, { ...o, mode, cat })}
         prefKey="kueche"
-        groups={KITCHEN_GROUPS}
+        groups={kitchenGroups(cat)}
         onApply={(sel) => {
-          for (const r of sel.rezepte || []) addRecipe({ title: r.titel, category: cat, ingredients: r.zutaten || [], steps: r.schritte || '', url: /^https?:\/\//.test(r.url || '') ? r.url : '', minutes: r.minuten || null });
           if (sel.einkaufen?.length) addShopping(sel.einkaufen);
-          if (sel.rezepte?.length) toast(`Gespeichert in „${cat}“`);
         }}
         chips={m.chips}
         extra={s.recipeCats.length > 1 ? (

@@ -68,8 +68,8 @@ export default function PaceCalc() {
       </div>
       <div className="calc-grid">
         <label className="field"><span>Distanz (m)</span><input className="input" inputMode="decimal" value={meters} onChange={(e) => setMeters(e.target.value)} aria-label="Distanz in Metern" /></label>
-        <label className="field"><span>Zeit</span><input className="input" value={last === 'pace' && ok ? fmtSec(resT) : time} onFocus={() => { if (last === 'pace') { setTime(''); setLast('time'); } }} onChange={(e) => { setTime(autoColon(e.target.value, 'time')); setLast('time'); }} placeholder="115 oder 1,15 → 1:15" inputMode="decimal" aria-label="Zeit" /></label>
-        <label className="field"><span>Pace (/km)</span><input className="input" value={last === 'time' && ok ? fmtSec(resP) : pace} onFocus={() => { if (last === 'time') { setPace(''); setLast('pace'); } }} onChange={(e) => { setPace(autoColon(e.target.value, 'pace')); setLast('pace'); }} placeholder="345 oder 3,45 → 3:45" inputMode="decimal" aria-label="Pace pro km" /></label>
+        <label className="field"><span>Zeit</span><input className="input" value={last === 'pace' && ok ? fmtSec(resT) : time} onFocus={() => { if (last === 'pace') { setTime(''); setLast('time'); } }} onChange={(e) => { setTime(autoColon(e.target.value, 'time')); setLast('time'); }} placeholder="z.B. 1:15" inputMode="decimal" aria-label="Zeit" /></label>
+        <label className="field"><span>Pace (/km)</span><input className="input" value={last === 'time' && ok ? fmtSec(resP) : pace} onFocus={() => { if (last === 'time') { setPace(''); setLast('pace'); } }} onChange={(e) => { setPace(autoColon(e.target.value, 'pace')); setLast('pace'); }} placeholder="z.B. 3:45" inputMode="decimal" aria-label="Pace pro km" /></label>
       </div>
       {ok && (
         <>

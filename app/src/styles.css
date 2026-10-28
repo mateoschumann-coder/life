@@ -625,3 +625,9 @@ textarea.ft-on { padding-right: 70px !important; }
 button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .ov-row-arrow { width: 26px; flex-basis: 26px; border-left: 0; }
 .small-input { min-height: 36px !important; padding: 6px 12px !important; font-size: 14.5px !important; border-radius: 10px; }
+
+/* v0.99 Kühlschrank: Zutaten + Küche nebeneinander */
+.fridge-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fridge-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+.fridge-val { font-size: 14.5px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fridge-btn .fridge-val::after { content: ' ▾'; color: var(--muted); font-weight: 400; }
