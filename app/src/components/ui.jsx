@@ -8,6 +8,7 @@ const PATHS = {
   today: <><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
   grid: <><rect x="4" y="4" width="7" height="7" rx="2" /><rect x="13" y="4" width="7" height="7" rx="2" /><rect x="4" y="13" width="7" height="7" rx="2" /><rect x="13" y="13" width="7" height="7" rx="2" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  bolt: <path d="M13 2.5L4.5 13.5H11l-1 8 8.5-11H12.5z" />,
   radar: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.8" /></>,
   person: <><circle cx="12" cy="8" r="4" /><path d="M4.5 20c1.2-3.8 4-5.5 7.5-5.5s6.3 1.7 7.5 5.5" /></>,
   back: <path d="M15 5l-7 7 7 7" />,
@@ -108,7 +109,7 @@ export function TabBar({ active }) {
       {tab('heute', '#/heute', 'Heute', 'today')}
       {tab('bereiche', '#/bereiche', 'Bereiche', 'grid')}
       <a href="#/los" onClick={clearFrom} className={active === 'los' ? 'tab-plus on' : 'tab-plus'} aria-label="Was möchtest du tun?">
-        <Icon name="plus" size={24} color="currentColor" width={2.4} />
+        <Icon name="bolt" size={25} color="currentColor" width={2.2} />
       </a>
       {tab('ausgehen', '#/ausgehen', 'Ausgehen', 'pin')}
       {tab('menschen', '#/menschen', 'Menschen', 'person')}
