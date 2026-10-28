@@ -442,3 +442,23 @@ Mische: Google Events (Suchbegriff mit Zeitraum, z.B. „recitales rock buenos a
   save(LINKS_KEY, v);
   return v;
 }
+
+// v1.11: gefundenes Event (Link oder Text) übernehmen – bei Link liest die KI die Seite (web_fetch)
+const PARSE_EVENT = {
+  name: 'event_lesen',
+  description: 'Daten eines Events',
+  input_schema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string' }, datum: { type: 'string', description: 'YYYY-MM-DD oder leer' }, uhrzeit: { type: 'string', description: 'HH:MM oder leer' },
+      ort: { type: 'string', description: 'Lokal/Venue + ggf. Adresse' }, preis: { type: 'string' }, notiz: { type: 'string', description: '1 kurzer Satz, was es ist' },
+    },
+    required: ['name'],
+  },
+};
+export async function parseEventText(s, text, city = '') {
+  const hasUrl = /https?:\/\//.test(text);
+  const base = { system: `Lies die Daten eines Events (Konzert, Party, Ausstellung …) aus Mateos Nachricht.${hasUrl ? ' Enthält sie einen Link, öffne ihn mit web_fetch und lies Name, Datum, Uhrzeit, Ort und Preis. Klappt das nicht, nutze die Wörter in der Adresse.' : ''} Nichts erfinden, Unbekanntes leer lassen. Heute ist ${new Date().toISOString().slice(0, 10)}${city ? `, Stadt: ${city}` : ''}. Antworte mit "event_lesen".`, user: text, tool: PARSE_EVENT, maxUses: 0, maxTokens: 1500, label: 'Event übernehmen' };
+  if (!hasUrl) return searchWithTool(base);
+  try { return await searchWithTool({ ...base, fetch: true }); } catch { return searchWithTool(base); }
+}

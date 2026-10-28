@@ -664,3 +664,15 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .idea-group { border-radius: 16px; background: var(--card); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,.06)); border-left: 4px solid #4F8EF7; overflow: hidden; }
 .idea-group .group-head { background: color-mix(in srgb, #4F8EF7 9%, transparent); }
 .idea-group .list { box-shadow: none; border-radius: 0; }
+/* v1.11 Bereiche als Kacheln */
+.pillar-sec { display: flex; flex-direction: column; gap: 10px; }
+.pillar-head { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); padding: 0 2px; }
+.pillar-bar { width: 4px; height: 20px; border-radius: 3px; background: var(--pc); }
+.pillar-name { font-size: 20px; font-weight: 750; letter-spacing: -0.01em; flex: 1; }
+.pillar-count { font-size: 12.5px; font-weight: 700; color: var(--pc); background: color-mix(in srgb, var(--pc) 12%, transparent); border-radius: 99px; padding: 2px 9px; }
+.area-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+.area-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; min-height: 118px; border-radius: 18px; background: var(--card); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,.06)); text-decoration: none; color: var(--text); position: relative; overflow: hidden; }
+.area-tile::after { content: ''; position: absolute; right: -18px; top: -18px; width: 64px; height: 64px; border-radius: 50%; background: color-mix(in srgb, var(--pc) 8%, transparent); }
+.area-tile:active { transform: scale(0.98); }
+.area-tile-name { font-size: 15.5px; font-weight: 700; line-height: 1.2; margin-top: 4px; }
+.area-tile-sub { font-size: 12px; color: var(--muted); line-height: 1.3; }

@@ -4,7 +4,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addPlaceCat, addTask, archiveEvent, archivePlace, restoreEvent, restorePlace, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
 import {
-  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents,
+  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
@@ -173,6 +173,64 @@ function Prefs({ s }) {
   );
 }
 
+
+// v1.11: Event selbst eintragen bzw. aus Link/Text übernehmen (Formular zum Prüfen)
+const EV_EMPTY = { name: '', date: '', time: '', place: '', price: '', url: '', note: '', stage: 'interessiert' };
+function EventSheet({ init, city, onClose }) {
+  const [f, setF] = useState(EV_EMPTY);
+  const [key, setKey] = useState(null);
+  const k = init ? JSON.stringify(init) : null;
+  if (k !== key) { setKey(k); if (init) setF({ ...EV_EMPTY, ...init }); }
+  const set = (p) => setF((x) => ({ ...x, ...p }));
+  const save = () => {
+    addEvent({ ...f, city: city === HOME_CITY ? '' : city });
+    if (f.date) addTask({ title: `${f.stage === 'zugesagt' ? '' : 'Vielleicht: '}${f.name}`, areaId: 'erlebnisse', due: f.date, time: f.time || null, url: f.url || null });
+    toast(f.date ? 'Eingetragen – auch am Tag in deiner Liste' : 'Eingetragen');
+    onClose(true);
+  };
+  return (
+    <Sheet open={!!init} title="Event eintragen" onClose={() => onClose(false)}>
+      <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Konzert im Niceto" /></Field>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <Field label="Datum"><input className="input" type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
+        <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} style={{ maxWidth: 120 }} /></Field>
+      </div>
+      <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => set({ place: e.target.value })} placeholder="Ort / Adresse" /></Field>
+      <Field label="Preis"><input className="input" value={f.price} onChange={(e) => set({ price: e.target.value })} placeholder="z.B. 15.000 ARS" /></Field>
+      <Field label="Link"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Tickets / Instagram …" /></Field>
+      <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} /></Field>
+      <div className="chips">{[['interessiert', '⭐ Interessiert'], ['zugesagt', '✓ Bin dabei']].map(([v, l]) => <button key={v} type="button" className={f.stage === v ? 'chip on' : 'chip soft'} onClick={() => set({ stage: v })}>{l}</button>)}</div>
+      <button type="button" className="btn" disabled={!f.name.trim()} onClick={save}>Speichern</button>
+    </Sheet>
+  );
+}
+function EventTakeOver({ s, city, onOpen }) {
+  const [paste, setPaste] = useState('');
+  const [busy, setBusy] = useState(false);
+  const take = async () => {
+    setBusy(true);
+    try {
+      const r = await parseEventText(s, paste.trim(), city);
+      const url = (paste.match(/https?:\/\/\S+/) || [''])[0];
+      if (!r?.name) toast('Nichts erkannt – Text der Seite kopieren und einfügen');
+      onOpen({ name: r?.name || '', date: /^\d{4}-\d{2}-\d{2}$/.test(r?.datum || '') ? r.datum : '', time: r?.uhrzeit || '', place: r?.ort || '', price: r?.preis || '', note: r?.notiz || '', url });
+      setPaste('');
+    } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es den KI-Schlüssel' : e.message); }
+    setBusy(false);
+  };
+  return (
+    <div className="card" style={{ gap: 8, background: 'var(--card-2)', boxShadow: 'none' }}>
+      <span style={{ fontWeight: 650, fontSize: 14 }}>Etwas gefunden? Als Event eintragen</span>
+      <textarea className="input" style={{ minHeight: 64 }} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Link oder Text vom Event einfügen (Instagram-Text, Passline-Link …)" aria-label="Link oder Text einfügen" />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || busy || !getAi().apiKey} onClick={take}>{busy ? 'Ich lese …' : '✨ Übernehmen'}</button>
+        <button type="button" className="btn small tint" onClick={() => onOpen({ ...EV_EMPTY })}>Selbst eintragen</button>
+      </div>
+      <Info>Bei einem Link öffnet die KI die Seite und liest Name, Datum, Uhrzeit, Ort und Preis (ca. 0,1 Cent). Instagram-Links kann sie nicht öffnen – dort den Text kopieren. Du prüfst und speicherst.</Info>
+    </div>
+  );
+}
+
 // ---------- Events ----------
 function Events({ s, city, view = 'find' }) {
   const t = today();
@@ -183,6 +241,7 @@ function Events({ s, city, view = 'find' }) {
   const [smode, setSmode] = useSearchMode('events');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [evForm, setEvForm] = useState(null);
   const hasKey = !!getAi().apiKey;
 
   // web = konkrete Events per Websuche (ca. 3–5 Cent); sonst Such-Links (unter 0,5 Cent)
@@ -223,6 +282,7 @@ function Events({ s, city, view = 'find' }) {
 
   return (
     <>
+      <EventSheet init={evForm} city={city} onClose={() => setEvForm(null)} />
       {view === 'find' && <>
       <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Was ist los in {city}?</span>
@@ -236,7 +296,7 @@ function Events({ s, city, view = 'find' }) {
           )}
         </form>
         <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
-        {smode === 'links' ? <SourceLinks embedded s={s} area="events" city={city} query={q} /> : (
+        {smode === 'links' ? <><SourceLinks embedded s={s} area="events" city={city} query={q} /><EventTakeOver s={s} city={city} onOpen={setEvForm} /></> : (
           <>
             <Info>Die KI sucht selbst im Internet (Passline, Eventbrite, Instagram & Co.) und zeigt dir konkrete Events passend zu deinen Vorlieben – ca. 3–5 Cent pro Suche.</Info>
             <Prefs s={s} />
@@ -288,6 +348,7 @@ function Events({ s, city, view = 'find' }) {
       </>}
 
       {view === 'mine' && <>
+      <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={() => setEvForm({ ...EV_EMPTY })}>+ Event eintragen</button>
       <section className="group">
         <div className="list">
           {upcoming.length === 0 && <div className="empty">Nichts Anstehendes. Unter „Finden“ suchen und „Interessiert“ oder „Bin dabei“ tippen.</div>}

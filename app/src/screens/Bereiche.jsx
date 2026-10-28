@@ -1,13 +1,27 @@
-// Bereiche: die drei Säulen mit ihren Lebensbereichen – direkt antippbar, ohne Ampel/Aktivität (Mateo, v0.34)
+// Bereiche: die drei Säulen mit ihren Lebensbereichen – direkt antippbar (Mateo, v0.34)
+// v1.11: neues Aussehen – Kacheln (2 pro Zeile) mit Symbol, Name und kurzer Zeile, was drin ist; Logik/Links unverändert
 import { useStore } from '../lib/store';
-import { AreaIcon, Chevron, Dot, Icon, TabBar } from '../components/ui';
+import { AreaIcon, Icon, TabBar } from '../components/ui';
 import { DIRECT } from './Bereich';
 
 const SOZIAL = [
-  { id: 'events', name: 'Events (eigene & Einladungen)', icon: 'sparkle', href: '#/saeule/sozial' },
+  { id: 'events', name: 'Events', icon: 'sparkle', href: '#/saeule/sozial' },
   { id: 'menschen', name: 'Menschen', icon: 'users', href: '#/menschen' },
   { id: 'ausgehen', name: 'Ausgehen', icon: 'calendar', href: '#/ausgehen' },
 ];
+const SUB = {
+  koerper: 'Sport · Küche · Vorsorge',
+  mental: 'Bücher · Podcasts · Videos',
+  zuhause: 'Haushalt · Einrichtung · Kleidung',
+  freizeit: 'Hobbys · Reisen',
+  finanzen: 'Märkte · Rechner',
+  events: 'Eigene & Einladungen',
+  menschen: 'Kontakte · Geburtstage',
+  ausgehen: 'Events · Lieblingsorte',
+  karriere: 'Jobsuche · Eigene Projekte',
+  entwicklung: 'Sprachen · Skills',
+  informiert: 'Zeitungen · Quellen',
+};
 
 export default function Bereiche() {
   const s = useStore();
@@ -21,17 +35,18 @@ export default function Bereiche() {
         {s.pillars.map((p) => {
           const rows = p.id === 'sozial' ? SOZIAL : s.areas.filter((a) => a.pillarId === p.id).map((a) => ({ id: a.id, name: a.name, icon: a.icon, href: DIRECT[a.id] || `#/bereich/${a.id}` }));
           return (
-            <section key={p.id} className="group">
-              <a href={`#/saeule/${p.id}`} className="sec-h" style={{ textDecoration: 'none', color: 'var(--text)' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Dot color={p.color} /><span className="h2" style={{ fontSize: 20 }}>{p.name}</span></span>
-                <Chevron />
+            <section key={p.id} className="pillar-sec" style={{ '--pc': p.color }}>
+              <a href={`#/saeule/${p.id}`} className="pillar-head">
+                <span className="pillar-bar" />
+                <span className="pillar-name">{p.name}</span>
+                <span className="pillar-count">{rows.length}</span>
               </a>
-              <div className="list" style={{ background: `color-mix(in srgb, ${p.color} 6%, var(--card))` }}>
+              <div className="area-grid">
                 {rows.map((r) => (
-                  <a key={r.id} href={r.href} className="row" style={{ minHeight: 54 }}>
-                    <AreaIcon icon={r.icon} color={p.color} size={30} />
-                    <span className="row-main"><span className="row-title strong">{r.name}</span></span>
-                    <Chevron />
+                  <a key={r.id} href={r.href} className="area-tile">
+                    <AreaIcon icon={r.icon} color={p.color} size={38} />
+                    <span className="area-tile-name">{r.name}</span>
+                    {SUB[r.id] && <span className="area-tile-sub">{SUB[r.id]}</span>}
                   </a>
                 ))}
               </div>
