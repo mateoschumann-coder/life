@@ -14,6 +14,7 @@ const RHYTHMS = [
   { v: 30, label: 'Monatlich' },
   { v: 60, label: 'Alle 2 Monate' },
   { v: 90, label: 'Quartalsweise' },
+  { v: 180, label: 'Halbjährlich' },
 ];
 
 export default function Person({ id, metAt }) {

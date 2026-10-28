@@ -12,6 +12,7 @@ import { DateRangeField } from '../components/DateRange';
 import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } from '../lib/invites';
 import { Missing } from './Saeule';
+import { PEOPLE_CATEGORIES } from '../lib/seed';
 
 const COLOR = '#E8775A';
 const NEXT = { offen: 'eingeladen', eingeladen: 'zugesagt', zugesagt: 'abgesagt', abgesagt: 'offen' };
@@ -265,12 +266,41 @@ function EventShop({ g }) {
   );
 }
 
+// v0.94 (Mateo): Gäste aus allen Menschen auswählen – Suche, Kategorie, mehrere antippen
+function GuestPicker({ s, g, open, onClose }) {
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('alle');
+  const [sel, setSel] = useState([]);
+  const taken = (p) => g.guests.some((x) => x.personId === p.id || x.name === p.name);
+  const list = s.people.filter((p) => !taken(p) && (cat === 'alle' || p.category === cat) && (!q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase()))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const close = () => { setSel([]); setQ(''); onClose(); };
+  return (
+    <Sheet open={open} title="Gäste auswählen" onClose={close}>
+      <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name suchen …" aria-label="Menschen suchen" />
+      <div className="box-tabs">{[{ id: 'alle', label: 'Alle' }, ...PEOPLE_CATEGORIES].map((c) => <button key={c.id} type="button" className={cat === c.id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCat(c.id)}>{c.label}</button>)}</div>
+      <div className="list">
+        {list.length === 0 && <div className="empty">Niemand (mehr) in dieser Auswahl.</div>}
+        {list.map((p) => {
+          const on = sel.includes(p.id);
+          return (
+            <button key={p.id} type="button" className="row compact" style={{ width: '100%', border: 0, textAlign: 'left', font: 'inherit', color: 'inherit', background: on ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'none' }} onClick={() => setSel(on ? sel.filter((x) => x !== p.id) : [...sel, p.id])} aria-pressed={on}>
+              <span className={on ? 'check on' : 'check'} style={on ? { background: 'var(--accent)' } : undefined}>{on && <Icon name="check" size={12} color="#fff" width={3} />}</span>
+              <span className="row-main"><span className="row-title plain">{p.name}</span>{!p.phone && <span className="row-meta">ohne Telefonnummer</span>}</span>
+            </button>
+          );
+        })}
+      </div>
+      <button type="button" className="btn" disabled={!sel.length} onClick={() => { for (const id of sel) { const p = s.people.find((x) => x.id === id); if (p) addGuest(g.id, { name: p.name, personId: p.id }); } toast(`${sel.length} Gäste hinzugefügt`); close(); }}>{sel.length ? `${sel.length} hinzufügen` : 'Menschen antippen'}</button>
+    </Sheet>
+  );
+}
+
 function Detail({ s, g }) {
   const home = g.kind !== 'auswaerts';
   const [tab, setTab] = useState('ueberblick');
   const [guest, setGuestText] = useState('');
+  const [pickGuests, setPickGuests] = useState(false);
   const counts = Object.fromEntries(Object.keys(GUEST_STATUS).map((k) => [k, g.guests.filter((x) => x.status === k).length]));
-  const suggestions = s.people.filter((p) => !g.guests.some((x) => x.personId === p.id || x.name === p.name)).slice(0, 12);
   const phoneOf = (x) => s.people.find((p) => p.id === x.personId)?.phone?.replace(/[^\d+]/g, '').replace(/^\+/, '');
   const share = async () => {
     const text = inviteText(g);
@@ -346,9 +376,22 @@ function Detail({ s, g }) {
               ))}
             </div>
             <span className="tiny" style={{ padding: '0 4px' }}>Status antippen: Einladen → Eingeladen → Zugesagt → Abgesagt.</span>
-            {suggestions.length > 0 && <div className="chips">{suggestions.map((p) => <button key={p.id} type="button" className="chip soft" onClick={() => addGuest(g.id, { name: p.name, personId: p.id })}>+ {p.name}</button>)}</div>}
+            {s.people.length > 0 && <button type="button" className="btn tint small" onClick={() => setPickGuests(true)}>👥 Aus Menschen auswählen</button>}
+            {(() => {
+              const next = g.guests.filter((x) => x.status === 'offen' && phoneOf(x));
+              if (!next.length) return null;
+              const x = next[0];
+              return (
+                <div className="take-box" style={{ gap: 6 }}>
+                  <span style={{ fontWeight: 650, fontSize: 14 }}>📲 Nacheinander per WhatsApp einladen · noch {next.length}</span>
+                  <a className="btn small" href={`https://wa.me/${phoneOf(x)}?text=${encodeURIComponent(inviteText(g))}`} target="_blank" rel="noreferrer" onClick={() => setGuest(g.id, x.id, { status: 'eingeladen' })}>{x.name} einladen →</a>
+                  <span className="tiny">Öffnet den Chat mit der fertigen Einladung – du tippst nur noch auf Senden. Danach zurück in die App, dann kommt der Nächste.</span>
+                </div>
+              );
+            })()}
           </>
         )}
+        <GuestPicker s={s} g={g} open={pickGuests} onClose={() => setPickGuests(false)} />
         {cur === 'orte' && <Venues g={g} />}
         {cur === 'mitbringen' && (
           <>

@@ -5,7 +5,7 @@ import { PEOPLE_CATEGORIES } from '../lib/seed';
 import { canPickContacts, parseVcf, pickContacts } from '../lib/vcard';
 import { Check, Sheet, toast } from './ui';
 
-const RHYTHM = { familie: 14, freunde: 30, beruflich: 60, neu: null };
+const RHYTHM = {}; // v0.94: Rhythmus legt Mateo danach unter „Im Kontakt bleiben“ fest (sonst wären alle sofort „fällig“)
 const norm = (x) => String(x || '').trim().toLowerCase();
 
 export default function ContactImport({ s, open, onClose }) {

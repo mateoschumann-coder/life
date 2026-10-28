@@ -591,3 +591,5 @@ textarea.ft-on { padding-right: 70px !important; }
 .mini-chip { border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .mini-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .small-chip { padding: 5px 10px !important; font-size: 13px !important; }
+/* v0.94 Menschen: Leiste zum Sortieren */
+.sel-bar { position: fixed; left: 8px; right: 8px; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 11; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.16); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; max-width: 520px; margin: 0 auto; }

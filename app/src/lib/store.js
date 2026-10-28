@@ -74,6 +74,12 @@ function migrate(s) {
     }
     s.profile = { ...(s.profile || {}), mig091: true };
   }
+  // Version 0.94: importierte Kontakte bekamen automatisch „monatlich melden“ → alle waren sofort fällig.
+  // Rhythmus nur bei Freunden mit Standard 30 Tage und noch keinem notierten Kontakt entfernen (einmalig)
+  if (!s.profile?.mig094) {
+    for (const p of s.people || []) if (p.category === 'freunde' && p.contactEvery === 30 && !(p.contacts || []).length) p.contactEvery = null;
+    s.profile = { ...(s.profile || {}), mig094: true };
+  }
   // Version 0.34: Finanzen ist jetzt ein Rechner – alte Rhythmen/Fokus-Themen dort entfernen (einmalig)
   if (!s.profile?.mig034) {
     s.habits = (s.habits || []).filter((h) => h.areaId !== 'finanzen');
