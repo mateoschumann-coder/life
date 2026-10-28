@@ -4,8 +4,8 @@ import { diffDays, fmtShort, today } from '../lib/dates';
 import { addHealthItem, deleteHealthItem, doneHealthItem, updateHealthItem } from '../lib/health';
 import { Back, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 import { DateRangeField } from '../components/DateRange';
-import PlaceBook from '../components/PlaceBook';
-import { bookMaps, bookOf, findBookItem } from '../lib/placebook';
+import PlaceBook, { ItemSheet as PlaceSheet } from '../components/PlaceBook';
+import { bookCats, bookMaps, bookOf, findBookItem } from '../lib/placebook';
 
 const TYPES = [
   { id: 'termin', label: 'Termin', hint: 'Einmalig, z.B. Arzttermin am 12. Nov.' },
@@ -30,10 +30,44 @@ function when(h, t) {
   return `in ${d} Tagen · ${fmtShort(h.date)}`;
 }
 
+// v0.93 (Mateo): Ort für den Termin aus den gespeicherten Ärzten/Orten wählen – oder gleich neu anlegen
+function PlacePicker({ s, open, value, onClose, onPick }) {
+  const [q, setQ] = useState('');
+  const [newOne, setNewOne] = useState(null);
+  const cats = bookCats(s, 'vorsorge');
+  const items = bookOf(s, 'vorsorge').items.filter((p) => !q.trim() || `${p.name} ${p.sub} ${p.address || ''} ${p.area || ''}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const groups = [...cats.map((c) => ({ c, list: items.filter((p) => p.cat === c.id) })), { c: { id: '_', label: 'Sonstiges', emoji: '📍' }, list: items.filter((p) => !cats.some((c) => c.id === p.cat)) }].filter((g) => g.list.length);
+  return (
+    <>
+      <Sheet open={open && !newOne} title="Wo ist der Termin?" onClose={onClose}>
+        {bookOf(s, 'vorsorge').items.length > 4 && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen, z.B. Zahnarzt" aria-label="Ort suchen" />}
+        <button type="button" className="btn tint small" onClick={() => setNewOne({ cat: cats[0]?.id, name: q.trim() })}>+ Neuen Arzt / Ort anlegen</button>
+        {groups.length === 0 && <span className="sub">{q ? 'Nichts gefunden.' : 'Noch keine Orte gespeichert – oben neu anlegen.'}</span>}
+        {groups.map(({ c, list }) => (
+          <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span className="label" style={{ padding: '0 4px' }}>{c.emoji} {c.label}</span>
+            <div className="list">
+              {list.map((p) => (
+                <button key={p.id} type="button" className="row compact" style={{ width: '100%', border: 0, textAlign: 'left', font: 'inherit', color: 'inherit', background: value === p.id ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'none' }} onClick={() => onPick(p.id)}>
+                  <span className="row-main"><span className="row-title plain">{p.name}</span><span className="row-meta">{[p.sub, p.address || p.area].filter(Boolean).join(' · ')}</span></span>
+                  {value === p.id && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        {value && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => onPick('')}>Keinen Ort</button>}
+      </Sheet>
+      <PlaceSheet s={s} book="vorsorge" cats={cats} item={newOne} onClose={() => setNewOne(null)} onSaved={(id) => { if (id) onPick(id); }} />
+    </>
+  );
+}
+
 function ItemSheet({ s, open, onClose, item }) {
   const blank = { title: '', type: 'termin', date: '', everyMonths: '', notes: '', placeId: '' };
   const [f, setF] = useState(blank);
   const [loaded, setLoaded] = useState(null);
+  const [pick, setPick] = useState(false);
   if (open && (item?.id || 'neu') !== loaded) {
     setLoaded(item?.id || 'neu');
     setF(item?.id ? { ...blank, ...item, date: item.date || '', everyMonths: item.everyMonths || '' } : { ...blank, ...(item || {}) });
@@ -61,16 +95,24 @@ function ItemSheet({ s, open, onClose, item }) {
       </div>
       {f.type !== 'verletzung' && (
         <div className="field">
-          <span>Wo? (aus deinen Orten)</span>
-          <div className="chips">
-            {bookOf(s, 'vorsorge').items.map((p) => <button key={p.id} type="button" className={f.placeId === p.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, placeId: f.placeId === p.id ? '' : p.id })}>{p.name}</button>)}
-            {bookOf(s, 'vorsorge').items.length === 0 && <span className="tiny">Noch keine Orte – unter „Orte“ Ärzte, Apotheke … speichern.</span>}
-          </div>
+          <span>Wo?</span>
+          {(() => {
+            const p = findBookItem(s, 'vorsorge', f.placeId);
+            const c = p && bookCats(s, 'vorsorge').find((x) => x.id === p.cat);
+            return (
+              <button type="button" className="city-bar" onClick={() => setPick(true)} aria-label="Ort wählen">
+                <span style={{ fontSize: 18 }}>{c?.emoji || '📍'}</span>
+                <span className="row-main"><span className="row-title strong">{p ? p.name : 'Arzt / Ort wählen'}</span>{p && <span className="row-meta">{[p.sub || c?.label, p.address || p.area].filter(Boolean).join(' · ')}</span>}</span>
+                <span className="pill" style={{ fontSize: 13 }}>{p ? 'Ändern' : 'Wählen'} ▾</span>
+              </button>
+            );
+          })()}
         </div>
       )}
       <Field label="Notizen"><textarea className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={f.type === 'verletzung' ? 'Wann tut es weh? Was hilft? Was hat der Arzt gesagt?' : 'Adresse, Telefon, was mitnehmen …'} /></Field>
       <button type="button" className="btn" onClick={save} disabled={!f.title.trim()}>Speichern</button>
       {item?.id && <button type="button" className="btn danger" onClick={() => { if (confirm('Löschen?')) { deleteHealthItem(item.id); close(); } }}>Löschen</button>}
+      <PlacePicker s={s} open={pick} value={f.placeId} onClose={() => setPick(false)} onPick={(id) => { setF({ ...f, placeId: id }); setPick(false); }} />
     </Sheet>
   );
 }

@@ -234,23 +234,33 @@ function EventShop({ g }) {
   const list = g.shopping.filter((x) => cat === 'Alle' || x.cat === cat);
   return (
     <>
-      <div className="seg-mini">
-        {['Alle', ...SHOP_CATS].map((c) => { const n = c === 'Alle' ? 0 : g.shopping.filter((x) => x.cat === c && !x.done).length; return <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} onClick={() => setCat(c)}>{c}{n ? ` · ${n}` : ''}</button>; })}
+      <div className="box-tabs">
+        {['Alle', ...SHOP_CATS].map((c) => { const n = c === 'Alle' ? 0 : g.shopping.filter((x) => x.cat === c && !x.done).length; return <button key={c} type="button" className={cat === c ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCat(c)}>{c}{n ? ` · ${n}` : ''}</button>; })}
       </div>
       <form className="block-add" onSubmit={(e) => { e.preventDefault(); text.split(/,|\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => addItem(g.id, 'shopping', { text: x, cat: cat === 'Alle' ? guess(x) : cat, who: '' })); setText(''); }}>
         <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={cat === 'Alle' ? 'Einkaufen – z.B. Bier, Chips' : `Einkaufen (${target})`} aria-label="Einkaufen" />
         <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
       </form>
-      <section className="list">
-        {list.length === 0 && <div className="empty" style={{ padding: '12px 14px' }}>Noch nichts – oben eintragen.</div>}
-        {[...list.filter((x) => !x.done), ...list.filter((x) => x.done)].map((x) => (
-          <div key={x.id} className="row compact">
-            <Check on={x.done} color={COLOR} onClick={() => updateItem(g.id, 'shopping', x.id, { done: !x.done })} label={x.text} />
-            <span className="row-main"><span className={x.done ? 'row-title plain done' : 'row-title plain'}>{x.text}</span></span>
-            <button type="button" className="x-btn" aria-label={`${x.text} löschen`} onClick={() => removeItem(g.id, 'shopping', x.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
+      {list.length === 0 && <section className="list"><div className="empty" style={{ padding: '12px 14px' }}>Noch nichts – oben eintragen.</div></section>}
+      {/* v0.93: bei „Alle“ nach Kategorie getrennt – Essen, Getränke, Sonstiges zuletzt */}
+      {(cat === 'Alle' ? SHOP_CATS : [cat]).map((c) => {
+        const part = list.filter((x) => (cat === 'Alle' ? (SHOP_CATS.includes(x.cat) ? x.cat : 'Sonstiges') === c : true));
+        if (!part.length) return null;
+        return (
+          <div key={c} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {cat === 'Alle' && <span className="label" style={{ padding: '2px 4px 0' }}>{c} · {part.filter((x) => !x.done).length || '✓'}</span>}
+            <section className="list">
+              {[...part.filter((x) => !x.done), ...part.filter((x) => x.done)].map((x) => (
+                <div key={x.id} className="row compact">
+                  <Check on={x.done} color={COLOR} onClick={() => updateItem(g.id, 'shopping', x.id, { done: !x.done })} label={x.text} />
+                  <span className="row-main"><span className={x.done ? 'row-title plain done' : 'row-title plain'}>{x.text}</span></span>
+                  <button type="button" className="x-btn" aria-label={`${x.text} löschen`} onClick={() => removeItem(g.id, 'shopping', x.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
+                </div>
+              ))}
+            </section>
           </div>
-        ))}
-      </section>
+        );
+      })}
     </>
   );
 }
@@ -356,16 +366,18 @@ function Detail({ s, g }) {
           </section>
         )}
         <PlanChat
-          title="Mit KI planen"
-          intro={home ? 'Erzähl, was dir vorschwebt – ich frage nach (wie viele ungefähr, Einschränkungen, Budget) und schlage Ideen, Menü, Getränke und was Gäste mitbringen können vor.' : 'Erzähl, was dir vorschwebt – ich frage nach und suche passende Orte in Buenos Aires, sage, wie man reserviert und was du den Gästen schicken musst.'}
+          title="KI-Planer"
+          compact
+          placeholder="Was brauchst du?"
+          intro={home ? 'Ideen, Menü, Getränke, Einladung – ich trage es direkt ein.' : 'Ort finden, reservieren, Einladung – ich trage es direkt ein.'}
           history={g.chat}
           prefKey="event"
           onSave={(chat) => updateGathering(g.id, { chat })}
           onAsk={async (hist, o) => { const r = await gatherAssist(s, g, hist, o); if (r?.ueberblick && !Array.isArray(r.ueberblick)) r.ueberblick = Object.values(r.ueberblick).some(Boolean) ? [r.ueberblick] : []; return r; }}
-          webChips={['Passenden Ort finden']}
+          webChips={home ? [] : ['Passenden Ort finden']}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyGatherProposal(g.id, sel)}
-          chips={home ? ['Ideen für das Event', 'Motto finden', 'Was soll ich kochen?', 'Welche Getränke, wie viel?', 'Was können Gäste mitbringen?', 'Einladung schreiben'] : ['Ideen für das Event', 'Passenden Ort finden', 'Wie reserviere ich am besten?', 'Was muss ich den Gästen schicken?', 'Einladung schreiben']}
+          chips={home ? ['Was kochen?', 'Getränke & Mengen', 'Einladung schreiben', 'Was mitbringen?'] : ['Passenden Ort finden', 'Einladung schreiben', 'Wie reservieren?']}
         />
         <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { done: !g.done }); toast(g.done ? 'Wieder offen' : 'Abgehakt'); if (!g.done) go('/saeule/sozial'); }}>{g.done ? 'Wieder öffnen' : 'Event abhaken (hat stattgefunden)'}</button>
         <button type="button" className="btn danger" onClick={() => { if (confirm(`„${g.name}“ löschen?`)) { removeGathering(g.id); go('/saeule/sozial'); } }}>Event löschen</button>

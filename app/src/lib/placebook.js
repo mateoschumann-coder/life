@@ -2,6 +2,7 @@
 // Vorsorge (Ärzte, Therapie, Apotheke …). Kategorien + optionale Unterkategorien, eigene ergänzbar.
 // Daten: s.placeBook[book] = { cats: [eigene {id,label,emoji,subs}], hidden: [ids], subs: {catId: [eigene Unterkategorien]}, items: [...] }
 import { store, uid } from './store';
+import { HOME_CITY, searchWithTool } from './outings';
 
 export const BOOKS = {
   kueche: [
@@ -67,6 +68,49 @@ export const updateBookItem = (book, id, patch) => upd(book, (b) => Object.assig
 export const removeBookItem = (book, id) => upd(book, (b) => { b.items = b.items.filter((x) => x.id !== id); });
 export const findBookItem = (s, book, id) => bookOf(s, book).items.find((x) => x.id === id) || null;
 
-export const bookMaps = (x) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([x.name, x.address].filter(Boolean).join(', '))}`;
+export const bookMaps = (x) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([x.name, x.address || x.area].filter(Boolean).join(', '))}`;
 export const telOf = (p) => String(p || '').replace(/[^\d+]/g, '');
 export const sameName = (a, b) => norm(a) === norm(b);
+
+// v0.93: Status (War schon / Will hin) und Bewertung wie bei Ausgehen-Orten
+export const BOOK_STATUS = [{ id: 'war', label: 'War schon' }, { id: 'will', label: 'Will hin' }];
+export const mapsSearch = (name, area, city) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, area, city].filter(Boolean).join(', '))}`;
+
+const FIND_TOOL = {
+  name: 'ort_daten',
+  description: 'Gefundene Treffer zu einem Laden/Arzt/Ort',
+  input_schema: {
+    type: 'object',
+    properties: {
+      treffer: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            adresse: { type: 'string', description: 'Straße Nr., Viertel – leer, wenn unbekannt' },
+            telefon: { type: 'string' },
+            website: { type: 'string', description: 'nur aus den Suchergebnissen, sonst leer' },
+            info: { type: 'string', description: 'ganz kurz, z.B. „Filiale in Palermo“ – höchstens 6 Wörter' },
+          },
+          required: ['name'],
+        },
+      },
+      hinweis: { type: 'string', description: 'nur wenn nichts Passendes gefunden wurde' },
+    },
+    required: ['treffer'],
+  },
+};
+// KI sucht im Internet (1 Suche, ca. 1 Cent) nach Adresse, Telefon, Website
+export async function findBookPlace(s, { name, area, kind }) {
+  const city = s.profile?.city || HOME_CITY;
+  return searchWithTool({
+    system: `Du findest für Mateo einen bestimmten Ort (${kind || 'Laden / Praxis'}) in ${city}. Er nennt den Namen und ungefähr, wo er ist. Such einmal im Internet und gib 1–3 passende Treffer mit Adresse, Telefon und Website zurück (Filialen in der genannten Gegend zuerst). Nichts erfinden – Unbekanntes leer lassen. Antworte nur mit "ort_daten".`,
+    user: `${name}${area ? ` – ungefähr: ${area}` : ''} (${city})`,
+    tool: FIND_TOOL,
+    maxUses: 1,
+    maxTokens: 3000,
+    label: 'Ort finden',
+    city,
+  });
+}

@@ -477,7 +477,7 @@ const KITCHEN_TOOL = {
 };
 const KITCHEN_MODE = {
   neu: 'Modus „Neues Rezept“: Schlag 2–3 passende Rezepte zu seinem Wunsch vor (unter "rezepte"), fehlende Zutaten unter "einkaufen".',
-  kuehlschrank: 'Modus „Aus dem Kühlschrank“: Mateo nennt, was er da hat. Schlag 1–3 Rezepte vor, die vor allem DIESE Zutaten nutzen (Grundzutaten wie Öl, Salz, Gewürze darfst du annehmen); was wirklich fehlt, unter "einkaufen".',
+  kuehlschrank: 'Modus „Aus dem Kühlschrank“: Mateo nennt, was er da hat. Schlag 1–3 Rezepte vor, die vor allem DIESE Zutaten nutzen (Grundzutaten wie Öl, Salz, Gewürze darfst du annehmen); was wirklich fehlt, unter "einkaufen". Nennt er eine oder mehrere Küchen (z.B. Italienisch, Asiatisch), passen die Rezepte zu diesen Küchen – bei mehreren gern je eins.',
   diktieren: 'Modus „Rezept diktieren“: Mateo erzählt SEIN Rezept (oft per Sprache, ungeordnet). Schreib daraus genau 1 sauberes Rezept unter "rezepte": treffender Titel, Zutaten mit seinen Mengen (eine pro Eintrag), kurze nummerierte Schritte, ungefähre Minuten. Nichts erfinden, nichts Neues vorschlagen; fehlt Wichtiges (z.B. Temperatur), frag kurz nach. Keine "einkaufen".',
 };
 export async function kitchenChat(s, history, { web = false, smart = false, mode = 'neu', cat = '' } = {}) {

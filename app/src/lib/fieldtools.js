@@ -92,31 +92,55 @@ export function installFieldTools() {
   let busy = false;
   let undo = null; // { el, value } – nach ✨ Ordnen
   let cleared = null; // { el, value } – nach ✕ Leeren (dann wird ✕ zu ↶)
+  // v0.93: Knöpfe sitzen als Geschwister direkt neben dem Feld (position: absolute) statt „fixed“ –
+  // so scrollen sie mit dem Feld mit und springen auf dem iPhone nicht herum, wenn die Tastatur aufgeht.
+  const park = () => {
+    for (const b of [clearBtn, tidyBtn]) {
+      b.hidden = true;
+      if (b.parentNode !== document.body) document.body.appendChild(b);
+    }
+  };
+  // nicht in ein <label> setzen (sonst wird der Knopf Teil des Feldnamens) – dann direkt hinter das Label
+  const anchorOf = (el) => (el.parentNode?.tagName === 'LABEL' && el.parentNode.parentNode ? el.parentNode : el);
+  const attach = (b, el) => {
+    const a = anchorOf(el);
+    const prev = b === clearBtn ? a : clearBtn;
+    if (b.parentNode !== a.parentNode || b.previousSibling !== prev) a.parentNode.insertBefore(b, prev.nextSibling);
+  };
+  const putAt = (b, x, y) => {
+    b.style.left = '0px';
+    b.style.top = '0px';
+    const o = b.getBoundingClientRect();
+    b.style.left = `${Math.round(x - o.left)}px`;
+    b.style.top = `${Math.round(y - o.top)}px`;
+  };
   const place = () => {
     const canRestore = cur && cleared && cleared.el === cur && !cur.value;
-    const show = cur && document.contains(cur) && (cur.value || canRestore);
+    const show = cur && document.contains(cur) && cur.parentNode && (cur.value || canRestore);
     const r = show ? cur.getBoundingClientRect() : null;
     if (!show || r.width < 70 || r.height === 0) {
-      clearBtn.hidden = true;
-      tidyBtn.hidden = true;
       cur?.classList.remove('ft-on');
+      park();
       return;
     }
     const area = cur.tagName === 'TEXTAREA';
     cur.classList.add('ft-on');
+    attach(clearBtn, cur);
     clearBtn.hidden = false;
     clearBtn.textContent = canRestore ? '↶' : '✕';
     clearBtn.setAttribute('aria-label', canRestore ? 'Gelöschten Text zurückholen' : 'Feld leeren');
     const top = area ? r.top + 6 : r.top + r.height / 2 - 13;
-    clearBtn.style.top = `${top}px`;
-    clearBtn.style.left = `${r.right - 32}px`;
+    putAt(clearBtn, r.right - 32, top);
     const canTidy = area && getAi().apiKey && (cur.value.length >= 15 || (undo && undo.el === cur));
-    tidyBtn.hidden = !canTidy;
     if (canTidy) {
-      tidyBtn.style.top = `${top}px`;
-      tidyBtn.style.left = `${r.right - 64}px`;
+      attach(tidyBtn, cur);
+      tidyBtn.hidden = false;
       tidyBtn.textContent = busy ? '…' : undo && undo.el === cur ? '↶' : '✨';
       tidyBtn.setAttribute('aria-label', undo && undo.el === cur ? 'Ordnen rückgängig' : 'Mit KI ordnen');
+      putAt(tidyBtn, r.right - 64, top);
+    } else {
+      tidyBtn.hidden = true;
+      if (tidyBtn.parentNode !== document.body) document.body.appendChild(tidyBtn);
     }
   };
   document.addEventListener('focusin', (e) => {
@@ -137,10 +161,8 @@ export function installFieldTools() {
     if (e.isTrusted && cleared && cleared.el === e.target && e.target.value) cleared = null;
     if (e.target === cur) place();
   }, true);
-  window.addEventListener('scroll', place, true);
   window.addEventListener('resize', place);
   window.visualViewport?.addEventListener('resize', place);
-  window.visualViewport?.addEventListener('scroll', place);
   // Fokus im Feld lassen (sonst schließt sich die Tastatur und onBlur speichert zu früh)
   for (const b of [clearBtn, tidyBtn]) {
     b.addEventListener('mousedown', (e) => e.preventDefault());

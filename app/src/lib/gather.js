@@ -24,7 +24,7 @@ export const TODO_TEMPLATES = {
 };
 // Anlässe: Zusatz-To-dos und Standard-Einkauf (je ein Artikel pro Eintrag)
 export const OCCASIONS = {
-  leer: { label: 'Leer – selbst füllen', emoji: '⬜', kind: null, empty: true, todos: {}, shop: {} },
+  leer: { label: 'Leer – selbst füllen', emoji: '✏️', kind: null, empty: true, todos: {}, shop: {} },
   asado: { label: 'Asado / Grillen', emoji: '🔥', kind: 'zuhause', todos: { Planen: ['Fleisch bestellen'], Vorbereiten: ['Feuer anmachen'] }, shop: { Essen: ['Vacío', 'Chorizo', 'Morcilla', 'Provoleta', 'Brot', 'Salat', 'Chimichurri'], Getränke: ['Bier', 'Wein', 'Fernet', 'Cola', 'Wasser', 'Eis'], Sonstiges: ['Kohle', 'Grillanzünder', 'Servietten'] } },
   geburtstag: { label: 'Geburtstag', emoji: '🎂', kind: 'zuhause', todos: { Planen: ['Torte bestellen'], Vorbereiten: ['Dekorieren'] }, shop: { Essen: ['Torte', 'Snacks', 'Chips', 'Fingerfood'], Getränke: ['Sekt', 'Bier', 'Softdrinks', 'Wasser', 'Eis'], Sonstiges: ['Kerzen', 'Deko', 'Servietten', 'Pappbecher'] } },
   abendessen: { label: 'Abendessen', emoji: '🍝', kind: 'zuhause', todos: { Vorbereiten: ['Tisch decken'] }, shop: { Essen: ['Vorspeise', 'Hauptgericht', 'Dessert', 'Brot'], Getränke: ['Wein', 'Wasser'], Sonstiges: ['Servietten', 'Kerzen'] } },
@@ -195,7 +195,7 @@ const PLAN_TOOL = {
     properties: {
       antwort: { type: 'string', description: 'Kurze Antwort (2–6 Sätze). Wenn Wichtiges fehlt, hier bis zu 3 kurze Rückfragen stellen.' },
       ideen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string' }, beschreibung: { type: 'string' } }, required: ['titel'] }, description: 'Event-Ideen oder Mottos zur Auswahl' },
-      einkaufen: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: 'GENAU EIN Artikel, kurz, Menge nur wenn nötig, z.B. „Bier (2 Kisten)“, „Chips“, „2 kg Vacío“' }, kategorie: { type: 'string', enum: SHOP_CATS } }, required: ['text'] } },
+      einkaufen: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: 'GENAU EIN Artikel, 1–3 Wörter, keine Erklärung, kein Zweck, keine Klammern, z.B. „Bier“, „Chips“, „2 kg Vacío“, „Servietten“' }, kategorie: { type: 'string', enum: SHOP_CATS } }, required: ['text'] } },
       mitbringen: { type: 'array', items: { type: 'string' }, description: 'Was Gäste mitbringen könnten' },
       todos: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: 'GANZ kurz, 2–4 Wörter, z.B. „Leute einladen“, „Tisch decken“ – keine Erklärungen, keine Klammern' }, kategorie: { type: 'string', enum: PHASES, description: 'Planen = vorher klären/organisieren, Vorbereiten = kurz vorher/am Tag, Sonstiges = danach/Rest. Einkäufe NICHT hier, sondern bei "einkaufen".' } }, required: ['text', 'kategorie'] } },
       ueberblick: { type: 'object', description: 'Nur wenn Mateo Datum/Uhrzeit/Ort/Adresse/Gästezahl nennt: diese Felder ausfüllen', properties: { datum: { type: 'string', description: 'JJJJ-MM-TT' }, uhrzeit: { type: 'string', description: 'HH:MM' }, ort: { type: 'string', description: 'Name des Ortes, z.B. „bei mir“, „Bar Uptown“' }, adresse: { type: 'string', description: 'Straße und Nummer, Stadt' }, gaeste: { type: 'string', description: 'ungefähre Zahl' } } },
@@ -228,13 +228,15 @@ Antworte immer mit "event_planen". Deutsch, konkret, kurz.`;
 }
 
 // To-dos immer kurz: Erklärungen in Klammern / nach Doppelpunkt oder Gedankenstrich abschneiden
+// v0.93: Einkaufs-Artikel ganz kurz (Mateo: „Sonstiges“-Texte waren super lang)
+export const shortItem = (x) => { let t = String(x || '').trim().replace(/\s*\([^)]*\)/g, '').replace(/\s*[:–—].*$/, '').replace(/\s+-\s.*$/, '').replace(/\s+(für|zum|zur|damit|falls|als|wegen)\s.*$/i, '').replace(/[.!]+$/, '').trim(); const w = t.split(/\s+/); if (w.length > 4) t = w.slice(0, 4).join(' '); return t || String(x || '').trim().slice(0, 30); };
 export const shortTodo = (x) => { let t = String(x || '').trim(); if (t.length > 32) t = t.replace(/\s*[(:–—].*$/, '').replace(/\s+-\s.*$/, '').trim(); return t; };
 export function applyGatherProposal(gId, sel) {
   store.update((s) => {
     const g = s.gatherings.find((x) => x.id === gId);
     if (!g) return;
     const has = (list, t, k = 'text') => g[list].some((y) => norm(y[k]) === norm(t));
-    for (const x of sel.einkaufen || []) if (!has('shopping', x.text)) g.shopping.push({ id: uid(), text: x.text, cat: SHOP_CATS.includes(x.kategorie) ? x.kategorie : 'Sonstiges', who: '', done: false });
+    for (const x of sel.einkaufen || []) { const text = shortItem(x.text); if (text && !has('shopping', text)) g.shopping.push({ id: uid(), text, cat: SHOP_CATS.includes(x.kategorie) ? x.kategorie : 'Sonstiges', who: '', done: false }); }
     for (const x of sel.mitbringen || []) if (!has('bring', x)) g.bring.push({ id: uid(), text: x, who: '', done: false });
     for (const x of sel.todos || []) { const text = shortTodo(x.text); if (text && !has('todos', text)) g.todos.push({ id: uid(), text, cat: PHASES.includes(x.kategorie) ? x.kategorie : 'Sonstiges', done: false }); }
     const ov = sel.ueberblick?.[0];

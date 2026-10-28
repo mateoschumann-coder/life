@@ -22,7 +22,7 @@ const savePrefs = (k, v) => {
 };
 
 // groups: [{ key, label, title: (x) => string, meta?: (x) => string, links?: (x) => [{ label, url }] }]
-export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null }) {
+export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null, compact = false, extra = null, maxChips = 4, sendRef = null }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -85,6 +85,8 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
     }
   };
 
+  if (sendRef) sendRef.current = (t) => send(t);
+
   // Vorschlag selbst umschreiben (Stift): Text-Feld des Vorschlags ersetzen
   const [editing, setEditing] = useState(null); // { id, key, i, val }
   const mainKey = (x) => (typeof x === 'string' ? null : ['text', 'titel', 'name', 'ziel'].find((k) => typeof x?.[k] === 'string'));
@@ -107,14 +109,26 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
   const lastUser = history.map((m) => m.role).lastIndexOf('user');
   const cut = lastUser > 0 ? lastUser : 0;
   const visible = showAll ? history : history.slice(cut);
+  const allChips = [...webChips.filter((c) => !chips.includes(c)), ...chips];
+  const chipRow = !busy && allChips.length > 0 ? (
+    <div className="box-tabs">
+      {(compact ? allChips.slice(0, maxChips) : allChips).map((c) => <button key={c} type="button" className={compact ? 'chip soft small-chip' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
+    </div>
+  ) : null;
   return (
-    <section className="card checkin" style={{ gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span className="spark"><Icon name="sparkle" size={15} color="currentColor" /></span>
-        <span style={{ fontWeight: 700, fontSize: 17, flex: 1 }}>{title}</span>
-        {history.length > 0 && <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={() => confirm('Gespräch löschen? Übernommene Einträge bleiben.') && onSave([])}>Neu beginnen</button>}
+    <section className={compact ? 'card checkin plan-compact' : 'card checkin'} style={{ gap: compact ? 8 : 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: compact ? 'wrap' : undefined }}>
+        <span className="spark"><Icon name="sparkle" size={compact ? 13 : 15} color="currentColor" /></span>
+        <span style={{ fontWeight: 700, fontSize: compact ? 15 : 17, flex: 1 }}>{title}</span>
+        {compact && !hideToggles && (
+          <span style={{ display: 'flex', gap: 4 }}>
+            <button type="button" className={web ? 'mini-chip on' : 'mini-chip'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })} title={web ? 'Internet an: aktuelle Infos & Links, ca. 1–3 Cent mehr' : 'Ohne Internet: günstig'}>🔍 {web ? 'an' : 'aus'}</button>
+            <button type="button" className={smart ? 'mini-chip on' : 'mini-chip'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })} title={smart ? 'Gründlich: besseres Modell, teurer' : 'Schnell: günstig'}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
+          </span>
+        )}
+        {history.length > 0 && <button type="button" className="link-btn" style={{ fontSize: compact ? 13 : 14 }} onClick={() => confirm('Gespräch löschen? Übernommene Einträge bleiben.') && onSave([])}>{compact ? 'Neu' : 'Neu beginnen'}</button>}
       </div>
-      {history.length === 0 && intro && <span className="sub">{intro}</span>}
+      {history.length === 0 && intro && <span className={compact ? 'tiny' : 'sub'}>{intro}</span>}
       {cut > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setShowAll(!showAll)}>{showAll ? 'Nur die letzte Antwort zeigen' : `Ganzen Chat anzeigen (${history.length} Nachrichten)`}</button>}
       {visible.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -165,12 +179,9 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{searching ? 'Ich suche im Internet und plane … (ca. 20–40 Sek.)' : 'Ich denke nach … (ca. 5–10 Sek.)'}</span></div>}
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {mic.error && <span className="sub" style={{ color: 'var(--danger)' }}>{mic.error}</span>}
-      {!busy && (chips.length > 0 || webChips.length > 0) && (
-        <div className="box-tabs">
-          {[...webChips.filter((c) => !chips.includes(c)), ...chips].map((c) => <button key={c} type="button" className="chip soft" style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
-        </div>
-      )}
-      {!hideToggles && <div className="ai-toggles">
+      {!compact && chipRow}
+      {extra}
+      {!hideToggles && !compact && <div className="ai-toggles">
         <button type="button" className={web ? 'chip on' : 'chip soft'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })}>🔍 Internet {web ? 'an' : 'aus'}</button>
         <button type="button" className={smart ? 'chip on' : 'chip soft'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
         <span className="tiny" style={{ flex: 1, minWidth: 140 }}>{[web ? 'Internet: aktuelle Infos & Links, ca. 1–3 Cent mehr' : autoWeb ? 'Ohne Internet: aus KI-Wissen – bei Flügen, Unterkünften und Preisen sucht die KI automatisch im Internet' : 'Ohne Internet: aus KI-Wissen, günstig', smart ? 'Gründlich: besseres Modell, ca. 20× teurer' : null].filter(Boolean).join(' · ')}</span>
@@ -182,6 +193,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
         <textarea className="input plan-input" rows={1} value={text} ref={(el) => { if (el) { el.style.height = '42px'; el.style.height = Math.min(140, el.scrollHeight) + 'px'; } }} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label="Nachricht an die KI" />
         <button type="submit" className="btn small" disabled={busy || !text.trim() || !hasKey} aria-label="Senden"><Icon name="send" size={16} color="currentColor" /></button>
       </form>
+      {compact && chipRow}
       {!hasKey && <span className="tiny">Für den KI-Planer braucht es einen API-Schlüssel (Einstellungen).</span>}
     </section>
   );

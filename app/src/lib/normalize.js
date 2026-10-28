@@ -41,5 +41,16 @@ export function normalizeGathering(g) {
     });
     g.v91 = true;
   }
+  // v0.93: lange Einkaufs-Texte (meist von der KI) auf den Artikel kürzen
+  if (!g.v93) {
+    g.shopping.forEach((x) => {
+      if (String(x.text || '').length <= 22) return;
+      let t = String(x.text).replace(/\s*\([^)]*\)/g, '').replace(/\s*[:–—].*$/, '').replace(/\s+-\s.*$/, '').replace(/\s+(für|zum|zur|damit|falls|als|wegen)\s.*$/i, '').replace(/[.!]+$/, '').trim();
+      const w = t.split(/\s+/);
+      if (w.length > 4) t = w.slice(0, 4).join(' ');
+      if (t) x.text = t;
+    });
+    g.v93 = true;
+  }
   return g;
 }

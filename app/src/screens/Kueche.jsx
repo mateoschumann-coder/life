@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import {
   addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
@@ -133,7 +133,7 @@ function Recipes({ s }) {
         </span>
       </div>
       <div className="list">
-        {list.length === 0 && <div className="empty">Noch keine Rezepte{cat ? ` in „${cat}“` : ''}. Lass dir unten im Küchen-Chat welche vorschlagen, diktier eins oder füg eigene hinzu.</div>}
+        {list.length === 0 && <div className="empty">Noch keine Rezepte{cat ? ` in „${cat}“` : ''}. Unter „Neue Rezepte“ welche finden, diktier eins oder füg eigene hinzu.</div>}
         {list.map((r) => (
           <button key={r.id} type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => setSheet(r)}>
             <span className="block-icon" style={{ background: 'color-mix(in srgb, #2FA36B 14%, transparent)', color: COLOR }}><Icon name="pot" size={16} /></span>
@@ -355,17 +355,54 @@ const KITCHEN_GROUPS = [
 ];
 
 const MODES = {
-  neu: { label: 'Neues Rezept', intro: 'Sag, worauf du Lust hast – ich schlage passende Rezepte vor.', placeholder: 'z.B. Airfryer Hähnchen, proteinreich …', chips: ['Was koche ich heute?', 'Proteinreich nach dem Lauf', 'Schnelles Frühstück', 'Wochenplan mit Einkaufsliste'] },
-  kuehlschrank: { label: 'Aus dem Kühlschrank', intro: 'Sag oder tippe, was du da hast – ich mache daraus Rezepte und sage, was evtl. noch fehlt.', placeholder: 'z.B. 2 Eier, Spinat, Feta, Reis …', chips: ['Eier, Tomaten, Käse', 'Reste vom Hähnchen, Reis, Gemüse'] },
-  diktieren: { label: 'Rezept diktieren', intro: 'Tippe aufs Mikrofon und erzähl dein Rezept (Zutaten und wie du es machst) – ich schreibe es sauber auf, du speicherst es mit einem Tipp.', placeholder: 'Erzähl dein Rezept …', chips: [] },
+  neu: { label: '🍳 Neues Rezept', intro: 'Worauf hast du Lust? Ich schlage Rezepte vor.', placeholder: 'z.B. Airfryer Hähnchen, proteinreich …', chips: ['Was koche ich heute?', 'Proteinreich nach dem Lauf', 'Schnelles Frühstück', 'Wochenplan + Einkauf'] },
+  kuehlschrank: { label: '🧊 Aus dem Kühlschrank', intro: 'Oben antippen, was du da hast – oder hier schreiben.', placeholder: 'Was hast du noch da?', chips: [] },
+  diktieren: { label: '🎙 Rezept diktieren', intro: 'Mikro antippen und dein Rezept erzählen – ich schreibe es sauber auf.', placeholder: 'Erzähl dein Rezept …', chips: [] },
 };
+const CUISINES = ['Argentinisch', 'Italienisch', 'Deutsch', 'Mediterran', 'Asiatisch', 'Mexikanisch', 'Indisch', 'Orientalisch'];
+
+// v0.93 (Mateo): Zutaten wie im Einkaufs-Katalog nach Kategorien antippen + Ziel-Küche wählen
+function FridgePicker({ s, onAsk, disabled }) {
+  const cats = shopCats(s).filter((c) => c && c.group === 'essen');
+  const [catId, setCatId] = useState(cats[0]?.id);
+  const [sel, setSel] = useState([]);
+  const [own, setOwn] = useState('');
+  const [cuis, setCuis] = useState([]);
+  const cur = cats.find((c) => c.id === catId) || cats[0];
+  const items = cur ? shopCatalog(s, cur.id) : [];
+  const clean = (n) => String(n).replace(/\s*\([^)]*\)/g, '').replace(/\?$/, '').trim();
+  const tog = (n) => setSel(sel.includes(n) ? sel.filter((x) => x !== n) : [...sel, n]);
+  const inCat = (c) => shopCatalog(s, c.id).filter((x) => sel.includes(clean(x.name))).length;
+  const ask = () => {
+    const extra = own.split(/,|\n/).map((x) => x.trim()).filter(Boolean);
+    const all = [...sel, ...extra];
+    onAsk(`Ich habe da: ${all.join(', ')}.${cuis.length ? ` Küche: ${cuis.join(' oder ')}.` : ''} Was kann ich daraus kochen?`);
+  };
+  return (
+    <section className="card" style={{ gap: 8, padding: '10px 12px' }}>
+      <span style={{ fontWeight: 650, fontSize: 15 }}>Was hast du da?{sel.length ? ` · ${sel.length}` : ''}</span>
+      <div className="box-tabs">
+        {cats.map((c) => { const n = inCat(c); return <button key={c.id} type="button" className={cur?.id === c.id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCatId(c.id)}>{c.emoji} {c.label}{n ? ` · ${n}` : ''}</button>; })}
+      </div>
+      <div className="chips">
+        {items.map((x) => { const n = clean(x.name); return <button key={x.name} type="button" className={sel.includes(n) ? 'chip on small-chip' : 'chip small-chip'} onClick={() => tog(n)}>{n}</button>; })}
+      </div>
+      <input className="input" value={own} onChange={(e) => setOwn(e.target.value)} placeholder="Sonst noch? z.B. Reste vom Hähnchen" aria-label="Weitere Zutaten" />
+      {sel.length > 0 && <span className="tiny">Gewählt: {sel.join(', ')} · <button type="button" className="link-btn" style={{ fontSize: 12, padding: 0 }} onClick={() => setSel([])}>leeren</button></span>}
+      <span className="tiny" style={{ marginBottom: -2 }}>Welche Küche? (optional, mehrere möglich)</span>
+      <div className="chips">
+        {CUISINES.map((c) => <button key={c} type="button" className={cuis.includes(c) ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCuis(cuis.includes(c) ? cuis.filter((x) => x !== c) : [...cuis, c])}>{c}</button>)}
+      </div>
+      <button type="button" className="btn small" disabled={disabled || (!sel.length && !own.trim())} onClick={ask}>✨ Rezepte daraus</button>
+    </section>
+  );
+}
 
 // Neue Rezepte (v0.65): entweder kostenlose Links zu Rezeptseiten oder der KI-Küchen-Chat
 function RecipeFinder({ s }) {
   const [mode, setMode] = useSearchMode('rezepte', 'ki');
   return (
     <>
-      <span className="label" style={{ padding: '4px 4px 0' }}>Neue Rezepte finden</span>
       <ModeToggle mode={mode} onChange={setMode} />
       {mode === 'links' ? <SourceLinks s={s} area="rezepte" instant /> : <KitchenChat s={s} />}
     </>
@@ -374,14 +411,19 @@ function RecipeFinder({ s }) {
 function KitchenChat({ s }) {
   const [mode, setMode] = useState('neu');
   const [cat, setCat] = useState(s.recipeCats[0] || 'Airfryer');
+  const sendRef = useRef(null);
   const m = MODES[mode];
   return (
     <>
-      <Segmented full options={Object.entries(MODES).map(([id, x]) => ({ id, label: x.label }))} value={mode} onChange={setMode} label="Was möchtest du?" />
-      <div className="chips">{s.recipeCats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} style={{ padding: '6px 10px', fontSize: 13 }} onClick={() => setCat(c)}>{c}</button>)}</div>
+      <div className="box-tabs">
+        {Object.entries(MODES).map(([id, x]) => <button key={id} type="button" className={mode === id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setMode(id)}>{x.label}</button>)}
+      </div>
+      {mode === 'kuehlschrank' && <FridgePicker s={s} disabled={!getAi().apiKey} onAsk={(t) => sendRef.current?.(t)} />}
       <PlanChat
         key={mode}
-        title={`Küchen-Chat: ${m.label}`}
+        compact
+        sendRef={sendRef}
+        title="Küchen-Chat"
         intro={m.intro}
         placeholder={m.placeholder}
         history={chatOf(s, 'kueche')}
@@ -395,7 +437,27 @@ function KitchenChat({ s }) {
           if (sel.rezepte?.length) toast(`Gespeichert in „${cat}“`);
         }}
         chips={m.chips}
+        extra={s.recipeCats.length > 1 ? (
+          <label className="tiny" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>Rezepte speichern in
+            <select className="input" style={{ width: 'auto', minHeight: 30, padding: '2px 8px', fontSize: 13 }} value={cat} onChange={(e) => setCat(e.target.value)}>{s.recipeCats.map((c) => <option key={c}>{c}</option>)}</select>
+          </label>
+        ) : null}
       />
+    </>
+  );
+}
+
+// v0.93: Rezepte-Reiter mit Umschalter Meine / Neue Rezepte (statt untereinander)
+function RecipesTab({ s }) {
+  const [sub, setSubState] = useState(() => { try { return localStorage.getItem('life-app-rezepte-sub') || 'meine'; } catch { return 'meine'; } });
+  const setSub = (v) => { setSubState(v); try { localStorage.setItem('life-app-rezepte-sub', v); } catch {} };
+  return (
+    <>
+      <div className="seg-mini">
+        <button type="button" className={sub === 'meine' ? 'chip on' : 'chip soft'} onClick={() => setSub('meine')}>📖 Meine Rezepte · {s.recipes.length}</button>
+        <button type="button" className={sub === 'neu' ? 'chip on' : 'chip soft'} onClick={() => setSub('neu')}>✨ Neue Rezepte</button>
+      </div>
+      {sub === 'meine' ? <Recipes s={s} /> : <RecipeFinder s={s} />}
     </>
   );
 }
@@ -424,8 +486,7 @@ export default function Kueche() {
           <h1 className="h1">Küche</h1>
         </div>
         <Segmented full options={[{ id: 'rezepte', label: 'Rezepte' }, { id: 'einkauf', label: `Einkauf${openCount ? ` (${openCount})` : ''}` }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
-        {tab === 'rezepte' ? <Recipes s={s} /> : tab === 'orte' ? <PlaceBook s={s} book="kueche" hint="Deine Läden: Supermarkt, Metzgerei, Bäckerei, Verdulería … – oben „+ Ort“." /> : <Shopping s={s} />}
-        {tab === 'rezepte' && <RecipeFinder s={s} />}
+        {tab === 'rezepte' ? <RecipesTab s={s} /> : tab === 'orte' ? <PlaceBook s={s} book="kueche" hint="Deine Läden: Supermarkt, Metzgerei, Bäckerei, Verdulería … – oben „+ Ort“." /> : <Shopping s={s} />}
       </main>
       <TabBar active="bereiche" />
     </>

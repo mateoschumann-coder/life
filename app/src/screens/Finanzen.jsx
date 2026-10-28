@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { addCostCat, addLine, budgetOf, calc, catOf, costCatsOf, removeCostCat, convert, CURRENCIES, fetchRates, money, removeLine, setBudget, setRate, updateLine } from '../lib/budget';
-import { Back, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 
 const GREEN = '#2FA36B';
 const fmtRate = (v) => (v >= 100 ? Math.round(v).toLocaleString('de-DE') : (Math.round(v * 1000) / 1000).toLocaleString('de-DE'));
@@ -18,6 +18,62 @@ function Amount({ value, currency, onChange, onCurrency, label, narrow }) {
   );
 }
 
+const toNum = (v) => Number(String(v || '').replace(/\./g, '').replace(',', '.')) || 0;
+// v0.93 (Mateo: kleine Felder in der Zeile ließen sich schlecht leeren): Zeile antippen → Fenster mit großen Feldern
+function LineSheet({ b, line, onClose }) {
+  const [f, setF] = useState(null);
+  const [loaded, setLoaded] = useState(null);
+  const key = line ? line.id || `neu-${line.kind}` : null;
+  if (key !== loaded) { setLoaded(key); setF(line ? { name: line.name || '', amount: line.amount ? String(line.amount).replace('.', ',') : '', currency: line.currency || b.base, cat: line.cat || 'sonstiges' } : null); }
+  if (!line || !f) return <Sheet open={false} onClose={onClose} title="" />;
+  const isNew = !line.id;
+  const cost = line.kind === 'costs';
+  const save = () => {
+    const data = { name: f.name.trim(), amount: toNum(f.amount), currency: f.currency, ...(cost ? { cat: f.cat } : {}) };
+    if (isNew) addLine(line.kind, data);
+    else updateLine(line.kind, line.id, data);
+    toast('Gespeichert');
+    onClose();
+  };
+  return (
+    <Sheet open title={isNew ? (cost ? 'Neue Fixkosten' : 'Neue Einnahme') : f.name || (cost ? 'Fixkosten' : 'Einnahme')} onClose={onClose}>
+      <Field label="Name"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={cost ? 'z.B. Miete, Handy, Netflix' : 'z.B. Gehalt, Freelance'} /></Field>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}><Field label="Betrag pro Monat"><input className="input" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="0" /></Field></div>
+        <div style={{ width: 96 }}>
+          <Field label="Währung">
+            <select className="input" value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select>
+          </Field>
+        </div>
+      </div>
+      {cost && (
+        <div className="field">
+          <span>Kategorie</span>
+          <div className="chips">{costCatsOf(b).map((c) => <button key={c.id} type="button" className={catOf(f.cat, b).id === c.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, cat: c.id })}>{c.label}</button>)}</div>
+        </div>
+      )}
+      <button type="button" className="btn" onClick={save}>Speichern</button>
+      {!isNew && <button type="button" className="btn danger" onClick={() => { removeLine(line.kind, line.id); onClose(); }}>Löschen</button>}
+    </Sheet>
+  );
+}
+
+function LineRow({ b, x, sub, onOpen }) {
+  return (
+    <button type="button" className="row" style={{ minHeight: 54, width: '100%', border: 0, textAlign: 'left', font: 'inherit', color: 'inherit', background: 'none' }} onClick={onOpen}>
+      <span className="row-main">
+        <span className="row-title plain">{x.name || <span style={{ color: 'var(--sub)' }}>Ohne Namen</span>}</span>
+        {sub && <span className="row-meta">{sub}</span>}
+      </span>
+      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+        <b style={{ fontSize: 15 }}>{money(x.amount || 0, x.currency)}</b>
+        {x.currency !== b.base && x.amount ? <span className="tiny" style={{ display: 'block' }}>≈ {money(convert(b, x.amount, x.currency), b.base)}</span> : null}
+      </span>
+      <Icon name="chev" size={13} color="var(--chev)" />
+    </button>
+  );
+}
+
 export default function Finanzen() {
   const s = useStore();
   const b = budgetOf(s);
@@ -25,7 +81,7 @@ export default function Finanzen() {
   const [cat, setCat] = useState('miete');
   const [newCat, setNewCat] = useState(null);
   const [editCats, setEditCats] = useState(false);
-  const [moveCost, setMoveCost] = useState(null);
+  const [line, setLine] = useState(null);
   const [busy, setBusy] = useState(false);
   const other = b.base === 'USD' ? 'EUR' : 'USD';
   const now = new Date();
@@ -76,16 +132,10 @@ export default function Finanzen() {
         </section>
 
         <section className="group">
-          <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Einnahmen pro Monat</h2><button type="button" className="link-btn" onClick={() => addLine('incomes', { name: b.incomes.length ? '' : 'Gehalt' })}>+ Einnahme</button></div>
+          <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Einnahmen pro Monat</h2><button type="button" className="link-btn" onClick={() => setLine({ kind: 'incomes', name: b.incomes.length ? '' : 'Gehalt', currency: b.base })}>+ Einnahme</button></div>
           <div className="list">
             {b.incomes.length === 0 && <div className="empty">Noch nichts eingetragen – z.B. Gehalt oder Freelance.</div>}
-            {b.incomes.map((x) => (
-              <div key={x.id} className="row" style={{ minHeight: 56, gap: 8 }}>
-                <input className="input row-main" style={{ minWidth: 0, minHeight: 36, padding: '6px 10px', fontSize: 15 }} defaultValue={x.name} key={x.id + (x.name || '')} placeholder="z.B. Gehalt" onBlur={(e) => e.target.value !== x.name && updateLine('incomes', x.id, { name: e.target.value })} aria-label="Name der Einnahme" />
-                <Amount narrow value={x.amount} currency={x.currency} label="Betrag" onChange={(v) => updateLine('incomes', x.id, { amount: v })} onCurrency={(c) => updateLine('incomes', x.id, { currency: c })} />
-                <button type="button" className="x-btn" style={{ width: 26 }} aria-label="Löschen" onClick={() => removeLine('incomes', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
-              </div>
-            ))}
+            {b.incomes.map((x) => <LineRow key={x.id} b={b} x={x} onOpen={() => setLine({ ...x, kind: 'incomes' })} />)}
           </div>
         </section>
 
@@ -107,22 +157,10 @@ export default function Finanzen() {
             {(b.cats || []).length > 0 && <button type="button" className={editCats ? 'chip on' : 'chip soft'} onClick={() => setEditCats(!editCats)}>{editCats ? 'Fertig' : '✎'}</button>}
           </div>
           {newCat !== null && <form className="block-add" onSubmit={(e) => { e.preventDefault(); const id = addCostCat(newCat); if (id) setCat(id); setNewCat(null); }}><input className="input" autoFocus value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="z.B. Haustier, Spenden, Bildung" aria-label="Neue Kategorie" /><button type="submit" className="btn small">{newCat.trim() ? '+' : '✕'}</button></form>}
-          <button type="button" className="btn sec small" onClick={() => addLine('costs', { cat, name: '' })}>+ {catOf(cat, b).label} hinzufügen</button>
+          <button type="button" className="btn sec small" onClick={() => setLine({ kind: 'costs', cat, name: '', currency: b.base })}>+ {catOf(cat, b).label} hinzufügen</button>
           <div className="list">
             {b.costs.length === 0 && <div className="empty">Wähl oben eine Kategorie und füg deine festen Kosten hinzu – jede in ihrer Währung (z.B. Miete in US$, Handy in ARS).</div>}
-            {costCatsOf(b).flatMap((c) => b.costs.filter((x) => (catOf(x.cat, b).id) === c.id)).map((x) => (
-              <div key={x.id} className="row" style={{ minHeight: 60, gap: 8 }}>
-                <span className="row-main" style={{ gap: 2, minWidth: 0 }}>
-                  <input className="input" style={{ minHeight: 36, padding: '6px 10px', fontSize: 15 }} defaultValue={x.name} key={x.id + (x.name || '')} placeholder={catOf(x.cat, b).label} onBlur={(e) => e.target.value !== x.name && updateLine('costs', x.id, { name: e.target.value })} aria-label="Name der Fixkosten" />
-                  <span style={{ display: 'flex', gap: 6, alignItems: 'baseline', paddingLeft: 4, minWidth: 0 }}>
-                    <button type="button" className="link-btn" style={{ fontSize: 12.5, padding: 0, whiteSpace: 'nowrap' }} onClick={() => setMoveCost(x)} aria-label="Kategorie ändern">{catOf(x.cat, b).label} ▾</button>
-                    {x.currency !== b.base && x.amount ? <span className="tiny" style={{ whiteSpace: 'nowrap' }}>≈ {money(convert(b, x.amount, x.currency), b.base)}</span> : null}
-                  </span>
-                </span>
-                <Amount narrow value={x.amount} currency={x.currency} label={x.name || 'Betrag'} onChange={(v) => updateLine('costs', x.id, { amount: v })} onCurrency={(c) => updateLine('costs', x.id, { currency: c })} />
-                <button type="button" className="x-btn" style={{ width: 26 }} aria-label="Fixkosten löschen" onClick={() => removeLine('costs', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
-              </div>
-            ))}
+            {costCatsOf(b).flatMap((c) => b.costs.filter((x) => (catOf(x.cat, b).id) === c.id)).map((x) => <LineRow key={x.id} b={b} x={x} sub={catOf(x.cat, b).label} onOpen={() => setLine({ ...x, kind: 'costs' })} />)}
           </div>
           {r.byCat.length > 1 && (
             <section className="card" style={{ gap: 6 }}>
@@ -154,9 +192,7 @@ export default function Finanzen() {
         </section>
 
       </main>
-      <Sheet open={!!moveCost} title={moveCost ? `„${moveCost.name || 'Fixkosten'}“ einsortieren` : ''} onClose={() => setMoveCost(null)}>
-        <div className="chips">{costCatsOf(b).map((c) => <button key={c.id} type="button" className={moveCost && catOf(moveCost.cat, b).id === c.id ? 'chip on' : 'chip'} onClick={() => { updateLine('costs', moveCost.id, { cat: c.id }); setMoveCost(null); }}>{c.label}</button>)}</div>
-      </Sheet>
+      <LineSheet b={b} line={line} onClose={() => setLine(null)} />
       <TabBar active="bereiche" />
     </>
   );

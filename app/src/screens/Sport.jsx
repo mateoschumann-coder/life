@@ -14,7 +14,7 @@ import { getAi } from '../lib/ai';
 import { cityHere, searchWithTool } from '../lib/outings';
 import MiniChart from '../components/MiniChart';
 import PaceCalc from '../components/PaceCalc';
-import { Back, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
 import { Missing } from './Saeule';
 
 const GREEN = '#2FA36B';
@@ -142,7 +142,9 @@ function SportsPage({ s }) {
   const [adding, setAdding] = useState(false);
   const [f, setF] = useState({ name: '', date: '', place: '', url: '', sportId: '' });
   const [showPast, setShowPast] = useState(false);
-  const all = (s.sportEvents || []).filter((e) => s.sports.some((x) => x.id === e.sportId)).sort((a, b) => ((a.date || '9') < (b.date || '9') ? -1 : 1));
+  const [tab, setTabState] = useState(() => { try { return localStorage.getItem('life-app-sport-tab') || 'finden'; } catch { return 'finden'; } });
+  const setTab = (v) => { setTabState(v); try { localStorage.setItem('life-app-sport-tab', v); } catch {} };
+  const all = (s.sportEvents || []).filter((e) => s.sports.some((x) => x.id === e.sportId) && (!pick.length || pick.includes(e.sportId))).sort((a, b) => ((a.date || '9') < (b.date || '9') ? -1 : 1));
   const isPast = (e) => e.status === 'dabei' || (e.date && e.date < t);
   const liked = all.filter((e) => e.status === 'interessiert' && !isPast(e));
   const going = all.filter((e) => e.status === 'angemeldet' && !isPast(e));
@@ -206,6 +208,30 @@ function SportsPage({ s }) {
           </div>
         </div>
 
+        {/* v0.93 (Mateo): Sportarten-Leiste zum Wischen, darunter Reiter Finden / Meine Events / Rechner */}
+        {tab !== 'rechner' && <>
+        <div className="box-tabs">
+          <button type="button" className={!pick.length ? 'chip on' : 'chip'} onClick={() => setPick([])}>Alle</button>
+          {s.sports.map((sp) => (
+            <button key={sp.id} type="button" className={editSports ? 'chip editing' : pick.includes(sp.id) ? 'chip on' : 'chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => (editSports ? confirm(`„${sp.name}“ entfernen? Die Events dazu bleiben gespeichert, werden aber ausgeblendet.`) && removeSport(sp.id) : toggle(sp.id))}>
+              {sp.name}{editSports && <Icon name="x" size={11} />}
+            </button>
+          ))}
+          <button type="button" className={editSports ? 'chip on' : 'chip'} onClick={() => setEditSports(!editSports)} aria-label="Sportarten bearbeiten">{editSports ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+        </div>
+        {editSports && (
+          <>
+            {missing.length > 0 && <div className="chips">{missing.map((p) => <button key={p.name} type="button" className="chip soft" onClick={() => addSport(p.name)}>+ {p.name}</button>)}</div>}
+            <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); addSport(newSport); setNewSport(''); }}>
+              <input className="input" value={newSport} onChange={(ev) => setNewSport(ev.target.value)} placeholder="Eigene Sportart, z.B. Klettern" aria-label="Eigene Sportart" />
+              <button type="submit" className="btn small" disabled={!newSport.trim()}>+</button>
+            </form>
+          </>
+        )}
+        {s.sports.length === 0 && !editSports && <span className="sub">Tippe auf den Stift und füg deine Sportarten hinzu.</span>}
+        </>}
+        <Segmented full options={[{ id: 'finden', label: 'Events finden' }, { id: 'meine', label: `Meine Events${going.length + liked.length ? ` · ${going.length + liked.length}` : ''}` }, { id: 'rechner', label: 'Rechner' }]} value={tab} onChange={setTab} label="Ansicht" />
+
         {adding && (
           <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f })) toast('Notiert'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
             <div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}</div>
@@ -218,29 +244,7 @@ function SportsPage({ s }) {
           </form>
         )}
 
-        <section className="card checkin" style={{ gap: 10 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17 }}>
-            <span className="spark"><Icon name="search" size={15} color="currentColor" /></span> Events finden
-          </span>
-          <div className="chips">
-            <button type="button" className={!pick.length ? 'chip on' : 'chip'} onClick={() => setPick([])}>Alle</button>
-            {s.sports.map((sp) => (
-              <button key={sp.id} type="button" className={editSports ? 'chip editing' : pick.includes(sp.id) ? 'chip on' : 'chip'} onClick={() => (editSports ? confirm(`„${sp.name}“ entfernen? Die Events dazu bleiben gespeichert, werden aber ausgeblendet.`) && removeSport(sp.id) : toggle(sp.id))}>
-                {sp.name}{editSports && <Icon name="x" size={11} />}
-              </button>
-            ))}
-            <button type="button" className={editSports ? 'chip on' : 'chip'} onClick={() => setEditSports(!editSports)} aria-label="Sportarten bearbeiten">{editSports ? 'Fertig' : <Icon name="edit" size={14} />}</button>
-          </div>
-          {editSports && (
-            <>
-              {missing.length > 0 && <div className="chips">{missing.map((p) => <button key={p.name} type="button" className="chip soft" onClick={() => addSport(p.name)}>+ {p.name}</button>)}</div>}
-              <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); addSport(newSport); setNewSport(''); }}>
-                <input className="input" value={newSport} onChange={(ev) => setNewSport(ev.target.value)} placeholder="Eigene Sportart, z.B. Klettern" aria-label="Eigene Sportart" />
-                <button type="submit" className="btn small" disabled={!newSport.trim()}>+</button>
-              </form>
-            </>
-          )}
-          {s.sports.length === 0 && !editSports && <span className="sub">Tippe auf den Stift und füg deine Sportarten hinzu.</span>}
+        {tab === 'finden' && <section className="card checkin" style={{ gap: 10 }}>
           <button type="button" className="city-bar" onClick={() => setRegOpen(true)} aria-label="Regionen wählen">
             <span style={{ fontSize: 18 }}>📍</span>
             <span className="row-main"><span className="row-meta">Wo?</span><span className="row-title strong">{regPick.filter((r) => regions.includes(r)).join(', ') || 'Überall'}</span></span>
@@ -301,8 +305,9 @@ function SportsPage({ s }) {
               })()}
             </div>
           ))}
-        </section>
+        </section>}
 
+        {tab === 'meine' && <>
         <section className="group">
           <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Ich nehme teil</h2><span className="tiny">{going.length}</span></div>
           <div className="list">
@@ -318,7 +323,7 @@ function SportsPage({ s }) {
 
         <section className="group">
           <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Gemerkt</h2><span className="tiny">{liked.length}</span></div>
-          {likedBySport.length === 0 && <div className="list"><div className="empty">Noch nichts gemerkt. Such oben nach Events und tippe auf „Merken“.</div></div>}
+          {likedBySport.length === 0 && <div className="list"><div className="empty">Noch nichts gemerkt. Unter „Events finden“ suchen und „Merken“ tippen.</div></div>}
           {likedBySport.map(({ sp, list }) => (
             <div key={sp.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span className="label" style={{ padding: '0 4px', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name={sp.icon || 'heart'} size={14} color={GREEN} />{sp.name} ({list.length})</span>
@@ -338,10 +343,13 @@ function SportsPage({ s }) {
             ))}</div>}
           </section>
         )}
-        <section className="card" style={{ gap: 10 }}>
-          <span className="label" style={{ padding: 0 }}>Zeitrechner</span>
-          <PaceCalc />
-        </section>
+        </>}
+        {tab === 'rechner' && (
+          <section className="card" style={{ gap: 10 }}>
+            <span className="label" style={{ padding: 0 }}>Zeitrechner</span>
+            <PaceCalc />
+          </section>
+        )}
       </main>
       <TabBar active="bereiche" />
     </>
