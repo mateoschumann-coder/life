@@ -1,6 +1,6 @@
 // Wiederverwendbare Formulare (öffnen sich von unten)
 import { useState } from 'react';
-import { AreaSelect, Field, Segmented, Sheet, SubSelect, toast } from './ui';
+import { AreaSelect, Field, Segmented, Sheet, SubSelect, toast, Info } from './ui';
 import { addHabit, addProject, addResource } from '../lib/actions';
 import { areaOf } from '../lib/logic';
 import { go } from '../lib/router';
@@ -56,7 +56,7 @@ export function NewProjectSheet({ s, open, onClose, areaId, subId = null, pillar
         <input type="checkbox" checked={withAi} onChange={(e) => setWithAi(e.target.checked)} />
         <span className="row-main">
           <span style={{ fontSize: 15, fontWeight: 600 }}>Danach mit KI gestalten</span>
-          <span className="tiny">Die KI schlägt passende Inhalte, Graphen und erste Aufgaben vor</span>
+          <Info>Die KI schlägt passende Inhalte, Graphen und erste Aufgaben vor</Info>
         </span>
       </label>
       <button type="button" className="btn" onClick={save} disabled={!name.trim()}>Projekt anlegen</button>
@@ -91,7 +91,7 @@ export function NewHabitSheet({ s, open, onClose, areaId, subId = null }) {
       <div className="field">
         <span>Wie oft?</span>
         <Segmented full options={[{ id: 'frei', label: 'Frei, ohne Zahl' }, { id: 'fest', label: 'Feste Zahl' }]} value={fixed ? 'fest' : 'frei'} onChange={(v) => setFixed(v === 'fest')} label="Art" />
-        {!fixed && <span className="tiny" style={{ paddingLeft: 4, lineHeight: 1.4 }}>Du hakst ab, wann immer du es machst. Der KI-Check schaut, ob es eingeschlafen ist, und erinnert dich sanft.</span>}
+        {!fixed && <Info>Du hakst ab, wann immer du es machst. Der KI-Check schaut, ob es eingeschlafen ist, und erinnert dich sanft.</Info>}
         {fixed && <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input className="input" style={{ width: 76 }} type="number" min="1" max="31" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} aria-label="Anzahl" />
           <span className="sub">mal pro</span>

@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addGathering, addGuest, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, OCCASIONS, todoCats, SHOP_CATS, TODO_TEMPLATES, updateGathering, updateItem, VENUE_STATUS,
+  addGathering, addGuest, addWaGroup, removeWaGroup, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, OCCASIONS, todoCats, SHOP_CATS, TODO_TEMPLATES, updateGathering, updateItem, VENUE_STATUS,
 } from '../lib/gather';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
 import GroupedChecklist from '../components/GroupedChecklist';
 import PlanChat from '../components/PlanChat';
 import { DateRangeField } from '../components/DateRange';
-import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } from '../lib/invites';
 import { Missing } from './Saeule';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
@@ -177,7 +177,7 @@ export function EventsList({ s }) {
         </div>
         <Field label="Ungefähr wie viele Gäste?"><input className="input" inputMode="numeric" value={f.expected} onChange={(e) => setF({ ...f, expected: e.target.value.replace(/[^\d–-]/g, '') })} placeholder="z.B. 8 – darf auch leer bleiben" /></Field>
         <button type="button" className="btn" onClick={save}>Anlegen</button>
-        <span className="tiny">Danach hilft dir die KI: Ideen, Motto, Menü, Getränke{f.kind === 'auswaerts' ? ', passende Orte' : ''} und Einladung.</span>
+        <Info>Danach hilft dir die KI: Ideen, Motto, Menü, Getränke{f.kind === 'auswaerts' ? ', passende Orte' : ''} und Einladung.</Info>
       </Sheet>
       <TabBar active="bereiche" />
     </>
@@ -221,7 +221,7 @@ function Venues({ g }) {
           <button type="submit" className="btn small" disabled={!name.trim()}>+</button>
         </form>
       </div>
-      <span className="tiny" style={{ padding: '0 4px' }}>Status antippen: Idee → Angefragt → Reserviert (wird zum Ort des Events) → Passt nicht.</span>
+      <Info>Status antippen: Idee → Angefragt → Reserviert (wird zum Ort des Events) → Passt nicht.</Info>
     </>
   );
 }
@@ -263,6 +263,44 @@ function EventShop({ g }) {
         );
       })}
     </>
+  );
+}
+
+// v0.95 (Mateo): WhatsApp-Gruppen – Text kopieren und Gruppe öffnen (Einfügen + Senden in WhatsApp)
+function WaGroups({ s, text }) {
+  const groups = s.waGroups || [];
+  const [add, setAdd] = useState(false);
+  const [f, setF] = useState({ name: '', link: '' });
+  const [edit, setEdit] = useState(false);
+  const go = async (x) => {
+    try { await navigator.clipboard.writeText(text); toast('Einladung kopiert – in der Gruppe einfügen'); } catch { toast('Kopieren ging nicht – Text lange drücken und kopieren'); }
+    if (x.link) window.open(x.link, '_blank');
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <b style={{ fontSize: 14, flex: 1 }}>WhatsApp-Gruppen</b>
+        <Info>Gruppen-Link holen: in WhatsApp die Gruppe öffnen → Gruppenname antippen → „Per Link einladen“ → „Link kopieren“ und hier einfügen. Antippen kopiert dann die Einladung und öffnet die Gruppe – du fügst nur noch ein und sendest. (WhatsApp erlaubt nicht, dass eine App selbst in Gruppen schreibt.)</Info>
+        {groups.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} style={{ fontSize: 13 }} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎'}</button>}
+      </span>
+      {groups.length > 0 && (
+        <div className="chips">
+          {groups.map((x) => (edit
+            ? <button key={x.id} type="button" className="chip editing" onClick={() => confirm(`„${x.name}“ entfernen?`) && removeWaGroup(x.id)}>{x.name} ✕</button>
+            : <button key={x.id} type="button" className="chip on" onClick={() => go(x)}>👥 {x.name}</button>))}
+        </div>
+      )}
+      {add ? (
+        <form className="card" style={{ gap: 6, padding: 10 }} onSubmit={(e) => { e.preventDefault(); if (addWaGroup(f.name, f.link)) toast('Gruppe gespeichert'); setF({ name: '', link: '' }); setAdd(false); }}>
+          <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Name, z.B. Fußball-Jungs" aria-label="Gruppenname" />
+          <input className="input" value={f.link} onChange={(e) => setF({ ...f, link: e.target.value })} placeholder="Gruppen-Link (chat.whatsapp.com/…)" inputMode="url" aria-label="Gruppen-Link" />
+          <span style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" className="btn small" style={{ flex: 1 }} disabled={!f.name.trim()}>Speichern</button>
+            <button type="button" className="btn small sec" onClick={() => setAdd(false)}>Abbrechen</button>
+          </span>
+        </form>
+      ) : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setAdd(true)}>+ Gruppe hinzufügen</button>}
+    </div>
   );
 }
 
@@ -375,7 +413,7 @@ function Detail({ s, g }) {
                 </div>
               ))}
             </div>
-            <span className="tiny" style={{ padding: '0 4px' }}>Status antippen: Einladen → Eingeladen → Zugesagt → Abgesagt.</span>
+            <Info>Status antippen: Einladen → Eingeladen → Zugesagt → Abgesagt.</Info>
             {s.people.length > 0 && <button type="button" className="btn tint small" onClick={() => setPickGuests(true)}>👥 Aus Menschen auswählen</button>}
             {(() => {
               const next = g.guests.filter((x) => x.status === 'offen' && phoneOf(x));
@@ -385,7 +423,7 @@ function Detail({ s, g }) {
                 <div className="take-box" style={{ gap: 6 }}>
                   <span style={{ fontWeight: 650, fontSize: 14 }}>📲 Nacheinander per WhatsApp einladen · noch {next.length}</span>
                   <a className="btn small" href={`https://wa.me/${phoneOf(x)}?text=${encodeURIComponent(inviteText(g))}`} target="_blank" rel="noreferrer" onClick={() => setGuest(g.id, x.id, { status: 'eingeladen' })}>{x.name} einladen →</a>
-                  <span className="tiny">Öffnet den Chat mit der fertigen Einladung – du tippst nur noch auf Senden. Danach zurück in die App, dann kommt der Nächste.</span>
+                  <Info>Öffnet den Chat mit der fertigen Einladung – du tippst nur noch auf Senden. Danach zurück in die App, dann kommt der Nächste.</Info>
                 </div>
               );
             })()}
@@ -396,16 +434,17 @@ function Detail({ s, g }) {
         {cur === 'mitbringen' && (
           <>
             <SimpleList items={g.bring} color={COLOR} onAdd={(text, who) => addItem(g.id, 'bring', { text: text.trim(), who: String(who || '').trim() })} onToggle={(id) => updateItem(g.id, 'bring', id, { done: !g.bring.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'bring', id)} meta={(x) => (x.who ? `bringt ${x.who}` : 'noch niemand eingeteilt')} placeholder="z.B. Salat, Wein, Eis" extraInput="Wer?" />
-            <span className="tiny" style={{ padding: '0 4px' }}>Was Gäste mitbringen könnten – abhaken, sobald jemand zugesagt hat.</span>
+            <Info>Was Gäste mitbringen könnten – abhaken, sobald jemand zugesagt hat.</Info>
           </>
         )}
         {cur === 'einladung' && (
           <section className="card" style={{ gap: 10 }}>
-            <span className="tiny">Allgemeine Einladung an alle – ohne Namen. Wann, Wo und der Google-Maps-Link kommen automatisch aus dem Überblick dazu.</span>
+            <Info>Allgemeine Einladung an alle – ohne Namen. Wann, Wo und der Google-Maps-Link kommen automatisch aus dem Überblick dazu.</Info>
             <textarea className="input" style={{ minHeight: 120 }} defaultValue={g.invite} key={g.id + 'i' + (g.invite || '').length} placeholder="z.B. Hey! Am Samstag gibt’s Asado bei mir 🔥 Bring gute Laune mit. Bist du dabei? – oder unten im KI-Planer „Einladung schreiben“." onBlur={(e) => e.target.value !== g.invite && updateGathering(g.id, { invite: e.target.value })} aria-label="Einladungstext" />
             {inviteDetails(g) ? <div className="take-box" style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{inviteDetails(g)}</div> : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => setTab('ueberblick')}>Datum, Uhrzeit, Ort und Adresse im Überblick eintragen ›</button>}
             <button type="button" className="btn" onClick={share}>Einladung teilen (WhatsApp …)</button>
-            <span className="tiny">Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln per WhatsApp einladen – mit demselben Text.</span>
+            <Info>„Teilen“ öffnet die iPhone-Auswahl – dort WhatsApp und dann eine Gruppe oder Person wählen. Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln einladen.</Info>
+            <WaGroups s={s} text={inviteText(g)} />
           </section>
         )}
         <PlanChat

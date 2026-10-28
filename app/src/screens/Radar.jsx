@@ -4,7 +4,7 @@ import { fmtShort, parseKey } from '../lib/dates';
 import {
   addEvent, addRadarItem, addTask, addTopic, advanceEvent, decideRadarItem, deleteEvent, deleteRadarItem, removeTopic, STAGE_LABEL,
 } from '../lib/actions';
-import { Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 
 const STAGE_STYLE = {
   entdeckt: ['var(--soft)', 'var(--fill)'],
@@ -137,7 +137,7 @@ export default function Radar() {
                 {travel.map((e) => <EventRow key={e.id} e={e} />)}
               </div>
             </section>
-            <span className="tiny">Tippe auf den Status, um ein Event weiterzuschieben: Entdeckt → Interessiert → Zugesagt → Besucht.</span>
+            <Info>Tippe auf den Status, um ein Event weiterzuschieben: Entdeckt → Interessiert → Zugesagt → Besucht.</Info>
           </>
         )}
       </main>

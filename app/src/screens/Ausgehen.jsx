@@ -9,7 +9,7 @@ import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
-import { Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 
 const wd = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
 const TAB_KEY = 'life-app-ausgehen-tab';
@@ -40,7 +40,7 @@ function SearchChips({ s, kind, defaults, disabled, onPick }) {
           <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
         </form>
       )}
-      {edit && <span className="tiny">Antippen entfernt eine Kategorie. Eigene Knöpfe suchen genau danach.</span>}
+      {edit && <Info>Antippen entfernt eine Kategorie. Eigene Knöpfe suchen genau danach.</Info>}
     </>
   );
 }
@@ -158,7 +158,7 @@ function Prefs({ s }) {
       </button>
       {open && (
         <>
-          <span className="tiny">Danach sucht die KI gezielt – und auch nach Geheimtipps, die dazu passen.</span>
+          <Info>Danach sucht die KI gezielt – und auch nach Geheimtipps, die dazu passen.</Info>
           <div className="chips">{all.map((p) => <button key={p} type="button" className={prefs.includes(p) ? 'chip on' : 'chip soft'} onClick={() => toggle(p)}>{p}</button>)}</div>
           <form className="block-add" onSubmit={(e) => { e.preventDefault(); const t = text.trim(); if (t && !prefs.includes(t)) save([...prefs, t]); setText(''); }}>
             <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Eigene, z.B. Cumbia, Elektro-Swing, Schach" aria-label="Eigene Vorliebe" />
@@ -171,7 +171,7 @@ function Prefs({ s }) {
 }
 
 // ---------- Events ----------
-function Events({ s, city }) {
+function Events({ s, city, view = 'find' }) {
   const t = today();
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(lastEventSearch);
@@ -218,6 +218,7 @@ function Events({ s, city }) {
 
   return (
     <>
+      {view === 'find' && <>
       <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Was ist los in {city}?</span>
         <ModeToggle mode={smode} onChange={setSmode} />
@@ -232,7 +233,7 @@ function Events({ s, city }) {
         <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
         {smode === 'links' ? <SourceLinks embedded s={s} area="events" city={city} query={q} /> : (
           <>
-            <span className="tiny">Die KI sucht selbst im Internet (Passline, Eventbrite, Instagram & Co.) und zeigt dir konkrete Events passend zu deinen Vorlieben – ca. 3–5 Cent pro Suche.</span>
+            <Info>Die KI sucht selbst im Internet (Passline, Eventbrite, Instagram & Co.) und zeigt dir konkrete Events passend zu deinen Vorlieben – ca. 3–5 Cent pro Suche.</Info>
             <Prefs s={s} />
             {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
           </>
@@ -276,14 +277,14 @@ function Events({ s, city }) {
               </div>
             </article>
           ))}
-          {shown.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alle Ergebnisse durchgesehen.</span>}
+          {shown.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alle Ergebnisse durchgesehen – gemerkte stehen unter „Meine Events“.</span>}
         </section>
       )}
+      </>}
 
-      <section className="group">
-        <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Meine Events{city !== HOME_CITY ? ` in ${city}` : ''}</h2></div>
+      {view === 'mine' && <section className="group">
         <div className="list">
-          {upcoming.length === 0 && past.length === 0 && <div className="empty">Noch nichts vorgemerkt. Such oben oder tippe beim Coach auf „Interessiert“.</div>}
+          {upcoming.length === 0 && past.length === 0 && <div className="empty">Noch nichts vorgemerkt. Unter „Finden“ suchen und „Interessiert“ oder „Bin dabei“ tippen.</div>}
           {past.map((e) => (
             <div key={e.id} className="row" style={{ minHeight: 64 }}>
               <DateBadge date={e.date} />
@@ -307,7 +308,7 @@ function Events({ s, city }) {
             </div>
           ))}
         </div>
-      </section>
+      </section>}
     </>
   );
 }
@@ -326,7 +327,7 @@ function Stars({ value, onChange, size = 18 }) {
 function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, defaultHood = '', defaultFav = false }) {
   const [catEdit, setCatEdit] = useState(false);
   const [newCat, setNewCat] = useState('');
-  const blank = { fav: defaultFav, name: '', category: defaultCat || 'Café', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [], price: 0 };
+  const blank = { fav: defaultFav, name: '', category: defaultCat || 'Noch unklar', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [], price: 0 };
   const [tagText, setTagText] = useState('');
   const [f, setF] = useState(blank);
   const [hits, setHits] = useState(null);
@@ -527,17 +528,19 @@ function Orte({ s, city, view = 'mine' }) {
   const [newHood, setNewHood] = useState('');
   const [sheet, setSheet] = useState(null); // null | 'neu' | place
   const [q, setQ] = useState('');
+  const [mq, setMq] = useState(''); // v0.95: Suche in meinen Orten
   const [search, setSearch] = useState(lastPlaceSearch);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const hasKey = !!getAi().apiKey;
 
   const here = s.places.filter((p) => placeCity(p) === city);
-  const catOf = (p) => (placeCatsOf(s).includes(p.category) ? p.category : 'Sonstiges');
+  const catOf = (p) => (placeCatsOf(s).includes(p.category) ? p.category : 'Noch unklar');
   const hoods = hoodsOf(s, city);
   const tog = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   const list = here.filter((p) => (status === 'alle' || (status === 'fav' ? p.fav : p.status === status)) && (!catSel.length || catSel.includes(catOf(p))) && (!subSel.length || subSel.includes(p.subcat))
-    && (!hoodSel.length || hoodSel.includes(p.hood)) && (!starSel.length || starSel.includes(p.rating || 0)) && (!priceSel.length || priceSel.includes(p.price || 0)) && tagSel.every((x) => (p.tags || []).includes(x)));
+    && (!hoodSel.length || hoodSel.includes(p.hood)) && (!starSel.length || starSel.includes(p.rating || 0)) && (!priceSel.length || priceSel.includes(p.price || 0)) && tagSel.every((x) => (p.tags || []).includes(x))
+    && (!mq.trim() || [p.name, p.address, p.note, p.subcat, p.category, p.hood, ...(p.tags || [])].join(' ').toLowerCase().includes(mq.trim().toLowerCase())));
   const addHood = (v) => {
     if (v && v.trim()) store.update((d) => { const h = d.profile?.hoods || {}; d.profile = { ...d.profile, hoods: { ...h, [city]: [...new Set([...(h[city] || []), v.trim()])] } }; });
   };
@@ -580,6 +583,7 @@ function Orte({ s, city, view = 'mine' }) {
   return (
     <>
       {view === 'mine' && (<>
+      <input className="input" type="search" value={mq} onChange={(e) => setMq(e.target.value)} placeholder={`In meinen Orten suchen (${here.length})`} aria-label="Meine Orte durchsuchen" />
       {/* v0.66 (Mateo): kompakt – vier Filter-Knöpfe, jeder öffnet eine Auswahl (mehrere möglich) */}
       <div className="filter-row">
         <button type="button" className={hoodSel.length ? 'chip on' : 'chip soft'} onClick={() => setFsheet('viertel')}>🏘 {label('Viertel', hoodSel)}</button>
@@ -593,7 +597,7 @@ function Orte({ s, city, view = 'mine' }) {
         <button type="button" className="btn small sec" style={{ marginLeft: 'auto', background: 'var(--card-2)', whiteSpace: 'nowrap', padding: '8px 10px', flexShrink: 0 }} onClick={() => setImportOpen(true)} aria-label="Orte per KI aus Text einfügen">✨ KI</button>
         <button type="button" className="btn small" style={{ whiteSpace: 'nowrap', padding: '8px 10px', flexShrink: 0 }} onClick={() => setSheet('neu')}>+ Ort</button>
       </div>
-      {list.length === 0 && <div className="list"><div className="empty">{nActive ? 'Keine Orte passen zu den Filtern.' : `Noch keine Orte in ${city}.`} Tipp auf „+ Ort“, füg mit „✨ KI“ gleich mehrere aus einem Text ein oder lass dir unten neue vorschlagen.</div></div>}
+      {list.length === 0 && <div className="list"><div className="empty">{mq.trim() ? `Kein Ort passt zu „${mq.trim()}“.` : nActive ? 'Keine Orte passen zu den Filtern.' : `Noch keine Orte in ${city}.`} Tipp auf „+ Ort“, füg mit „✨ KI“ gleich mehrere aus einem Text ein oder lass dir unten neue vorschlagen.</div></div>}
       {groups.map((g) => (
         <section key={g.c} className="group">
           {catSel.length !== 1 && <h2 className="label" style={{ padding: '0 4px' }}>{g.c} · {g.items.length}</h2>}
@@ -601,7 +605,7 @@ function Orte({ s, city, view = 'mine' }) {
             {g.items.map((p) => (
               <div key={p.id} style={{ display: 'flex', flexDirection: 'column' }}>
                 <button type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => setSel(sel === p.id ? null : p.id)}>
-                  <span className="cat-dot" style={{ background: CAT_COLOR[p.category] }} />
+                  <span className="cat-dot" style={{ background: CAT_COLOR[p.category] || CAT_COLOR.Sonstiges }} />
                   <span className="row-main">
                     <span className="row-title plain">{p.name}</span>
                     <span className="row-meta">{[p.subcat || p.category, p.hood].filter(Boolean).join(' · ')}</span>
@@ -632,6 +636,7 @@ function Orte({ s, city, view = 'mine' }) {
       </>)}
       {view === 'find' && <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Orte in {city} entdecken</span>
+        <Info>„Merken“ legt den Ort unter „Meine Orte“ als „Will hin“ ab – dort findest du ihn wieder.</Info>
         <ModeToggle mode={pmode} onChange={setPmode} />
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (pmode === 'ki') run(q); }}>
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Specialty Coffee in Palermo" aria-label="Orte suchen" />
@@ -684,7 +689,7 @@ function Orte({ s, city, view = 'mine' }) {
                 <div className="chips">{l.map((x) => <button key={x} type="button" className={tagSel.includes(x) ? 'chip on' : 'chip soft'} style={usedTags.includes(x) ? undefined : { opacity: 0.6 }} onClick={() => tog(tagSel, setTagSel, x)}>{x}</button>)}</div>
               </div>
             ))}
-            <span className="tiny">Bei Tags werden nur Orte gezeigt, die alle gewählten Tags haben.</span>
+            <Info>Bei Tags werden nur Orte gezeigt, die alle gewählten Tags haben.</Info>
           </>
         )}
         <button type="button" className="btn" onClick={() => setFsheet(null)}>{list.length} {list.length === 1 ? 'Ort' : 'Orte'} zeigen</button>
@@ -718,6 +723,10 @@ export default function Ausgehen() {
   const s = useStore();
   const [pview, setPviewState] = useState(() => { try { return localStorage.getItem('life-app-places-view') || 'mine'; } catch { return 'mine'; } });
   const setPview = (v) => { setPviewState(v); try { localStorage.setItem('life-app-places-view', v); } catch {} };
+  const [eview, setEviewState] = useState(() => { try { return localStorage.getItem('life-app-events-view') || 'find'; } catch { return 'find'; } });
+  const setEview = (v) => { setEviewState(v); try { localStorage.setItem('life-app-events-view', v); } catch {} };
+  const evN = s.events.filter((e) => e.stage !== 'besucht' && !e.travel && eventCity(e) === cityOf(s)).length;
+  const plN = s.places.filter((p) => placeCity(p) === cityOf(s)).length;
   const [tab, setTab] = useState(() => {
     try {
       return localStorage.getItem(TAB_KEY) || 'events';
@@ -740,13 +749,14 @@ export default function Ausgehen() {
           <h1 className="h1">Ausgehen</h1>
         </div>
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
-        {tab === 'events' ? <CityChips s={s} /> : (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <DropMenu value={pview} onChange={setPview} options={[{ id: 'mine', label: '📌 Meine Orte' }, { id: 'find', label: '🔍 Orte finden' }]} />
-            <CityChips s={s} compact />
-          </div>
-        )}
-        {tab === 'events' ? <Events s={s} city={cityOf(s)} /> : <Orte s={s} city={cityOf(s)} view={pview} />}
+        <CityChips s={s} />
+        {/* v0.95 (Mateo): klar getrennt – Gemerktes und Suche nebeneinander statt untereinander */}
+        <div className="sub-switch">
+          {tab === 'events'
+            ? [['find', '🔍 Finden'], ['mine', `⭐ Meine Events${evN ? ` · ${evN}` : ''}`]].map(([k, l]) => <button key={k} type="button" className={eview === k ? 'on' : ''} onClick={() => setEview(k)}>{l}</button>)
+            : [['mine', `📌 Meine Orte${plN ? ` · ${plN}` : ''}`], ['find', '🔍 Neue finden']].map(([k, l]) => <button key={k} type="button" className={pview === k ? 'on' : ''} onClick={() => setPview(k)}>{l}</button>)}
+        </div>
+        {tab === 'events' ? <Events s={s} city={cityOf(s)} view={eview} /> : <Orte s={s} city={cityOf(s)} view={pview} />}
       </main>
       <TabBar active="ausgehen" />
     </>

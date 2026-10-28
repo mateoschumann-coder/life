@@ -3,7 +3,7 @@ import { useStore } from '../lib/store';
 import { dueText, fmtShort, today } from '../lib/dates';
 import { areaColor, areaOf, projectProgress, subOf } from '../lib/logic';
 import { addTask, deleteProject, deleteResource, deleteTask, projectToTemplate, toggleTask, updateProject } from '../lib/actions';
-import { Back, Check, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Chevron, Field, Icon, Sheet, TabBar, toast, Info } from '../components/ui';
 import Blocks from '../components/Blocks';
 import ProjectDesigner from '../components/ProjectDesigner';
 import { addBlocks, BLOCK_TYPES, makeBlock } from '../lib/blocks';
@@ -94,7 +94,7 @@ export default function Projekt({ id }) {
               <button type="submit" className="btn small" disabled={!taskText.trim()}>+</button>
             </form>
           </div>
-          <span className="tiny" style={{ padding: '0 4px' }}>Aufgaben mit Datum erscheinen an dem Tag automatisch unter „Heute“.</span>
+          <Info>Aufgaben mit Datum erscheinen an dem Tag automatisch unter „Heute“.</Info>
         </section>
 
         <section className="card">

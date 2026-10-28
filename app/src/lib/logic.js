@@ -130,17 +130,54 @@ export function rhythmStats(s, weeks, t) {
   return { pct: need ? Math.round((got / need) * 100) : null, days, start };
 }
 
-// Kontakte
-export function peopleOverdue(s, t) {
+// Kontakte – v0.95 (Mateo): fällig wird jemand nicht stur nach X Tagen, sondern leicht verteilt:
+// • noch nie gemeldet → der erste Termin liegt verteilt im ersten Intervall (nicht alle am selben Tag)
+// • danach: letzter Kontakt + Intervall ± bis zu 15 % (wechselt bei jedem Kontakt, damit es nicht immer derselbe Tag ist)
+// • optional „Wann im Monat?“ (Anfang/Mitte/Ende) – nur ab monatlich – schiebt den Termin in dieses Fenster
+const hashOf = (str) => { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return Math.abs(h); };
+export const WHEN_IN_MONTH = [{ id: '', label: 'Egal' }, { id: 'anfang', label: 'Anfang', from: 1, to: 10 }, { id: 'mitte', label: 'Mitte', from: 11, to: 20 }, { id: 'ende', label: 'Ende', from: 21, to: 28 }];
+export function contactDue(p, t) {
+  const every = Number(p.contactEvery) || 0;
+  if (every <= 0 || p.natural) return null;
+  const last = lastContact(p);
+  let due;
+  if (!last) {
+    const since = p.rhythmSince || p.createdAt?.slice?.(0, 10) || t;
+    due = addDays(since, hashOf(p.id) % Math.max(1, every));
+  } else {
+    const span = Math.round(every * 0.15);
+    const jitter = span ? (hashOf(p.id + last) % (2 * span + 1)) - span : 0;
+    due = addDays(last, every + jitter);
+  }
+  const w = WHEN_IN_MONTH.find((x) => x.id === p.when && x.from);
+  if (w && every >= 28) {
+    const [y, m] = due.split('-').map(Number);
+    const day = w.from + (hashOf(p.id + y + m) % (w.to - w.from + 1));
+    let cand = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (diffDays(cand, due) > every * 0.35) { // Fenster in diesem Monat schon zu weit vorbei → nächster Monat
+      const n = new Date(y, m, day);
+      cand = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    if (last && diffDays(last, cand) < every * 0.5) { // nicht zu kurz nach dem letzten Kontakt
+      const n = new Date(Number(cand.slice(0, 4)), Number(cand.slice(5, 7)), day);
+      cand = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    due = cand;
+  }
+  return due;
+}
+export function peopleOverdue(s, t, ahead = 0) {
   return s.people
-    .filter((p) => p.contactEvery)
     .map((p) => {
+      const due = contactDue(p, t);
+      if (!due) return null;
       const last = lastContact(p);
       const since = last ? diffDays(last, t) : null;
-      return { person: p, last, since, ratio: since === null ? 99 : since / p.contactEvery };
+      const late = diffDays(due, t);
+      return { person: p, last, since, due, late, ratio: 1 + late / Math.max(1, p.contactEvery) };
     })
-    .filter((x) => x.since === null || x.since > x.person.contactEvery)
-    .sort((a, b) => b.ratio - a.ratio);
+    .filter((x) => x && x.late >= -ahead)
+    .sort((a, b) => b.late - a.late);
 }
 
 export function upcomingBirthdays(s, t, within = 14) {

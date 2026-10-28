@@ -4,7 +4,7 @@ import { today } from '../lib/dates';
 import { buildIcs } from '../lib/ics';
 import { loadDemo } from '../lib/demo';
 import { seed } from '../lib/seed';
-import { Back, Chevron, Field, Segmented, TabBar, toast } from '../components/ui';
+import { Back, Chevron, Field, Segmented, TabBar, toast, Info } from '../components/ui';
 import { getAi, MODELS, monthUsage, saveAi, testKey } from '../lib/ai';
 
 // Datei teilen (iPhone: „In Dateien sichern“, AirDrop …) oder herunterladen
@@ -111,7 +111,7 @@ export default function Einstellungen() {
                 <input type="checkbox" checked={!!ai.autoApply} onChange={(e) => setAi(saveAi({ autoApply: e.target.checked }))} />
                 <span className="row-main">
                   <span style={{ fontSize: 15, fontWeight: 600 }}>Direkt ausführen, ohne Nachfrage</span>
-                  <span className="tiny">Die KI setzt Änderungen sofort um; mit „Rückgängig“ machst du sie wieder weg</span>
+                  <Info>Die KI setzt Änderungen sofort um; mit „Rückgängig“ machst du sie wieder weg</Info>
                 </span>
               </label>
               <span className="sub">Diesen Monat: {usage.requests} Anfragen · {usage.searches || 0} Internet-Suchen · ca. {usage.cost < 0.01 ? 'unter 0,01' : usage.cost.toFixed(2).replace('.', ',')} $</span>
@@ -125,7 +125,7 @@ export default function Einstellungen() {
                   ))}
                 </div>
               )}
-              <span className="tiny">Internet-Suchen kosten je 1 Cent plus den gefundenen Text. Gesucht wird nur noch bei Events, Orten, Rezepten, Reisezielen und wenn du „Im Internet suchen“ bzw. die Lupe antippst. Aufschlüsselung ab Version 0.28.</span>
+              <Info>Internet-Suchen kosten je 1 Cent plus den gefundenen Text. Gesucht wird nur noch bei Events, Orten, Rezepten, Reisezielen und wenn du „Im Internet suchen“ bzw. die Lupe antippst. Aufschlüsselung ab Version 0.28.</Info>
               <button type="button" className="btn danger small" onClick={() => confirm('Schlüssel von diesem iPhone entfernen?') && setAi(saveAi({ apiKey: '' }))}>Schlüssel entfernen</button>
             </>
           ) : (
@@ -203,7 +203,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.94 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 0.95 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>

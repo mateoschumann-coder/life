@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { addSource, CURATED, host, OUTLETS, outletLink, removeSource, RUBRIKEN, SOURCE_TOPICS, SOURCE_TYPES } from '../lib/news';
-import { Back, Icon, Segmented, TabBar, toast } from '../components/ui';
+import { Back, Icon, Segmented, TabBar, toast, Info } from '../components/ui';
 
 const remember = (key, init) => {
   try { return localStorage.getItem(key) || init; } catch { return init; }
@@ -18,7 +18,7 @@ function Outlets() {
       <div className="box-tabs">
         {RUBRIKEN.map((r) => <button key={r.id} type="button" className={rub === r.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setRub(r.id)}>{r.label}</button>)}
       </div>
-      {rub !== 'start' && <span className="tiny" style={{ padding: '0 4px', marginTop: -4 }}>Direkt zur Rubrik – bei 🔎 sucht Google News die Rubrik auf dieser Seite (letzte Woche).</span>}
+      {rub !== 'start' && <Info>Direkt zur Rubrik – bei 🔎 sucht Google News die Rubrik auf dieser Seite (letzte Woche).</Info>}
       {OUTLETS.map((g) => (
         <section key={g.region} className="group">
           <h2 className="label" style={{ padding: '0 4px' }}>{g.flag} {g.region}</h2>

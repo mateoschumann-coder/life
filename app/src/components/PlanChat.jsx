@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAi } from '../lib/ai';
 import { useDictation } from '../lib/dictate';
-import { Icon, toast } from './ui';
+import { Icon, Info, toast } from './ui';
 
 const mid = () => Math.random().toString(36).slice(2, 10);
 const PREF_KEY = 'life-app-chatprefs';
@@ -184,7 +184,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       {!hideToggles && !compact && <div className="ai-toggles">
         <button type="button" className={web ? 'chip on' : 'chip soft'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })}>🔍 Internet {web ? 'an' : 'aus'}</button>
         <button type="button" className={smart ? 'chip on' : 'chip soft'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
-        <span className="tiny" style={{ flex: 1, minWidth: 140 }}>{[web ? 'Internet: aktuelle Infos & Links, ca. 1–3 Cent mehr' : autoWeb ? 'Ohne Internet: aus KI-Wissen – bei Flügen, Unterkünften und Preisen sucht die KI automatisch im Internet' : 'Ohne Internet: aus KI-Wissen, günstig', smart ? 'Gründlich: besseres Modell, ca. 20× teurer' : null].filter(Boolean).join(' · ')}</span>
+        <Info>{[web ? 'Internet: aktuelle Infos & Links, ca. 1–3 Cent mehr' : autoWeb ? 'Ohne Internet: aus KI-Wissen – bei Flügen, Unterkünften und Preisen sucht die KI automatisch im Internet' : 'Ohne Internet: aus KI-Wissen, günstig', smart ? 'Gründlich: besseres Modell, ca. 20× teurer' : null].filter(Boolean).join(' · ')}</Info>
       </div>}
       <form className="block-add" style={{ alignItems: 'flex-end' }} onSubmit={(e) => { e.preventDefault(); send(); }}>
         <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören beenden' : 'Sprechen'} disabled={busy}>

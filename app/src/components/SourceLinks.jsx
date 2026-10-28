@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { addSource, forgetSearch, instaTags, instaUrl, isFixed, isNative, learnSearch, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
 import { getAi } from '../lib/ai';
 import { store } from '../lib/store';
-import { Icon } from './ui';
+import { Icon, Info } from './ui';
 
 // Umschalter „🔗 Links / ✨ KI-Suche“ (v0.65), gemerkt pro Bereich
 const MODE_KEY = 'life-app-searchmode';
@@ -110,10 +110,10 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
             <input className="input" style={{ flex: '2 1 120px', minWidth: 0 }} value={link} onChange={(e) => setLink(e.target.value)} placeholder="Link, z.B. paulinacocina.net" aria-label="Link der Seite" />
             <button type="submit" className="btn small" disabled={!link.trim()}>+</button>
           </form>
-          <span className="tiny">🔧 = direkte Suche einrichten (sonst Google, nur auf dieser Seite).{cfg.perCity && city ? ` Neue Seiten gelten für ${city}.` : ''}{hidden ? ' ' : ''}{hidden ? <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => restoreSources(area)}>Entfernte Standard-Seiten zurückholen ({hidden})</button> : null}</span>
+          <Info>🔧 = direkte Suche einrichten (sonst Google, nur auf dieser Seite).{cfg.perCity && city ? ` Neue Seiten gelten für ${city}.` : ''}{hidden ? ' ' : ''}{hidden ? <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => restoreSources(area)}>Entfernte Standard-Seiten zurückholen ({hidden})</button> : null}</Info>
         </>
       )}
-      {!edit && <span className="tiny">{instant && !fresh ? 'Antippen öffnet die Seite mit deinem Suchbegriff. „Links erstellen“ übersetzt ihn vorher passend pro Seite (ca. 0,03 Cent).' : fresh ? 'Blaue Knöpfe öffnen die Suche direkt auf der Seite bzw. in der App. Grau (· G) = Google, nur auf dieser Seite.' : `Schreib frei, was du suchst. Die KI macht daraus pro Seite den passenden Suchbegriff${cfg.perCity && city ? ` für ${city}` : ''} (ohne Internet, ca. 0,03 Cent).`}</span>}
+      {!edit && <Info>{instant && !fresh ? 'Antippen öffnet die Seite mit deinem Suchbegriff. „Links erstellen“ übersetzt ihn vorher passend pro Seite (ca. 0,03 Cent).' : fresh ? 'Blaue Knöpfe öffnen die Suche direkt auf der Seite bzw. in der App. Grau (· G) = Google, nur auf dieser Seite.' : `Schreib frei, was du suchst. Die KI macht daraus pro Seite den passenden Suchbegriff${cfg.perCity && city ? ` für ${city}` : ''} (ohne Internet, ca. 0,03 Cent).`}</Info>}
     </Wrap>
   );
 }

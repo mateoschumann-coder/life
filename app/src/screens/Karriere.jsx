@@ -13,7 +13,7 @@ import { chatOf, saveChatOf } from '../lib/chats';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
 import PlanChat from '../components/PlanChat';
-import { Back, Check, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Chevron, Field, Icon, Sheet, TabBar, toast, Info } from '../components/ui';
 import { Missing } from './Saeule';
 import { ProjectsList, ProjectPage } from './EigeneProjekte';
 
@@ -97,7 +97,7 @@ function Docs({ s }) {
           </form>
         </div>
       )}
-      {open && <span className="tiny" style={{ padding: '0 4px' }}>Gilt für alle Bewerbungen. Was nur eine Stelle braucht, kommt in deren Checkliste.</span>}
+      {open && <Info>Gilt für alle Bewerbungen. Was nur eine Stelle braucht, kommt in deren Checkliste.</Info>}
     </section>
   );
 }
@@ -213,7 +213,7 @@ function SearchPrep({ s, search }) {
         <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} disabled={busy || !getAi().apiKey} onClick={async () => { setBusy(true); try { setSugg(await suggestSearchPrep(s, search)); } catch (e) { toast(errText(e)); } finally { setBusy(false); } }}>{busy ? 'Ich überlege …' : '✨ Was sollte ich noch können/wissen?'}</button>
         {left.length > 0 && <><span className="tiny">Antippen = auf die Liste</span><div className="chips">{left.map((x) => <button key={x.text} type="button" className="chip" onClick={() => catList.add('sprep', search.id, x.text, SEARCH_PREP[x.teil] ? x.teil : 'Fähigkeiten')}>+ {x.text} <span className="tiny">· {x.teil}</span></button>)}</div></>}
         {sugg && !left.length && <span className="tiny">Alles schon auf der Liste.</span>}
-        <span className="tiny">Ohne Internet, nutzt die Anforderungen deiner gespeicherten Stellen (unter 0,1 Cent).</span>
+        <Info>Ohne Internet, nutzt die Anforderungen deiner gespeicherten Stellen (unter 0,1 Cent).</Info>
       </section>
     </>
   );
@@ -277,7 +277,7 @@ function SearchPage({ s, search }) {
           </div>
           {imp !== null && !adding && (
             <div className="take-box">
-              <span className="tiny" style={{ color: 'var(--text)' }}>Einen oder <b>mehrere Links</b> (je eine Zeile) oder Anzeigentexte einfügen. Die KI legt pro Stelle einen Steckbrief an: Firma, Ort, Remote, Gehalt, Aufgaben, Anforderungen.</span>
+              <Info>Einen oder <b>mehrere Links</b> (je eine Zeile) oder Anzeigentexte einfügen. Die KI legt pro Stelle einen Steckbrief an: Firma, Ort, Remote, Gehalt, Aufgaben, Anforderungen.</Info>
               <div style={{ position: 'relative' }}>
                 <textarea className="input" style={{ minHeight: 90, paddingRight: 36, width: '100%' }} data-noclear="" value={imp} onChange={(e) => setImp(e.target.value)} placeholder="https://… oder Text der Anzeige" aria-label="Link oder Anzeigentext" />
                 {imp && <button type="button" className="x-btn" style={{ position: 'absolute', top: 6, right: 6 }} onClick={() => { setImp(''); setFound(null); }} aria-label="Feld leeren"><Icon name="x" size={13} color="var(--chev)" /></button>}
@@ -286,7 +286,7 @@ function SearchPage({ s, search }) {
                 <button type="button" className="btn small" style={{ flex: 1 }} onClick={runImport} disabled={impBusy || !imp.trim() || !getAi().apiKey}>{impBusy ? 'Ich lese die Anzeigen …' : '✨ Erkennen'}</button>
                 <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={async () => { try { const t = await navigator.clipboard.readText(); if (t) setImp(t); } catch { toast('Lange ins Feld tippen → Einsetzen'); } }}>📋 Einfügen</button>
               </div>
-              <span className="tiny">Ca. 0,1–0,3 Cent pro Stelle. LinkedIn zeigt Anzeigen oft nur angemeldet – klappt der Link nicht, den Text kopieren.</span>
+              <Info>Ca. 0,1–0,3 Cent pro Stelle. LinkedIn zeigt Anzeigen oft nur angemeldet – klappt der Link nicht, den Text kopieren.</Info>
               {found && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
                   <span className="label" style={{ padding: 0 }}>Erkannt: {found.length} {found.length === 1 ? 'Stelle' : 'Stellen'}</span>
@@ -430,7 +430,7 @@ function JobPrep({ s, job }) {
           <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => run(true)}>{busy === 'web' ? 'Ich recherchiere …' : '🔍 Mit Internet'}</button>
           <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey} onClick={() => run(false)}>{busy === 'fast' ? '…' : 'Ohne Internet'}</button>
         </div>
-        <span className="tiny">Mit Internet: Firma, News, Kultur, wer interviewt – ca. 3–4 Cent. Ohne Internet: aus dem Wissen der KI, unter 0,1 Cent.</span>
+        <Info>Mit Internet: Firma, News, Kultur, wer interviewt – ca. 3–4 Cent. Ohne Internet: aus dem Wissen der KI, unter 0,1 Cent.</Info>
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Infos zu {job.company || 'der Firma'} …</span></div>}
         {!busy && r && (
           <>
@@ -548,7 +548,7 @@ function JobPage({ s, job }) {
             </>
           )}
           <button type="button" className="btn sec" onClick={copy}>Für Claude kopieren</button>
-          <span className="tiny">Kopiert Stelle, Analyse und dein Profil als Text – in Claude einfügen und dort Anschreiben, Lebenslauf und Interview vorbereiten.</span>
+          <Info>Kopiert Stelle, Analyse und dein Profil als Text – in Claude einfügen und dort Anschreiben, Lebenslauf und Interview vorbereiten.</Info>
         </section>
 
         <section className="card" style={{ gap: 8 }}>

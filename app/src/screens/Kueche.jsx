@@ -9,7 +9,7 @@ import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { listen } from '../components/Coach';
-import { Back, Check, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 
 const TAB_KEY = 'life-app-kueche-tab';
 const COLOR = '#2FA36B';
@@ -151,7 +151,7 @@ function Recipes({ s }) {
         <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={async () => { try { const t = await navigator.clipboard.readText(); if (t) setImp({ ...imp, text: t }); } catch { toast('Einfügen ging nicht – lange ins Feld tippen → Einsetzen'); } }}>📋 Aus der Zwischenablage einfügen</button>
         <div className="field"><span>Kategorie</span><div className="chips">{s.recipeCats.map((c) => <button key={c} type="button" className={imp?.cat === c ? 'chip on' : 'chip'} onClick={() => setImp({ ...imp, cat: c })}>{c}</button>)}</div></div>
         <button type="button" className="btn" onClick={runImport} disabled={impBusy || !imp?.text?.trim() || !hasKey}>{impBusy ? 'Ich lese das Rezept …' : '✨ Übernehmen'}</button>
-        <span className="tiny">Text: unter 0,1 Cent. Link: die KI öffnet die Seite direkt (ca. 0,1–0,3 Cent). Instagram-Links kann sie nicht öffnen – dort den Text kopieren.</span>
+        <Info>Text: unter 0,1 Cent. Link: die KI öffnet die Seite direkt (ca. 0,1–0,3 Cent). Instagram-Links kann sie nicht öffnen – dort den Text kopieren.</Info>
       </Sheet>
       <RecipeSheet s={s} recipe={sheet || (newOpen ? 'neu' : null)} onClose={() => { setSheet(null); setNewOpen(false); }} />
     </>
@@ -327,7 +327,7 @@ function Shopping({ s }) {
           ))}
         </div>
       )}
-      {open.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal).</span>}
+      {open.length > 0 && <Info>Artikel antippen = Kategorie ändern (merkt sich die App für das nächste Mal).</Info>}
       <Sheet open={!!move} title={move ? `„${move.name}“ einsortieren` : ''} onClose={() => setMove(null)}>
         {shopStructure(s).groups.map((g) => (
           <div key={g.id} className="field">

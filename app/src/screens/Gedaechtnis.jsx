@@ -27,7 +27,7 @@ export default function Gedaechtnis() {
           <h1 className="h1">Was Life über dich weiß</h1>
         </div>
         <span className="sub" style={{ padding: '0 4px', lineHeight: 1.45 }}>
-          Daraus macht dein Coach seine Anstöße. Es füllt sich von selbst, wenn du dem Assistenten erzählst, was du vorhast, magst oder wie es läuft. Falsches einfach löschen oder antippen und ändern.
+          Das nutzt der Assistent, wenn er dir hilft. Es füllt sich von selbst, wenn du dem Assistenten erzählst, was du vorhast, magst oder wie es läuft. Falsches einfach löschen oder antippen und ändern.
         </span>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="tell" onClick={() => listen()}>

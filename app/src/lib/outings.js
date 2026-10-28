@@ -265,7 +265,7 @@ const PLACE_TOOL = {
           type: 'object',
           properties: {
             name: { type: 'string' },
-            kategorie: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'] },
+            kategorie: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges', 'Noch unklar'], description: '„Noch unklar“, wenn aus dem Text nicht klar ist, was für ein Ort es ist' },
             unterart: { type: 'string', description: 'Genauer, z.B. „Rooftop / Sky Bar“, „Pub“, „Cocktailbar“, „Parrilla“, „Specialty Coffee“' },
             adresse: { type: 'string', description: 'Straße und Hausnummer, Viertel' },
             viertel: { type: 'string', description: 'Stadtviertel, z.B. „Palermo“, „San Telmo“' },
@@ -327,7 +327,7 @@ export async function parsePlaces(text, city = HOME_CITY) {
     system: `Mateo gibt dir einen Text (Liste, Notizen, Empfehlungen, Diktat) mit Orten in ${city}. Zieh JEDEN genannten Ort heraus (Cafés, Bars, Restaurants, Kultur …), ordne Kategorie, Unterart, Viertel und passende Tags zu. Nichts erfinden, keine Orte hinzufügen, die nicht im Text stehen. Schreib bei "erkannt" ehrlich, ob du den Ort kennst.`,
     user: text, tool: PARSE_TOOL, maxUses: 0, label: 'Orte aus Text',
   });
-  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Sonstiges', subcat: o.unterart || '', address: o.adresse || '', hood: o.viertel || '', tags: (o.tags || []).filter((x) => ALL_TAGS.includes(x)), price: [1, 2, 3].includes(o.preis) ? o.preis : 0, note: '', info: o.erkannt || '', status: o.war_da ? 'war' : 'will' }));
+  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Noch unklar', subcat: o.unterart || '', address: o.adresse || '', hood: o.viertel || '', tags: (o.tags || []).filter((x) => ALL_TAGS.includes(x)), price: [1, 2, 3].includes(o.preis) ? o.preis : 0, note: '', info: o.erkannt || '', status: o.war_da ? 'war' : 'will' }));
 }
 
 // Aktuellen Standort → Stadt + Land (iPhone-Standort, dann OpenStreetMap; kostenlos)

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LEVEL_COLOR } from '../lib/logic';
 import { clearFrom, fromHeute } from '../lib/router';
 
 const PATHS = {
+  filter: <path d="M4 6h16M7 12h10M10 18h4" />,
   today: <><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
   grid: <><rect x="4" y="4" width="7" height="7" rx="2" /><rect x="13" y="4" width="7" height="7" rx="2" /><rect x="4" y="13" width="7" height="7" rx="2" /><rect x="13" y="13" width="7" height="7" rx="2" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
@@ -236,5 +237,35 @@ export function SectionHead({ title, right }) {
       <h2 className="h2">{title}</h2>
       {right}
     </div>
+  );
+}
+
+// v0.95 (Mateo): Hinweise/Kosten-Infos hinter einem kleinen ⓘ – antippen zeigt sie, irgendwo tippen schließt sie
+export function Info({ children, label = '', style }) {
+  const [pos, setPos] = useState(null);
+  const btn = useRef(null);
+  useEffect(() => {
+    if (!pos) return undefined;
+    const close = (e) => { if (btn.current && btn.current.contains(e.target)) return; setPos(null); };
+    const off = () => setPos(null);
+    document.addEventListener('pointerdown', close, true);
+    window.addEventListener('scroll', off, true);
+    return () => { document.removeEventListener('pointerdown', close, true); window.removeEventListener('scroll', off, true); };
+  }, [pos]);
+  const toggle = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pos) { setPos(null); return; }
+    const r = btn.current.getBoundingClientRect();
+    const w = Math.min(300, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(r.left - 8, window.innerWidth - w - 12));
+    const below = r.bottom + 160 < window.innerHeight;
+    setPos({ left, w, top: below ? r.bottom + 6 : null, bottom: below ? null : window.innerHeight - r.top + 6 });
+  };
+  return (
+    <span className="info-wrap" style={style}>
+      <button type="button" ref={btn} className={pos ? 'info-btn on' : 'info-btn'} onClick={toggle} aria-label="Info anzeigen" aria-expanded={!!pos}>ⓘ{label ? <span>{label}</span> : null}</button>
+      {pos && createPortal(<div className="info-pop" role="note" style={{ left: pos.left, width: pos.w, top: pos.top ?? undefined, bottom: pos.bottom ?? undefined }}>{children}</div>, document.body)}
+    </span>
   );
 }

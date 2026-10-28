@@ -235,10 +235,10 @@ export function setEventStage(id, stage) {
 }
 
 // Orte (Bars, Cafés, Restaurants …) mit Karte
-export const PLACE_CATS = ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'];
+export const PLACE_CATS = ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges', 'Noch unklar'];
 // Unterarten pro Art (Vorschläge; eigene sind jederzeit möglich)
 // v0.86: eigene Arten (z.B. „Rooftop“, „Coworking“) – Standard-Arten + eigene, „Sonstiges“ immer zuletzt
-export const placeCatsOf = (s) => [...new Set([...PLACE_CATS.filter((c) => c !== 'Sonstiges'), ...(s?.profile?.placeCats || []), 'Sonstiges'])];
+export const placeCatsOf = (s) => [...new Set([...PLACE_CATS.filter((c) => c !== 'Sonstiges' && c !== 'Noch unklar'), ...(s?.profile?.placeCats || []), 'Sonstiges', 'Noch unklar'])]; // v0.95: „Noch unklar“, wenn die Art nicht klar ist
 export function addPlaceCat(name) {
   const n = String(name || '').trim();
   if (!n) return '';

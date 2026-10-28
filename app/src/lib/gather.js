@@ -256,3 +256,15 @@ export function applyGatherProposal(gId, sel) {
     if (sel.einladung) g.invite = sel.einladung;
   });
 }
+
+// v0.95 (Mateo): WhatsApp-Gruppen merken (Gruppen-Link aus WhatsApp: Gruppeninfo → „Per Link einladen“ → Link kopieren)
+export function addWaGroup(name, link) {
+  const n = String(name || '').trim();
+  let l = String(link || '').trim();
+  if (!n) return null;
+  if (l && !/^https?:\/\//i.test(l)) l = `https://${l}`;
+  const id = uid();
+  store.update((s) => { s.waGroups = [...(s.waGroups || []), { id, name: n, link: l }]; });
+  return id;
+}
+export const removeWaGroup = (id) => store.update((s) => { s.waGroups = (s.waGroups || []).filter((x) => x.id !== id); });

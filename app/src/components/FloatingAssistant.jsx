@@ -138,7 +138,6 @@ export default function FloatingAssistant() {
   // „Erzähl mir, wie es läuft“ (Coach-Karte): Fenster öffnen und zuhören
   const tapRef = useRef(null);
   tapRef.current = (prefix) => {
-    setMode('coach');
     if (prefix && !listening) setDraft(prefix);
     if (listening) return;
     setSentAt(items.length);
@@ -170,10 +169,7 @@ export default function FloatingAssistant() {
         <div className="mini" role="dialog" aria-label="Assistent" style={panelStyle} ref={panelRef}>
           <div className="mini-head" onPointerDown={onHeadDown} onPointerMove={onHeadMove} onPointerUp={onHeadUp} onPointerCancel={onHeadUp} style={{ touchAction: 'none', cursor: 'grab' }}>
             <span className="grip" aria-hidden="true" />
-            <div className="mode-toggle" role="group" aria-label="Rolle der KI">
-              <button type="button" className={mode !== 'coach' ? 'on' : ''} onClick={() => setMode('assistent')} aria-pressed={mode !== 'coach'}>Assistent</button>
-              <button type="button" className={mode === 'coach' ? 'on' : ''} onClick={() => setMode('coach')} aria-pressed={mode === 'coach'}>Coach</button>
-            </div>
+            <span style={{ fontWeight: 650, fontSize: 15 }}>Assistent</span>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <button type="button" className="icon-btn" style={{ width: 32, height: 32, background: ai.speak ? 'var(--accent-bg)' : 'var(--fill)', color: ai.speak ? 'var(--accent)' : 'var(--muted)' }} onClick={() => setSpeak(!ai.speak)} aria-label={ai.speak ? 'Vorlesen ausschalten' : 'Antworten vorlesen'} aria-pressed={!!ai.speak}>
                 <Icon name={ai.speak ? 'speaker' : 'speakerOff'} size={16} />

@@ -15,7 +15,7 @@ import NotesArea from '../components/NotesArea';
 import PlanChat from '../components/PlanChat';
 import MapView from '../components/MapView';
 import { DateRangeField, rangeText } from '../components/DateRange';
-import { Back, Chevron, Field, Icon, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Chevron, Field, Icon, Sheet, TabBar, toast, Info } from '../components/ui';
 import { Missing } from './Saeule';
 
 const COLOR = '#2FA36B';
@@ -173,7 +173,7 @@ function PriceSheet({ s, trips, title, onClose }) {
         <button type="button" className="btn sec" style={{ flex: 1, background: 'var(--card-2)', color: 'var(--text)' }} onClick={save} disabled={!!busy || f.travelers.some((x) => !x.start.trim())}>Übernehmen</button>
         <button type="button" className="btn" style={{ flex: 1 }} onClick={() => run(false)} disabled={!!busy || !getAi().apiKey || !nightsOf(f) || f.travelers.some((x) => !x.start.trim())}>{busy ? 'Schätze …' : 'Schnell schätzen'}</button>
       </div>
-      <span className="tiny">Grobe Schätzung zum Vergleichen der Ziele (unter 1 Cent). Echte Preise zeigen die Links oben – kostenlos.</span>
+      <Info>Grobe Schätzung zum Vergleichen der Ziele (unter 1 Cent). Echte Preise zeigen die Links oben – kostenlos.</Info>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {res && (
         <>
@@ -409,7 +409,7 @@ function TripList({ s }) {
             <h2 className="label" style={{ padding: 0 }}>Ideen – noch nicht festgelegt</h2>
             {ideas.length > 0 && <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={() => { setGrouping(!grouping); setPicked([]); }}>{grouping ? 'Abbrechen' : 'Gruppieren'}</button>}
           </div>
-          {grouping && <span className="tiny" style={{ padding: '0 4px' }}>Wähle Ideen für dieselbe Reise und gib der Gruppe einen Namen (oder den einer vorhandenen Gruppe). Jede Idee bleibt mit Orten und Routen erhalten.</span>}
+          {grouping && <Info>Wähle Ideen für dieselbe Reise und gib der Gruppe einen Namen (oder den einer vorhandenen Gruppe). Jede Idee bleibt mit Orten und Routen erhalten.</Info>}
           {ideas.length === 0 && <div className="list"><div className="empty">Hier landen mögliche Reisen. Darin kannst du mit der KI Route, Transport und Aktivitäten recherchieren – und sie dann festlegen.</div></div>}
           {groups.map((g) => {
             const items = ideas.filter((x) => x.group === g);
@@ -539,8 +539,8 @@ function Route({ s, tr }) {
         />
         {autoLine(rueck, 'Rückreise')}
         {openSt && stops.some((x) => x.id === openSt) && <StopSheet s={s} tr={tr} v={null} i={stops.findIndex((x) => x.id === openSt)} onClose={() => setOpenSt(null)} />}
-        {(hin || rueck) && <span className="tiny">An- und Rückreise kommen aus dem Startort (✎ oben) und passen sich an, wenn sich die erste oder letzte Station ändert.</span>}
-        {!stops.length && tripKind(tr) !== 'ort' && <span className="tiny">Tipp: Unter „Varianten“ ganze Routen oder einzelne Orte hierher übernehmen.</span>}
+        {(hin || rueck) && <Info>An- und Rückreise kommen aus dem Startort (✎ oben) und passen sich an, wenn sich die erste oder letzte Station ändert.</Info>}
+        {!stops.length && tripKind(tr) !== 'ort' && <Info>Tipp: Unter „Varianten“ ganze Routen oder einzelne Orte hierher übernehmen.</Info>}
       </section>
       {other.length > 0 && (
         <section className="group">
@@ -708,7 +708,7 @@ function Spots({ s, tr }) {
           <button type="submit" className="btn small" disabled={!name.trim()}>+</button>
         </form>
       </div>
-      <span className="tiny" style={{ padding: '0 4px' }}>Vorschläge und Vergleich: unten im KI-Chat („Vergleich meine Orte“).</span>
+      <Info>Vorschläge und Vergleich: unten im KI-Chat („Vergleich meine Orte“).</Info>
       {sugg.length > 0 && <SuggList items={sugg} onTake={(x) => { addSpotTo(tr.id, 'spots', { name: x.name, note: x.was, tags: x.typ ? [x.typ] : [] }); setSugg(sugg.filter((y) => y !== x)); }} onClose={() => setSugg([])} />}
     </>
   );
@@ -894,7 +894,7 @@ function Timeline({ items, name, meta, leg, renderDetail, renderLeg, onLeg, onIn
         <input className="input" value={insertAt === null || insertAt >= n ? text : ''} onFocus={() => setInsertAt(null)} onChange={(e) => setText(e.target.value)} placeholder={addPlaceholder} aria-label="Ort am Ende hinzufügen" />
         <button type="submit" className="btn small" disabled={!text.trim() || (insertAt !== null && insertAt < n)}>+</button>
       </form>}
-      {onReorder && n > 1 && <span className="tiny" style={{ paddingLeft: 4 }}>Ort antippen = Anreise, Unterkünfte, Restaurants … planen. Reihenfolge: am Griff ━ oben ziehen.</span>}
+      {onReorder && n > 1 && <Info>Ort antippen = Anreise, Unterkünfte, Restaurants … planen. Reihenfolge: am Griff ━ oben ziehen.</Info>}
     </div>
   );
 }
@@ -1070,7 +1070,7 @@ function StopBody({ s, tr, v, i, inline, only, ort, onClose }) {
           <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => { removeVariantStop(tr.id, v.id, i); onClose(); }}>Aus Variante entfernen</button>
         </div>
       )}
-      {v && !inFinal && <span className="tiny">Alles Gespeicherte (Anreise, Unterkünfte, Orte mit Links) kommt mit in die finale Route.</span>}
+      {v && !inFinal && <Info>Alles Gespeicherte (Anreise, Unterkünfte, Orte mit Links) kommt mit in die finale Route.</Info>}
     </>
   );
 }
@@ -1200,7 +1200,7 @@ function LegSheet({ s, tr, v, a, b, date, onClose }) {
   };
   return (
     <Sheet open title={`${a} → ${b}`} onClose={onClose}>
-      <span className="tiny">Verbindungen ansehen und gute Optionen hier speichern – als Link oder Beschreibung (Preis und Dauer werden erkannt, z.B. „Zug G87, 4,5 h, 60 €“).</span>
+      <Info>Verbindungen ansehen und gute Optionen hier speichern – als Link oder Beschreibung (Preis und Dauer werden erkannt, z.B. „Zug G87, 4,5 h, 60 €“).</Info>
       <div className="link-chips" style={{ marginTop: 0 }}>{links.map((l) => <a key={l.url} className="link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a>)}</div>
       <section className="stop-sec">
         <span className="stop-sec-head" style={{ cursor: 'default' }}><span>Gespeicherte Verbindungen</span><span className="tiny">{list.length || ''}</span></span>

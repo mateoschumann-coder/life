@@ -15,27 +15,34 @@ const loadSecs = () => { try { return JSON.parse(localStorage.getItem(SEC_KEY) |
 // Zusammenfassung ohne KI: Gruppen mit Anzahl, z.B. „2 überfällig · 1 heute“
 const localSummary = (groups) => groups.map((g) => (g.items.length === 1 ? `${g.label}: ${g.items[0].text}` : `${g.label}: ${g.items.length}`)).join(' · ');
 
+// v0.95 (Mateo): „Alle“ oben; einzelne Bereiche antippen = nur diese zeigen (nicht abwählen)
 function SecPicker({ avail, sel, onChange }) {
   const [open, setOpen] = useState(false);
   const all = !sel;
-  const label = all ? 'Alle' : sel.length === 1 ? SECTIONS.find((x) => x.key === sel[0])?.name : `${sel.length} Bereiche`;
-  const toggle = (k) => {
-    const cur = sel || avail.map((x) => x.key);
-    const next = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
+  const label = all ? 'Alle Bereiche' : sel.length === 1 ? SECTIONS.find((x) => x.key === sel[0])?.name : `${sel.length} Bereiche`;
+  const tap = (k) => {
+    if (all) { onChange([k]); return; }
+    const next = sel.includes(k) ? sel.filter((x) => x !== k) : [...sel, k];
     onChange(next.length && next.length < avail.length ? next : null);
   };
   return (
     <div style={{ position: 'relative' }}>
-      <button type="button" className="drop-btn" style={{ minHeight: 32, padding: '4px 10px', fontSize: 13 }} onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Bereiche auswählen"><span>{label}</span><span className="drop-caret">▾</span></button>
+      <button type="button" className={all ? 'sec-pick-btn' : 'sec-pick-btn on'} onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Bereiche auswählen">
+        <Icon name="filter" size={13} color="currentColor" /><span>{label}</span><span style={{ fontSize: 10 }}>▾</span>
+      </button>
       {open && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
-          <div className="drop-menu" style={{ right: 0, left: 'auto', maxHeight: 360, overflowY: 'auto' }}>
-            <button type="button" className={all ? 'on' : ''} onClick={() => { onChange(null); setOpen(false); }}>{all ? '✓ ' : ''}Alle Bereiche</button>
-            {avail.map((x) => {
-              const on = all || sel.includes(x.key);
-              return <button key={x.key} type="button" className={!all && on ? 'on' : ''} onClick={() => toggle(x.key)}>{on ? '☑︎' : '☐'} {x.name}</button>;
-            })}
+          <div className="sec-pick">
+            <button type="button" className={all ? 'sec-all on' : 'sec-all'} onClick={() => { onChange(null); setOpen(false); }}>{all ? '✓ ' : ''}Alle Bereiche</button>
+            <span className="tiny" style={{ padding: '2px 2px 0' }}>Oder nur bestimmte:</span>
+            <div className="sec-grid">
+              {avail.map((x) => {
+                const on = !all && sel.includes(x.key);
+                return <button key={x.key} type="button" className={on ? 'sec-chip on' : 'sec-chip'} onClick={() => tap(x.key)} aria-pressed={on}><Icon name={x.icon} size={13} color="currentColor" /> {x.name}</button>;
+              })}
+            </div>
+            <button type="button" className="btn small" onClick={() => setOpen(false)}>Fertig</button>
           </div>
         </>
       )}
@@ -43,23 +50,31 @@ function SecPicker({ avail, sel, onChange }) {
   );
 }
 
+// Zeile: links Zusammenfassung, darunter ▾ zum Aufklappen der Direkt-Knöpfe, rechts Pfeil über die ganze Höhe
 function SecRow({ x, groups, hint }) {
-  const chips = groups.flatMap((g) => g.items).filter((i) => i.link).slice(0, 3);
+  const [open, setOpen] = useState(false);
+  const items = groups.flatMap((g) => g.items).filter((i) => i.link);
+  const chips = items.slice(0, 6);
   const more = groups.reduce((n, g) => n + g.items.length, 0) - chips.length;
   return (
     <div className="ov-row">
-      <a href={x.link} className="ov-row-main" onClick={() => markFromHeute(x.link)}>
-        <span className="ov-row-title"><Icon name={x.icon} size={14} color="var(--accent)" /> {x.name}</span>
-        <span className="ov-row-text">{hint ? `✨ ${hint}` : localSummary(groups) || 'Nichts Offenes'}</span>
-      </a>
-      {chips.length > 0 && (
-        <div className="ov-row-chips">
-          {chips.map((i, k) => (i.ext
-            ? <a key={k} className="ov-mini" href={i.link} target="_blank" rel="noreferrer">{i.text}</a>
-            : <a key={k} className="ov-mini" href={i.link} onClick={() => markFromHeute(i.link)}>{i.text}{i.info ? <i>{i.info}</i> : null}</a>))}
-          {more > 0 && <a className="ov-mini more" href={x.link} onClick={() => markFromHeute(x.link)}>+{more}</a>}
-        </div>
-      )}
+      <div className="ov-row-body">
+        <a href={x.link} className="ov-row-main" onClick={() => markFromHeute(x.link)}>
+          <span className="ov-row-title"><Icon name={x.icon} size={14} color="var(--accent)" /> {x.name}</span>
+          <span className="ov-row-text">{hint ? `✨ ${hint}` : localSummary(groups) || 'Nichts Offenes'}</span>
+        </a>
+        {chips.length > 0 && (
+          <button type="button" className="ov-expand" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? '▴ weniger' : `▾ ${items.length} ${items.length === 1 ? 'Eintrag' : 'Einträge'}`}</button>
+        )}
+        {open && chips.length > 0 && (
+          <div className="ov-row-chips">
+            {chips.map((i, k) => (i.ext
+              ? <a key={k} className="ov-mini" href={i.link} target="_blank" rel="noreferrer">{i.text}</a>
+              : <a key={k} className="ov-mini" href={i.link} onClick={() => markFromHeute(i.link)}>{i.text}{i.info ? <i>{i.info}</i> : null}</a>))}
+            {more > 0 && <a className="ov-mini more" href={x.link} onClick={() => markFromHeute(x.link)}>+{more}</a>}
+          </div>
+        )}
+      </div>
       <a href={x.link} className="ov-row-arrow" onClick={() => markFromHeute(x.link)} aria-label={`${x.name} öffnen`}>›</a>
     </div>
   );

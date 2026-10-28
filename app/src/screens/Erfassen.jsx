@@ -17,7 +17,7 @@ import { buildSystem, getAi, TOOL } from '../lib/ai';
 import { locate, searchWithTool } from '../lib/outings';
 import { today } from '../lib/dates';
 import { DateRangeField } from '../components/DateRange';
-import { AreaSelect, Field, Sheet, SubSelect, TabBar, toast } from '../components/ui';
+import { AreaSelect, Field, Sheet, SubSelect, TabBar, toast, Info } from '../components/ui';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
 export const TARGETS = [
@@ -88,7 +88,7 @@ export default function Erfassen() {
         <section className="card">
           <label htmlFor="capture" className="label">Was willst du festhalten?</label>
           <textarea id="capture" className="input" style={{ fontSize: 18, minHeight: 110 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Halbmarathon in Rosario im April merken · Hotel California für Gitarre · Bei Kaszek beworben" />
-          <span className="tiny">Tipp: Mikrofon auf der Tastatur antippen, um zu diktieren.</span>
+          <Info>Tipp: Mikrofon auf der Tastatur antippen, um zu diktieren.</Info>
         </section>
         {hasKey && (
           <button type="button" className="btn" disabled={!text.trim() || !!busy} onClick={() => runAi(text.trim())}>{busy === 'neu' ? 'Ich sortiere ein …' : '✨ KI sortiert ein'}</button>

@@ -9,7 +9,7 @@ import { tidyText } from '../lib/fieldtools';
 import PlanChat from '../components/PlanChat';
 import { Missing } from './Saeule';
 import { LibCatsSheet } from './Bereich';
-import { Back, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 
 const COLOR = '#2FA36B';
 
@@ -113,11 +113,11 @@ function MaterialExtras({ s, m }) {
             {sm.fuerDich && <span className="tiny" style={{ color: 'var(--text)' }}>🎯 {sm.fuerDich}</span>}
           </>
         )}
-        {!sm && <span className="tiny">Ohne Internet aus dem Wissen der KI (bei Artikeln/Videos mit Link liest sie die Seite), unter 0,1 Cent.</span>}
+        {!sm && <Info>Ohne Internet aus dem Wissen der KI (bei Artikeln/Videos mit Link liest sie die Seite), unter 0,1 Cent.</Info>}
       </div>
       <div className="take-box">
         <span style={{ fontWeight: 650, fontSize: 15 }}>📝 Meine Notizen</span>
-        <span className="tiny">Frei schreiben oder einsprechen – auch unsortiert. „✨ Ordnen“ räumt den Text auf, Notiz antippen = bearbeiten. Unten macht die KI daraus deine eigene Zusammenfassung.</span>
+        <Info>Frei schreiben oder einsprechen – auch unsortiert. „✨ Ordnen“ räumt den Text auf, Notiz antippen = bearbeiten. Unten macht die KI daraus deine eigene Zusammenfassung.</Info>
         {notes.map((n) => <NoteItem key={n.id} m={m} n={n} onRemove={(x) => setRemoved(x)} />)}
         {removed && !notes.some((n) => n.id === removed.id) && <button type="button" className="pill" style={{ alignSelf: 'flex-start' }} onClick={() => { restoreNote(m.id, removed); setRemoved(null); }}>↶ Gelöschte Notiz zurückholen</button>}
         <textarea className="input" rows={Math.max(4, Math.min(16, note.split("\n").length + 1))} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Gedanken, Zitate, was du mitnimmst …" aria-label="Neue Notiz" />

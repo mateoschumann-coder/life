@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { savePerson } from '../lib/actions';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 import { canPickContacts, parseVcf, pickContacts } from '../lib/vcard';
-import { Check, Sheet, toast } from './ui';
+import { Check, Sheet, toast, Info } from './ui';
 
 const RHYTHM = {}; // v0.94: Rhythmus legt Mateo danach unter „Im Kontakt bleiben“ fest (sonst wären alle sofort „fällig“)
 const norm = (x) => String(x || '').trim().toLowerCase();
@@ -53,7 +53,7 @@ export default function ContactImport({ s, open, onClose }) {
           <input ref={file} type="file" accept=".vcf,text/vcard,text/x-vcard" style={{ display: 'none' }} onChange={onFile} />
           <button type="button" className="btn" onClick={() => file.current?.click()}>Datei wählen</button>
           {canPickContacts() && <button type="button" className="btn sec" onClick={pick}>Aus dem Adressbuch auswählen</button>}
-          <span className="tiny">Übernommen werden Name, Telefonnummer (für WhatsApp) und Geburtstag. Die Daten bleiben nur auf deinem iPhone.</span>
+          <Info>Übernommen werden Name, Telefonnummer (für WhatsApp) und Geburtstag. Die Daten bleiben nur auf deinem iPhone.</Info>
         </>
       )}
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}

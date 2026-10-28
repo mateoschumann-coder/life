@@ -1,6 +1,7 @@
 // Zeitrechner (v0.34, Mateo: meist kurze Distanzen): Distanz + Zeit ODER Pace → der Rest wird berechnet.
 // Schnellwahl 200–1000 m, sonst Meter frei eingeben. Dazu Durchgangszeiten und Schätzung für die anderen Distanzen.
 import { useState } from 'react';
+import { Info } from './ui';
 
 const QUICK = [200, 400, 600, 800, 1000];
 
@@ -86,7 +87,7 @@ export default function PaceCalc() {
           <div className="chips">{others.map((x) => <span key={x} className="tag" style={{ fontSize: 13 }}>{label(x)}: {fmtSec(predict(x))}</span>)}</div>
         </>
       )}
-      {!ok && <span className="tiny">Einfach nur Ziffern tippen, der Doppelpunkt kommt automatisch: Zeit „115“ = 1:15, „75“ = 75 Sekunden · Pace „345“ = 3:45 pro km, „4“ = 4:00.</span>}
+      {!ok && <Info>Einfach nur Ziffern tippen, der Doppelpunkt kommt automatisch: Zeit „115“ = 1:15, „75“ = 75 Sekunden · Pace „345“ = 3:45 pro km, „4“ = 4:00.</Info>}
     </div>
   );
 }

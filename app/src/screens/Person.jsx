@@ -9,6 +9,7 @@ import { go } from '../lib/router';
 
 const RHYTHMS = [
   { v: '', label: 'Kein Rhythmus' },
+  { v: -1, label: 'Läuft von selbst (keine Erinnerung)' },
   { v: 7, label: 'Wöchentlich' },
   { v: 14, label: 'Alle 2 Wochen' },
   { v: 30, label: 'Monatlich' },
@@ -35,7 +36,9 @@ export default function Person({ id, metAt }) {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? e.target.value : e }));
 
   const save = () => {
-    const data = { ...form, contactEvery: form.contactEvery ? Number(form.contactEvery) : null, followUp: form.followUp || null };
+    const ce = Number(form.contactEvery) || 0;
+    const data = { ...form, contactEvery: ce > 0 ? ce : null, natural: ce === -1, followUp: form.followUp || null };
+    if (ce > 0 && !(existing && existing.contactEvery)) data.rhythmSince = today();
     savePerson(existing ? { ...data, id } : data);
     toast('Gespeichert');
     const area = s.areas.find((a) => a.peopleCategory === data.category);
@@ -75,7 +78,7 @@ export default function Person({ id, metAt }) {
             <input className="input" type="date" value={form.birthday || ''} onChange={set('birthday')} />
           </Field>
           <Field label="Wie oft willst du dich melden?">
-            <select className="input" value={form.contactEvery || ''} onChange={set('contactEvery')}>
+            <select className="input" value={form.natural && !Number(form.contactEvery) ? -1 : form.contactEvery || ''} onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, contactEvery: v, natural: v === '-1' })); }}>
               {RHYTHMS.map((r) => <option key={r.label} value={r.v}>{r.label}</option>)}
             </select>
           </Field>

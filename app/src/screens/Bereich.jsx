@@ -7,7 +7,6 @@ import { AreaIcon, Back, Chevron, Dot, Field, Icon, Segmented, Sheet, TabBar, to
 
 import { Heatmap, HeatLegend } from '../components/Heatmap';
 import AreaContent from '../components/AreaContent';
-import { CoachBox } from '../components/Coach';
 import ToolCards from '../components/ToolCards';
 import PeopleArea from '../components/PeopleArea';
 import { TOOL_AREAS } from '../lib/tools';
@@ -91,7 +90,6 @@ export default function Bereich({ id }) {
               <h1 className="h1 sm">{area.name}</h1>
             </div>
           </div>
-          <CoachBox s={s} areaId={id} />
           {area.peopleCategory ? <PeopleArea s={s} area={area} /> : (
             <>
               <ToolCards areaId={id} />
@@ -132,7 +130,6 @@ export default function Bereich({ id }) {
           </div>
         </div>
 
-        <CoachBox s={s} areaId={id} />
 
         <ToolCards areaId={id} />
 

@@ -5,6 +5,12 @@ import { installFieldTools } from './lib/fieldtools';
 
 createRoot(document.getElementById('root')).render(<App />);
 installFieldTools();
+// v0.95: Tab-Leiste ausblenden, solange die Tastatur offen ist (iPhone schob sie sonst nach oben über die Tastatur)
+{
+  const isField = (el) => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|range|file)$/.test(el.type)) || el.isContentEditable);
+  document.addEventListener('focusin', (e) => { if (isField(e.target)) document.documentElement.classList.add('kb-open'); });
+  document.addEventListener('focusout', () => setTimeout(() => { if (!isField(document.activeElement)) document.documentElement.classList.remove('kb-open'); }, 50));
+}
 
 // Offline-Fähigkeit (nur in der fertigen Version)
 if (!__DEV__ && 'serviceWorker' in navigator) {

@@ -14,7 +14,7 @@ import { getAi } from '../lib/ai';
 import { cityHere, searchWithTool } from '../lib/outings';
 import MiniChart from '../components/MiniChart';
 import PaceCalc from '../components/PaceCalc';
-import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 import { Missing } from './Saeule';
 
 const GREEN = '#2FA36B';
@@ -74,7 +74,7 @@ function GarminImport({ s, sport }) {
     <>
       <input ref={ref} type="file" accept=".csv,text/csv" hidden onChange={onFile} />
       <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => ref.current?.click()}>Garmin-Export (CSV) importieren</button>
-      <span className="tiny">Garmin Connect → Aktivitäten → „CSV exportieren“. Bis die iPhone-App kommt, oder sag einfach dem Assistenten „heute 12 km in 58 Minuten gelaufen“.</span>
+      <Info>Garmin Connect → Aktivitäten → „CSV exportieren“. Bis die iPhone-App kommt, oder sag einfach dem Assistenten „heute 12 km in 58 Minuten gelaufen“.</Info>
     </>
   );
 }
@@ -277,7 +277,7 @@ function SportsPage({ s }) {
                 <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || pBusy} onClick={takeOver}>{pBusy ? 'Ich lese die Seite …' : '✨ Übernehmen'}</button>
                 <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => { setAdding(true); setF({ ...f, sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Selbst eintragen</button>
               </div>
-              <span className="tiny">Bei einem Link öffnet die KI die Seite und liest Name, Datum, Ort und Distanz (ca. 0,1 Cent). Du prüfst und speicherst.</span>
+              <Info>Bei einem Link öffnet die KI die Seite und liest Name, Datum, Ort und Distanz (ca. 0,1 Cent). Du prüfst und speicherst.</Info>
             </div>
           )}
           {smode === 'ki' && <>
@@ -285,7 +285,7 @@ function SportsPage({ s }) {
             <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
             <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
           </div>
-          <span className="tiny">Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link – ein Renn-Name wird gezielt gesucht (ca. 3–5 Cent).</span>
+          <Info>Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link – ein Renn-Name wird gezielt gesucht (ca. 3–5 Cent).</Info>
           </>}
           {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Termine …' : 'Ich überlege …'}</span></div>}
           {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}

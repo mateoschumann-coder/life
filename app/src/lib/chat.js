@@ -7,7 +7,7 @@ import { go } from './router';
 import { store } from './store';
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-let state = { items: loadChat(), busy: false, listening: false, draft: '', mode: getAi().chatMode || 'assistent' };
+let state = { items: loadChat(), busy: false, listening: false, draft: '', mode: 'assistent' }; // v0.95: Coach entfernt – nur noch der Assistent
 const listeners = new Set();
 const snapshots = new Map(); // Stand vor einer Änderung → „Rückgängig“ (nur in dieser Sitzung)
 const set = (patch) => {
@@ -27,9 +27,9 @@ export function useChat() {
 }
 export const setDraft = (draft) => set({ draft });
 export const clearChat = () => set({ items: [] });
-export function setMode(mode) {
-  saveAi({ chatMode: mode });
-  set({ mode });
+export function setMode() {
+  saveAi({ chatMode: 'assistent' });
+  set({ mode: 'assistent' });
 }
 
 // Nachricht senden
