@@ -1,4 +1,4 @@
-// Einfache Abhak-Liste mit Eingabefeld (für Reisen, Treffen …)
+// Einfache Abhak-Liste mit Eingabefeld oben (v0.90) – für Reisen, Treffen …
 import { useState } from 'react';
 import { Check, Icon } from './ui';
 
@@ -9,8 +9,13 @@ export default function SimpleList({ items, onAdd, onToggle, onRemove, placehold
   const done = items.filter((x) => x.done);
   return (
     <div className="list">
+      <form className="inline-add" onSubmit={(e) => { e.preventDefault(); onAdd(text, extra); setText(''); setExtra(''); }}>
+        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
+        {extraInput && <input className="input" style={{ maxWidth: 110 }} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={extraInput} aria-label={extraInput} />}
+        <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
+      </form>
       {[...open, ...done].map((x) => (
-        <div key={x.id} className="row" style={{ minHeight: 46 }}>
+        <div key={x.id} className="row compact">
           <Check on={x.done} color={color} onClick={() => onToggle(x.id)} label={x.text} />
           <span className="row-main">
             <span className={x.done ? 'row-title plain done' : 'row-title plain'}>{x.text}</span>
@@ -20,11 +25,6 @@ export default function SimpleList({ items, onAdd, onToggle, onRemove, placehold
           <button type="button" className="x-btn" aria-label={`${x.text} löschen`} onClick={() => onRemove(x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
         </div>
       ))}
-      <form className="inline-add" onSubmit={(e) => { e.preventDefault(); onAdd(text, extra); setText(''); setExtra(''); }}>
-        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
-        {extraInput && <input className="input" style={{ maxWidth: 110 }} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={extraInput} aria-label={extraInput} />}
-        <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
-      </form>
     </div>
   );
 }

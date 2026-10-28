@@ -25,6 +25,7 @@ export const TODO_TEMPLATES = {
 };
 // Anlässe: Zusatz-To-dos und Standard-Einkauf (je ein Artikel pro Eintrag)
 export const OCCASIONS = {
+  leer: { label: 'Leer – selbst füllen', emoji: '⬜', kind: null, empty: true, todos: {}, shop: {} },
   asado: { label: 'Asado / Grillen', emoji: '🔥', kind: 'zuhause', todos: { Vorbereiten: ['Kohle kaufen', 'Fleisch bestellen'], 'Am Tag': ['Feuer anmachen'] }, shop: { Essen: ['Vacío', 'Chorizo', 'Morcilla', 'Provoleta', 'Brot', 'Salat', 'Chimichurri'], Getränke: ['Bier', 'Wein', 'Fernet', 'Cola', 'Wasser', 'Eis'], Sonstiges: ['Kohle', 'Grillanzünder', 'Servietten'] } },
   geburtstag: { label: 'Geburtstag', emoji: '🎂', kind: 'zuhause', todos: { Planen: ['Torte bestellen'], Vorbereiten: ['Deko kaufen', 'Kerzen besorgen'] }, shop: { Essen: ['Torte', 'Snacks', 'Chips', 'Fingerfood'], Getränke: ['Sekt', 'Bier', 'Softdrinks', 'Wasser', 'Eis'], Sonstiges: ['Kerzen', 'Deko', 'Servietten', 'Pappbecher'] } },
   abendessen: { label: 'Abendessen', emoji: '🍝', kind: 'zuhause', todos: { Vorbereiten: ['Tisch decken'] }, shop: { Essen: ['Vorspeise', 'Hauptgericht', 'Dessert', 'Brot'], Getränke: ['Wein', 'Wasser'], Sonstiges: ['Servietten', 'Kerzen'] } },
@@ -55,13 +56,14 @@ export const SHOP_CATS = ['Essen', 'Getränke', 'Sonstiges'];
 
 // Vorlage = Grundliste der Art + Zusätze des Anlasses, in Phasen-Reihenfolge
 const todos = (kind, type) => {
+  if (occOf(type)?.empty) return [];
   const base = TODO_TEMPLATES[kind] || TODO_TEMPLATES.zuhause;
   const extra = occOf(type)?.todos || {};
   const cats = [...new Set([...Object.keys(base), ...Object.keys(extra)])];
   return cats.flatMap((cat) => [...new Set([...(base[cat] || []), ...(extra[cat] || [])])].map((text) => ({ id: uid(), text, cat, done: false })));
 };
 const shopItems = (type) => Object.entries(occOf(type)?.shop || {}).flatMap(([cat, list]) => list.map((text) => ({ id: uid(), text, cat, who: '', done: false })));
-export const todoCats = (g) => [...new Set(todos(g.kind, g.type).map((x) => x.cat))];
+export const todoCats = (g) => (occOf(g.type)?.empty ? [...new Set([...g.todos.map((x) => x.cat), 'To-dos'])] : [...new Set(todos(g.kind, g.type).map((x) => x.cat))]);
 
 
 export function addGathering({ name, date = '', time = '', place = '', desc = '', kind = 'zuhause', expected = '', type = '' }) {

@@ -224,6 +224,36 @@ function Venues({ g }) {
   );
 }
 
+// v0.90: Einkauf als Teil der To-dos – Unterteile Essen/Getränke/Sonstiges, Eingabe oben, kompakte Zeilen
+function EventShop({ g }) {
+  const [cat, setCat] = useState('Alle');
+  const [text, setText] = useState('');
+  const guess = (x) => (/\b(bier|wein|fernet|cola|wasser|saft|sekt|gin|tonic|eis|hielo|soda|cerveza|vino|agua|gaseosa|jugo|limonade|kaffee|tee)\b/i.test(x) ? 'Getränke' : /\b(servietten|becher|kohle|carbón|carbon|deko|kerzen|teller|müll|vasos|platos|servilletas|grillanzünder)\b/i.test(x) ? 'Sonstiges' : 'Essen');
+  const target = cat === 'Alle' ? 'Essen' : cat;
+  const list = g.shopping.filter((x) => cat === 'Alle' || x.cat === cat);
+  return (
+    <>
+      <div className="seg-mini">
+        {['Alle', ...SHOP_CATS].map((c) => { const n = c === 'Alle' ? 0 : g.shopping.filter((x) => x.cat === c && !x.done).length; return <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} onClick={() => setCat(c)}>{c}{n ? ` · ${n}` : ''}</button>; })}
+      </div>
+      <form className="block-add" onSubmit={(e) => { e.preventDefault(); text.split(/,|\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => addItem(g.id, 'shopping', { text: x, cat: cat === 'Alle' ? guess(x) : cat, who: '' })); setText(''); }}>
+        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={cat === 'Alle' ? 'Einkaufen – z.B. Bier, Chips' : `Einkaufen (${target})`} aria-label="Einkaufen" />
+        <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
+      </form>
+      <section className="list">
+        {list.length === 0 && <div className="empty" style={{ padding: '12px 14px' }}>Noch nichts – oben eintragen.</div>}
+        {[...list.filter((x) => !x.done), ...list.filter((x) => x.done)].map((x) => (
+          <div key={x.id} className="row compact">
+            <Check on={x.done} color={COLOR} onClick={() => updateItem(g.id, 'shopping', x.id, { done: !x.done })} label={x.text} />
+            <span className="row-main"><span className={x.done ? 'row-title plain done' : 'row-title plain'}>{x.text}</span></span>
+            <button type="button" className="x-btn" aria-label={`${x.text} löschen`} onClick={() => removeItem(g.id, 'shopping', x.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+
 function Detail({ s, g }) {
   const home = g.kind !== 'auswaerts';
   const [tab, setTab] = useState('todos');
@@ -241,7 +271,10 @@ function Detail({ s, g }) {
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     }
   };
-  const tabs = [['todos', 'To-dos', g.todos.filter((x) => !x.done).length], ['gaeste', 'Gäste', g.guests.length], home ? ['einkauf', 'Einkauf', g.shopping.filter((x) => !x.done).length] : ['orte', 'Ort', g.venues.length], ['mitbringen', 'Mitbringen', g.bring.length], ['einladung', 'Einladung', 0]];
+  const openTodos = g.todos.filter((x) => !x.done).length + (home ? g.shopping.filter((x) => !x.done).length : 0);
+  const tabs = [['todos', home ? 'To-dos & Einkauf' : 'To-dos', openTodos], ['gaeste', 'Gäste', g.guests.length], !home && ['orte', 'Ort', g.venues.length], ['mitbringen', 'Mitbringen', g.bring.length], ['einladung', 'Einladung', 0]].filter(Boolean);
+  const go2 = (k, sub) => { setTab(k); if (sub) { try { sessionStorage.setItem(`life-ev-sub-${g.id}`, sub); } catch {} } setTimeout(() => document.querySelector('.main-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); };
+  const shopTab = home ? [{ key: '🛒 Einkauf', label: '🛒 Einkauf', open: g.shopping.filter((x) => !x.done).length, total: g.shopping.length, render: () => <EventShop g={g} /> }] : [];
   const cur = tabs.some(([k]) => k === tab) ? tab : 'todos';
   const field = (key, ph, extra = {}) => <input className="input" defaultValue={g[key]} key={g.id + key + (g[key] || '')} placeholder={ph} onBlur={(e) => e.target.value !== g[key] && updateGathering(g.id, { [key]: e.target.value })} aria-label={ph} {...extra} />;
   return (
@@ -253,9 +286,10 @@ function Detail({ s, g }) {
           <div className="seg-mini">
             {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={g.kind === k ? 'chip on' : 'chip soft'} onClick={() => setKind(g.id, k)}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
           </div>
-          <div className="box-tabs">{occasionsFor(g.kind).map(([k, o]) => <button key={k} type="button" className={g.type === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setOccasion(g.id, k); toast(`${o.label}: Vorlage ergänzt`); }}>{o.emoji} {o.label}</button>)}</div>
+          <div className="box-tabs">{occasionsFor(g.kind).map(([k, o]) => <button key={k} type="button" className={g.type === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setOccasion(g.id, k); toast(o.empty ? "Leer: Vorlage entfernt – selbst füllen oder KI fragen" : `${o.label}: Vorlage ergänzt`); }}>{o.emoji} {o.label}</button>)}</div>
         </div>
         <section className="card" style={{ gap: 8 }}>
+          <span className="label" style={{ padding: 0 }}>Überblick</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}><DateRangeField single from={g.date} to="" onChange={(v) => updateGathering(g.id, { date: v.from })} placeholder="Datum offen" title="Datum" /></div>
             <input className="input" type="time" value={g.time || ''} onChange={(e) => updateGathering(g.id, { time: e.target.value })} aria-label="Uhrzeit" style={{ maxWidth: 120 }} />
@@ -268,55 +302,42 @@ function Detail({ s, g }) {
           {field('diet', 'Einschränkungen: vegetarisch, Allergien …')}
           {field('budget', 'Budget, z.B. 50.000 ARS')}
           {g.date && g.date >= today() && <span className="tiny">in {diffDays(today(), g.date)} Tagen</span>}
-          {g.guests.length > 0 && (
-            <div className="stat-row">
-              <div><span className="tiny">Zugesagt</span><b style={{ color: '#2FA36B' }}>{counts.zugesagt}</b></div>
-              <div><span className="tiny">Offen</span><b>{counts.eingeladen + counts.offen}</b></div>
-              <div><span className="tiny">Abgesagt</span><b style={{ color: 'var(--danger)' }}>{counts.abgesagt}</b></div>
-            </div>
-          )}
+          <div className="ev-stand">
+            <button type="button" onClick={() => go2('todos', todoCats(g)[0])}><span>To-dos</span><b>{g.todos.filter((x) => x.done).length}/{g.todos.length}</b></button>
+            {home && <button type="button" onClick={() => go2('todos', '🛒 Einkauf')}><span>Einkauf</span><b>{g.shopping.filter((x) => x.done).length}/{g.shopping.length}</b></button>}
+            {!home && <button type="button" onClick={() => go2('orte')}><span>Ort</span><b>{g.venues.some((x) => x.status === 'reserviert') ? '✓' : g.venues.length || '–'}</b></button>}
+            <button type="button" onClick={() => go2('gaeste')}><span>Zugesagt</span><b style={{ color: counts.zugesagt ? '#2FA36B' : undefined }}>{counts.zugesagt}{g.guests.length ? `/${g.guests.length}` : ''}</b></button>
+            <button type="button" onClick={() => go2('mitbringen')}><span>Mitbringen</span><b>{g.bring.filter((x) => x.done).length}/{g.bring.length}</b></button>
+          </div>
         </section>
 
-        <PlanChat
-          title="Mit KI planen"
-          intro={home ? 'Erzähl, was dir vorschwebt – ich frage nach (wie viele ungefähr, Einschränkungen, Budget) und schlage Ideen, Menü, Getränke und was Gäste mitbringen können vor.' : 'Erzähl, was dir vorschwebt – ich frage nach und suche passende Orte in Buenos Aires, sage, wie man reserviert und was du den Gästen schicken musst.'}
-          history={g.chat}
-          prefKey="event"
-          onSave={(chat) => updateGathering(g.id, { chat })}
-          onAsk={(hist, o) => gatherAssist(s, g, hist, o)}
-          webChips={['Passenden Ort finden']}
-          groups={PLAN_GROUPS}
-          onApply={(sel) => applyGatherProposal(g.id, sel)}
-          chips={home ? ['Ideen für das Event', 'Motto finden', 'Was soll ich kochen?', 'Welche Getränke, wie viel?', 'Was können Gäste mitbringen?', 'Einladung schreiben'] : ['Ideen für das Event', 'Passenden Ort finden', 'Wie reserviere ich am besten?', 'Was muss ich den Gästen schicken?', 'Einladung schreiben']}
-        />
 
         <div className="box-tabs main-tabs">
           {tabs.map(([k, l, n]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{n ? ` ${n}` : ''}</button>)}
         </div>
 
-        {cur === 'todos' && <GroupedChecklist items={g.todos} cats={todoCats(g)} color={COLOR} onAdd={(text, cat) => text.split(/,|\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => addItem(g.id, 'todos', { text: x, cat }))} onToggle={(id) => updateItem(g.id, 'todos', id, { done: !g.todos.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'todos', id)} placeholder="Neues To-do" />}
+        {cur === 'todos' && <GroupedChecklist key={g.id + (g.type || '')} tabKey={`life-ev-sub-${g.id}`} extraTabs={shopTab} items={g.todos} cats={todoCats(g)} color={COLOR} onAdd={(text, cat) => text.split(/,|\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => addItem(g.id, 'todos', { text: x, cat }))} onToggle={(id) => updateItem(g.id, 'todos', id, { done: !g.todos.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'todos', id)} placeholder="Neues To-do" />}
         {cur === 'gaeste' && (
           <>
             <div className="list">
+              <form className="inline-add" onSubmit={(e) => { e.preventDefault(); addGuest(g.id, { name: guest }); setGuestText(''); }}>
+                <input className="input" value={guest} onChange={(e) => setGuestText(e.target.value)} placeholder="Name hinzufügen" aria-label="Gast hinzufügen" />
+                <button type="submit" className="btn small" disabled={!guest.trim()}>+</button>
+              </form>
               {g.guests.length === 0 && <div className="empty">Noch keine Gäste. Du musst nicht alle kennen – für die Planung reicht oben die ungefähre Zahl.</div>}
               {g.guests.map((x) => (
-                <div key={x.id} className="row" style={{ minHeight: 54 }}>
+                <div key={x.id} className="row compact">
                   <span className="row-main"><span className="row-title plain">{x.name}</span></span>
                   {phoneOf(x) && x.status === 'offen' && <a className="pill" href={`https://wa.me/${phoneOf(x)}?text=${encodeURIComponent(g.invite || g.name)}`} target="_blank" rel="noreferrer" onClick={() => setGuest(g.id, x.id, { status: 'eingeladen' })}>WhatsApp</a>}
                   <button type="button" className="pill" style={{ color: STATUS_COLOR[x.status] }} onClick={() => setGuest(g.id, x.id, { status: NEXT[x.status] })} aria-label={`Status von ${x.name}: ${GUEST_STATUS[x.status]} – antippen zum Ändern`}>{GUEST_STATUS[x.status].replace('Noch nicht eingeladen', 'Einladen')}</button>
                   <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => removeGuest(g.id, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
                 </div>
               ))}
-              <form className="inline-add" onSubmit={(e) => { e.preventDefault(); addGuest(g.id, { name: guest }); setGuestText(''); }}>
-                <input className="input" value={guest} onChange={(e) => setGuestText(e.target.value)} placeholder="Name hinzufügen" aria-label="Gast hinzufügen" />
-                <button type="submit" className="btn small" disabled={!guest.trim()}>+</button>
-              </form>
             </div>
             <span className="tiny" style={{ padding: '0 4px' }}>Status antippen: Einladen → Eingeladen → Zugesagt → Abgesagt.</span>
             {suggestions.length > 0 && <div className="chips">{suggestions.map((p) => <button key={p.id} type="button" className="chip soft" onClick={() => addGuest(g.id, { name: p.name, personId: p.id })}>+ {p.name}</button>)}</div>}
           </>
         )}
-        {cur === 'einkauf' && <GroupedChecklist items={g.shopping} cats={SHOP_CATS} color={COLOR} onAdd={(text, cat) => text.split(/,|\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => addItem(g.id, 'shopping', { text: x, cat, who: '' }))} onToggle={(id) => updateItem(g.id, 'shopping', id, { done: !g.shopping.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'shopping', id)} placeholder="Einkaufen" />}
         {cur === 'orte' && <Venues g={g} />}
         {cur === 'mitbringen' && (
           <>
@@ -331,6 +352,18 @@ function Detail({ s, g }) {
             <span className="tiny">Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln per WhatsApp einladen.</span>
           </section>
         )}
+        <PlanChat
+          title="Mit KI planen"
+          intro={home ? 'Erzähl, was dir vorschwebt – ich frage nach (wie viele ungefähr, Einschränkungen, Budget) und schlage Ideen, Menü, Getränke und was Gäste mitbringen können vor.' : 'Erzähl, was dir vorschwebt – ich frage nach und suche passende Orte in Buenos Aires, sage, wie man reserviert und was du den Gästen schicken musst.'}
+          history={g.chat}
+          prefKey="event"
+          onSave={(chat) => updateGathering(g.id, { chat })}
+          onAsk={(hist, o) => gatherAssist(s, g, hist, o)}
+          webChips={['Passenden Ort finden']}
+          groups={PLAN_GROUPS}
+          onApply={(sel) => applyGatherProposal(g.id, sel)}
+          chips={home ? ['Ideen für das Event', 'Motto finden', 'Was soll ich kochen?', 'Welche Getränke, wie viel?', 'Was können Gäste mitbringen?', 'Einladung schreiben'] : ['Ideen für das Event', 'Passenden Ort finden', 'Wie reserviere ich am besten?', 'Was muss ich den Gästen schicken?', 'Einladung schreiben']}
+        />
         <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { done: !g.done }); toast(g.done ? 'Wieder offen' : 'Abgehakt'); if (!g.done) go('/saeule/sozial'); }}>{g.done ? 'Wieder öffnen' : 'Event abhaken (hat stattgefunden)'}</button>
         <button type="button" className="btn danger" onClick={() => { if (confirm(`„${g.name}“ löschen?`)) { removeGathering(g.id); go('/saeule/sozial'); } }}>Event löschen</button>
       </main>

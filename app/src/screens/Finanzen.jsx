@@ -107,17 +107,22 @@ export default function Finanzen() {
             {(b.cats || []).length > 0 && <button type="button" className={editCats ? 'chip on' : 'chip soft'} onClick={() => setEditCats(!editCats)}>{editCats ? 'Fertig' : '✎'}</button>}
           </div>
           {newCat !== null && <form className="block-add" onSubmit={(e) => { e.preventDefault(); const id = addCostCat(newCat); if (id) setCat(id); setNewCat(null); }}><input className="input" autoFocus value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="z.B. Haustier, Spenden, Bildung" aria-label="Neue Kategorie" /><button type="submit" className="btn small">{newCat.trim() ? '+' : '✕'}</button></form>}
-          <button type="button" className="btn sec small" onClick={() => addLine('costs', { cat, name: catOf(cat, b).label })}>+ {catOf(cat, b).label} hinzufügen</button>
+          <button type="button" className="btn sec small" onClick={() => addLine('costs', { cat, name: '' })}>+ {catOf(cat, b).label} hinzufügen</button>
           <div className="list">
             {b.costs.length === 0 && <div className="empty">Wähl oben eine Kategorie und füg deine festen Kosten hinzu – jede in ihrer Währung (z.B. Miete in US$, Handy in ARS).</div>}
             {costCatsOf(b).flatMap((c) => b.costs.filter((x) => (catOf(x.cat, b).id) === c.id)).map((x) => (
-              <div key={x.id} className="row" style={{ minHeight: 56 }}>
-                <span className="row-main" style={{ gap: 0 }}>
-                  <input className="input" style={{ background: 'none', padding: 0, minHeight: 0, height: 24 }} defaultValue={x.name} placeholder={catOf(x.cat, b).label} onBlur={(e) => updateLine('costs', x.id, { name: e.target.value })} aria-label="Name der Fixkosten" />
-                  <button type="button" className="link-btn" style={{ fontSize: 12, padding: 0, alignSelf: 'flex-start' }} onClick={() => setMoveCost(x)} aria-label="Kategorie ändern">{catOf(x.cat, b).label} ▾</button><span className="tiny">{x.currency !== b.base && x.amount ? ` · ≈ ${money(convert(b, x.amount, x.currency), b.base)}` : ''}</span>
-                </span>
-                <Amount value={x.amount} currency={x.currency} label={x.name || 'Betrag'} onChange={(v) => updateLine('costs', x.id, { amount: v })} onCurrency={(c) => updateLine('costs', x.id, { currency: c })} />
-                <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeLine('costs', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+              <div key={x.id} className="cost-row">
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input className="input" style={{ flex: 1, minWidth: 0 }} defaultValue={x.name} key={x.id + (x.name || '')} placeholder={`Name, z.B. ${catOf(x.cat, b).label}`} onBlur={(e) => e.target.value !== x.name && updateLine('costs', x.id, { name: e.target.value })} aria-label="Name der Fixkosten" />
+                  <button type="button" className="x-btn" aria-label="Fixkosten löschen" onClick={() => removeLine('costs', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                    <button type="button" className="link-btn" style={{ fontSize: 13, padding: 0, alignSelf: 'flex-start', textAlign: 'left' }} onClick={() => setMoveCost(x)} aria-label="Kategorie ändern">{catOf(x.cat, b).label} ▾</button>
+                    {x.currency !== b.base && x.amount ? <span className="tiny">≈ {money(convert(b, x.amount, x.currency), b.base)}</span> : null}
+                  </span>
+                  <Amount value={x.amount} currency={x.currency} label={x.name || 'Betrag'} onChange={(v) => updateLine('costs', x.id, { amount: v })} onCurrency={(c) => updateLine('costs', x.id, { currency: c })} />
+                </div>
               </div>
             ))}
           </div>

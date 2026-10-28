@@ -237,28 +237,30 @@ export const SHOP_GROUPS = [
   { id: 'anderes', label: 'Anderes', emoji: '📦' },
 ];
 export const SHOP_CATS = [
-  { id: 'obst', group: 'essen', label: 'Obst', emoji: '🍎', items: 'Äpfel|Birnen?|Bananen|Orangen?|Mandarinen/Clementinen?|Zitronen|Grapefruit?|Kaki (Persimone)?|Granatapfel?|Kiwi?|Avocados?|Beeren (TK oder Import)?', words: 'apfel äpfel banane birne orange zitrone limette traube beere erdbeere heidelbeere himbeere mango ananas kiwi melone avocado mandarine clementine grapefruit kaki granatapfel obst manzana banana pera naranja limón mandarina pomelo uva frutilla fresa arándano palta kiwi granada fruta fruit' },
-  { id: 'salat', group: 'essen', label: 'Gemüse – Salate', emoji: '🥬', items: 'Mischsalat?|Rucola?', words: 'salat rucola spinat feldsalat eisberg lechuga rúcula espinaca' },
-  { id: 'gemuese', group: 'essen', label: 'Gemüse – Anderes', emoji: '🥕', items: 'Karotten|Paprika (rot/gelb/grün)|Tomaten|Zucchini?|Gurken|Zwiebeln', words: 'tomate tomaten gurke gurken paprika zwiebel zwiebeln knoblauch kartoffel kartoffeln süßkartoffel karotte karotten möhre brokkoli zucchini aubergine pilz pilze champignon lauch sellerie kürbis mais kräuter petersilie basilikum ingwer gemüse pepino morrón cebolla ajo papa batata zanahoria brócoli zapallito berenjena hongo champiñón puerro apio calabaza choclo perejil albahaca jengibre verdura vegetable' },
-  { id: 'fleisch', group: 'essen', label: 'Fleisch & Fisch', emoji: '🥩', items: 'Hähnchenbrust|Fischfilets (z. B. Lachs/Kabeljau)?|Garnelen?', words: 'fleisch hähnchen hähnchenbrust huhn hühnchen pute rind hack hackfleisch steak schwein schinken salami wurst speck lachs kabeljau thunfisch fisch fischfilet garnele garnelen shrimp carne pollo pechuga milanesa bife vacío asado cerdo jamón salame chorizo panceta salmón atún pescado langostino chicken beef' },
-  { id: 'veggie', group: 'essen', label: 'Vegetarische Proteine & Hülsenfrüchte', emoji: '🫘', items: 'Kichererbsen?|Schwarze Bohnen?', words: 'kichererbsen bohnen linsen tofu tempeh seitan hummus garbanzos porotos lentejas' },
-  { id: 'milch', group: 'essen', label: 'Milchalternativen, Milchprodukte & Eier', emoji: '🥛', items: 'Hafermilch|Joghurt|Eier', words: 'milch hafermilch mandelmilch sojamilch joghurt quark käse butter sahne frischkäse mozzarella parmesan feta skyr kefir ei eier leche yogur queso manteca crema huevo huevos ricota cheese egg' },
-  { id: 'brot', group: 'essen', label: 'Brot & Backwaren', emoji: '🥖', items: 'Anderes (z. B. Fladenbrot)?', words: 'brot brötchen toast baguette croissant wrap tortilla fladenbrot pan tostada medialuna factura pita bagel' },
-  { id: 'pasta', group: 'essen', label: 'Pasta & Reis', emoji: '🍝', items: 'Pasta', words: 'nudeln pasta spaghetti penne reis quinoa couscous fideos arroz' },
-  { id: 'vorrat', group: 'essen', label: 'Vorratsprodukte & Konserven', emoji: '🥫', items: 'Stückige Tomaten (Dose)|Tomatenmark?|Kokosmilch?', words: 'dose konserve tomatenmark kokosmilch mehl zucker brühe passata lata harina azúcar caldo' },
-  { id: 'wuerze', group: 'essen', label: 'Gewürze & Würzmittel', emoji: '🧂', items: 'Salz|Pfeffer|Senf', words: 'öl olivenöl essig salz pfeffer gewürz paprikapulver curry zimt senf ketchup mayo mayonnaise sojasauce sauce soße pesto aceite vinagre sal pimienta especia mostaza salsa' },
-  { id: 'fruehstueck', group: 'essen', label: 'Frühstück & Aufstriche', emoji: '🥣', items: 'Müsli/Granola', words: 'müsli granola haferflocken cornflakes honig marmelade erdnussbutter nutella aufstrich avena miel mermelada dulce de leche' },
-  { id: 'snacks', group: 'essen', label: 'Snacks & Süßes', emoji: '🍫', items: 'Salzstangen?|Popcorn?', words: 'schokolade chips nüsse mandeln kekse riegel proteinriegel gummibärchen popcorn salzstangen cracker chocolate galletitas galletas maní almendras nueces barrita alfajor snack' },
-  { id: 'getraenke', group: 'essen', label: 'Getränke', emoji: '🥤', items: 'Mineralwasser|Saft', words: 'wasser mineralwasser saft cola bier wein sprudel limonade kaffee tee mate yerba energy agua jugo gaseosa cerveza vino café té soda fernet' },
-  { id: 'tk', group: 'essen', label: 'Tiefkühl', emoji: '🧊', items: 'TK-Beeren?|TK-Erbsen?|TK-Kräuter?', words: 'tiefkühl tk gefroren pizza eis eiscreme congelado helado' },
-  { id: 'lagern', group: 'kueche', label: 'Lagerung & Zubereitung', emoji: '🥡', items: 'Frischhaltedosen', words: 'frischhaltedosen frischhaltefolie alufolie backpapier gefrierbeutel dosen tupper papel aluminio film' },
-  { id: 'reinigung', group: 'kueche', label: 'Reinigung', emoji: '🧽', items: 'Spülmittel', words: 'spülmittel waschmittel müllbeutel schwamm putzmittel küchenrolle spültabs weichspüler detergente lavandina esponja bolsas residuos' },
-  { id: 'koerper', group: 'bad', label: 'Körperpflege', emoji: '🧼', items: 'Duschgel|Seife|Rasierklingen', words: 'shampoo duschgel seife deo rasierer rasierklingen creme bodylotion sonnencreme haargel desodorante jabón champú' },
-  { id: 'zahn', group: 'bad', label: 'Zahnpflege', emoji: '🪥', items: 'Zahnpasta|Zahnbürste', words: 'zahnpasta zahnbürste zahnseide mundspülung pasta dental cepillo' },
-  { id: 'hygiene', group: 'bad', label: 'Hygiene', emoji: '🧻', items: 'Feuchttücher|Wattestäbchen', words: 'feuchttücher wattestäbchen klopapier toilettenpapier wattepads papel higiénico' },
-  { id: 'papier', group: 'anderes', label: 'Papierwaren', emoji: '🗒', items: 'Taschentücher', words: 'taschentücher servietten pañuelos servilletas' },
-  { id: 'buero', group: 'anderes', label: 'Bürobedarf & Schreibwaren', emoji: '✏️', items: 'Stifte (Kuli, Marker)', words: 'stifte kuli kugelschreiber marker papier block heft lapicera cuaderno' },
-  { id: 'technik', group: 'anderes', label: 'Technik & Sonstiges', emoji: '🔋', items: 'Batterien (AA/AAA)|Glühbirnen', words: 'batterien batterie glühbirne glühbirnen kabel ladekabel pilas lamparita' },
+  { id: 'obst', group: 'essen', label: 'Obst', emoji: '🍎', items: 'Äpfel|Bananen|Zitronen|Limetten|Orangen|Mandarinen/Clementinen|Birnen?|Weintrauben?|Erdbeeren?|Heidelbeeren?|Himbeeren?|Kiwi?|Mango?|Ananas?|Melone?|Grapefruit?|Granatapfel?|Kaki (Persimone)?|Avocados|Beeren (TK oder Import)?', words: 'apfel äpfel banane birne orange zitrone limette traube beere erdbeere heidelbeere himbeere mango ananas kiwi melone avocado mandarine clementine grapefruit kaki granatapfel obst manzana banana pera naranja limón mandarina pomelo uva frutilla fresa arándano palta kiwi granada fruta fruit' },
+  { id: 'salat', group: 'essen', label: 'Gemüse – Salate', emoji: '🥬', items: 'Eisbergsalat|Kopfsalat|Mischsalat|Rucola|Feldsalat?|Spinat (frisch)?|Babyspinat?|Römersalat?|Radicchio?', words: 'salat rucola spinat feldsalat eisberg lechuga rúcula espinaca' },
+  { id: 'gemuese', group: 'essen', label: 'Gemüse – Anderes', emoji: '🥕', items: 'Tomaten|Kirschtomaten|Gurken|Paprika (rot/gelb/grün)|Zwiebeln|Rote Zwiebeln|Knoblauch|Kartoffeln|Süßkartoffeln?|Karotten|Zucchini|Brokkoli|Blumenkohl?|Champignons|Lauch?|Frühlingszwiebeln|Sellerie?|Aubergine?|Mais (Kolben)?|Kürbis?|Ingwer|Petersilie|Basilikum|Schnittlauch?|Koriander?|Minze?', words: 'tomate tomaten gurke gurken paprika zwiebel zwiebeln knoblauch kartoffel kartoffeln süßkartoffel karotte karotten möhre brokkoli zucchini aubergine pilz pilze champignon lauch sellerie kürbis mais kräuter petersilie basilikum ingwer gemüse pepino morrón cebolla ajo papa batata zanahoria brócoli zapallito berenjena hongo champiñón puerro apio calabaza choclo perejil albahaca jengibre verdura vegetable' },
+  { id: 'fleisch', group: 'essen', label: 'Fleisch & Fisch', emoji: '🥩', items: 'Hähnchenbrust|Hähnchenschenkel?|Hackfleisch (Rind)|Hackfleisch (gemischt)?|Rindersteak?|Schweinefilet?|Schnitzel?|Bratwurst?|Lachs|Fischfilets (z. B. Kabeljau)?|Thunfisch (frisch)?|Garnelen?', words: 'fleisch hähnchen hähnchenbrust huhn hühnchen pute rind hack hackfleisch steak schwein schinken salami wurst speck lachs kabeljau thunfisch fisch fischfilet garnele garnelen shrimp carne pollo pechuga milanesa bife vacío asado cerdo jamón salame chorizo panceta salmón atún pescado langostino chicken beef' },
+  { id: 'aufschnitt', group: 'essen', label: 'Wurst & Aufschnitt', emoji: '🥓', items: 'Kochschinken|Salami|Putenbrust (Aufschnitt)|Schinken (roh)?|Leberwurst?|Wiener Würstchen?|Speck / Bacon|Chorizo?', words: 'schinken kochschinken salami aufschnitt leberwurst würstchen wiener speck bacon mortadella jamón salame fiambre panceta' },
+  { id: 'veggie', group: 'essen', label: 'Vegetarische Proteine & Hülsenfrüchte', emoji: '🫘', items: 'Tofu|Kichererbsen|Rote Linsen|Schwarze Bohnen|Kidneybohnen|Weiße Bohnen?|Hummus|Falafel?|Tempeh?|Edamame?', words: 'kichererbsen bohnen linsen tofu tempeh seitan hummus garbanzos porotos lentejas' },
+  { id: 'milch', group: 'essen', label: 'Milchalternativen, Milchprodukte & Eier', emoji: '🥛', items: 'Milch|Hafermilch|Butter|Eier|Naturjoghurt|Griechischer Joghurt|Quark|Skyr?|Sahne|Schmand / Saure Sahne?|Frischkäse|Gouda (Scheiben)|Mozzarella|Parmesan|Feta|Emmental (gerieben)|Halloumi?|Ricotta?', words: 'milch hafermilch mandelmilch sojamilch joghurt quark käse butter sahne frischkäse mozzarella parmesan feta skyr kefir ei eier leche yogur queso manteca crema huevo huevos ricota cheese egg' },
+  { id: 'brot', group: 'essen', label: 'Brot & Backwaren', emoji: '🥖', items: 'Toastbrot|Vollkornbrot|Brötchen|Baguette?|Wraps / Tortillas|Knäckebrot?|Fladenbrot?|Croissants?|Medialunas?', words: 'brot brötchen toast baguette croissant wrap tortilla fladenbrot pan tostada medialuna factura pita bagel' },
+  { id: 'pasta', group: 'essen', label: 'Pasta & Reis', emoji: '🍝', items: 'Spaghetti|Penne|Fusilli?|Lasagneplatten?|Reis (Basmati)|Reis (Jasmin)?|Risottoreis?|Couscous?|Bulgur?|Quinoa?|Gnocchi?|Mie-Nudeln?', words: 'nudeln pasta spaghetti penne reis quinoa couscous fideos arroz' },
+  { id: 'vorrat', group: 'essen', label: 'Vorratsprodukte & Konserven', emoji: '🥫', items: 'Stückige Tomaten (Dose)|Passierte Tomaten|Tomatenmark|Kokosmilch|Mais (Dose)|Thunfisch (Dose)|Kichererbsen (Dose)|Gemüsebrühe|Hühnerbrühe?|Oliven?|Getrocknete Tomaten?|Gurken (Glas)?|Erdnussbutter|Nüsse (Mandeln, Walnüsse)', words: 'dose konserve tomatenmark kokosmilch mehl zucker brühe passata lata harina azúcar caldo' },
+  { id: 'backen', group: 'essen', label: 'Backen', emoji: '🧁', items: 'Mehl|Zucker|Brauner Zucker?|Puderzucker?|Backpulver|Trockenhefe?|Vanillezucker?|Speisestärke|Kakaopulver?|Schokotropfen?|Haferflocken', words: 'mehl zucker backpulver hefe trockenhefe vanillezucker speisestärke kakao puderzucker harina azúcar levadura' },
+  { id: 'wuerze', group: 'essen', label: 'Gewürze & Würzmittel', emoji: '🧂', items: 'Salz|Pfeffer|Olivenöl|Sonnenblumenöl / Rapsöl|Balsamico-Essig|Weißweinessig?|Senf|Ketchup|Mayonnaise|Sojasauce|Sriracha / Chili-Sauce?|Paprikapulver (edelsüß)|Paprika geräuchert?|Currypulver|Kreuzkümmel?|Oregano|Thymian?|Chiliflocken|Zimt|Muskat?|Honig|Pesto?', words: 'öl olivenöl essig salz pfeffer gewürz paprikapulver curry zimt senf ketchup mayo mayonnaise sojasauce sauce soße pesto aceite vinagre sal pimienta especia mostaza salsa' },
+  { id: 'fruehstueck', group: 'essen', label: 'Frühstück & Aufstriche', emoji: '🥣', items: 'Müsli/Granola|Haferflocken|Cornflakes?|Marmelade|Honig|Nutella / Nussnougatcreme?|Erdnussbutter|Dulce de leche?|Kaffee (Bohnen/gemahlen)|Tee|Mate (Yerba)?', words: 'müsli granola haferflocken cornflakes honig marmelade erdnussbutter nutella aufstrich avena miel mermelada dulce de leche' },
+  { id: 'snacks', group: 'essen', label: 'Snacks & Süßes', emoji: '🍫', items: 'Chips|Salzstangen|Erdnüsse|Popcorn?|Schokolade|Kekse|Gummibärchen?|Müsliriegel|Proteinriegel?|Reiswaffeln?|Alfajores?|Eis (Eiscreme)?', words: 'schokolade chips nüsse mandeln kekse riegel proteinriegel gummibärchen popcorn salzstangen cracker chocolate galletitas galletas maní almendras nueces barrita alfajor snack' },
+  { id: 'getraenke', group: 'essen', label: 'Getränke', emoji: '🥤', items: 'Mineralwasser (mit Kohlensäure)|Mineralwasser (still)|Orangensaft|Apfelsaft?|Cola / Cola Zero|Limonade?|Bier|Wein (rot)?|Wein (weiß)?|Sekt?|Eistee?|Energydrink?|Tonic Water?', words: 'wasser mineralwasser saft cola bier wein sprudel limonade kaffee tee mate yerba energy agua jugo gaseosa cerveza vino café té soda fernet' },
+  { id: 'tk', group: 'essen', label: 'Tiefkühl', emoji: '🧊', items: 'TK-Beeren|TK-Erbsen|TK-Spinat?|TK-Gemüsemischung|TK-Kräuter?|TK-Pizza|Pommes (TK)|Fischstäbchen?|Eiswürfel?|Speiseeis?', words: 'tiefkühl tk gefroren pizza eis eiscreme congelado helado' },
+  { id: 'lagern', group: 'kueche', label: 'Lagerung & Zubereitung', emoji: '🥡', items: 'Frischhaltedosen|Frischhaltefolie|Alufolie|Backpapier|Gefrierbeutel|Zip-Beutel?|Küchenrolle|Servietten?', words: 'frischhaltedosen frischhaltefolie alufolie backpapier gefrierbeutel dosen tupper papel aluminio film' },
+  { id: 'reinigung', group: 'kueche', label: 'Reinigung', emoji: '🧽', items: 'Spülmittel|Spülmaschinen-Tabs|Spülschwämme|Allzweckreiniger|Glasreiniger?|Badreiniger|WC-Reiniger|Entkalker?|Müllbeutel|Waschmittel|Weichspüler?|Fleckentferner?|Putztücher / Mikrofasertücher', words: 'spülmittel waschmittel müllbeutel schwamm putzmittel küchenrolle spültabs weichspüler detergente lavandina esponja bolsas residuos' },
+  { id: 'koerper', group: 'bad', label: 'Körperpflege', emoji: '🧼', items: 'Duschgel|Shampoo|Spülung?|Seife / Handseife|Deo|Rasierklingen|Rasierschaum/-gel|Bodylotion|Gesichtscreme?|Sonnencreme|Lippenpflege?|Haargel / Wachs?', words: 'shampoo duschgel seife deo rasierer rasierklingen creme bodylotion sonnencreme haargel desodorante jabón champú' },
+  { id: 'zahn', group: 'bad', label: 'Zahnpflege', emoji: '🪥', items: 'Zahnpasta|Zahnbürste|Zahnseide|Mundspülung?|Aufsteckbürsten (elektrisch)?', words: 'zahnpasta zahnbürste zahnseide mundspülung pasta dental cepillo' },
+  { id: 'hygiene', group: 'bad', label: 'Hygiene', emoji: '🧻', items: 'Toilettenpapier|Feuchttücher|Wattestäbchen|Wattepads?|Taschentücher (Box)?|Pflaster|Kopfschmerztabletten?|Nagelschere?', words: 'feuchttücher wattestäbchen klopapier toilettenpapier wattepads papel higiénico' },
+  { id: 'papier', group: 'anderes', label: 'Papierwaren', emoji: '🗒', items: 'Taschentücher|Küchenrolle?|Servietten?|Druckerpapier?', words: 'taschentücher servietten pañuelos servilletas' },
+  { id: 'buero', group: 'anderes', label: 'Bürobedarf & Schreibwaren', emoji: '✏️', items: 'Stifte (Kuli, Marker)|Notizblock|Post-its?|Klebeband|Briefumschläge?|Batterien für Maus?', words: 'stifte kuli kugelschreiber marker papier block heft lapicera cuaderno' },
+  { id: 'technik', group: 'anderes', label: 'Technik & Sonstiges', emoji: '🔋', items: 'Batterien (AA/AAA)|Glühbirnen / LED|Ladekabel (USB-C)?|Mehrfachsteckdose?|Kerzen?|Feuerzeug / Streichhölzer?', words: 'batterien batterie glühbirne glühbirnen kabel ladekabel pilas lamparita' },
   { id: 'sonstiges', group: 'anderes', label: 'Sonstiges', emoji: '🛒', items: '', words: '' },
 ];
 const LEGACY_CAT = { drogerie: 'koerper', obst: 'obst' };
@@ -267,12 +269,35 @@ const catalogOf = (c) => (c.items ? c.items.split('|') : []).map((x) => ({ name:
 // v0.89: Struktur bearbeitbar – s.shopping.structure = { groups: [{id,label,emoji}], cats: [{id,group,label,emoji,items:[{name,optional}]}] }
 // Fehlt sie, gilt der Standard (Mateos Liste) + eigene Katalog-Artikel aus älteren Versionen (s.shopping.catalog).
 const defaultStructure = (s) => ({
+  v90: true,
   groups: SHOP_GROUPS.map((g) => ({ ...g })),
   cats: SHOP_CATS.map((c) => ({ id: c.id, group: c.group, label: c.label, emoji: c.emoji, items: [...catalogOf(c), ...((s?.shopping?.catalog?.[c.id]) || []).map((name) => ({ name, optional: false }))] })),
 });
+// v0.90: neue Standard-Artikel und -Unterkategorien einmalig in eine schon bearbeitete Struktur übernehmen
+const NEW_V90 = ['aufschnitt', 'backen'];
+function withDefaults90(st) {
+  const out = JSON.parse(JSON.stringify(st));
+  for (const c of SHOP_CATS) {
+    let ex = out.cats.find((x) => x.id === c.id);
+    if (!ex) {
+      if (!NEW_V90.includes(c.id)) continue; // selbst gelöschte Unterkategorien nicht zurückholen
+      const g = out.groups.find((x) => x.id === c.group) || out.groups[0];
+      ex = { id: c.id, group: g.id, label: c.label, emoji: c.emoji, items: [] };
+      const after = out.cats.findIndex((x) => x.id === (c.id === 'aufschnitt' ? 'fleisch' : 'vorrat'));
+      out.cats.splice(after >= 0 ? after + 1 : out.cats.length, 0, ex);
+    }
+    for (const it of catalogOf(c)) if (!ex.items.some((x) => norm(x.name) === norm(it.name))) ex.items.push(it);
+  }
+  out.v90 = true;
+  return out;
+}
 export function shopStructure(s) {
-  const st = s?.shopping?.structure;
-  const base = st && st.groups?.length ? { groups: st.groups, cats: st.cats || [] } : defaultStructure(s);
+  let st = s?.shopping?.structure;
+  if (st && st.groups?.length && !st.v90) {
+    st = withDefaults90(st);
+    setTimeout(() => store.update((x) => { if (x.shopping.structure && !x.shopping.structure.v90) x.shopping.structure = withDefaults90(x.shopping.structure); }), 0);
+  }
+  const base = st && st.groups?.length ? { v90: !!st.v90, groups: st.groups, cats: st.cats || [] } : defaultStructure(s);
   if (!base.cats.some((c) => c.id === 'sonstiges')) base.cats = [...base.cats, { id: 'sonstiges', group: base.groups[base.groups.length - 1]?.id, label: 'Sonstiges', emoji: '🛒', items: [] }];
   return base;
 }

@@ -14,6 +14,22 @@ export function parseSec(v) {
   if (p.length === 2) return p[0] * 60 + p[1];
   return p[0] * 3600 + p[1] * 60 + p[2];
 }
+// v0.90 (Mateo: auf dem iPhone gibt es keinen Doppelpunkt): Ziffern werden automatisch formatiert
+// Zeit: 75 → 75 s · 115 → 1:15 · 1230 → 12:30 · 13000 → 1:30:00 · Pace: 4 → 4 Min · 43 → 4:3 · 345 → 3:45 · 1030 → 10:30
+export function autoColon(v, kind = 'time') {
+  const raw = String(v || '');
+  if (/[.,]/.test(raw)) return raw.replace(/[^\d.,:]/g, ''); // Dezimal (z.B. 58,5 s) unverändert lassen
+  const d = raw.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 6);
+  if (kind === 'pace') {
+    if (d.length <= 1) return d;
+    if (d.length === 2) return `${d[0]}:${d[1]}`;
+    if (d.length === 3) return `${d[0]}:${d.slice(1)}`;
+    return `${d.slice(0, 2)}:${d.slice(2, 4)}`;
+  }
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, -2)}:${d.slice(-2)}`;
+  return `${d.slice(0, -4)}:${d.slice(-4, -2)}:${d.slice(-2)}`;
+}
 export function fmtSec(sec) {
   if (!sec || !Number.isFinite(sec)) return '';
   const tot = sec < 600 ? Math.round(sec * 10) / 10 : Math.round(sec);
@@ -32,7 +48,7 @@ export default function PaceCalc() {
   const [last, setLast] = useState('time');
   const m = parseFloat(String(meters).replace(',', '.'));
   const t = parseSec(time);
-  const p = parseSec(pace); // Sekunden pro km
+  const p = /:/.test(pace) || parseSec(pace) >= 30 ? parseSec(pace) : parseSec(pace) * 60; // Sekunden pro km; „4“ = 4 Min
   let resT = t;
   let resP = p;
   if (m > 0 && last === 'time' && t) resP = (t / m) * 1000;
@@ -50,8 +66,8 @@ export default function PaceCalc() {
       </div>
       <div className="calc-grid">
         <label className="field"><span>Distanz (m)</span><input className="input" inputMode="decimal" value={meters} onChange={(e) => setMeters(e.target.value)} aria-label="Distanz in Metern" /></label>
-        <label className="field"><span>Zeit</span><input className="input" value={last === 'pace' && ok ? fmtSec(resT) : time} onChange={(e) => { setTime(e.target.value); setLast('time'); }} placeholder="1:15 oder 75" inputMode="decimal" aria-label="Zeit" /></label>
-        <label className="field"><span>Pace (/km)</span><input className="input" value={last === 'time' && ok ? fmtSec(resP) : pace} onChange={(e) => { setPace(e.target.value); setLast('pace'); }} placeholder="3:45" inputMode="decimal" aria-label="Pace pro km" /></label>
+        <label className="field"><span>Zeit</span><input className="input" value={last === 'pace' && ok ? fmtSec(resT) : time} onChange={(e) => { setTime(autoColon(e.target.value, 'time')); setLast('time'); }} placeholder="115 → 1:15" inputMode="decimal" aria-label="Zeit" /></label>
+        <label className="field"><span>Pace (/km)</span><input className="input" value={last === 'time' && ok ? fmtSec(resP) : pace} onChange={(e) => { setPace(autoColon(e.target.value, 'pace')); setLast('pace'); }} placeholder="345 → 3:45" inputMode="decimal" aria-label="Pace pro km" /></label>
       </div>
       {ok && (
         <>
@@ -70,7 +86,7 @@ export default function PaceCalc() {
           <div className="chips">{others.map((x) => <span key={x} className="tag" style={{ fontSize: 13 }}>{label(x)}: {fmtSec(predict(x))}</span>)}</div>
         </>
       )}
-      {!ok && <span className="tiny">Gib Zeit oder Pace ein – z.B. 400 m in 1:15 (oder 75 Sekunden), oder eine Pace von 3:45 pro km.</span>}
+      {!ok && <span className="tiny">Einfach nur Ziffern tippen, der Doppelpunkt kommt automatisch: Zeit „115“ = 1:15, „75“ = 75 Sekunden · Pace „345“ = 3:45 pro km, „4“ = 4:00.</span>}
     </div>
   );
 }
