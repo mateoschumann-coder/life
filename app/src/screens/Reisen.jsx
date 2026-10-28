@@ -17,6 +17,8 @@ import MapView from '../components/MapView';
 import { DateRangeField, rangeText } from '../components/DateRange';
 import { Back, Chevron, Field, Icon, Sheet, TabBar, toast, Info } from '../components/ui';
 import { Missing } from './Saeule';
+import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
+import { Segmented } from '../components/ui';
 
 const COLOR = '#2FA36B';
 // Bei diesen Wörtern sucht der Reise-Chat automatisch im Internet (aktuelle Preise, Verbindungen, Unterkünfte)
@@ -315,10 +317,14 @@ function CostCard({ s, tr, onSearch }) {
 }
 function Inspiration({ s }) {
   const [pending, setPending] = useState(null);
+  const [mode, setMode] = useSearchMode('reiseziele', 'ki');
   return (
     <>
-      <PlanChat
-        title="Wohin könnte ich?"
+      <h2 className="label" style={{ padding: '0 4px', marginBottom: -6 }}>Wohin könnte ich?</h2>
+      <ModeToggle mode={mode} onChange={setMode} />
+      {mode === 'links' && <SourceLinks s={s} area="reiseziele" instant />}
+      {mode === 'ki' && <PlanChat
+        title="Reiseführer-KI"
         history={chatOf(s, 'reiseziele')}
         prefKey="reiseziele"
         onSave={(h) => saveChatOf('reiseziele', h)}
@@ -327,7 +333,7 @@ function Inspiration({ s }) {
         onApply={(sel) => setPending(sel)}
         chips={INSPO_CHIPS}
         placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD"
-      />
+      />}
       <TargetSheet s={s} sel={pending} onClose={() => setPending(null)} />
     </>
   );
@@ -357,6 +363,9 @@ function TripList({ s }) {
   };
   const [closed, setClosed] = useState({});
   const [priceFor, setPriceFor] = useState(null);
+  const [view, setViewS] = useState(() => { try { return localStorage.getItem('life-app-reisen-tab') || 'reisen'; } catch { return 'reisen'; } });
+  const setView = (v) => { setViewS(v); try { localStorage.setItem('life-app-reisen-tab', v); } catch {} };
+  const newTrip = (status) => { setF({ dest: '', from: '', to: '', budget: '', status }); setOpen(true); };
   const groups = groupsOf(s);
   const loose = ideas.filter((x) => !x.group);
   const Row = ({ tr, idea }) => grouping && idea ? (
@@ -387,26 +396,33 @@ function TripList({ s }) {
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Back href="#/bereich/freizeit" label="Freizeit und Erlebnisse" />
-          <div className="sec-h" style={{ padding: 0 }}>
-            <h1 className="h1">Reisen</h1>
-            <button type="button" className="btn small" onClick={() => setOpen(true)}>+ Reise</button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h1 className="h1">Reisen</h1>
+        </div>
+        <Segmented full options={[{ id: 'reisen', label: `🧳 Reisen${planned.length ? ` · ${planned.length}` : ''}` }, { id: 'ideen', label: `💡 Ideen${ideas.length ? ` · ${ideas.length}` : ''}` }]} value={view} onChange={setView} label="Reisen oder Ideen" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <button type="button" className="btn small" onClick={() => newTrip(view === 'ideen' ? 'idee' : 'geplant')}>{view === 'ideen' ? '+ Idee' : '+ Reise'}</button>
+          <span style={{ flex: 1 }} />
             <span className="tiny">Preise in</span>
             {Object.entries(TRIP_CURRENCIES).map(([k, l]) => <button key={k} type="button" className={tripCur(s) === k ? 'chip on' : 'chip soft'} style={{ padding: '4px 10px', fontSize: 13 }} onClick={() => store.update((d) => { d.profile = { ...d.profile, tripCurrency: k }; })}>{l}</button>)}
-          </div>
         </div>
-        <section className="group">
+        {view === 'reisen' && <><section className="group">
           <h2 className="label" style={{ padding: '0 4px' }}>Geplant</h2>
           <div className="list">
             {planned.length === 0 && <div className="empty">Noch keine Reise festgelegt. Jede Reise bekommt eine Vorlage: Stationen, Transport, Orte auf der Karte, Unterlagen, To-dos und Packliste.</div>}
             {planned.map((tr) => <Row key={tr.id} tr={tr} />)}
           </div>
         </section>
-        <Inspiration s={s} />
+        {past.length > 0 && (
+          <section className="group">
+            <h2 className="label" style={{ padding: '0 4px' }}>Vergangene Reisen</h2>
+            <div className="list">{[...past].reverse().map((tr) => <Row key={tr.id} tr={tr} />)}</div>
+          </section>
+        )}
+        </>}
+        {view === 'ideen' && <><Inspiration s={s} />
         <section className="group">
           <div className="sec-h" style={{ padding: '0 4px' }}>
-            <h2 className="label" style={{ padding: 0 }}>Ideen – noch nicht festgelegt</h2>
+            <h2 className="label" style={{ padding: 0 }}>Meine Ideen</h2>
             {ideas.length > 0 && <button type="button" className="link-btn" style={{ fontSize: 14 }} onClick={() => { setGrouping(!grouping); setPicked([]); }}>{grouping ? 'Abbrechen' : 'Gruppieren'}</button>}
           </div>
           {grouping && <Info>Wähle Ideen für dieselbe Reise und gib der Gruppe einen Namen (oder den einer vorhandenen Gruppe). Jede Idee bleibt mit Orten und Routen erhalten.</Info>}
@@ -436,13 +452,7 @@ function TripList({ s }) {
               <button type="submit" className="btn small" disabled={!picked.length || !gname.trim()}>Gruppieren ({picked.length})</button>
             </form>
           )}
-        </section>
-        {past.length > 0 && (
-          <section className="group">
-            <h2 className="label" style={{ padding: '0 4px' }}>Vergangene Reisen</h2>
-            <div className="list">{[...past].reverse().map((tr) => <Row key={tr.id} tr={tr} />)}</div>
-          </section>
-        )}
+        </section></>}
       </main>
       <PriceSheet s={s} trips={priceFor?.trips ? priceFor.trips.map((x) => s.trips.find((y) => y.id === x.id) || x) : null} title={priceFor?.title} onClose={() => setPriceFor(null)} />
       <Sheet open={open} title="Neue Reise" onClose={() => setOpen(false)}>

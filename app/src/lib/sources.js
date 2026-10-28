@@ -25,6 +25,21 @@ export const SOURCE_AREAS = {
     ],
   },
   // v1.03: Zuhause → Einrichtung / Kleidung finden (Seiten bearbeitbar wie überall)
+  reiseziele: {
+    title: 'Meine Reise-Seiten',
+    chips: ['Strand im Januar', 'Wochenende ab Buenos Aires', 'Patagonien wandern', 'Städtetrip Europa', 'Günstige Ziele Südamerika', 'Rundreise 2 Wochen'],
+    placeholder: 'z.B. Strand im Januar, 1 Woche',
+    defaults: [
+      { id: 'google', name: 'Google', lang: 'de', build: (c) => `https://www.google.com/search?q=${enc(c.q + ' Reiseziele')}` },
+      { id: 'skyever', name: 'Skyscanner „Überall“', lang: 'de', build: () => 'https://www.skyscanner.de/transport/fluge/bue/everywhere/' },
+      { id: 'gtravel', name: 'Google Flights entdecken', lang: 'de', build: () => 'https://www.google.com/travel/explore' },
+      { id: 'pinterest', name: 'Pinterest', lang: 'en', build: (c) => `https://www.pinterest.com/search/pins/?q=${enc(c.q + ' travel')}` },
+      { id: 'reddit', name: 'Reddit', lang: 'en', build: (c) => `https://www.reddit.com/search/?q=${enc(c.q + ' travel')}` },
+      { id: 'youtube', name: 'YouTube', lang: 'de', build: (c) => `https://www.youtube.com/results?search_query=${enc(c.q + ' Reise')}` },
+      { id: 'lonely', name: 'Lonely Planet', domain: 'lonelyplanet.com', lang: 'en' },
+      { id: 'tripadvisor', name: 'Tripadvisor', lang: 'en', build: (c) => `https://www.tripadvisor.com/Search?q=${enc(c.q)}` },
+    ],
+  },
   einrichtung: {
     title: 'Meine Einrichtungs-Seiten',
     chips: ['Stehlampe', 'Sofa', 'Regal', 'Teppich', 'Pflanzen', 'Bettwäsche', 'Schreibtisch', 'Vorhänge'],
