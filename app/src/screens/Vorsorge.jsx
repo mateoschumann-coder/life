@@ -3,6 +3,9 @@ import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import { addHealthItem, deleteHealthItem, doneHealthItem, updateHealthItem } from '../lib/health';
 import { Back, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { DateRangeField } from '../components/DateRange';
+import PlaceBook from '../components/PlaceBook';
+import { bookMaps, bookOf, findBookItem } from '../lib/placebook';
 
 const TYPES = [
   { id: 'termin', label: 'Termin', hint: 'Einmalig, z.B. Arzttermin am 12. Nov.' },
@@ -27,8 +30,8 @@ function when(h, t) {
   return `in ${d} Tagen · ${fmtShort(h.date)}`;
 }
 
-function ItemSheet({ open, onClose, item }) {
-  const blank = { title: '', type: 'termin', date: '', everyMonths: '', notes: '' };
+function ItemSheet({ s, open, onClose, item }) {
+  const blank = { title: '', type: 'termin', date: '', everyMonths: '', notes: '', placeId: '' };
   const [f, setF] = useState(blank);
   const [loaded, setLoaded] = useState(null);
   if (open && (item?.id || 'neu') !== loaded) {
@@ -36,7 +39,7 @@ function ItemSheet({ open, onClose, item }) {
     setF(item?.id ? { ...blank, ...item, date: item.date || '', everyMonths: item.everyMonths || '' } : { ...blank, ...(item || {}) });
   }
   const save = () => {
-    const data = { title: f.title, type: f.type, date: f.date || null, everyMonths: f.type === 'routine' ? Number(f.everyMonths) || 6 : null, notes: f.notes };
+    const data = { title: f.title, type: f.type, date: f.date || null, everyMonths: f.type === 'routine' ? Number(f.everyMonths) || 6 : null, notes: f.notes, placeId: f.placeId || '' };
     if (item?.id) updateHealthItem(item.id, data);
     else addHealthItem(data);
     toast('Gespeichert');
@@ -52,10 +55,19 @@ function ItemSheet({ open, onClose, item }) {
       <Segmented full options={TYPES.map((x) => ({ id: x.id, label: x.label }))} value={f.type} onChange={(v) => setF({ ...f, type: v })} label="Art" />
       <span className="tiny">{TYPES.find((x) => x.id === f.type)?.hint}</span>
       <Field label={f.type === 'verletzung' ? 'Was ist es?' : 'Titel'}><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={f.type === 'verletzung' ? 'z.B. Knie rechts zwickt beim Laufen' : 'z.B. Zahnarzt Dr. López'} /></Field>
-      <div style={{ display: 'flex', gap: 10 }}>
-        <Field label={f.type === 'verletzung' ? 'Seit' : f.type === 'routine' ? 'Nächstes Mal' : 'Datum'}><input className="input" type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-        {f.type === 'routine' && <Field label="Alle … Monate"><input className="input" inputMode="numeric" value={f.everyMonths} onChange={(e) => setF({ ...f, everyMonths: e.target.value })} placeholder="6" /></Field>}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+        <div className="field" style={{ flex: 2, minWidth: 0 }}><span>{f.type === 'verletzung' ? 'Seit' : f.type === 'routine' ? 'Nächstes Mal' : 'Datum'}</span><DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from || '' })} placeholder="Datum wählen" title="Datum" /></div>
+        {f.type === 'routine' && <div className="field" style={{ flex: 1, minWidth: 0 }}><span>Alle … Monate</span><input className="input" inputMode="numeric" value={f.everyMonths} onChange={(e) => setF({ ...f, everyMonths: e.target.value.replace(/\D/g, '') })} placeholder="6" aria-label="Alle wie viele Monate" /></div>}
       </div>
+      {f.type !== 'verletzung' && (
+        <div className="field">
+          <span>Wo? (aus deinen Orten)</span>
+          <div className="chips">
+            {bookOf(s, 'vorsorge').items.map((p) => <button key={p.id} type="button" className={f.placeId === p.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, placeId: f.placeId === p.id ? '' : p.id })}>{p.name}</button>)}
+            {bookOf(s, 'vorsorge').items.length === 0 && <span className="tiny">Noch keine Orte – unter „Orte“ Ärzte, Apotheke … speichern.</span>}
+          </div>
+        </div>
+      )}
       <Field label="Notizen"><textarea className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={f.type === 'verletzung' ? 'Wann tut es weh? Was hilft? Was hat der Arzt gesagt?' : 'Adresse, Telefon, was mitnehmen …'} /></Field>
       <button type="button" className="btn" onClick={save} disabled={!f.title.trim()}>Speichern</button>
       {item?.id && <button type="button" className="btn danger" onClick={() => { if (confirm('Löschen?')) { deleteHealthItem(item.id); close(); } }}>Löschen</button>}
@@ -67,6 +79,8 @@ export default function Vorsorge() {
   const s = useStore();
   const t = today();
   const [sheet, setSheet] = useState(null);
+  const [view, setViewState] = useState(() => { try { return sessionStorage.getItem('life-vorsorge-view') || 'termine'; } catch { return 'termine'; } });
+  const setView = (v) => { setViewState(v); try { sessionStorage.setItem('life-vorsorge-view', v); } catch {} };
   const items = s.healthItems;
   const upcoming = items.filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt').sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
   const injuries = items.filter((h) => h.type === 'verletzung');
@@ -80,9 +94,11 @@ export default function Vorsorge() {
           <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Vorsorge</h1>
-            <button type="button" className="btn small" onClick={() => setSheet({})}>+ Neu</button>
+            {view === 'termine' && <button type="button" className="btn small" onClick={() => setSheet({})}>+ Neu</button>}
           </div>
         </div>
+        <Segmented full options={[{ id: 'termine', label: 'Termine' }, { id: 'orte', label: `Orte${bookOf(s, 'vorsorge').items.length ? ` (${bookOf(s, 'vorsorge').items.length})` : ''}` }]} value={view} onChange={setView} label="Ansicht" />
+        {view === 'orte' ? <PlaceBook s={s} book="vorsorge" hint="Deine Ärzte, Therapeuten, Apotheke, Labor … – oben „+ Ort“. Beim Termin kannst du den Ort dann auswählen." /> : (<>
         <span className="sub" style={{ padding: '0 4px' }}>Fällige Termine erscheinen automatisch auf „Heute“.</span>
 
         <section className="group">
@@ -96,8 +112,9 @@ export default function Vorsorge() {
                   <span className="block-icon" style={{ background: overdue ? 'color-mix(in srgb, var(--danger) 14%, transparent)' : 'var(--accent-bg)', color: overdue ? 'var(--danger)' : 'var(--accent)' }}><Icon name={h.type === 'routine' ? 'refresh' : 'calendar'} size={16} /></span>
                   <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, color: 'inherit', font: 'inherit' }} onClick={() => setSheet(h)}>
                     <span className="row-title plain">{h.title}</span>
-                    <span className="row-meta" style={{ color: overdue ? 'var(--danger)' : undefined }}>{when(h, t)}{h.type === 'routine' && h.everyMonths ? ` · alle ${h.everyMonths} Monate` : ''}</span>
+                    <span className="row-meta" style={{ color: overdue ? 'var(--danger)' : undefined }}>{when(h, t)}{h.type === 'routine' && h.everyMonths ? ` · alle ${h.everyMonths} Monate` : ''}{findBookItem(s, 'vorsorge', h.placeId) ? ` · 📍 ${findBookItem(s, 'vorsorge', h.placeId).name}` : ''}</span>
                   </button>
+                  {findBookItem(s, 'vorsorge', h.placeId) && <a className="x-btn" href={bookMaps(findBookItem(s, 'vorsorge', h.placeId))} target="_blank" rel="noreferrer" aria-label="Ort in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
                   {h.date && <button type="button" className="pill" onClick={() => { doneHealthItem(h.id); toast(h.type === 'routine' ? `Erledigt – nächstes Mal in ${h.everyMonths} Monaten` : 'Erledigt'); }}>Erledigt</button>}
                 </div>
               );
@@ -141,8 +158,9 @@ export default function Vorsorge() {
             </div>
           </section>
         )}
+        </>)}
       </main>
-      <ItemSheet open={!!sheet} item={sheet} onClose={() => setSheet(null)} />
+      <ItemSheet s={s} open={!!sheet} item={sheet} onClose={() => setSheet(null)} />
       <TabBar active="bereiche" />
     </>
   );

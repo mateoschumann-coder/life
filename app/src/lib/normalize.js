@@ -27,5 +27,19 @@ export function normalizeGathering(g) {
   g.diet = g.diet || '';
   g.budget = g.budget || '';
   g.invite = g.invite || '';
+  g.address = g.address || '';
+  // v0.91: Phasen Planen / Vorbereiten / Sonstiges, alte lange Vorlagen-Texte kurz
+  if (!g.v91) {
+    const CAT = { 'Am Tag': 'Vorbereiten', 'Kurz vorher': 'Vorbereiten', Reservieren: 'Planen', Danach: 'Sonstiges' };
+    const TXT = { 'Ungefähre Gästezahl festlegen': 'Gästezahl klären', 'Motto / Art des Abends überlegen': 'Motto überlegen', 'Einladung verschicken': 'Leute einladen', 'Essenswünsche und Allergien abfragen': 'Allergien abfragen', 'Genug Teller, Gläser, Besteck und Stühle?': 'Geschirr & Stühle checken', 'Wohnung aufräumen': 'Aufräumen', 'Musik / Playlist': 'Playlist', 'Einschränkungen klären (Essen, Budget, Erreichbarkeit)': 'Einschränkungen klären', 'Orte finden und vergleichen': 'Ort finden', 'Verfügbarkeit und Preise prüfen': 'Preise checken', 'Reservieren (anrufen / online)': 'Reservieren', 'Anzahlung oder Mindestverzehr klären': 'Anzahlung klären', 'Ort, Adresse und Uhrzeit an Gäste schicken': 'Adresse schicken', 'Adresse an Gäste schicken': 'Adresse schicken', 'Gästezahl final durchgeben': 'Gästezahl durchgeben', 'Reservierung am Vortag bestätigen': 'Reservierung bestätigen', 'Rechnung aufteilen': 'Rechnung teilen', 'Kohle kaufen': '', 'Einkaufen': '', 'Einkauf machen': '', 'Deko kaufen': 'Dekorieren', 'Kerzen besorgen': '' };
+    g.todos = g.todos.filter((x) => x.done || TXT[x.text] !== '').map((x) => {
+      const cat = CAT[x.cat] || x.cat;
+      let text = TXT[x.text] || x.text;
+      if (x.cat === 'Danach' && text === 'Aufräumen') text = 'Nachher aufräumen';
+      if (text.length > 32) text = text.replace(/\s*[(:–—].*$/, '').trim();
+      return { ...x, cat, text };
+    });
+    g.v91 = true;
+  }
   return g;
 }

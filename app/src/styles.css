@@ -564,3 +564,9 @@ textarea.ft-on { padding-right: 70px !important; }
 /* v0.90: Fixkosten zweizeilig (Name oben voll breit, darunter Kategorie + Betrag) */
 .cost-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .cost-row:last-child { border-bottom: 0; }
+/* v0.91: kleine Klappen (Ausgehen → Orte: Ansicht links, Stadt rechts) */
+.drop-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 14.5px; font-weight: 600; cursor: pointer; min-height: 40px; }
+.drop-caret { color: var(--muted); font-size: 12px; }
+.drop-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 41; min-width: 180px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 4px; display: flex; flex-direction: column; }
+.drop-menu button { text-align: left; border: 0; background: none; padding: 11px 12px; border-radius: 10px; font-size: 15px; color: var(--text); cursor: pointer; }
+.drop-menu button.on { background: var(--accent-bg); color: var(--accent); font-weight: 600; }

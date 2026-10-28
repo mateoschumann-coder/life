@@ -362,7 +362,7 @@ export function chooseOption(tripId, id) {
     const o = t?.options.find((x) => x.id === id);
     if (!o) return;
     t.dest = [o.ziel, o.land].filter(Boolean).join(', ');
-    t.idea = [o.kurz, o.info, o.flug && `Flug: ${o.flug}`, o.unterkunft && `Unterkunft: ${o.unterkunft}`, o.gesamt && `Gesamt: ${o.gesamt}`].filter(Boolean).join('\n');
+    t.info = [o.kurz, o.info, o.flug && `Flug: ${o.flug}`, o.unterkunft && `Unterkunft: ${o.unterkunft}`, o.gesamt && `Gesamt: ${o.gesamt}`].filter(Boolean).join('\n');
     t.options = [];
     t.lat = null;
     t.lon = null;

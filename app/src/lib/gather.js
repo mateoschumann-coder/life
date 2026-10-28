@@ -8,34 +8,33 @@ const norm = (x) => String(x || '').trim().toLowerCase();
 const okUrl = (u) => (/^https?:\/\//.test(u || '') ? u : '');
 
 export const KINDS = { zuhause: 'Zu Hause', auswaerts: 'Woanders' };
-// v0.88 (Mateo): kurze To-dos, nacheinander – Grundliste pro Art + Zusätze je Anlass
+// v0.91 (Mateo): Reihenfolge Planen → (Einkauf) → Vorbereiten → Sonstiges; nur kurze To-dos, die zum Teil passen
+export const PHASES = ['Planen', 'Vorbereiten', 'Sonstiges'];
 export const TODO_TEMPLATES = {
   zuhause: {
     Planen: ['Leute einladen', 'Allergien abfragen', 'Menü festlegen'],
-    Vorbereiten: ['Einkauf machen', 'Geschirr & Stühle checken', 'Aufräumen', 'Playlist'],
-    'Am Tag': ['Essen vorbereiten', 'Getränke kalt stellen'],
-    Danach: ['Nachher aufräumen', 'Fotos teilen'],
+    Vorbereiten: ['Aufräumen', 'Geschirr & Stühle checken', 'Essen vorbereiten', 'Getränke kalt stellen', 'Playlist'],
+    Sonstiges: ['Nachher aufräumen', 'Fotos teilen'],
   },
   auswaerts: {
-    Planen: ['Leute einladen', 'Ort finden', 'Preise checken'],
-    Reservieren: ['Reservieren', 'Adresse an Gäste schicken'],
-    'Kurz vorher': ['Gästezahl durchgeben', 'Reservierung bestätigen'],
-    Danach: ['Rechnung teilen', 'Fotos teilen'],
+    Planen: ['Leute einladen', 'Ort finden', 'Reservieren'],
+    Vorbereiten: ['Adresse schicken', 'Gästezahl durchgeben', 'Reservierung bestätigen'],
+    Sonstiges: ['Rechnung teilen', 'Fotos teilen'],
   },
 };
 // Anlässe: Zusatz-To-dos und Standard-Einkauf (je ein Artikel pro Eintrag)
 export const OCCASIONS = {
   leer: { label: 'Leer – selbst füllen', emoji: '⬜', kind: null, empty: true, todos: {}, shop: {} },
-  asado: { label: 'Asado / Grillen', emoji: '🔥', kind: 'zuhause', todos: { Vorbereiten: ['Kohle kaufen', 'Fleisch bestellen'], 'Am Tag': ['Feuer anmachen'] }, shop: { Essen: ['Vacío', 'Chorizo', 'Morcilla', 'Provoleta', 'Brot', 'Salat', 'Chimichurri'], Getränke: ['Bier', 'Wein', 'Fernet', 'Cola', 'Wasser', 'Eis'], Sonstiges: ['Kohle', 'Grillanzünder', 'Servietten'] } },
-  geburtstag: { label: 'Geburtstag', emoji: '🎂', kind: 'zuhause', todos: { Planen: ['Torte bestellen'], Vorbereiten: ['Deko kaufen', 'Kerzen besorgen'] }, shop: { Essen: ['Torte', 'Snacks', 'Chips', 'Fingerfood'], Getränke: ['Sekt', 'Bier', 'Softdrinks', 'Wasser', 'Eis'], Sonstiges: ['Kerzen', 'Deko', 'Servietten', 'Pappbecher'] } },
+  asado: { label: 'Asado / Grillen', emoji: '🔥', kind: 'zuhause', todos: { Planen: ['Fleisch bestellen'], Vorbereiten: ['Feuer anmachen'] }, shop: { Essen: ['Vacío', 'Chorizo', 'Morcilla', 'Provoleta', 'Brot', 'Salat', 'Chimichurri'], Getränke: ['Bier', 'Wein', 'Fernet', 'Cola', 'Wasser', 'Eis'], Sonstiges: ['Kohle', 'Grillanzünder', 'Servietten'] } },
+  geburtstag: { label: 'Geburtstag', emoji: '🎂', kind: 'zuhause', todos: { Planen: ['Torte bestellen'], Vorbereiten: ['Dekorieren'] }, shop: { Essen: ['Torte', 'Snacks', 'Chips', 'Fingerfood'], Getränke: ['Sekt', 'Bier', 'Softdrinks', 'Wasser', 'Eis'], Sonstiges: ['Kerzen', 'Deko', 'Servietten', 'Pappbecher'] } },
   abendessen: { label: 'Abendessen', emoji: '🍝', kind: 'zuhause', todos: { Vorbereiten: ['Tisch decken'] }, shop: { Essen: ['Vorspeise', 'Hauptgericht', 'Dessert', 'Brot'], Getränke: ['Wein', 'Wasser'], Sonstiges: ['Servietten', 'Kerzen'] } },
-  party: { label: 'Party', emoji: '🎉', kind: 'zuhause', todos: { Planen: ['Nachbarn Bescheid sagen'], Vorbereiten: ['Musikbox laden', 'Platz schaffen'] }, shop: { Essen: ['Chips', 'Nüsse', 'Pizza'], Getränke: ['Bier', 'Fernet', 'Cola', 'Gin', 'Tonic', 'Wasser', 'Eis'], Sonstiges: ['Pappbecher', 'Müllbeutel'] } },
+  party: { label: 'Party', emoji: '🎉', kind: 'zuhause', todos: { Planen: ['Nachbarn informieren'], Vorbereiten: ['Musikbox laden', 'Platz schaffen'] }, shop: { Essen: ['Chips', 'Nüsse', 'Pizza'], Getränke: ['Bier', 'Fernet', 'Cola', 'Gin', 'Tonic', 'Wasser', 'Eis'], Sonstiges: ['Pappbecher', 'Müllbeutel'] } },
   spieleabend: { label: 'Spieleabend', emoji: '🎲', kind: 'zuhause', todos: { Vorbereiten: ['Spiele raussuchen'] }, shop: { Essen: ['Chips', 'Salzstangen', 'Popcorn', 'Pizza'], Getränke: ['Bier', 'Softdrinks', 'Wasser'] } },
-  filmabend: { label: 'Filmabend', emoji: '🎬', kind: 'zuhause', todos: { Planen: ['Film auswählen'], Vorbereiten: ['TV/Beamer testen'] }, shop: { Essen: ['Popcorn', 'Chips', 'Schokolade'], Getränke: ['Softdrinks', 'Bier'] } },
-  brunch: { label: 'Brunch', emoji: '🥐', kind: 'zuhause', todos: { Vorbereiten: ['Brötchen bestellen'] }, shop: { Essen: ['Brötchen', 'Medialunas', 'Eier', 'Käse', 'Aufschnitt', 'Obst', 'Joghurt', 'Marmelade'], Getränke: ['Kaffee', 'Orangensaft', 'Sekt'] } },
-  essen: { label: 'Essen gehen', emoji: '🍽', kind: 'auswaerts', todos: { Reservieren: ['Tisch reservieren'] }, shop: {} },
-  bar: { label: 'Bar / Ausgehen', emoji: '🍸', kind: 'auswaerts', todos: { Reservieren: ['Tisch reservieren'], 'Kurz vorher': ['Heimweg klären'] }, shop: {} },
-  ausflug: { label: 'Ausflug', emoji: '🚐', kind: 'auswaerts', todos: { Planen: ['Treffpunkt festlegen', 'Transport klären'], 'Kurz vorher': ['Wetter checken', 'Proviant einpacken'] }, shop: {} },
+  filmabend: { label: 'Filmabend', emoji: '🎬', kind: 'zuhause', todos: { Planen: ['Film wählen'], Vorbereiten: ['TV testen'] }, shop: { Essen: ['Popcorn', 'Chips', 'Schokolade'], Getränke: ['Softdrinks', 'Bier'] } },
+  brunch: { label: 'Brunch', emoji: '🥐', kind: 'zuhause', todos: { Vorbereiten: ['Tisch decken'] }, shop: { Essen: ['Brötchen', 'Medialunas', 'Eier', 'Käse', 'Aufschnitt', 'Obst', 'Joghurt', 'Marmelade'], Getränke: ['Kaffee', 'Orangensaft', 'Sekt'] } },
+  essen: { label: 'Essen gehen', emoji: '🍽', kind: 'auswaerts', todos: {}, shop: {} },
+  bar: { label: 'Bar / Ausgehen', emoji: '🍸', kind: 'auswaerts', todos: { Vorbereiten: ['Heimweg klären'] }, shop: {} },
+  ausflug: { label: 'Ausflug', emoji: '🚐', kind: 'auswaerts', todos: { Planen: ['Treffpunkt festlegen', 'Transport klären'], Vorbereiten: ['Wetter checken', 'Proviant packen'] }, shop: {} },
   sonstiges: { label: 'Sonstiges', emoji: '✨', kind: null, todos: {}, shop: {} },
 };
 export const occasionsFor = (kind) => Object.entries(OCCASIONS).filter(([, o]) => !o.kind || o.kind === kind);
@@ -59,11 +58,11 @@ const todos = (kind, type) => {
   if (occOf(type)?.empty) return [];
   const base = TODO_TEMPLATES[kind] || TODO_TEMPLATES.zuhause;
   const extra = occOf(type)?.todos || {};
-  const cats = [...new Set([...Object.keys(base), ...Object.keys(extra)])];
+  const cats = [...new Set([...PHASES, ...Object.keys(base), ...Object.keys(extra)])];
   return cats.flatMap((cat) => [...new Set([...(base[cat] || []), ...(extra[cat] || [])])].map((text) => ({ id: uid(), text, cat, done: false })));
 };
 const shopItems = (type) => Object.entries(occOf(type)?.shop || {}).flatMap(([cat, list]) => list.map((text) => ({ id: uid(), text, cat, who: '', done: false })));
-export const todoCats = (g) => (occOf(g.type)?.empty ? [...new Set([...g.todos.map((x) => x.cat), 'To-dos'])] : [...new Set(todos(g.kind, g.type).map((x) => x.cat))]);
+export const todoCats = (g) => [...new Set([...PHASES, ...g.todos.map((x) => x.cat).filter(Boolean)])];
 
 
 export function addGathering({ name, date = '', time = '', place = '', desc = '', kind = 'zuhause', expected = '', type = '' }) {
@@ -154,6 +153,20 @@ export const removeItem = (gId, list, id) => store.update((s) => {
   if (g) g[list] = g[list].filter((x) => x.id !== id);
 });
 
+// ---------- Einladung (v0.91): allgemeiner Text + automatisch Wann/Wo/Adresse mit Google-Maps-Link ----------
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+export const mapsLink = (g) => { const q = [g.place && !/^bei mir$/i.test(g.place) ? g.place : '', g.address].filter(Boolean).join(', '); return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : ''; };
+export function inviteDetails(g) {
+  const d = g.date ? new Date(`${g.date}T12:00:00`) : null;
+  const when = d ? `${WD[d.getDay()]}, ${d.getDate()}.${d.getMonth() + 1}.${g.time ? `, ${g.time} Uhr` : ''}` : g.time ? `${g.time} Uhr` : '';
+  return [when && `📅 Wann: ${when}`, (g.place || g.address) && `📍 Wo: ${[g.place, g.address].filter(Boolean).join(' – ')}`, mapsLink(g) && `🗺 ${mapsLink(g)}`].filter(Boolean).join('\n');
+}
+export function inviteText(g) {
+  const body = String(g.invite || '').trim() || `Hey! Ich lade euch ein: ${g.name}${g.motto ? ` (${g.motto})` : ''}. Bist du dabei?`;
+  const det = inviteDetails(g);
+  return det ? `${body}\n\n${det}` : body;
+}
+
 // ---------- Gäste ----------
 export const GUEST_STATUS = { offen: 'Noch nicht eingeladen', eingeladen: 'Eingeladen', zugesagt: 'Zugesagt', abgesagt: 'Abgesagt' };
 export const updateGathering = (id, patch) => store.update((s) => Object.assign(s.gatherings.find((x) => x.id === id) || {}, patch));
@@ -184,15 +197,16 @@ const PLAN_TOOL = {
       ideen: { type: 'array', items: { type: 'object', properties: { titel: { type: 'string' }, beschreibung: { type: 'string' } }, required: ['titel'] }, description: 'Event-Ideen oder Mottos zur Auswahl' },
       einkaufen: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: 'GENAU EIN Artikel, kurz, Menge nur wenn nötig, z.B. „Bier (2 Kisten)“, „Chips“, „2 kg Vacío“' }, kategorie: { type: 'string', enum: SHOP_CATS } }, required: ['text'] } },
       mitbringen: { type: 'array', items: { type: 'string' }, description: 'Was Gäste mitbringen könnten' },
-      todos: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: 'kurz, 2–4 Wörter, z.B. „Leute einladen“, „Einkauf machen“' }, kategorie: { type: 'string', description: 'Phase, z.B. Planen, Vorbereiten, Am Tag, Danach' } }, required: ['text'] } },
+      todos: { type: 'array', items: { type: 'object', properties: { text: { type: 'string', description: 'GANZ kurz, 2–4 Wörter, z.B. „Leute einladen“, „Tisch decken“ – keine Erklärungen, keine Klammern' }, kategorie: { type: 'string', enum: PHASES, description: 'Planen = vorher klären/organisieren, Vorbereiten = kurz vorher/am Tag, Sonstiges = danach/Rest. Einkäufe NICHT hier, sondern bei "einkaufen".' } }, required: ['text', 'kategorie'] } },
+      ueberblick: { type: 'object', description: 'Nur wenn Mateo Datum/Uhrzeit/Ort/Adresse/Gästezahl nennt: diese Felder ausfüllen', properties: { datum: { type: 'string', description: 'JJJJ-MM-TT' }, uhrzeit: { type: 'string', description: 'HH:MM' }, ort: { type: 'string', description: 'Name des Ortes, z.B. „bei mir“, „Bar Uptown“' }, adresse: { type: 'string', description: 'Straße und Nummer, Stadt' }, gaeste: { type: 'string', description: 'ungefähre Zahl' } } },
       orte: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, adresse: { type: 'string' }, warum: { type: 'string' }, preis: { type: 'string' }, reservierung: { type: 'string', description: 'Wie reservieren: Telefon, Website, Mindestgruppe …' }, telefon: { type: 'string' }, url: { type: 'string' } }, required: ['name'] }, description: 'Nur bei Events woanders: passende Locations' },
-      einladung: { type: 'string', description: 'Nur wenn gewünscht oder genug Infos da sind: WhatsApp-Einladung ohne Markdown' },
+      einladung: { type: 'string', description: 'Nur wenn gewünscht: ALLGEMEINE WhatsApp-Einladung an alle (keine Namen einzelner Gäste, keine Anrede einer Person), ohne Markdown. Wann/Wo/Adresse NICHT in den Text schreiben – die App hängt sie mit Google-Maps-Link automatisch unten an.' },
     },
     required: ['antwort'],
   },
 };
 export const gatherSnapshot = (g) => ({
-  name: g.name, art: KINDS[g.kind], anlass: occOf(g.type)?.label, datum: g.date || 'offen', uhrzeit: g.time || undefined, ort: g.place || undefined, beschreibung: g.desc || undefined,
+  name: g.name, art: KINDS[g.kind], anlass: occOf(g.type)?.label, datum: g.date || 'offen', uhrzeit: g.time || undefined, ort: g.place || undefined, adresse: g.address || undefined, beschreibung: g.desc || undefined,
   ungefaehre_gaeste: g.expected || 'noch unbekannt', motto: g.motto || undefined, einschraenkungen: g.diet || undefined, budget: g.budget || undefined,
   gaesteliste: g.guests.map((x) => `${x.name} (${x.status})`),
   einkauf: g.shopping.map((x) => x.text), mitbringen: g.bring.map((x) => `${x.text}${x.who ? ` – ${x.who}` : ''}`),
@@ -213,6 +227,8 @@ Antworte immer mit "event_planen". Deutsch, konkret, kurz.`;
   return searchWithTool({ system, messages, tool: PLAN_TOOL, maxUses: web ? 2 : 0, label: 'Event-Planer', smart });
 }
 
+// To-dos immer kurz: Erklärungen in Klammern / nach Doppelpunkt oder Gedankenstrich abschneiden
+export const shortTodo = (x) => { let t = String(x || '').trim(); if (t.length > 32) t = t.replace(/\s*[(:–—].*$/, '').replace(/\s+-\s.*$/, '').trim(); return t; };
 export function applyGatherProposal(gId, sel) {
   store.update((s) => {
     const g = s.gatherings.find((x) => x.id === gId);
@@ -220,7 +236,15 @@ export function applyGatherProposal(gId, sel) {
     const has = (list, t, k = 'text') => g[list].some((y) => norm(y[k]) === norm(t));
     for (const x of sel.einkaufen || []) if (!has('shopping', x.text)) g.shopping.push({ id: uid(), text: x.text, cat: SHOP_CATS.includes(x.kategorie) ? x.kategorie : 'Sonstiges', who: '', done: false });
     for (const x of sel.mitbringen || []) if (!has('bring', x)) g.bring.push({ id: uid(), text: x, who: '', done: false });
-    for (const x of sel.todos || []) if (!has('todos', x.text)) g.todos.push({ id: uid(), text: x.text, cat: x.kategorie || 'Sonstiges', done: false });
+    for (const x of sel.todos || []) { const text = shortTodo(x.text); if (text && !has('todos', text)) g.todos.push({ id: uid(), text, cat: PHASES.includes(x.kategorie) ? x.kategorie : 'Sonstiges', done: false }); }
+    const ov = sel.ueberblick?.[0];
+    if (ov) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(ov.datum || '')) g.date = ov.datum;
+      if (/^\d{1,2}:\d{2}$/.test(ov.uhrzeit || '')) g.time = ov.uhrzeit.padStart(5, '0');
+      if (ov.ort) g.place = ov.ort;
+      if (ov.adresse) g.address = ov.adresse;
+      if (ov.gaeste) g.expected = String(ov.gaeste);
+    }
     for (const x of sel.orte || []) if (!has('venues', x.name, 'name')) g.venues.push({ id: uid(), name: x.name, address: x.adresse || '', note: [x.warum, x.preis, x.reservierung].filter(Boolean).join(' · '), phone: x.telefon || '', url: okUrl(x.url), status: 'idee' });
     if (sel.ideen?.length) {
       const idea = sel.ideen[0];

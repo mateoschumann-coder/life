@@ -494,11 +494,11 @@ Antworte immer mit "kueche_antwort". Deutsch, kein Markdown.`;
 
 // ---------- Vorsorge ----------
 // type: termin (einmalig mit Datum) · routine (alle X Monate) · verletzung (mit Status)
-export function addHealthItem({ title, type = 'termin', date = null, everyMonths = null, notes = '' }) {
+export function addHealthItem({ title, type = 'termin', date = null, everyMonths = null, notes = '', placeId = '' }) {
   if (!String(title || '').trim()) return null;
   const id = uid();
   store.update((s) => {
-    s.healthItems.push({ id, title: title.trim(), type, date, everyMonths: everyMonths ? Number(everyMonths) : null, notes, status: type === 'verletzung' ? 'aktiv' : 'offen', log: [], createdAt: now() });
+    s.healthItems.push({ id, title: title.trim(), type, date, everyMonths: everyMonths ? Number(everyMonths) : null, notes, placeId, status: type === 'verletzung' ? 'aktiv' : 'offen', log: [], createdAt: now() });
   });
   return id;
 }

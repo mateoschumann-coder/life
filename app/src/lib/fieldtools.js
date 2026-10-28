@@ -90,11 +90,13 @@ export function installFieldTools() {
   const tidyBtn = mk('ft-tidy', 'Mit KI ordnen', '✨');
   let cur = null;
   let busy = false;
-  let undo = null; // { el, value }
+  let undo = null; // { el, value } – nach ✨ Ordnen
+  let cleared = null; // { el, value } – nach ✕ Leeren (dann wird ✕ zu ↶)
   const place = () => {
-    const show = cur && document.contains(cur) && cur.value;
+    const canRestore = cur && cleared && cleared.el === cur && !cur.value;
+    const show = cur && document.contains(cur) && (cur.value || canRestore);
     const r = show ? cur.getBoundingClientRect() : null;
-    if (!show || r.width < 80 || r.height === 0) {
+    if (!show || r.width < 70 || r.height === 0) {
       clearBtn.hidden = true;
       tidyBtn.hidden = true;
       cur?.classList.remove('ft-on');
@@ -103,6 +105,8 @@ export function installFieldTools() {
     const area = cur.tagName === 'TEXTAREA';
     cur.classList.add('ft-on');
     clearBtn.hidden = false;
+    clearBtn.textContent = canRestore ? '↶' : '✕';
+    clearBtn.setAttribute('aria-label', canRestore ? 'Gelöschten Text zurückholen' : 'Feld leeren');
     const top = area ? r.top + 6 : r.top + r.height / 2 - 13;
     clearBtn.style.top = `${top}px`;
     clearBtn.style.left = `${r.right - 32}px`;
@@ -130,6 +134,7 @@ export function installFieldTools() {
   }, 0));
   document.addEventListener('input', (e) => {
     if (e.isTrusted && undo && undo.el === e.target) undo = null; // eigene Eingabe → kein Rückgängig mehr
+    if (e.isTrusted && cleared && cleared.el === e.target && e.target.value) cleared = null;
     if (e.target === cur) place();
   }, true);
   window.addEventListener('scroll', place, true);
@@ -144,6 +149,14 @@ export function installFieldTools() {
   clearBtn.addEventListener('click', () => {
     if (!cur) return;
     undo = null;
+    if (cleared && cleared.el === cur && !cur.value) {
+      setValue(cur, cleared.value);
+      cleared = null;
+      cur.focus();
+      place();
+      return;
+    }
+    cleared = { el: cur, value: cur.value };
     setValue(cur, '');
     cur.focus();
     place();

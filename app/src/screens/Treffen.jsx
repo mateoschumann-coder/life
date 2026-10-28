@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addGathering, addGuest, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, setOccasion, occasionsFor, OCCASIONS, todoCats, SHOP_CATS, TODO_TEMPLATES, updateGathering, updateItem, VENUE_STATUS,
+  addGathering, addGuest, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, OCCASIONS, todoCats, SHOP_CATS, TODO_TEMPLATES, updateGathering, updateItem, VENUE_STATUS,
 } from '../lib/gather';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
@@ -189,6 +189,7 @@ const PLAN_GROUPS = [
   { key: 'einkaufen', label: 'Einkaufen', title: (x) => x.text, meta: (x) => x.kategorie },
   { key: 'mitbringen', label: 'Gäste könnten mitbringen', title: (x) => x },
   { key: 'todos', label: 'To-dos', title: (x) => x.text, meta: (x) => x.kategorie },
+  { key: 'ueberblick', label: 'Überblick ausfüllen', title: (x) => [x.datum, x.uhrzeit, x.ort, x.adresse, x.gaeste && `ca. ${x.gaeste} Gäste`].filter(Boolean).join(' · ') },
   { key: 'einladung', label: 'Einladung', title: (x) => x, single: true },
 ];
 
@@ -256,13 +257,13 @@ function EventShop({ g }) {
 
 function Detail({ s, g }) {
   const home = g.kind !== 'auswaerts';
-  const [tab, setTab] = useState('todos');
+  const [tab, setTab] = useState('ueberblick');
   const [guest, setGuestText] = useState('');
   const counts = Object.fromEntries(Object.keys(GUEST_STATUS).map((k) => [k, g.guests.filter((x) => x.status === k).length]));
   const suggestions = s.people.filter((p) => !g.guests.some((x) => x.personId === p.id || x.name === p.name)).slice(0, 12);
   const phoneOf = (x) => s.people.find((p) => p.id === x.personId)?.phone?.replace(/[^\d+]/g, '').replace(/^\+/, '');
   const share = async () => {
-    const text = g.invite || `${g.name}${g.date ? ` am ${fmtShort(g.date)}` : ''}${g.time ? ` um ${g.time}` : ''}${g.place ? ` – ${g.place}` : ''}. Bist du dabei?`;
+    const text = inviteText(g);
     if (navigator.share) {
       try {
         await navigator.share({ text });
@@ -272,10 +273,10 @@ function Detail({ s, g }) {
     }
   };
   const openTodos = g.todos.filter((x) => !x.done).length + (home ? g.shopping.filter((x) => !x.done).length : 0);
-  const tabs = [['todos', home ? 'To-dos & Einkauf' : 'To-dos', openTodos], ['gaeste', 'Gäste', g.guests.length], !home && ['orte', 'Ort', g.venues.length], ['mitbringen', 'Mitbringen', g.bring.length], ['einladung', 'Einladung', 0]].filter(Boolean);
+  const tabs = [['ueberblick', 'Überblick', 0], ['todos', home ? 'To-dos & Einkauf' : 'To-dos', openTodos], ['gaeste', 'Gäste', g.guests.length], !home && ['orte', 'Ort', g.venues.length], ['mitbringen', 'Mitbringen', g.bring.length], ['einladung', 'Einladung', 0]].filter(Boolean);
   const go2 = (k, sub) => { setTab(k); if (sub) { try { sessionStorage.setItem(`life-ev-sub-${g.id}`, sub); } catch {} } setTimeout(() => document.querySelector('.main-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); };
-  const shopTab = home ? [{ key: '🛒 Einkauf', label: '🛒 Einkauf', open: g.shopping.filter((x) => !x.done).length, total: g.shopping.length, render: () => <EventShop g={g} /> }] : [];
-  const cur = tabs.some(([k]) => k === tab) ? tab : 'todos';
+  const shopTab = home ? [{ key: '🛒 Einkauf', label: '🛒 Einkauf', open: g.shopping.filter((x) => !x.done).length, total: g.shopping.length, render: () => <EventShop g={g} />, after: 'Planen' }] : [];
+  const cur = tabs.some(([k]) => k === tab) ? tab : 'ueberblick';
   const field = (key, ph, extra = {}) => <input className="input" defaultValue={g[key]} key={g.id + key + (g[key] || '')} placeholder={ph} onBlur={(e) => e.target.value !== g[key] && updateGathering(g.id, { [key]: e.target.value })} aria-label={ph} {...extra} />;
   return (
     <>
@@ -288,13 +289,19 @@ function Detail({ s, g }) {
           </div>
           <div className="box-tabs">{occasionsFor(g.kind).map(([k, o]) => <button key={k} type="button" className={g.type === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => { setOccasion(g.id, k); toast(o.empty ? "Leer: Vorlage entfernt – selbst füllen oder KI fragen" : `${o.label}: Vorlage ergänzt`); }}>{o.emoji} {o.label}</button>)}</div>
         </div>
-        <section className="card" style={{ gap: 8 }}>
-          <span className="label" style={{ padding: 0 }}>Überblick</span>
+
+
+        <div className="box-tabs main-tabs">
+          {tabs.map(([k, l, n]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{n ? ` ${n}` : ''}</button>)}
+        </div>
+
+        {cur === 'ueberblick' && <section className="card" style={{ gap: 8 }}>
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}><DateRangeField single from={g.date} to="" onChange={(v) => updateGathering(g.id, { date: v.from })} placeholder="Datum offen" title="Datum" /></div>
             <input className="input" type="time" value={g.time || ''} onChange={(e) => updateGathering(g.id, { time: e.target.value })} aria-label="Uhrzeit" style={{ maxWidth: 120 }} />
           </div>
-          {field('place', home ? 'Wo? (z.B. bei mir, Palermo)' : 'Wo? – noch offen, siehe „Ort“')}
+          {field('place', home ? 'Wo? (z.B. bei mir)' : 'Wo? (Name des Ortes)')}
+          {field('address', 'Adresse (für den Google-Maps-Link in der Einladung)')}
           <div style={{ display: 'flex', gap: 8 }}>
             {field('expected', 'Ca. Gäste', { inputMode: 'numeric', style: { maxWidth: 110 } })}
             {field('motto', 'Motto / Art, z.B. Asado')}
@@ -309,13 +316,7 @@ function Detail({ s, g }) {
             <button type="button" onClick={() => go2('gaeste')}><span>Zugesagt</span><b style={{ color: counts.zugesagt ? '#2FA36B' : undefined }}>{counts.zugesagt}{g.guests.length ? `/${g.guests.length}` : ''}</b></button>
             <button type="button" onClick={() => go2('mitbringen')}><span>Mitbringen</span><b>{g.bring.filter((x) => x.done).length}/{g.bring.length}</b></button>
           </div>
-        </section>
-
-
-        <div className="box-tabs main-tabs">
-          {tabs.map(([k, l, n]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{n ? ` ${n}` : ''}</button>)}
-        </div>
-
+        </section>}
         {cur === 'todos' && <GroupedChecklist key={g.id + (g.type || '')} tabKey={`life-ev-sub-${g.id}`} extraTabs={shopTab} items={g.todos} cats={todoCats(g)} color={COLOR} onAdd={(text, cat) => text.split(/,|\n/).map((x) => x.trim()).filter(Boolean).forEach((x) => addItem(g.id, 'todos', { text: x, cat }))} onToggle={(id) => updateItem(g.id, 'todos', id, { done: !g.todos.find((x) => x.id === id).done })} onRemove={(id) => removeItem(g.id, 'todos', id)} placeholder="Neues To-do" />}
         {cur === 'gaeste' && (
           <>
@@ -328,7 +329,7 @@ function Detail({ s, g }) {
               {g.guests.map((x) => (
                 <div key={x.id} className="row compact">
                   <span className="row-main"><span className="row-title plain">{x.name}</span></span>
-                  {phoneOf(x) && x.status === 'offen' && <a className="pill" href={`https://wa.me/${phoneOf(x)}?text=${encodeURIComponent(g.invite || g.name)}`} target="_blank" rel="noreferrer" onClick={() => setGuest(g.id, x.id, { status: 'eingeladen' })}>WhatsApp</a>}
+                  {phoneOf(x) && x.status === 'offen' && <a className="pill" href={`https://wa.me/${phoneOf(x)}?text=${encodeURIComponent(inviteText(g))}`} target="_blank" rel="noreferrer" onClick={() => setGuest(g.id, x.id, { status: 'eingeladen' })}>WhatsApp</a>}
                   <button type="button" className="pill" style={{ color: STATUS_COLOR[x.status] }} onClick={() => setGuest(g.id, x.id, { status: NEXT[x.status] })} aria-label={`Status von ${x.name}: ${GUEST_STATUS[x.status]} – antippen zum Ändern`}>{GUEST_STATUS[x.status].replace('Noch nicht eingeladen', 'Einladen')}</button>
                   <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => removeGuest(g.id, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
                 </div>
@@ -347,9 +348,11 @@ function Detail({ s, g }) {
         )}
         {cur === 'einladung' && (
           <section className="card" style={{ gap: 10 }}>
-            <textarea className="input" style={{ minHeight: 150 }} defaultValue={g.invite} key={g.id + 'i' + (g.invite || '').length} placeholder="Deine Einladung – oder sag oben „Einladung schreiben“." onBlur={(e) => e.target.value !== g.invite && updateGathering(g.id, { invite: e.target.value })} aria-label="Einladungstext" />
+            <span className="tiny">Allgemeine Einladung an alle – ohne Namen. Wann, Wo und der Google-Maps-Link kommen automatisch aus dem Überblick dazu.</span>
+            <textarea className="input" style={{ minHeight: 120 }} defaultValue={g.invite} key={g.id + 'i' + (g.invite || '').length} placeholder="z.B. Hey! Am Samstag gibt’s Asado bei mir 🔥 Bring gute Laune mit. Bist du dabei? – oder unten im KI-Planer „Einladung schreiben“." onBlur={(e) => e.target.value !== g.invite && updateGathering(g.id, { invite: e.target.value })} aria-label="Einladungstext" />
+            {inviteDetails(g) ? <div className="take-box" style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{inviteDetails(g)}</div> : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => setTab('ueberblick')}>Datum, Uhrzeit, Ort und Adresse im Überblick eintragen ›</button>}
             <button type="button" className="btn" onClick={share}>Einladung teilen (WhatsApp …)</button>
-            <span className="tiny">Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln per WhatsApp einladen.</span>
+            <span className="tiny">Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln per WhatsApp einladen – mit demselben Text.</span>
           </section>
         )}
         <PlanChat
@@ -358,7 +361,7 @@ function Detail({ s, g }) {
           history={g.chat}
           prefKey="event"
           onSave={(chat) => updateGathering(g.id, { chat })}
-          onAsk={(hist, o) => gatherAssist(s, g, hist, o)}
+          onAsk={async (hist, o) => { const r = await gatherAssist(s, g, hist, o); if (r?.ueberblick && !Array.isArray(r.ueberblick)) r.ueberblick = Object.values(r.ueberblick).some(Boolean) ? [r.ueberblick] : []; return r; }}
           webChips={['Passenden Ort finden']}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyGatherProposal(g.id, sel)}

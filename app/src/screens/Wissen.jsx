@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort } from '../lib/dates';
-import { addLibCat, addMaterial, addNote, deleteMaterial, ensureTopic, fillMaterial, findTopic, KINDS, libChat, linkFor, removeNote, updateNote, removeTopic, STATUS, structureNotes, summarizeMaterial, topicsOf, updateMaterial } from '../lib/library';
+import { addLibCat, addMaterial, addNote, deleteMaterial, ensureTopic, fillMaterial, findTopic, KINDS, libChat, linkFor, removeNote, restoreNote, updateNote, removeTopic, STATUS, structureNotes, summarizeMaterial, topicsOf, updateMaterial } from '../lib/library';
 import { getAi } from '../lib/ai';
 import { chatOf, saveChatOf } from '../lib/chats';
 import { canDictate, useDictation } from '../lib/dictate';
@@ -56,14 +56,14 @@ export function StructuredText({ text }) {
     </span>
   );
 }
-function NoteItem({ m, n }) {
+function NoteItem({ m, n, onRemove }) {
   const [edit, setEdit] = useState(null);
   const dict = useDictation(edit || '', (v) => setEdit(typeof v === 'function' ? v(edit || '') : v));
   if (edit === null) {
     return (
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
         <button type="button" onClick={() => setEdit(n.text)} style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', flex: 1, fontSize: 14, lineHeight: 1.4, color: 'var(--text)', whiteSpace: 'pre-wrap' }} aria-label="Notiz bearbeiten"><StructuredText text={n.text} /></button>
-        <button type="button" className="x-btn" aria-label="Notiz entfernen" onClick={() => removeNote(m.id, n.id)}><Icon name="x" size={11} color="var(--chev)" /></button>
+        <button type="button" className="x-btn" aria-label="Notiz entfernen" onClick={() => { onRemove?.(n); removeNote(m.id, n.id); }}><Icon name="x" size={11} color="var(--chev)" /></button>
       </div>
     );
   }
@@ -86,6 +86,7 @@ function MaterialExtras({ s, m }) {
   const [busy, setBusy] = useState(null);
   const [note, setNote] = useState('');
   const [openSum, setOpenSum] = useState(true);
+  const [removed, setRemoved] = useState(null);
   const dict = useDictation(note, setNote);
   const hasKey = !!getAi().apiKey;
   const run = async (what) => {
@@ -117,7 +118,8 @@ function MaterialExtras({ s, m }) {
       <div className="take-box">
         <span style={{ fontWeight: 650, fontSize: 15 }}>📝 Meine Notizen</span>
         <span className="tiny">Frei schreiben oder einsprechen – auch unsortiert. „✨ Ordnen“ räumt den Text auf, Notiz antippen = bearbeiten. Unten macht die KI daraus deine eigene Zusammenfassung.</span>
-        {notes.map((n) => <NoteItem key={n.id} m={m} n={n} />)}
+        {notes.map((n) => <NoteItem key={n.id} m={m} n={n} onRemove={(x) => setRemoved(x)} />)}
+        {removed && !notes.some((n) => n.id === removed.id) && <button type="button" className="pill" style={{ alignSelf: 'flex-start' }} onClick={() => { restoreNote(m.id, removed); setRemoved(null); }}>↶ Gelöschte Notiz zurückholen</button>}
         <textarea className="input" rows={Math.max(4, Math.min(16, note.split("\n").length + 1))} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Gedanken, Zitate, was du mitnimmst …" aria-label="Neue Notiz" />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {canDictate && <button type="button" className={dict.on ? 'pill on' : 'pill'} onClick={dict.toggle} aria-label="Einsprechen">{dict.on ? '■ Stopp' : '🎙 Einsprechen'}</button>}

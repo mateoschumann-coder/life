@@ -54,7 +54,7 @@ function migrate(s) {
       if (!(tr.options || []).length) continue;
       for (const o of tr.options) {
         add.push(normalizeTrip({ id: Math.random().toString(36).slice(2, 10), name: o.ziel, dest: [o.ziel, o.land].filter(Boolean).join(', '), status: 'idee', group: tr.name,
-          idea: [o.kurz, o.info].filter(Boolean).join('\n'), prices: { flug: o.flug, unterkunft: o.unterkunft, gesamt: o.gesamt, urlFlug: o.urlFlug, urlStay: o.urlStay }, createdAt: tr.createdAt }));
+          info: [o.kurz, o.info].filter(Boolean).join('\n'), prices: { flug: o.flug, unterkunft: o.unterkunft, gesamt: o.gesamt, urlFlug: o.urlFlug, urlStay: o.urlStay }, createdAt: tr.createdAt }));
       }
       tr.options = [];
       tr.group = tr.name;
@@ -62,6 +62,17 @@ function migrate(s) {
     }
     s.trips = [...s.trips.filter((x) => !x.dropMe), ...add];
     s.profile = { ...(s.profile || {}), mig045: true };
+  }
+  // Version 0.91: KI-Texte aus den Notizen alter Reise-Ideen in die KI-Infos verschieben – Notizen gehören Mateo (einmalig)
+  if (!s.profile?.mig091) {
+    const KI = /(Warum|Highlights|Beste Zeit|Reisezeit|Anreise|Kosten|Dauer|Flug|Unterkunft|Gesamt)\s*:/;
+    for (const tr of s.trips) {
+      if (tr.idea && KI.test(tr.idea)) {
+        tr.info = [tr.info, tr.idea].filter(Boolean).join('\n');
+        tr.idea = '';
+      }
+    }
+    s.profile = { ...(s.profile || {}), mig091: true };
   }
   // Version 0.34: Finanzen ist jetzt ein Rechner – alte Rhythmen/Fokus-Themen dort entfernen (einmalig)
   if (!s.profile?.mig034) {

@@ -206,6 +206,10 @@ export function updateNote(id, noteId, text) {
     m.notes = t ? (m.notes || []).map((n) => (n.id === noteId ? { ...n, text: t } : n)) : (m.notes || []).filter((n) => n.id !== noteId);
   });
 }
+export const restoreNote = (id, note) => store.update((s) => {
+  const m = s.library.find((x) => x.id === id);
+  if (m && !(m.notes || []).some((n) => n.id === note.id)) m.notes = [...(m.notes || []), note];
+});
 export function removeNote(id, noteId) {
   store.update((s) => {
     const m = s.library.find((x) => x.id === id);

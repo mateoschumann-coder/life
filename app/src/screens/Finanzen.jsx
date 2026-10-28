@@ -7,11 +7,11 @@ const GREEN = '#2FA36B';
 const fmtRate = (v) => (v >= 100 ? Math.round(v).toLocaleString('de-DE') : (Math.round(v * 1000) / 1000).toLocaleString('de-DE'));
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
-function Amount({ value, currency, onChange, onCurrency, label }) {
+function Amount({ value, currency, onChange, onCurrency, label, narrow }) {
   return (
     <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-      <input className="input" style={{ width: 110, textAlign: 'right' }} inputMode="decimal" defaultValue={value || ''} key={value} placeholder="0" aria-label={label} onBlur={(e) => { const v = Number(String(e.target.value).replace(/\./g, '').replace(',', '.')) || 0; if (v !== value) onChange(v); }} />
-      <select className="input" style={{ width: 74, padding: '0 6px' }} value={currency} onChange={(e) => onCurrency(e.target.value)} aria-label={`${label} Währung`}>
+      <input className="input" style={{ width: narrow ? 84 : 110, textAlign: 'right', padding: narrow ? '8px 8px' : undefined }} inputMode="decimal" defaultValue={value || ''} key={value} placeholder="0" aria-label={label} onBlur={(e) => { const v = Number(String(e.target.value).replace(/\./g, '').replace(',', '.')) || 0; if (v !== value) onChange(v); }} />
+      <select className="input" style={{ width: narrow ? 70 : 74, padding: '0 6px', minHeight: narrow ? 40 : undefined }} value={currency} onChange={(e) => onCurrency(e.target.value)} aria-label={`${label} Währung`}>
         {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
       </select>
     </span>
@@ -80,10 +80,10 @@ export default function Finanzen() {
           <div className="list">
             {b.incomes.length === 0 && <div className="empty">Noch nichts eingetragen – z.B. Gehalt oder Freelance.</div>}
             {b.incomes.map((x) => (
-              <div key={x.id} className="row" style={{ minHeight: 56 }}>
-                <input className="input row-main" style={{ background: 'none', padding: 0 }} defaultValue={x.name} placeholder="z.B. Gehalt" onBlur={(e) => updateLine('incomes', x.id, { name: e.target.value })} aria-label="Name der Einnahme" />
-                <Amount value={x.amount} currency={x.currency} label="Betrag" onChange={(v) => updateLine('incomes', x.id, { amount: v })} onCurrency={(c) => updateLine('incomes', x.id, { currency: c })} />
-                <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeLine('incomes', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
+              <div key={x.id} className="row" style={{ minHeight: 56, gap: 8 }}>
+                <input className="input row-main" style={{ minWidth: 0, minHeight: 36, padding: '6px 10px', fontSize: 15 }} defaultValue={x.name} key={x.id + (x.name || '')} placeholder="z.B. Gehalt" onBlur={(e) => e.target.value !== x.name && updateLine('incomes', x.id, { name: e.target.value })} aria-label="Name der Einnahme" />
+                <Amount narrow value={x.amount} currency={x.currency} label="Betrag" onChange={(v) => updateLine('incomes', x.id, { amount: v })} onCurrency={(c) => updateLine('incomes', x.id, { currency: c })} />
+                <button type="button" className="x-btn" style={{ width: 26 }} aria-label="Löschen" onClick={() => removeLine('incomes', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
             ))}
           </div>
@@ -111,18 +111,16 @@ export default function Finanzen() {
           <div className="list">
             {b.costs.length === 0 && <div className="empty">Wähl oben eine Kategorie und füg deine festen Kosten hinzu – jede in ihrer Währung (z.B. Miete in US$, Handy in ARS).</div>}
             {costCatsOf(b).flatMap((c) => b.costs.filter((x) => (catOf(x.cat, b).id) === c.id)).map((x) => (
-              <div key={x.id} className="cost-row">
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input className="input" style={{ flex: 1, minWidth: 0 }} defaultValue={x.name} key={x.id + (x.name || '')} placeholder={`Name, z.B. ${catOf(x.cat, b).label}`} onBlur={(e) => e.target.value !== x.name && updateLine('costs', x.id, { name: e.target.value })} aria-label="Name der Fixkosten" />
-                  <button type="button" className="x-btn" aria-label="Fixkosten löschen" onClick={() => removeLine('costs', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
-                </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                    <button type="button" className="link-btn" style={{ fontSize: 13, padding: 0, alignSelf: 'flex-start', textAlign: 'left' }} onClick={() => setMoveCost(x)} aria-label="Kategorie ändern">{catOf(x.cat, b).label} ▾</button>
-                    {x.currency !== b.base && x.amount ? <span className="tiny">≈ {money(convert(b, x.amount, x.currency), b.base)}</span> : null}
+              <div key={x.id} className="row" style={{ minHeight: 60, gap: 8 }}>
+                <span className="row-main" style={{ gap: 2, minWidth: 0 }}>
+                  <input className="input" style={{ minHeight: 36, padding: '6px 10px', fontSize: 15 }} defaultValue={x.name} key={x.id + (x.name || '')} placeholder={catOf(x.cat, b).label} onBlur={(e) => e.target.value !== x.name && updateLine('costs', x.id, { name: e.target.value })} aria-label="Name der Fixkosten" />
+                  <span style={{ display: 'flex', gap: 6, alignItems: 'baseline', paddingLeft: 4, minWidth: 0 }}>
+                    <button type="button" className="link-btn" style={{ fontSize: 12.5, padding: 0, whiteSpace: 'nowrap' }} onClick={() => setMoveCost(x)} aria-label="Kategorie ändern">{catOf(x.cat, b).label} ▾</button>
+                    {x.currency !== b.base && x.amount ? <span className="tiny" style={{ whiteSpace: 'nowrap' }}>≈ {money(convert(b, x.amount, x.currency), b.base)}</span> : null}
                   </span>
-                  <Amount value={x.amount} currency={x.currency} label={x.name || 'Betrag'} onChange={(v) => updateLine('costs', x.id, { amount: v })} onCurrency={(c) => updateLine('costs', x.id, { currency: c })} />
-                </div>
+                </span>
+                <Amount narrow value={x.amount} currency={x.currency} label={x.name || 'Betrag'} onChange={(v) => updateLine('costs', x.id, { amount: v })} onCurrency={(c) => updateLine('costs', x.id, { currency: c })} />
+                <button type="button" className="x-btn" style={{ width: 26 }} aria-label="Fixkosten löschen" onClick={() => removeLine('costs', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
             ))}
           </div>

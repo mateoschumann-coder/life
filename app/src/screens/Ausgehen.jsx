@@ -47,18 +47,24 @@ function SearchChips({ s, kind, defaults, disabled, onPick }) {
 
 // Städte (v0.40): zwischen Buenos Aires, Frankfurt … wechseln – gilt für Events und Orte, bearbeitbar
 // Stadt (v0.65): eine Zeile mit der aktuellen Stadt, „Wechseln“ öffnet die Liste aller Städte (Suche, nach Land)
-function CityChips({ s }) {
+function CityChips({ s, compact }) {
   const [open, setOpen] = useState(false);
   const cur = cityOf(s);
   const known = allCities(s);
   useEffect(() => { known.forEach((c) => locateCountry(store, c)); }, [known.join('|')]);
   return (
     <>
+      {compact ? (
+        <button type="button" className="drop-btn" onClick={() => setOpen(true)} aria-label="Stadt wechseln" style={{ minWidth: 0, flex: 1, justifyContent: 'flex-end' }}>
+          <span>📍</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cur}</span><span className="drop-caret">▾</span>
+        </button>
+      ) : (
       <button type="button" className="city-bar" onClick={() => setOpen(true)} aria-label="Stadt wechseln">
         <span style={{ fontSize: 18 }}>📍</span>
         <span className="row-main"><span className="row-title strong">{cur}</span><span className="row-meta">{countryOf(s, cur) || ' '}</span></span>
         <span className="pill" style={{ fontSize: 13 }}>Wechseln ▾</span>
       </button>
+      )}
       <AllCitiesSheet s={s} open={open} onClose={() => setOpen(false)} pick={(c) => { store.update((d) => { d.profile = { ...d.profile, city: c, allCities: [...new Set([...(d.profile?.allCities || []), c])] }; }); locateCity(store, c); locateCountry(store, c); setOpen(false); }} />
     </>
   );
@@ -504,7 +510,7 @@ function PlaceImport({ open, city, onClose, defaultStatus }) {
   );
 }
 
-function Orte({ s, city }) {
+function Orte({ s, city, view = 'mine' }) {
   const [pmode, setPmode] = useSearchMode('orte');
   const [importOpen, setImportOpen] = useState(false);
   const [sel, setSel] = useState(null);
@@ -573,6 +579,7 @@ function Orte({ s, city }) {
 
   return (
     <>
+      {view === 'mine' && (<>
       {/* v0.66 (Mateo): kompakt – vier Filter-Knöpfe, jeder öffnet eine Auswahl (mehrere möglich) */}
       <div className="filter-row">
         <button type="button" className={hoodSel.length ? 'chip on' : 'chip soft'} onClick={() => setFsheet('viertel')}>🏘 {label('Viertel', hoodSel)}</button>
@@ -622,7 +629,8 @@ function Orte({ s, city }) {
         </section>
       ))}
 
-      <section className="card" style={{ gap: 12 }}>
+      </>)}
+      {view === 'find' && <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Orte in {city} entdecken</span>
         <ModeToggle mode={pmode} onChange={setPmode} />
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (pmode === 'ki') run(q); }}>
@@ -646,7 +654,7 @@ function Orte({ s, city }) {
             <button type="button" className="pill on" onClick={() => keep(r)}>Merken</button>
           </div>
         ))}
-      </section>
+      </section>}
       <Sheet open={!!fsheet} title={{ viertel: 'Stadtviertel', art: 'Art', sterne: 'Sterne', mehr: 'Weitere Filter' }[fsheet] || ''} onClose={() => setFsheet(null)}>
         {fsheet === 'viertel' && (
           <>
@@ -687,8 +695,29 @@ function Orte({ s, city }) {
   );
 }
 
+// v0.91 (Mateo): kleine Klappe statt vieler Knöpfe – wählt zwischen „Meine Orte“ und „Orte finden“
+function DropMenu({ value, onChange, options }) {
+  const [open, setOpen] = useState(false);
+  const cur = options.find((o) => o.id === value) || options[0];
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button type="button" className="drop-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Ansicht wählen"><span>{cur.label}</span><span className="drop-caret">▾</span></button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
+          <div className="drop-menu">
+            {options.map((o) => <button key={o.id} type="button" className={o.id === value ? 'on' : ''} onClick={() => { onChange(o.id); setOpen(false); }}>{o.label}{o.id === value ? ' ✓' : ''}</button>)}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Ausgehen() {
   const s = useStore();
+  const [pview, setPviewState] = useState(() => { try { return localStorage.getItem('life-app-places-view') || 'mine'; } catch { return 'mine'; } });
+  const setPview = (v) => { setPviewState(v); try { localStorage.setItem('life-app-places-view', v); } catch {} };
   const [tab, setTab] = useState(() => {
     try {
       return localStorage.getItem(TAB_KEY) || 'events';
@@ -711,8 +740,13 @@ export default function Ausgehen() {
           <h1 className="h1">Ausgehen</h1>
         </div>
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
-        <CityChips s={s} />
-        {tab === 'events' ? <Events s={s} city={cityOf(s)} /> : <Orte s={s} city={cityOf(s)} />}
+        {tab === 'events' ? <CityChips s={s} /> : (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <DropMenu value={pview} onChange={setPview} options={[{ id: 'mine', label: '📌 Meine Orte' }, { id: 'find', label: '🔍 Orte finden' }]} />
+            <CityChips s={s} compact />
+          </div>
+        )}
+        {tab === 'events' ? <Events s={s} city={cityOf(s)} /> : <Orte s={s} city={cityOf(s)} view={pview} />}
       </main>
       <TabBar active="ausgehen" />
     </>

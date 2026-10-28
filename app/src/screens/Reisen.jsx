@@ -11,6 +11,7 @@ import { chatOf, saveChatOf } from '../lib/chats';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
 import GroupedChecklist from '../components/GroupedChecklist';
+import NotesArea from '../components/NotesArea';
 import PlanChat from '../components/PlanChat';
 import MapView from '../components/MapView';
 import { DateRangeField, rangeText } from '../components/DateRange';
@@ -1383,12 +1384,13 @@ function TripDetail({ s, tr }) {
         {cur === 'budget' && <Budget tr={tr} />}
         {cur === 'notizen' && isIdea && (kind !== 'ort' || ortSt) && (
           <section className="card" style={{ gap: 6 }}>
-            <textarea className="input" style={{ minHeight: 140, fontSize: 15 }} defaultValue={tr.idea} key={tr.id + 'idea' + (tr.idea || '').length} placeholder="Alles sammeln: was es dort gibt, Anreise, beste Zeit …" onBlur={(e) => e.target.value !== tr.idea && updateTrip(tr.id, { idea: e.target.value })} aria-label="Notizen zur Idee" />
+            <NotesArea key={tr.id + 'idea'} value={tr.idea || ''} onSave={(v) => updateTrip(tr.id, { idea: v })} placeholder="Deine Notizen – frei, nur von dir." label="Notizen zur Idee" />
+            {tr.info && <KiInfo text={tr.info} />}
           </section>
         )}
         {cur === 'notizen' && (!isIdea || tr.notes) && (kind !== 'ort' || ortSt) && (
           <section className="card" style={{ gap: 6 }}>
-            <textarea className="input" style={{ minHeight: 140 }} defaultValue={tr.notes} key={tr.id + 'notes'} placeholder="Alles Weitere: Kontakte, Ideen, Gedanken …" onBlur={(e) => e.target.value !== tr.notes && updateTrip(tr.id, { notes: e.target.value })} />
+            <NotesArea key={tr.id + 'notes'} value={tr.notes || ''} onSave={(v) => updateTrip(tr.id, { notes: v })} placeholder="Deine Notizen – frei, nur von dir." />
           </section>
         )}
         {!['sammeln', 'varianten'].includes(cur) && <PlanChat
@@ -1414,6 +1416,17 @@ function TripDetail({ s, tr }) {
       </Sheet>
       <TabBar active="bereiche" />
     </>
+  );
+}
+
+// v0.91: KI-Infos zur Idee getrennt von den eigenen Notizen (eingeklappt)
+function KiInfo({ text }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setOpen(!open)}>💡 Infos der KI {open ? '▴' : '▾'}</button>
+      {open && <div className="take-box" style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{text}</div>}
+    </div>
   );
 }
 

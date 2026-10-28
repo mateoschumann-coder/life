@@ -4,6 +4,7 @@ import {
   addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
+import PlaceBook from '../components/PlaceBook';
 import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
@@ -422,8 +423,8 @@ export default function Kueche() {
           <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
           <h1 className="h1">Küche</h1>
         </div>
-        <Segmented full options={[{ id: 'rezepte', label: 'Rezepte' }, { id: 'einkauf', label: `Einkaufsliste${openCount ? ` (${openCount})` : ''}` }]} value={tab} onChange={choose} label="Ansicht" />
-        {tab === 'rezepte' ? <Recipes s={s} /> : <Shopping s={s} />}
+        <Segmented full options={[{ id: 'rezepte', label: 'Rezepte' }, { id: 'einkauf', label: `Einkauf${openCount ? ` (${openCount})` : ''}` }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
+        {tab === 'rezepte' ? <Recipes s={s} /> : tab === 'orte' ? <PlaceBook s={s} book="kueche" hint="Deine Läden: Supermarkt, Metzgerei, Bäckerei, Verdulería … – oben „+ Ort“." /> : <Shopping s={s} />}
         {tab === 'rezepte' && <RecipeFinder s={s} />}
       </main>
       <TabBar active="bereiche" />

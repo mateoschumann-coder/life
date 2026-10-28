@@ -6,7 +6,13 @@ import { Check, Icon } from './ui';
 export default function GroupedChecklist({ items, cats = [], onAdd, onToggle, onRemove, onTemplate, color = '#2FA36B', placeholder = 'Neuer Punkt', meta, extraTabs = [], tabKey }) {
   const [extraCats, setExtraCats] = useState([]);
   const order = [...new Set([...cats, ...items.map((x) => x.cat).filter(Boolean), ...extraCats])];
-  const tabs = [...order.map((c) => ({ key: c, label: c, list: items.filter((x) => x.cat === c) })), ...extraTabs];
+  // extraTabs mit „after“ werden hinter dem genannten Teil eingereiht (z.B. Einkauf nach „Planen“)
+  const tabs = [];
+  for (const c of order) {
+    tabs.push({ key: c, label: c, list: items.filter((x) => x.cat === c) });
+    tabs.push(...extraTabs.filter((e) => e.after === c));
+  }
+  tabs.push(...extraTabs.filter((e) => !e.after || !order.includes(e.after)));
   const [act, setActState] = useState(() => { try { return (tabKey && sessionStorage.getItem(tabKey)) || null; } catch { return null; } });
   const setAct = (k) => { setActState(k); try { if (tabKey) sessionStorage.setItem(tabKey, k); } catch {} };
   const cur = tabs.find((t) => t.key === act) || tabs[0];
