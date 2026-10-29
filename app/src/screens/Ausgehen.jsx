@@ -196,7 +196,7 @@ function EventSheet({ init, city, onClose }) {
         <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} style={{ maxWidth: 120 }} /></Field>
       </div>
       <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => set({ place: e.target.value })} placeholder="Ort / Adresse" /></Field>
-      {f.place.trim() && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} href={routeUrl(f.place, city)} target="_blank" rel="noreferrer">🧭 Weg dorthin (Google Maps) ↗</a>}
+      {f.place.trim() && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} href={routeUrl(f.place, city)} target="_blank" rel="noreferrer">Route (Google Maps) ↗</a>}
       <Field label="Preis"><input className="input" value={f.price} onChange={(e) => set({ price: e.target.value })} placeholder="z.B. 15.000 ARS" /></Field>
       <Field label="Link"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Tickets / Instagram …" /></Field>
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} /></Field>
@@ -340,7 +340,7 @@ function Events({ s, city, view = 'find' }) {
               <div className="nudge-actions" style={{ paddingLeft: 56 }}>
                 <button type="button" className="pill on" onClick={() => take(r, 'interessiert')}>Interessiert</button>
                 <button type="button" className="pill" onClick={() => take(r, 'zugesagt')}>Bin dabei</button>
-                <a className="pill" href={routeUrl(eventDest(r), resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>🧭 Weg</a>
+                <a className="pill on" href={routeUrl(eventDest(r), resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>Route</a>
                 {r.url && <a className="pill" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} auf ${r.source || 'der Website'} öffnen`}><Icon name="link" size={14} /></a>}
               </div>
             </article>
@@ -362,7 +362,7 @@ function Events({ s, city, view = 'find' }) {
                 {e.url ? <a className="row-title plain" href={e.url} target="_blank" rel="noreferrer">{e.name}</a> : <span className="row-title plain">{e.name}</span>}
                 <span className="row-meta">{[e.stage === 'zugesagt' ? 'Dabei' : e.stage === 'interessiert' ? 'Interessiert' : 'Entdeckt', e.time, e.place].filter(Boolean).join(' · ')}</span>
               </div>
-              <a className="pill" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>🧭</a>
+              <a className="pill on" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>Route</a>
               {e.stage !== 'zugesagt' && <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>}
               <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
             </div>

@@ -6,8 +6,8 @@ import { DIRECT } from './Bereich';
 
 const SOZIAL = [
   { id: 'events', name: 'Events', icon: 'sparkle', href: '#/saeule/sozial' },
-  { id: 'menschen', name: 'Menschen', icon: 'users', href: '#/menschen' },
   { id: 'ausgehen', name: 'Ausgehen', icon: 'calendar', href: '#/ausgehen' },
+  { id: 'menschen', name: 'Menschen', icon: 'users', href: '#/menschen' },
 ];
 // v1.13 (Mateo): Hobbys und Reisen als eigene Kacheln statt „Freizeit und Erlebnisse“, nach Finanzen
 const FREIZEIT = [

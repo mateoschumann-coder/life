@@ -660,6 +660,7 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .act-btn { display: flex; align-items: center; gap: 8px; text-align: left; border: 0; border-radius: 14px; padding: 12px; background: var(--card); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,.06)); font: inherit; font-size: 14.5px; font-weight: 600; color: var(--text); min-height: 56px; }
 .act-btn:active { transform: scale(0.98); }
 .act-emoji { font-size: 20px; flex-shrink: 0; }
+.act-btn > span:last-child { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
 /* v1.08 Reisen-Ideen-Gruppen */
 .idea-group { border-radius: 16px; background: var(--card); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,.06)); border-left: 4px solid #4F8EF7; overflow: hidden; }
 .idea-group .group-head { background: color-mix(in srgb, #4F8EF7 9%, transparent); }

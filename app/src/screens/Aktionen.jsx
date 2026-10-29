@@ -1,3 +1,4 @@
+// v1.14 (Mateo): auf die wichtigsten 6 pro Teil beschränkt
 // v1.08 (Mateo): Zentrale Stelle – jede Aktion mit einem Tipp direkt auf der richtigen Seite (Knopf in der Mitte der Tab-Leiste)
 import { useState } from 'react';
 import { go } from '../lib/router';
@@ -12,19 +13,9 @@ export const ACTIONS = [
     ['✅', 'Aufgabe', () => { ss('life-focus-task', '1'); go('/heute'); }],
     ['🛒', 'Einkauf', () => { ls('life-app-kueche-tab', 'einkauf'); go('/kueche'); }],
     ['📍', 'Ort (Bar, Restaurant …)', () => { ls('life-app-ausgehen-tab', 'orte'); ls('life-app-places-view', 'mine'); ss('life-open-new-place', '1'); go('/ausgehen'); }],
-    ['👤', 'Person', () => go('/person/neu')],
     ['🎉', 'Eigenes Event', () => { ss('life-open-new-event', '1'); go('/treffen'); }],
     ['💌', 'Einladung von anderen', () => { ls('life-app-sozial-tab', 'andere'); ss('life-open-new-invite', '1'); go('/treffen'); }],
     ['🏃', 'Sport-Event / Rennen', () => { ls('life-app-sport-tab', 'meine'); ss('life-open-new-sport', '1'); go('/sport'); }],
-    ['🩺', 'Arzttermin', () => { ss('life-vorsorge-view', 'termine'); ss('life-open-new-termin', '1'); go('/vorsorge'); }],
-    ['💼', 'Bewerbung', () => go('/karriere')],
-    ['📖', 'Buch', () => { ss('life-open-new-material', '1'); go('/wissen/buch'); }],
-    ['🎧', 'Podcast', () => { ss('life-open-new-material', '1'); go('/wissen/podcast'); }],
-    ['🎬', 'Video', () => { ss('life-open-new-material', '1'); go('/wissen/video'); }],
-    ['🎯', 'Skill-Ziel', () => go('/skills')],
-    ['🔔', 'Erinnerung', () => { ls('life-app-zuhause-allgemein', 'erinnern'); go('/zuhause/allgemein'); }],
-    ['💸', 'Fixkosten', () => { ls('life-app-fin-tab', 'rechner'); ls('life-app-fin-calc', 'alltag'); go('/finanzen'); }],
-    ['🧳', 'Reise-Idee', () => { ls('life-app-reisen-tab', 'ideen'); ls('life-app-reisen-ideen', 'ideen'); ss('life-open-new-trip', 'idee'); go('/reisen'); }],
   ] },
   { id: 'finden', title: '🔍 Finden & Suchen', hint: 'Direkt zur passenden Suche', items: [
     ['🎶', 'Event suchen', () => { ls('life-app-ausgehen-tab', 'events'); ls('life-app-events-view', 'find'); go('/ausgehen'); }],
@@ -32,26 +23,15 @@ export const ACTIONS = [
     ['🏃', 'Lauf- / Sport-Event suchen', () => { ls('life-app-sport-tab', 'finden'); go('/sport'); }],
     ['🌍', 'Reiseziel finden', () => { ls('life-app-reisen-tab', 'ideen'); ls('life-app-reisen-ideen', 'suche'); go('/reisen'); }],
     ['🍳', 'Rezept finden', () => { ls('life-app-kueche-tab', 'rezepte'); ls('life-app-rezepte-sub', 'neu'); go('/kueche'); }],
-    ['🩺', 'Arzt / Praxis finden', () => { ss('life-vorsorge-view', 'finden'); go('/vorsorge'); }],
-    ['🛋', 'Einrichtung finden', () => { ls('life-app-zuhause-einrichtung', 'finden'); go('/zuhause/einrichtung'); }],
-    ['👕', 'Kleidung finden', () => { ls('life-app-zuhause-kleidung', 'finden'); go('/zuhause/kleidung'); }],
     ['💼', 'Job finden', () => go('/karriere')],
-    ['🗞', 'Nachrichten lesen', () => go('/news')],
-    ['📚', 'Etwas zum Lernen finden', () => go('/wissen')],
   ] },
   { id: 'planen', title: '🗺 Planen & Organisieren', hint: 'Größere Vorhaben', items: [
     ['✈️', 'Reise planen', () => { ls('life-app-reisen-tab', 'reisen'); ss('life-open-new-trip', 'geplant'); go('/reisen'); }],
-    ['🧭', 'Reise-Idee anlegen', () => { ls('life-app-reisen-tab', 'ideen'); ls('life-app-reisen-ideen', 'ideen'); ss('life-open-new-trip', 'idee'); go('/reisen'); }],
     ['🎉', 'Event organisieren', () => { ss('life-open-new-event', '1'); go('/treffen'); }],
     ['🛒', 'Einkaufsliste', () => { ls('life-app-kueche-tab', 'einkauf'); go('/kueche'); }],
     ['📞', 'Bei wem melden?', () => { ls('life-app-people-tab', 'kontakt'); ls('life-app-people-part', 'melden'); go('/menschen'); }],
     ['💼', 'Jobsuche', () => go('/karriere')],
-    ['🚀', 'Eigenes Projekt', () => go('/karriere/projekte')],
     ['🎓', 'Weiterentwicklung', () => go('/skills')],
-    ['🎸', 'Hobbys', () => go('/hobbys')],
-    ['🧮', 'Finanzen rechnen', () => { ls('life-app-fin-tab', 'rechner'); go('/finanzen'); }],
-    ['⏱', 'Lauf-Zeitrechner', () => { ls('life-app-sport-tab', 'rechner'); go('/sport'); }],
-    ['🏠', 'Haushalt', () => go('/zuhause/allgemein')],
   ] },
 ];
 
@@ -73,7 +53,7 @@ export default function Aktionen() {
             {n ? <div className="act-head"><h2 className="label" style={{ padding: 0 }}>{g.title}</h2></div> : <span className="tiny" style={{ padding: '0 4px' }}>{g.hint}</span>}
             <div className="act-grid">
               {g.items.map(([e, l, run]) => (
-                <button key={l} type="button" className="act-btn" onClick={run}><span className="act-emoji">{e}</span><span>{l}</span></button>
+                <button key={l} type="button" className="act-btn" onClick={run}><span className="act-emoji">{e}</span><span lang="de">{l}</span></button>
               ))}
             </div>
           </section>
