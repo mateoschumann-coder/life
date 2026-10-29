@@ -192,7 +192,7 @@ const EVENT_TOOL = {
             adresse: { type: 'string', description: 'Straße + Hausnummer des Veranstaltungsorts, falls in den Ergebnissen oder sicher bekannt (für die Wegbeschreibung)' },
             preis: { type: 'string', description: 'z.B. „gratis“, „ab 15.000 ARS“, falls bekannt' },
             kategorie: { type: 'string', description: 'z.B. Konzert, Sport, Tech, Kultur, Party, Markt' },
-            warum: { type: 'string', description: 'Halbsatz, warum es zu Mateo passt' },
+            warum: { type: 'string', description: 'max. 6 Wörter, warum es passt' },
             url: { type: 'string', description: 'Link aus den Suchergebnissen, nie erfinden' },
           },
           required: ['name'],
@@ -223,7 +223,7 @@ ${ba ? `So suchst du (höchstens 3 Suchen – jede kostet Geld, also gezielt und
 2. Eine Suche nach einer guten lokalen Sammel-Seite (Stadtmagazin, Veranstaltungskalender, „was ist los“), die viele Events auf einmal listet.
 3. Eine Suche nach Ungewöhnlichem: kleine Clubs und Bars mit Live-Musik, Kulturzentren, Märkte, Workshops, Open-Air, Meetups/Luma (Tech), Resident Advisor, Time Out, lokale Blogs.`}
 Verschiedene Quellen: höchstens 2 Events aus derselben Website; insgesamt mindestens 4 verschiedene Quellen, wenn möglich.
-Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bekannt + Geheimtipp), sortiert nach Datum. Markiere Geheimtipps mit geheimtipp=true. Im Feld warum: konkret, warum es zu SEINEN Vorlieben passt. Gib bei jedem Event den Veranstaltungsort (ort) und wenn möglich die Adresse (adresse) an, damit Mateo den Weg findet. Nur echte Events aus den Suchergebnissen, keine erfundenen Daten oder Links. Texte auf Deutsch, kurz.`;
+Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bekannt + Geheimtipp), sortiert nach Datum. Markiere Geheimtipps mit geheimtipp=true. Feld warum: höchstens 6 Wörter. Gib bei jedem Event den Veranstaltungsort (ort) und wenn möglich die Adresse (adresse) an, damit Mateo den Weg findet. Nur echte Events aus den Suchergebnissen, keine erfundenen Daten oder Links. Texte auf Deutsch, kurz.`;
   const tool = { ...EVENT_TOOL, input_schema: JSON.parse(JSON.stringify(EVENT_TOOL.input_schema)) };
   tool.input_schema.properties.events.items.properties.geheimtipp = { type: 'boolean', description: 'true = eher unbekannt/ungewöhnlich' };
   const input = await searchWithTool({ system, user: `Anfrage: ${query} (Stadt: ${city})`, tool, maxUses: 3, label: 'Events suchen', city });
@@ -273,6 +273,7 @@ const PLACE_TOOL = {
             viertel: { type: 'string', description: 'Stadtviertel, z.B. „Palermo“, „San Telmo“' },
             tags: { type: 'array', items: { type: 'string' }, description: 'passende Tags aus dieser Liste: ' + ['Frühstück', 'Brunch', 'Mittagessen', 'Abendessen', 'Drinks', 'Snack', 'Argentinisch', 'Fleisch', 'Italienisch', 'Pizza', 'Japanisch', 'Asiatisch', 'Peruanisch', 'Mexikanisch', 'Spanisch', 'Burger', 'Fisch', 'Vegetarisch', 'Vegan', 'Café & Kuchen', 'Date', 'Mit Freunden', 'Zum Arbeiten', 'Terrasse', 'Live-Musik', 'Besonders'].join(', ') },
             preis: { type: 'integer', description: 'Preisniveau 1 = günstig, 2 = mittel, 3 = teuer (nur wenn bekannt)' },
+            oeffnungszeiten: { type: 'string', description: 'Öffnungszeiten kurz auf Deutsch, z.B. „Di–So 9–19 Uhr, Mo zu“ – nur wenn aus den Ergebnissen bekannt' },
             warum: { type: 'string', description: '1 Satz: was ist besonders' },
             url: { type: 'string', description: 'Link aus den Suchergebnissen (Website, Instagram, Artikel), nie erfinden' },
           },
@@ -288,7 +289,7 @@ export async function discoverPlaces(s, query, city = HOME_CITY) {
   const system = `Du findest für Mateo besondere Orte in ${city} (Cafés, Bars, Restaurants, Kultur …).
 Was du über Mateo weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
 Orte, die er dort schon gespeichert hat (nicht wiederholen): ${JSON.stringify(s.places.filter((p) => placeCity(p) === city).map((p) => p.name))}
-Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern in der Landessprache und in aktuellen Listen/Artikeln). Danach rufe "orte_zeigen" mit 5 bis 8 Orten auf, mit möglichst genauer Adresse. Nur echte Orte aus den Suchergebnissen. Texte auf Deutsch, kurz.`;
+Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern in der Landessprache und in aktuellen Listen/Artikeln). Danach rufe "orte_zeigen" mit 5 bis 8 Orten auf, mit möglichst genauer Adresse und Öffnungszeiten (wenn in den Ergebnissen). Nur echte Orte aus den Suchergebnissen. Texte auf Deutsch, kurz.`;
   const input = await searchWithTool({ system, user: `Suche: ${query} (Stadt: ${city})`, tool: PLACE_TOOL, maxUses: 2, label: 'Orte entdecken', city });
   const results = (input.orte || []).filter((o) => o && o.name).map((o, i) => ({
     id: 'p' + i + Date.now().toString(36),
@@ -299,6 +300,7 @@ Suche gezielt (höchstens 2 Suchen – jede kostet Geld –, gern in der Landess
     hood: o.viertel || '',
     tags: (o.tags || []).filter((x) => ALL_TAGS.includes(x)),
     price: [1, 2, 3].includes(o.preis) ? o.preis : 0,
+    hours: o.oeffnungszeiten || '',
     why: o.warum || '',
     url: okUrl(o.url),
     status: 'neu',
@@ -317,6 +319,7 @@ const PARSE_TOOL = {
     kategorie: PLACE_TOOL.input_schema.properties.orte.items.properties.kategorie,
     unterart: { type: 'string' },
     adresse: { type: 'string', description: 'nur wenn im Text oder sicher bekannt' },
+    oeffnungszeiten: { type: 'string', description: 'Öffnungszeiten kurz, nur wenn im Text oder sicher bekannt' },
     viertel: { type: 'string', description: 'Stadtviertel, wenn im Text oder sicher bekannt (z.B. „Palermo“)' },
     tags: { type: 'array', items: { type: 'string' }, description: 'passende Tags (Mahlzeit, Küche, Stimmung) nur aus: ' + ['Frühstück', 'Brunch', 'Mittagessen', 'Abendessen', 'Drinks', 'Snack', 'Argentinisch', 'Fleisch', 'Italienisch', 'Pizza', 'Japanisch', 'Asiatisch', 'Peruanisch', 'Mexikanisch', 'Spanisch', 'Burger', 'Fisch', 'Vegetarisch', 'Vegan', 'Café & Kuchen', 'Date', 'Mit Freunden', 'Zum Arbeiten', 'Terrasse', 'Live-Musik', 'Besonders'].join(', ') },
             preis: { type: 'integer', description: 'Preisniveau 1 = günstig, 2 = mittel, 3 = teuer (nur wenn bekannt)' },
@@ -329,7 +332,7 @@ export async function parsePlaces(text, city = HOME_CITY) {
     system: `Mateo gibt dir einen Text (Liste, Notizen, Empfehlungen, Diktat) mit Orten in ${city}. Zieh JEDEN genannten Ort heraus (Cafés, Bars, Restaurants, Kultur …), ordne Kategorie, Unterart, Viertel und passende Tags zu. Nichts erfinden, keine Orte hinzufügen, die nicht im Text stehen. Schreib bei "erkannt" ehrlich, ob du den Ort kennst.`,
     user: text, tool: PARSE_TOOL, maxUses: 0, label: 'Orte aus Text',
   });
-  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Noch unklar', subcat: o.unterart || '', address: o.adresse || '', hood: o.viertel || '', tags: (o.tags || []).filter((x) => ALL_TAGS.includes(x)), price: [1, 2, 3].includes(o.preis) ? o.preis : 0, note: '', info: o.erkannt || '', status: o.war_da ? 'war' : 'will' }));
+  return (r.orte || []).filter((o) => o?.name).map((o, i) => ({ id: 'x' + i, name: o.name, category: o.kategorie || 'Noch unklar', subcat: o.unterart || '', address: o.adresse || '', hood: o.viertel || '', tags: (o.tags || []).filter((x) => ALL_TAGS.includes(x)), price: [1, 2, 3].includes(o.preis) ? o.preis : 0, hours: o.oeffnungszeiten || '', note: '', info: o.erkannt || '', status: o.war_da ? 'war' : 'will' }));
 }
 
 // Aktuellen Standort → Stadt + Land (iPhone-Standort, dann OpenStreetMap; kostenlos)
@@ -370,11 +373,28 @@ export const mapsUrl = (name, address, city = HOME_CITY) => `https://www.google.
 // Adresse → Koordinaten (OpenStreetMap Nominatim, kostenlos; sparsam benutzen)
 export async function geocode(q, city = HOME_CITY) {
   const ba = city === HOME_CITY ? '&countrycodes=ar&viewbox=-58.65,-34.45,-58.25,-34.75' : '';
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=de${ba}&q=${encodeURIComponent(q)}`;
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&extratags=1&accept-language=de${ba}&q=${encodeURIComponent(q)}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error('Adresssuche nicht erreichbar');
   const list = await res.json();
-  return list.map((r) => ({ lat: Number(r.lat), lon: Number(r.lon), label: r.display_name }));
+  return list.map((r) => ({ lat: Number(r.lat), lon: Number(r.lon), label: r.display_name, hours: hoursDe(r.extratags?.opening_hours || '') }));
+}
+
+// v1.16 (Mateo): Öffnungszeiten – OpenStreetMap-Schreibweise („Mo-Fr 09:00-18:00; Su off“) lesbar auf Deutsch
+export function hoursDe(h) {
+  if (!h) return '';
+  const D = { Mo: 'Mo', Tu: 'Di', We: 'Mi', Th: 'Do', Fr: 'Fr', Sa: 'Sa', Su: 'So', PH: 'Feiertag' };
+  return String(h).replace(/\b(Mo|Tu|We|Th|Fr|Sa|Su|PH)\b/g, (m) => D[m]).replace(/\boff\b/g, 'geschlossen').replace(/24\/7/, 'rund um die Uhr').replace(/\s*;\s*/g, ' · ').replace(/-/g, '–');
+}
+// Öffnungszeiten kostenlos über OpenStreetMap nachschlagen (nicht jeder Ort hat dort Zeiten)
+export async function findHours(s, p) {
+  const city = placeCity(p);
+  const tries = [...new Set([p.name && p.address && `${p.name}, ${p.address}, ${city}`, p.name && `${p.name}, ${city}`].filter(Boolean))];
+  for (const q of tries) {
+    try { const r = (await geocode(q, city)).find((x) => x.hours); if (r) return r.hours; } catch {}
+    await new Promise((ok) => setTimeout(ok, 1100));
+  }
+  return '';
 }
 
 // Zweiter Dienst (v0.68): Photon (komoot, OSM-Daten, verzeiht Tippfehler besser)

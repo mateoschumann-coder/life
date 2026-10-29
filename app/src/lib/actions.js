@@ -257,11 +257,11 @@ export const PLACE_SUBCATS = {
   Laden: ['Kleidung', 'Buchladen', 'Markt', 'Feinkost'],
   Sonstiges: [],
 };
-export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '', city = '', hood = '', tags = [], price = 0, fav = false }) {
+export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '', city = '', hood = '', tags = [], price = 0, fav = false, hours = '' }) {
   if (!name || !name.trim()) return;
   const id = uid();
   store.update((s) => {
-    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) || (s.profile?.placeCats || []).includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, city: String(city || '').trim() || 'Buenos Aires', hood: String(hood || '').trim(), tags: Array.isArray(tags) ? tags : [], price: Number(price) || 0, fav: !!fav, createdAt: now() });
+    s.places.push({ id, name: name.trim(), category: PLACE_CATS.includes(category) || (s.profile?.placeCats || []).includes(category) ? category : 'Sonstiges', subcat: String(subcat || '').trim(), note, rating, status, lat, lon, address, url, city: String(city || '').trim() || 'Buenos Aires', hood: String(hood || '').trim(), tags: Array.isArray(tags) ? tags : [], price: Number(price) || 0, fav: !!fav, ...(hours ? { hours: String(hours) } : {}), createdAt: now() });
   });
   return id;
 }

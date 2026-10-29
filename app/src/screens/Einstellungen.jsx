@@ -6,6 +6,7 @@ import { loadDemo } from '../lib/demo';
 import { seed } from '../lib/seed';
 import { Back, Chevron, Field, Segmented, TabBar, toast, Info } from '../components/ui';
 import { ACCENTS, DARKS, MODES, setTheme, themeOf } from '../lib/theme';
+import { autoCopyOn, setAutoCopy } from '../lib/fieldtools';
 import { getAi, MODELS, monthUsage, saveAi, testKey } from '../lib/ai';
 
 // Datei teilen (iPhone: „In Dateien sichern“, AirDrop …) oder herunterladen
@@ -206,7 +207,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.15 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.16 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>
@@ -218,6 +219,7 @@ function Appearance() {
   const [t, setT] = useState(themeOf);
   const set = (patch) => { setTheme(patch); setT(themeOf()); };
   return (
+    <>
     <section className="card" style={{ gap: 12 }}>
       <h2 className="h2">Aussehen</h2>
       <Segmented full options={MODES} value={t.mode} onChange={(v) => set({ mode: v })} label="Hell oder dunkel" />
@@ -243,6 +245,23 @@ function Appearance() {
         ))}
       </div>
       <span className="tiny">„Schlicht“ macht auch die Bereichs-Symbole grau. Die Wahl gilt nur auf diesem iPhone.</span>
+    </section>
+    <LinkCopy />
+    </>
+  );
+}
+
+// v1.16 (Mateo): Links, die man aus der App öffnet, automatisch kopieren
+function LinkCopy() {
+  const [on, setOn] = useState(autoCopyOn);
+  return (
+    <section className="card" style={{ gap: 8 }}>
+      <h2 className="h2">Links</h2>
+      <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <input type="checkbox" checked={on} onChange={(e) => { setAutoCopy(e.target.checked); setOn(e.target.checked); }} />
+        <span>Geöffnete Links automatisch kopieren</span>
+      </label>
+      <span className="tiny">In Link-Feldern erscheint 📋 zum Einfügen. Ist die Zwischenablage leer, wird der zuletzt aus der App geöffnete Link eingesetzt.</span>
     </section>
   );
 }

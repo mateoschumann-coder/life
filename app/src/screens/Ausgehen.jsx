@@ -4,7 +4,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addPlaceCat, addTask, archiveEvent, archivePlace, restoreEvent, restorePlace, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
 import {
-  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText, routeUrl, eventDest,
+  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText, routeUrl, eventDest, findHours,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
@@ -329,15 +329,13 @@ function Events({ s, city, view = 'find' }) {
             <article key={r.id} className="nudge">
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <DateBadge date={r.date} />
-                <div className="row-main" style={{ gap: 3 }}>
-                  <span style={{ fontSize: 16, fontWeight: 650, lineHeight: 1.3 }}>{r.name}</span>
-                  <span className="tiny">{[r.time, r.place, r.price, r.source].filter(Boolean).join(' · ')}</span>
-                  {r.address && <span className="tiny">📍 {r.address}</span>}
-                  {r.why && <span style={{ fontSize: 14.5, lineHeight: 1.4, color: 'var(--muted)' }}>{r.tip && <b className="tip-badge">Geheimtipp</b>}{r.why}</span>}
+                <div className="row-main" style={{ gap: 2 }}>
+                  <span style={{ fontSize: 15.5, fontWeight: 650, lineHeight: 1.3 }}>{r.tip && <b className="tip-badge">Geheimtipp</b>}{r.name}</span>
+                  <span className="tiny">{[r.time, r.place, r.price].filter(Boolean).join(' · ')}</span>
                 </div>
                 <button type="button" className="x-btn" aria-label={`${r.name} ausblenden`} onClick={() => mark(r.id, 'weg')}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
-              <div className="nudge-actions" style={{ paddingLeft: 56 }}>
+              <div className="nudge-actions" style={{ paddingLeft: 56, marginTop: -2 }}>
                 <button type="button" className="pill on" onClick={() => take(r, 'interessiert')}>Interessiert</button>
                 <button type="button" className="pill" onClick={() => take(r, 'zugesagt')}>Bin dabei</button>
                 <a className="pill on" href={routeUrl(eventDest(r), resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>Route</a>
@@ -410,7 +408,7 @@ function Stars({ value, onChange, size = 18 }) {
 function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, defaultHood = '', defaultFav = false }) {
   const [catEdit, setCatEdit] = useState(false);
   const [newCat, setNewCat] = useState('');
-  const blank = { fav: defaultFav, name: '', category: defaultCat || 'Noch unklar', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [], price: 0 };
+  const blank = { fav: defaultFav, name: '', category: defaultCat || 'Noch unklar', subcat: '', note: '', rating: 0, status: defaultStatus === 'war' ? 'war' : 'will', lat: null, lon: null, address: '', url: '', city, hood: defaultHood, tags: [], price: 0, hours: '' };
   const [tagText, setTagText] = useState('');
   const [f, setF] = useState(blank);
   const [hits, setHits] = useState(null);
@@ -469,13 +467,14 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
         {hits && hits.length > 0 && f.lat == null && (
           <div className="list">
             {hits.map((h, i) => (
-              <button key={i} type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => { set({ lat: h.lat, lon: h.lon }); setHits(null); }}>
+              <button key={i} type="button" className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => { set({ lat: h.lat, lon: h.lon, ...(h.hours && !f.hours ? { hours: h.hours } : {}) }); setHits(null); }}>
                 <span className="row-main"><span className="row-meta" style={{ fontSize: 14 }}>{h.label}</span></span>
               </button>
             ))}
           </div>
         )}
       </div>
+      <Field label="Öffnungszeiten (optional)"><input className="input" value={f.hours || ''} onChange={(e) => set({ hours: e.target.value })} placeholder="z.B. Di–So 9–19 Uhr, Mo zu" /></Field>
       <div className="field">
         <span>Art</span>
         <div className="chips">
@@ -549,7 +548,7 @@ function PlaceImport({ open, city, onClose, defaultStatus }) {
     const ids = chosen.map((x) => { const { info, ...rest } = x; return [x, addPlace({ ...rest, status: st[x.id] || x.status, city })]; });
     toast(`${chosen.length} Orte in ${city} gespeichert`);
     setText(''); setList(null); onClose();
-    for (const [x, id] of ids) { const pos = await locate(x.name, x.address, city); if (pos) updatePlace(id, { lat: pos.lat, lon: pos.lon }); }
+    for (const [x, id] of ids) { const pos = await locate(x.name, x.address, city); if (pos) updatePlace(id, { lat: pos.lat, lon: pos.lon, ...(pos.hours && !x.hours ? { hours: pos.hours } : {}) }); }
   };
   const statusSeg = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -657,7 +656,7 @@ function Orte({ s, city, view = 'mine' }) {
     setSearch(next);
     savePlaceSearch(next);
     const pos = await locate(r.name, r.address, resCity);
-    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, hood: r.hood || '', tags: r.tags || [], price: r.price || 0, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null, city: resCity });
+    const id = addPlace({ name: r.name, category: r.category, subcat: r.subcat, note: r.why, address: r.address, hood: r.hood || '', tags: r.tags || [], price: r.price || 0, url: r.url, status: 'will', lat: pos?.lat ?? null, lon: pos?.lon ?? null, city: resCity, hours: r.hours || pos?.hours || '' });
     if (resCity !== city) toast(`In deiner Liste für ${resCity} gemerkt`); else
     toast('In deiner Liste gemerkt');
   };
@@ -708,6 +707,7 @@ function Orte({ s, city, view = 'mine' }) {
                       {p.status === 'will' && <button type="button" className="pill" onClick={() => { updatePlace(p.id, { status: 'war' }); setSheet(p); }}>War da</button>}
                       <button type="button" className="pill" onClick={() => setSheet(p)}>Bearbeiten</button>
                     </div>
+                    <PlaceHours s={s} p={p} />
                   </div>
                 )}
               </div>
@@ -738,6 +738,7 @@ function Orte({ s, city, view = 'mine' }) {
               <span style={{ fontSize: 15, fontWeight: 600 }}>{r.name}</span>
               <span className="tiny">{[r.subcat || r.category, r.hood, r.address].filter(Boolean).join(' · ')}</span>
               {r.why && <span className="tiny" style={{ color: 'var(--text)' }}>{r.why}</span>}
+              {r.hours && <span className="tiny">🕒 {r.hours}</span>}
             </span>
             {r.url && <a className="x-btn" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} öffnen`}><Icon name="link" size={15} color="var(--accent)" /></a>}
             <button type="button" className="pill on" onClick={() => keep(r)}>Merken</button>
@@ -847,5 +848,24 @@ export default function Ausgehen() {
       </main>
       <TabBar active="ausgehen" />
     </>
+  );
+}
+
+// v1.16 (Mateo): Öffnungszeiten immer unten im aufgeklappten Ort – gespeichert, sonst kostenlos bei OpenStreetMap nachsehen, sonst Google Maps
+function PlaceHours({ s, p }) {
+  const [busy, setBusy] = useState(false);
+  const [none, setNone] = useState(false);
+  if (p.hours) return <span className="tiny" style={{ lineHeight: 1.4 }}>🕒 {p.hours}</span>;
+  const look = async () => {
+    setBusy(true);
+    const h = await findHours(s, p);
+    setBusy(false);
+    if (h) { updatePlace(p.id, { hours: h }); toast('Öffnungszeiten gefunden'); } else setNone(true);
+  };
+  return (
+    <span className="tiny" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+      🕒 {none ? 'Keine Öffnungszeiten bei OpenStreetMap.' : <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={look} disabled={busy}>{busy ? 'Suche …' : 'Öffnungszeiten suchen'}</button>}
+      <a className="link-btn" style={{ fontSize: 13 }} href={mapsUrl(p.name, p.address, placeCity(p))} target="_blank" rel="noreferrer">In Google Maps ↗</a>
+    </span>
   );
 }

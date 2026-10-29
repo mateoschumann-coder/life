@@ -537,6 +537,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .field-tool { position: absolute; z-index: 5; margin: 0; flex: none; width: 26px; height: 26px; border-radius: 13px; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--card-2, #EEF0F3); color: var(--chev, #8A8F98); font-size: 12px; line-height: 1; cursor: pointer; box-shadow: 0 0 0 1px var(--line, #E5E7EB); }
 .field-tool[hidden] { display: none; }
 .field-tool.ft-tidy { font-size: 13px; color: var(--accent); }
+.field-tool.ft-paste { font-size: 13px; }
 input.ft-on { padding-right: 36px !important; }
 textarea.ft-on { padding-right: 70px !important; }
 
@@ -706,3 +707,5 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .theme-sw span { width: 16px; height: 22px; border-radius: 5px; border: 1px solid rgba(128, 128, 128, 0.35); }
 .accent-dot { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
 :root[data-theme="dark"] .seg button.on { background: rgba(255, 255, 255, 0.17); box-shadow: none; }
+
+:root[data-theme="dark"] .tip-badge { color: #FFD66B; background: rgba(251, 191, 36, 0.18); }

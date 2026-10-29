@@ -73,6 +73,20 @@ function setValue(el, v) {
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+// v1.16 (Mateo): Links, die man aus der App öffnet, werden automatisch kopiert und gemerkt;
+// in Link-Feldern erscheint 📋 zum Einfügen (Zwischenablage, sonst der zuletzt geöffnete Link)
+const LAST = 'life-app-lastlinks';
+export const autoCopyOn = () => { try { return localStorage.getItem('life-app-autocopy') !== '0'; } catch { return true; } };
+export const setAutoCopy = (on) => { try { localStorage.setItem('life-app-autocopy', on ? '1' : '0'); } catch {} };
+export function lastLinks() { try { return JSON.parse(localStorage.getItem(LAST) || '[]'); } catch { return []; } }
+function rememberLink(url) {
+  if (!/^https?:\/\//i.test(url || '') || url.startsWith(location.origin)) return;
+  try { localStorage.setItem(LAST, JSON.stringify([url, ...lastLinks().filter((u) => u !== url)].slice(0, 10))); } catch {}
+  if (autoCopyOn()) { try { navigator.clipboard?.writeText(url).catch(() => {}); } catch {} }
+}
+const LINKISH = /link|url|http|webseite|website|adresse der seite|inserat/i;
+const isLinkField = (el) => el && el.dataset.paste !== undefined || (el && (el.type === 'url' || LINKISH.test(`${el.placeholder || ''} ${el.getAttribute('aria-label') || ''}`)));
+
 export function installFieldTools() {
   if (typeof document === 'undefined' || window.__fieldTools) return;
   window.__fieldTools = true;
@@ -88,6 +102,13 @@ export function installFieldTools() {
   };
   const clearBtn = mk('ft-clear', 'Feld leeren', '✕');
   const tidyBtn = mk('ft-tidy', 'Mit KI ordnen', '✨');
+  const pasteBtn = mk('ft-paste', 'Link einfügen', '📋');
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest?.('a[href]');
+    if (a && /^https?:/i.test(a.href) && !a.href.startsWith(location.origin)) rememberLink(a.href);
+  }, true);
+  const origOpen = window.open;
+  window.open = function (url, ...rest) { if (typeof url === 'string') rememberLink(url); return origOpen.call(window, url, ...rest); };
   let cur = null;
   let busy = false;
   let undo = null; // { el, value } – nach ✨ Ordnen
@@ -95,7 +116,7 @@ export function installFieldTools() {
   // v0.93: Knöpfe sitzen als Geschwister direkt neben dem Feld (position: absolute) statt „fixed“ –
   // so scrollen sie mit dem Feld mit und springen auf dem iPhone nicht herum, wenn die Tastatur aufgeht.
   const park = () => {
-    for (const b of [clearBtn, tidyBtn]) {
+    for (const b of [clearBtn, tidyBtn, pasteBtn]) {
       b.hidden = true;
       if (b.parentNode !== document.body) document.body.appendChild(b);
     }
@@ -116,6 +137,19 @@ export function installFieldTools() {
   };
   const place = () => {
     const canRestore = cur && cleared && cleared.el === cur && !cur.value;
+    const wantPaste = cur && document.contains(cur) && cur.parentNode && !cur.value && !canRestore && isLinkField(cur);
+    if (wantPaste) {
+      const rp = cur.getBoundingClientRect();
+      if (rp.width >= 70 && rp.height > 0) {
+        clearBtn.hidden = true; tidyBtn.hidden = true;
+        const a = anchorOf(cur);
+        if (pasteBtn.previousSibling !== a) a.parentNode.insertBefore(pasteBtn, a.nextSibling);
+        pasteBtn.hidden = false;
+        putAt(pasteBtn, rp.right - 32, cur.tagName === 'TEXTAREA' ? rp.top + 6 : rp.top + rp.height / 2 - 13);
+        return;
+      }
+    }
+    pasteBtn.hidden = true;
     const show = cur && document.contains(cur) && cur.parentNode && (cur.value || canRestore);
     const r = show ? cur.getBoundingClientRect() : null;
     if (!show || r.width < 70 || r.height === 0) {
@@ -164,7 +198,18 @@ export function installFieldTools() {
   window.addEventListener('resize', place);
   window.visualViewport?.addEventListener('resize', place);
   // Fokus im Feld lassen (sonst schließt sich die Tastatur und onBlur speichert zu früh)
-  for (const b of [clearBtn, tidyBtn]) {
+  pasteBtn.addEventListener('click', async () => {
+    const el = cur;
+    if (!el) return;
+    let txt = '';
+    try { txt = (await navigator.clipboard?.readText()) || ''; } catch {}
+    if (!txt.trim()) { txt = lastLinks()[0] || ''; if (txt) toast('Zuletzt geöffneter Link eingefügt'); }
+    if (!txt.trim()) { toast('Nichts zum Einfügen – Link zuerst kopieren'); return; }
+    setValue(el, txt.trim());
+    el.focus();
+    place();
+  });
+  for (const b of [clearBtn, tidyBtn, pasteBtn]) {
     b.addEventListener('mousedown', (e) => e.preventDefault());
     b.addEventListener('touchstart', (e) => { e.preventDefault(); b.click(); }, { passive: false });
   }
