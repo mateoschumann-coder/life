@@ -71,7 +71,7 @@ export function collectItems(s) {
   }
   for (const b of upcomingBirthdays(s, t, 10)) add('menschen', { ref: `bday:${b.person.id}`, kind: 'person', id: b.person.id, text: `Geburtstag ${b.person.name}`, area: 'Geburtstag', date: addDays(t, b.inDays), info: b.inDays === 0 ? 'heute' : `in ${b.inDays} Tagen`, link: `#/person/${b.person.id}`, wa: waLink(b.person) });
   for (const x of peopleOverdue(s, t).slice(0, 4)) add('menschen', { ref: `person:${x.person.id}`, kind: 'person', id: x.person.id, text: `${x.person.name} schreiben`, area: 'Melde dich mal', info: x.since == null ? 'noch kein Kontakt notiert' : `seit ${x.since} Tagen kein Kontakt`, link: `#/person/${x.person.id}`, wa: waLink(x.person) });
-  for (const g of (s.gatherings || []).filter((g) => !g.done && (!g.date || g.date <= soon) && (!g.date || g.date >= t))) {
+  for (const g of (s.gatherings || []).filter((g) => !g.done && !g.idea && (!g.date || g.date <= soon) && (!g.date || g.date >= t))) {
     const open = g.todos.filter((x) => !x.done).length;
     const shop = (g.shopping || []).filter((x) => !x.done).length;
     const notInvited = g.guests.filter((x) => x.status === 'offen').length;
@@ -220,7 +220,7 @@ export function structure(s) {
   G('menschen', 'Melde dich mal', peopleOverdue(s, t).map((x) => I(x.person.name, `#/person/${x.person.id}`)));
 
   // Events
-  G('events', 'Eigene Veranstaltungen', (s.gatherings || []).filter((g) => !g.done && (!g.date || g.date >= t)).map((g) => I(g.name, `#/treffen/${g.id}`, g.date ? short(g.date, t) : '')));
+  G('events', 'Eigene Veranstaltungen', (s.gatherings || []).filter((g) => !g.done && !g.idea && (!g.date || g.date >= t)).map((g) => I(g.name, `#/treffen/${g.id}`, g.date ? short(g.date, t) : '')));
   G('events', 'Einladungen', (s.invites || []).filter((x) => !x.done && x.status !== 'abgesagt' && (!x.date || x.date >= t)).map((x) => I(x.name, '#/saeule/sozial', x.date ? short(x.date, t) : '')));
   G('events', 'Ausgehen', s.events.filter((e) => e.date && e.date >= t && e.date <= soon && (e.stage === 'zugesagt' || e.stage === 'interessiert')).map((e) => I(e.name, '#/ausgehen', short(e.date, t))));
 

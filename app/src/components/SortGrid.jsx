@@ -16,13 +16,14 @@ export function useEditing() {
 }
 
 // „Fertig“-Leiste – einmal pro Seite einbauen
-export function SortDone() {
+export const startEditing = () => setEditing(true);
+export function SortDone({ hint = 'Ziehen zum Verschieben' }) {
   const on = useEditing();
   useEffect(() => () => setEditing(false), []);
   if (!on) return null;
   return createPortal(
     <div className="sort-done">
-      <span>Ziehen zum Verschieben</span>
+      <span>{hint}</span>
       <button type="button" className="btn small" onClick={() => setEditing(false)}>Fertig</button>
     </div>,
     document.body,
@@ -36,7 +37,7 @@ export function ordered(s, orderKey, items) {
 }
 const saveOrder = (orderKey, keys) => store.update((d) => { d.profile = { ...d.profile, order: { ...(d.profile?.order || {}), [orderKey]: keys } }; });
 
-export default function SortGrid({ s, orderKey, items, render, onOpen, className, tileClass, tileStyle }) {
+export default function SortGrid({ s, orderKey, items, render, onOpen, onEditTap, className, tileClass, tileStyle }) {
   const on = useEditing();
   const base = ordered(s, orderKey, items);
   const [live, setLive] = useState(null); // Reihenfolge während des Ziehens
@@ -87,6 +88,7 @@ export default function SortGrid({ s, orderKey, items, render, onOpen, className
       if (!c.key) return;
       const t = e.touches[0];
       if (c.dragging) { e.preventDefault(); move(t.clientX, t.clientY); return; }
+      if (c.pending) { e.preventDefault(); if (Math.hypot(t.clientX - c.x0, t.clientY - c.y0) > 6) c.go(t.clientX, t.clientY); return; }
       if (Math.hypot(t.clientX - c.x0, t.clientY - c.y0) > 8) { clearTimeout(c.timer); st.current = {}; }
     };
     const te = () => { const c = st.current; clearTimeout(c.timer); if (c.dragging) end(); else st.current = {}; };
@@ -100,8 +102,9 @@ export default function SortGrid({ s, orderKey, items, render, onOpen, className
     clearTimeout(st.current.timer);
     suppress.current = false;
     st.current = { key, x0: x, y0: y };
-    const go = () => { st.current.dragging = true; suppress.current = true; if (!editing) setEditing(true); start(key, x, y); };
-    if (editing) go(); else st.current.timer = setTimeout(go, 450);
+    const go = (mx = x, my = y) => { st.current.pending = false; st.current.dragging = true; suppress.current = true; if (!editing) setEditing(true); start(key, x, y); if (mx !== x || my !== y) move(mx, my); };
+    // im Bearbeiten-Modus: erst ziehen, wenn sich der Finger bewegt – sonst ist es ein Tipp (z.B. Austauschen)
+    if (editing) { st.current.pending = true; st.current.go = go; } else st.current.timer = setTimeout(go, 450);
   };
   const onTouchStart = (key) => (e) => { const t = e.touches[0]; begin(key, t.clientX, t.clientY); };
   // Maus (Computer)
@@ -111,6 +114,7 @@ export default function SortGrid({ s, orderKey, items, render, onOpen, className
     const mm = (ev) => {
       const c = st.current;
       if (c.dragging) move(ev.clientX, ev.clientY);
+      else if (c.pending) { if (Math.hypot(ev.clientX - c.x0, ev.clientY - c.y0) > 6) c.go(ev.clientX, ev.clientY); }
       else if (Math.hypot(ev.clientX - c.x0, ev.clientY - c.y0) > 8) { clearTimeout(c.timer); st.current = {}; }
     };
     const mu = () => { window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); const c = st.current; clearTimeout(c.timer); if (c.dragging) end(); else st.current = {}; };
@@ -120,7 +124,7 @@ export default function SortGrid({ s, orderKey, items, render, onOpen, className
   const onClick = (item) => (e) => {
     e.preventDefault();
     if (suppress.current) { suppress.current = false; return; }
-    if (editing) return;
+    if (editing) { onEditTap?.(item); return; }
     onOpen(item);
   };
 

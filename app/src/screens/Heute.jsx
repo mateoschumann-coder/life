@@ -149,7 +149,7 @@ export default function Heute() {
       .filter((r) => r.next === key)
       .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
     (s.gatherings || [])
-      .filter((g) => g.date === key)
+      .filter((g) => g.date === key && !g.idea)
       .forEach((g) => list.push({ key: 'g' + g.id, event: true, title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
     (s.invites || [])
       .filter((x) => x.date === key && x.status !== 'abgesagt')

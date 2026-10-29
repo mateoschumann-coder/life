@@ -218,15 +218,21 @@ export function EventsList({ s }) {
   const [f, setF] = useState(EMPTY);
   const list = [...s.gatherings].sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
   const [showDone, setShowDone] = useState(false);
-  const upcoming = list.filter((g) => !g.done && (!g.date || g.date >= t));
-  const past = list.filter((g) => !g.done && g.date && g.date < t); // vorbei, aber noch nicht abgehakt
-  const done = list.filter((g) => g.done).reverse();
+  // v1.24 (Mateo): Geplant (findet statt) | Ideen
+  const [view, setViewState] = useState(() => { try { return localStorage.getItem('life-app-veranst-view') || 'plan'; } catch { return 'plan'; } });
+  const setView = (v) => { setViewState(v); try { localStorage.setItem('life-app-veranst-view', v); } catch {} };
+  const ideas = list.filter((g) => g.idea);
+  const real = list.filter((g) => !g.idea);
+  const upcoming = real.filter((g) => !g.done && (!g.date || g.date >= t));
+  const past = real.filter((g) => !g.done && g.date && g.date < t); // vorbei, aber noch nicht abgehakt
+  const done = real.filter((g) => g.done).reverse();
+  const isIdea = view === 'idee';
   const [tab, setTabState] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'eigene'; } catch { return 'eigene'; } });
   const setTab = (v) => { setTabState(v); try { localStorage.setItem(TAB_KEY, v); } catch {} };
   const [invSheet, setInvSheet] = useState(() => { try { const v = sessionStorage.getItem('life-open-new-invite'); sessionStorage.removeItem('life-open-new-invite'); return v ? 'neu' : null; } catch { return null; } });
   useEffect(() => { try { if (sessionStorage.getItem('life-open-new-event')) { sessionStorage.removeItem('life-open-new-event'); setTab('eigene'); setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); } } catch {} }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const save = () => {
-    const id = addGathering(f);
+    const id = addGathering({ ...f, idea: isIdea });
     setOpen(false);
     setF(EMPTY);
     go(`/treffen/${id}`);
@@ -252,14 +258,33 @@ export function EventsList({ s }) {
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Sozial</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {tab === 'eigene' ? <RemovedButton items={s.removedGatherings || []} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} /> : <RemovedButton items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />}
-            {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>+ Veranstaltung</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
+            {tab === 'eigene' ? <RemovedButton items={(s.removedGatherings || []).filter((g) => !!g.idea === isIdea)} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} /> : <RemovedButton items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />}
+            {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>{isIdea ? '+ Idee' : '+ Veranstaltung'}</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
             </div>
           </div>
         </div>
         <Segmented full options={[{ id: 'eigene', label: 'Eigene' }, { id: 'andere', label: `Von anderen${(s.invites || []).filter((x) => !x.done).length ? ` · ${(s.invites || []).filter((x) => !x.done).length}` : ''}` }]} value={tab} onChange={setTab} label="Art der Events" />
         {tab === 'andere' ? <Invites s={s} sheet={invSheet} setSheet={setInvSheet} /> : (<>
-        <span className="sub" style={{ marginTop: -6 }}>Deine eigenen Veranstaltungen – Asado, Spieleabend, Geburtstag … Menschen findest du unten unter „Menschen“.</span>
+        <div className="seg full" role="group" aria-label="Geplant oder Idee">
+          <button type="button" className={!isIdea ? 'on' : ''} onClick={() => setView('plan')}>📅 Geplant{upcoming.length ? ` · ${upcoming.length}` : ''}</button>
+          <button type="button" className={isIdea ? 'on' : ''} onClick={() => setView('idee')}>💡 Ideen{ideas.length ? ` · ${ideas.length}` : ''}</button>
+        </div>
+        {isIdea && (
+          <div className="list">
+            {ideas.length === 0 && <div className="empty">Noch keine Ideen. Oben „+ Idee“ – z.B. „Spieleabend mal wieder“ oder „Asado im Sommer“. Wenn es konkret wird: „Planen →“.</div>}
+            {ideas.map((g) => (
+              <div key={g.id} className="row" style={{ minHeight: 58 }}>
+                <a href={`#/treffen/${g.id}`} className="row-main">
+                  <span className="row-title strong">{occasionOf(g.type)?.emoji || '💡'} {g.name}</span>
+                  <span className="row-meta">{[g.date && fmtShort(g.date), g.expected && `ca. ${g.expected} Gäste`, g.todos?.length && `${g.todos.length} To-dos`].filter(Boolean).join(' · ') || 'Idee'}</span>
+                </a>
+                <button type="button" className="pill on" onClick={() => { updateGathering(g.id, { idea: false }); toast('Wird stattfinden – steht jetzt unter „Geplant“'); }}>Planen →</button>
+                <button type="button" className="x-btn" aria-label={`${g.name} rausnehmen`} onClick={() => { archiveGathering(g.id); toast('Rausgenommen – oben über die Kiste zurückholbar'); }}><Icon name="x" size={14} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        {!isIdea && <>
         <div className="list">
           {upcoming.length === 0 && <div className="empty">Organisier deine eigene Veranstaltung – Asado, Spieleabend, Lauftreff … mit Einladung, Gästeliste, Einkaufsliste und To-dos.</div>}
           {upcoming.map((g) => <Row key={g.id} g={g} />)}
@@ -276,9 +301,10 @@ export function EventsList({ s }) {
             {showDone && <div className="list">{done.map((g) => <Row key={g.id} g={g} />)}</div>}
           </>
         )}
+        </>}
         </>)}
       </main>
-      <Sheet open={open} title="Neues Event" onClose={() => setOpen(false)}>
+      <Sheet open={open} title={isIdea ? 'Neue Idee' : 'Neue Veranstaltung'} onClose={() => setOpen(false)}>
         <div className="seg-mini">
           {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => f.kind !== k && setF({ ...f, kind: k, type: tplForKind(f.type || 'leer', k, f.tplByKind || {}), tplByKind: { ...(f.tplByKind || {}), [f.kind]: f.type || 'leer' } })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
         </div>
@@ -482,6 +508,9 @@ function Detail({ s, g }) {
           <div className="seg-mini">
             {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={g.kind === k ? 'chip on' : 'chip soft'} onClick={() => setKind(g.id, k)}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
           </div>
+          {g.idea
+            ? <div className="take-box" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ flex: 1, fontSize: 14 }}>💡 Das ist noch eine Idee</span><button type="button" className="pill on" onClick={() => { updateGathering(g.id, { idea: false }); toast('Wird stattfinden – steht jetzt unter „Geplant“'); }}>Wird stattfinden →</button></div>
+            : null}
           <TemplateButton s={s} kind={g.kind} value={g.type || 'leer'} onPick={(k, o) => { setOccasion(g.id, k); toast(o.empty ? 'Leer: Vorlage entfernt – selbst füllen oder KI fragen' : `${o.label}: Vorlage ergänzt`); }} />
         </div>
 
@@ -580,6 +609,7 @@ function Detail({ s, g }) {
           chips={home ? ['Was kochen?', 'Getränke & Mengen', 'Einladung schreiben', 'Was mitbringen?'] : ['Passenden Ort finden', 'Einladung schreiben', 'Wie reservieren?']}
         />
         <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { done: !g.done }); toast(g.done ? 'Wieder offen' : 'Abgehakt'); if (!g.done) go('/saeule/sozial'); }}>{g.done ? 'Wieder öffnen' : 'Event abhaken (hat stattgefunden)'}</button>
+        {!g.idea && !g.done && <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { idea: true }); toast('Wieder eine Idee – steht unter „Ideen“'); }}>💡 Doch nur eine Idee</button>}
         <button type="button" className="btn danger" onClick={() => { archiveGathering(g.id); toast('Rausgenommen – unten in Sozial zurückholbar'); go('/saeule/sozial'); }}>Event rausnehmen</button>
       </main>
       <TabBar active="bereiche" />

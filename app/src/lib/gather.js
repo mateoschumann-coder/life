@@ -104,12 +104,12 @@ const shopItems = (type) => Object.entries(occOf(type)?.shop || {}).flatMap(([ca
 export const todoCats = (g) => [...new Set([...PHASES, ...g.todos.map((x) => x.cat).filter(Boolean)])];
 
 
-export function addGathering({ name, date = '', time = '', place = '', desc = '', kind = 'zuhause', expected = '', type = '' }) {
+export function addGathering({ name, date = '', time = '', place = '', desc = '', kind = 'zuhause', expected = '', type = '', idea = false }) {
   const t = String(name || '').trim() || 'Neues Event';
   const id = uid();
   const k = occOf(type)?.kind || kind;
   store.update((s) => {
-    s.gatherings.push(normalizeGathering({ id, name: t, date, time, place, desc, kind: k, type: type || '', expected, todos: todos(k, type), shopping: k === 'zuhause' ? shopItems(type) : [], bring: bringItems(type), createdAt: today() }));
+    s.gatherings.push(normalizeGathering({ id, name: t, date, time, place, desc, kind: k, type: type || '', expected, todos: todos(k, type), shopping: k === 'zuhause' ? shopItems(type) : [], bring: bringItems(type), createdAt: today(), ...(idea ? { idea: true } : {}) }));
   });
   return id;
 }

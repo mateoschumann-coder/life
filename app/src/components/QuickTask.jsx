@@ -14,8 +14,10 @@ export default function QuickTask() {
   const ref = useRef(null);
   useEffect(() => {
     const h = () => { setTitle(''); setDue(today()); setTime(''); setOpen(true); setTimeout(() => ref.current?.focus(), 250); };
+    const hc = () => setOpen(false);
     window.addEventListener('life-quick-task', h);
-    return () => window.removeEventListener('life-quick-task', h);
+    window.addEventListener('hashchange', hc);
+    return () => { window.removeEventListener('life-quick-task', h); window.removeEventListener('hashchange', hc); };
   }, []);
   const t = today(), tm = addDays(t, 1);
   const save = () => {
