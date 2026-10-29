@@ -643,11 +643,11 @@ Antworte immer mit "vorsorge_antwort". Deutsch, kein Markdown.`;
 }
 
 // type: termin (einmalig mit Datum) · routine (alle X Monate) · verletzung (mit Status)
-export function addHealthItem({ title, type = 'termin', date = null, everyMonths = null, notes = '', placeId = '' }) {
+export function addHealthItem({ title, type = 'termin', date = null, everyMonths = null, everyWeeks = null, time = '', address = '', notes = '', placeId = '' }) {
   if (!String(title || '').trim()) return null;
   const id = uid();
   store.update((s) => {
-    s.healthItems.push({ id, title: title.trim(), type, date, everyMonths: everyMonths ? Number(everyMonths) : null, notes, placeId, status: type === 'verletzung' ? 'aktiv' : 'offen', log: [], createdAt: now() });
+    s.healthItems.push({ id, title: title.trim(), type, date, everyMonths: everyMonths ? Number(everyMonths) : null, everyWeeks: everyWeeks ? Number(everyWeeks) : null, time: time || '', address: address || '', notes, placeId, status: type === 'verletzung' ? 'aktiv' : 'offen', log: [], createdAt: now() });
   });
   return id;
 }
@@ -670,7 +670,10 @@ export function doneHealthItem(id) {
     const h = s.healthItems.find((x) => x.id === id);
     if (!h) return;
     h.log = [...(h.log || []), today()];
-    if (h.type === 'routine' && h.everyMonths) h.date = addMonths(today(), h.everyMonths);
+    // v1.19: wiederkehrend alle n Wochen oder Monate – ab dem geplanten Datum weiterrücken (nicht ab heute), Uhrzeit bleibt
+    const base = h.date && h.date > today() ? h.date : (h.date || today());
+    if (h.type === 'routine' && h.everyWeeks) { let d = base; do { d = addDays(d, 7 * h.everyWeeks); } while (d <= today()); h.date = d; }
+    else if (h.type === 'routine' && h.everyMonths) { let d = base; do { d = addMonths(d, h.everyMonths); } while (d <= today()); h.date = d; }
     else h.status = 'erledigt';
   });
 }
@@ -804,3 +807,6 @@ export function distOf(e) {
   const m = String(e.note || '').match(/\d+(?:[.,]\d+)?\s?(?:km|K\b)(?:\s?\/\s?\d+(?:[.,]\d+)?\s?(?:km|K\b))*/i);
   return m ? m[0] : '';
 }
+
+// v1.19: „alle 2 Wochen“ / „alle 6 Monate“
+export const everyText = (h) => (h.everyWeeks ? (h.everyWeeks === 1 ? 'jede Woche' : `alle ${h.everyWeeks} Wochen`) : h.everyMonths ? (h.everyMonths === 1 ? 'jeden Monat' : `alle ${h.everyMonths} Monate`) : '');

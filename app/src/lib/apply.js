@@ -279,7 +279,7 @@ export function applyAction(s, raw) {
     case 'rezept_anlegen':
       return addRecipe({ title: a.titel, category: a.rezept_kategorie || 'Airfryer', ingredients: a.zutaten || [], steps: a.schritte || '', url: a.url || '' });
     case 'vorsorge_anlegen':
-      return addHealthItem({ title: a.titel, type: a.vorsorge_art || 'termin', date: d(a.datum), everyMonths: a.alle_monate || null, notes: a.notiz || '' });
+      return addHealthItem({ title: a.titel, type: a.vorsorge_art || 'termin', date: d(a.datum), everyMonths: a.alle_monate || null, time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', notes: a.notiz || '' });
     case 'ort_anlegen': {
       const city = (a.stadt || '').trim() || 'Buenos Aires';
       const id = addPlace({ name: a.name, category: a.ort_art || 'Sonstiges', subcat: a.ort_unterart || '', note: a.notiz || '', address: a.adresse || '', hood: a.viertel || '', status: a.war_da ? 'war' : 'will', rating: a.war_da ? Math.min(5, a.bewertung || 0) : 0, city });

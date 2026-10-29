@@ -2,7 +2,7 @@ import { takeFlag } from '../lib/flags';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
-import { addHealthItem, deleteHealthItem, doneHealthItem, updateHealthItem, healthChat, healthPresetsOf, setHealthPresets } from '../lib/health';
+import { addHealthItem, deleteHealthItem, doneHealthItem, everyText, updateHealthItem, healthChat, healthPresetsOf, setHealthPresets } from '../lib/health';
 import { getAi } from '../lib/ai';
 import PlanChat from '../components/PlanChat';
 import { chatOf, saveChatOf } from '../lib/chats';
@@ -29,14 +29,24 @@ function when(h, t) {
 // v0.93 (Mateo): Ort für den Termin aus den gespeicherten Ärzten/Orten wählen – oder gleich neu anlegen
 function PlacePicker({ s, open, value, onClose, onPick }) {
   const [q, setQ] = useState('');
+  const [catF, setCatF] = useState('');
   const [newOne, setNewOne] = useState(null);
   const cats = bookCats(s, 'vorsorge');
-  const items = bookOf(s, 'vorsorge').items.filter((p) => !q.trim() || `${p.name} ${p.sub} ${p.address || ''} ${p.area || ''}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const all = bookOf(s, 'vorsorge').items;
+  const usedCats = cats.filter((c) => all.some((p) => p.cat === c.id));
+  // v1.19 (Mateo): Suche immer da + Filter nach Kategorie (Hausarzt, Zahnarzt …)
+  const items = all.filter((p) => (!catF || p.cat === catF) && (!q.trim() || `${p.name} ${p.sub} ${p.address || ''} ${p.area || ''}`.toLowerCase().includes(q.trim().toLowerCase())));
   const groups = [...cats.map((c) => ({ c, list: items.filter((p) => p.cat === c.id) })), { c: { id: '_', label: 'Sonstiges', emoji: '📍' }, list: items.filter((p) => !cats.some((c) => c.id === p.cat)) }].filter((g) => g.list.length);
   return (
     <>
       <Sheet open={open && !newOne} title="Wo ist der Termin?" onClose={onClose}>
-        {bookOf(s, 'vorsorge').items.length > 4 && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen, z.B. Zahnarzt" aria-label="Ort suchen" />}
+        {all.length > 0 && <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen: Name, Fachrichtung, Viertel …" aria-label="Ort suchen" />}
+        {usedCats.length > 1 && (
+          <div className="chips">
+            <button type="button" className={!catF ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCatF('')}>Alle · {all.length}</button>
+            {usedCats.map((c) => <button key={c.id} type="button" className={catF === c.id ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCatF(catF === c.id ? '' : c.id)}>{c.emoji} {c.label} · {all.filter((p) => p.cat === c.id).length}</button>)}
+          </div>
+        )}
         <button type="button" className="btn tint small" onClick={() => setNewOne({ cat: cats[0]?.id, name: q.trim() })}>+ Neuen Arzt / Ort anlegen</button>
         {groups.length === 0 && <span className="sub">{q ? 'Nichts gefunden.' : 'Noch keine Orte gespeichert – oben neu anlegen.'}</span>}
         {groups.map(({ c, list }) => (
@@ -59,17 +69,26 @@ function PlacePicker({ s, open, value, onClose, onPick }) {
   );
 }
 
+// v1.19 (Mateo): Termin-Fluss – „Neu“ startet als Termin, Uhrzeit, Adresse direkt oder Ort aus der Liste, Wiederholung alle n Wochen/Monate
 function ItemSheet({ s, open, onClose, item }) {
-  const blank = { title: '', type: 'termin', date: '', everyMonths: '', notes: '', placeId: '' };
+  const blank = { title: '', type: 'termin', date: '', time: '', everyN: '', unit: 'm', notes: '', placeId: '', address: '' };
   const [f, setF] = useState(blank);
   const [loaded, setLoaded] = useState(null);
   const [pick, setPick] = useState(false);
-  if (open && (item?.id || 'neu') !== loaded) {
-    setLoaded(item?.id || 'neu');
-    setF(item?.id ? { ...blank, ...item, date: item.date || '', everyMonths: item.everyMonths || '' } : { ...blank, ...(item || {}) });
+  const key = item?.id || `neu-${item?.type || 'termin'}-${item?.title || ''}`;
+  if (open && key !== loaded) {
+    setLoaded(key);
+    const base = { ...blank, ...(item || {}) };
+    if (!['termin', 'routine', 'verletzung'].includes(base.type)) base.type = 'termin';
+    base.date = base.date || '';
+    base.unit = item?.everyWeeks ? 'w' : 'm';
+    base.everyN = String(item?.everyWeeks || item?.everyMonths || '');
+    setF(base);
   }
+  const injury = f.type === 'verletzung';
   const save = () => {
-    const data = { title: f.title, type: f.type, date: f.date || null, everyMonths: f.type === 'routine' ? Number(f.everyMonths) || 6 : null, notes: f.notes, placeId: f.placeId || '' };
+    const n = Number(f.everyN) || (f.unit === 'w' ? 1 : 6);
+    const data = { title: f.title, type: f.type, date: f.date || null, time: injury ? '' : f.time || '', everyMonths: f.type === 'routine' && f.unit === 'm' ? n : null, everyWeeks: f.type === 'routine' && f.unit === 'w' ? n : null, notes: f.notes, placeId: injury ? '' : f.placeId || '', address: injury || f.placeId ? '' : f.address || '' };
     if (item?.id) updateHealthItem(item.id, data);
     else addHealthItem(data);
     toast('Gespeichert');
@@ -80,32 +99,39 @@ function ItemSheet({ s, open, onClose, item }) {
     setLoaded(null);
     onClose();
   };
+  const p = findBookItem(s, 'vorsorge', f.placeId);
+  const c = p && bookCats(s, 'vorsorge').find((x) => x.id === p.cat);
   return (
-    <Sheet open={open} title={item?.id ? 'Bearbeiten' : 'Neu'} onClose={close}>
-      <Segmented full options={TYPES.map((x) => ({ id: x.id, label: x.label }))} value={f.type} onChange={(v) => setF({ ...f, type: v })} label="Art" />
-      <span className="tiny">{TYPES.find((x) => x.id === f.type)?.hint}</span>
-      <Field label={f.type === 'verletzung' ? 'Was ist es?' : 'Titel'}><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={f.type === 'verletzung' ? 'z.B. Knie rechts zwickt beim Laufen' : 'z.B. Zahnarzt Dr. López'} /></Field>
+    <Sheet open={open} title={item?.id ? 'Bearbeiten' : injury ? 'Neue Verletzung' : 'Neuer Termin'} onClose={close}>
+      {!injury && <Segmented full options={[{ id: 'termin', label: '📅 Einmalig' }, { id: 'routine', label: '🔁 Wiederkehrend' }]} value={f.type} onChange={(v) => setF({ ...f, type: v })} label="Art" />}
+      <Field label={injury ? 'Was ist es?' : 'Was?'}><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={injury ? 'z.B. Knie rechts zwickt beim Laufen' : 'z.B. Zahnarzt-Kontrolle'} /></Field>
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-        <div className="field" style={{ flex: 2, minWidth: 0 }}><span>{f.type === 'verletzung' ? 'Seit' : f.type === 'routine' ? 'Nächstes Mal' : 'Datum'}</span><DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from || '' })} placeholder="Datum wählen" title="Datum" /></div>
-        {f.type === 'routine' && <div className="field" style={{ flex: 1, minWidth: 0 }}><span>Alle … Monate</span><input className="input" inputMode="numeric" value={f.everyMonths} onChange={(e) => setF({ ...f, everyMonths: e.target.value.replace(/\D/g, '') })} placeholder="6" aria-label="Alle wie viele Monate" /></div>}
+        <div className="field" style={{ flex: 1, minWidth: 0 }}><span>{injury ? 'Seit' : f.type === 'routine' ? 'Nächster Termin' : 'Datum'}</span><DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from || '' })} placeholder="Datum wählen" title="Datum" /></div>
+        {!injury && <div className="field" style={{ flex: '0 0 120px', minWidth: 0 }}><span>Uhrzeit</span><input className="input" type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} aria-label="Uhrzeit" /></div>}
       </div>
-      {f.type !== 'verletzung' && (
+      {f.type === 'routine' && (
         <div className="field">
-          <span>Wo?</span>
-          {(() => {
-            const p = findBookItem(s, 'vorsorge', f.placeId);
-            const c = p && bookCats(s, 'vorsorge').find((x) => x.id === p.cat);
-            return (
-              <button type="button" className="city-bar" onClick={() => setPick(true)} aria-label="Ort wählen">
-                <span style={{ fontSize: 18 }}>{c?.emoji || '📍'}</span>
-                <span className="row-main"><span className="row-title strong">{p ? p.name : 'Arzt / Ort wählen'}</span>{p && <span className="row-meta">{[p.sub || c?.label, p.address || p.area].filter(Boolean).join(' · ')}</span>}</span>
-                <span className="pill" style={{ fontSize: 13 }}>{p ? 'Ändern' : 'Wählen'} ▾</span>
-              </button>
-            );
-          })()}
+          <span>Wiederholen</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span className="tiny" style={{ fontSize: 15 }}>alle</span>
+            <input className="input" inputMode="numeric" style={{ width: 70 }} value={f.everyN} onChange={(e) => setF({ ...f, everyN: e.target.value.replace(/\D/g, '') })} placeholder={f.unit === 'w' ? '1' : '6'} aria-label="Alle wie viele" />
+            <Segmented options={[{ id: 'w', label: 'Wochen' }, { id: 'm', label: 'Monate' }]} value={f.unit} onChange={(v) => setF({ ...f, unit: v })} label="Einheit" />
+          </div>
+          <span className="tiny">Nach „Erledigt“ rückt der Termin automatisch weiter – Uhrzeit und Ort bleiben.</span>
         </div>
       )}
-      <Field label="Notizen"><textarea className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={f.type === 'verletzung' ? 'Wann tut es weh? Was hilft? Was hat der Arzt gesagt?' : 'Adresse, Telefon, was mitnehmen …'} /></Field>
+      {!injury && (
+        <div className="field">
+          <span>Wo?</span>
+          <button type="button" className="city-bar" onClick={() => setPick(true)} aria-label="Ort wählen">
+            <span style={{ fontSize: 18 }}>{c?.emoji || '📍'}</span>
+            <span className="row-main"><span className="row-title strong">{p ? p.name : 'Gespeicherten Arzt / Ort wählen'}</span>{p && <span className="row-meta">{[p.sub || c?.label, p.address || p.area].filter(Boolean).join(' · ')}</span>}</span>
+            <span className="pill" style={{ fontSize: 13 }}>{p ? 'Ändern' : 'Wählen'} ▾</span>
+          </button>
+          {!p && <input className="input" value={f.address || ''} onChange={(e) => setF({ ...f, address: e.target.value })} placeholder="… oder Adresse direkt eingeben" aria-label="Adresse" />}
+        </div>
+      )}
+      <Field label="Notizen"><textarea className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={injury ? 'Wann tut es weh? Was hilft? Was hat der Arzt gesagt?' : 'Was mitnehmen, Fragen an den Arzt …'} /></Field>
       <button type="button" className="btn" onClick={save} disabled={!f.title.trim()}>Speichern</button>
       {item?.id && <button type="button" className="btn danger" onClick={() => { if (confirm('Löschen?')) { deleteHealthItem(item.id); close(); } }}>Löschen</button>}
       <PlacePicker s={s} open={pick} value={f.placeId} onClose={() => setPick(false)} onPick={(id) => { setF({ ...f, placeId: id }); setPick(false); }} />
@@ -189,7 +215,7 @@ function FindTermin({ s, onTermin, items }) {
           onApply={(sel) => {
             for (const x of sel.termine || []) {
               const placeId = x.ort_id && findBookItem(s, 'vorsorge', x.ort_id) ? x.ort_id : '';
-              addHealthItem({ title: x.titel, type: ['termin', 'routine', 'verletzung'].includes(x.art) ? x.art : 'termin', date: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || '') ? x.datum : null, everyMonths: x.art === 'routine' ? x.alle_monate || 6 : null, notes: [x.uhrzeit && `🕒 ${x.uhrzeit}`, x.notiz].filter(Boolean).join(' · '), placeId });
+              addHealthItem({ title: x.titel, type: ['termin', 'routine', 'verletzung'].includes(x.art) ? x.art : 'termin', date: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || '') ? x.datum : null, everyMonths: x.art === 'routine' ? x.alle_monate || 6 : null, time: /^\d{1,2}:\d{2}$/.test(x.uhrzeit || '') ? x.uhrzeit.padStart(5, '0') : '', notes: [x.uhrzeit && !/^\d{1,2}:\d{2}$/.test(x.uhrzeit) && `🕒 ${x.uhrzeit}`, x.notiz].filter(Boolean).join(' · '), placeId });
             }
           }}
           chips={[]}
@@ -260,13 +286,14 @@ export default function Vorsorge() {
         {view === 'orte' && <PlaceBook s={s} book="vorsorge" hint="Deine Ärzte, Therapeuten, Apotheke, Labor … – oben „+ Ort“. Beim Termin kannst du den Ort dann auswählen." />}
         {view === 'finden' && <FindTermin s={s} items={items} onTermin={(x) => setSheet(x)} />}
         {view === 'termine' && (<>
+        <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setSheet({ type: 'termin' })}>+ Termin</button>
 
         <section className="group">
           <button type="button" className="sec-h" style={{ border: 0, background: 'none', width: '100%', cursor: 'pointer', font: 'inherit', color: 'inherit' }} onClick={() => setListOpen(!listOpen)} aria-expanded={listOpen}>
             <h2 className="h2" style={{ fontSize: 19 }}>Termine & Routinen{upcoming.length ? ` · ${upcoming.length}` : ''}</h2>
             <span className="tiny">{listOpen ? '▴ Zuklappen' : '▾ Aufklappen'}</span>
           </button>
-          {listOpen && <div className="list">            {upcoming.length === 0 && <div className="empty">Noch keine Termine. Neue legst du unter „Termin finden“ an – selbst oder mit der KI.</div>}
+          {listOpen && <div className="list">            {upcoming.length === 0 && <div className="empty">Noch keine Termine – oben „+ Termin“. Ärzte finden oder per KI eintragen geht unter „Finden“.</div>}
             {upcoming.map((h) => {
               const overdue = h.date && h.date < t;
               return (
@@ -274,10 +301,11 @@ export default function Vorsorge() {
                   <span className="block-icon" style={{ background: overdue ? 'color-mix(in srgb, var(--danger) 14%, transparent)' : 'var(--accent-bg)', color: overdue ? 'var(--danger)' : 'var(--accent)' }}><Icon name={h.type === 'routine' ? 'refresh' : 'calendar'} size={16} /></span>
                   <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, color: 'inherit', font: 'inherit' }} onClick={() => setSheet(h)}>
                     <span className="row-title plain">{h.title}</span>
-                    <span className="row-meta" style={{ color: overdue ? 'var(--danger)' : undefined }}>{when(h, t)}{h.type === 'routine' && h.everyMonths ? ` · alle ${h.everyMonths} Monate` : ''}{findBookItem(s, 'vorsorge', h.placeId) ? ` · 📍 ${findBookItem(s, 'vorsorge', h.placeId).name}` : ''}</span>
+                    <span className="row-meta" style={{ color: overdue ? 'var(--danger)' : undefined }}>{when(h, t)}{h.time ? ` · ${h.time} Uhr` : ''}{h.type === 'routine' && everyText(h) ? ` · ${everyText(h)}` : ''}{!h.placeId && h.address ? ` · 📍 ${h.address}` : ''}{findBookItem(s, 'vorsorge', h.placeId) ? ` · 📍 ${findBookItem(s, 'vorsorge', h.placeId).name}` : ''}</span>
                   </button>
+                  {!h.placeId && h.address && <a className="x-btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`} target="_blank" rel="noreferrer" aria-label="Adresse in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
                   {findBookItem(s, 'vorsorge', h.placeId) && <a className="x-btn" href={bookMaps(findBookItem(s, 'vorsorge', h.placeId))} target="_blank" rel="noreferrer" aria-label="Ort in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
-                  {h.date && <button type="button" className="pill" onClick={() => { doneHealthItem(h.id); toast(h.type === 'routine' ? `Erledigt – nächstes Mal in ${h.everyMonths} Monaten` : 'Erledigt'); }}>Erledigt</button>}
+                  {h.date && <button type="button" className="pill" onClick={() => { doneHealthItem(h.id); toast(h.type === 'routine' ? `Erledigt – rückt ${everyText(h).replace(/^alle/, 'um')} weiter` : 'Erledigt'); }}>Erledigt</button>}
                 </div>
               );
             })}
@@ -288,7 +316,7 @@ export default function Vorsorge() {
         <section className="group">
           <div className="sec-h">
             <h2 className="h2" style={{ fontSize: 19 }}>Verletzungen & Beschwerden</h2>
-            <button type="button" className="link-btn" onClick={() => setSheet({ type: 'verletzung', date: t })}>+ Neu</button>
+            <button type="button" className="link-btn" style={{ whiteSpace: 'nowrap' }} onClick={() => setSheet({ type: 'verletzung', date: t })}>+ Verletzung</button>
           </div>
           <div className="list">
             {injuries.length === 0 && <div className="empty">Keine. Wenn etwas zwickt, trag es ein – der Coach und die Lauf-Analyse berücksichtigen es.</div>}

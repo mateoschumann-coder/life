@@ -102,7 +102,7 @@ export const TOOL = {
             person_id: { type: 'string' },
             vorlage_id: { type: 'string' },
             faellig: { type: 'string', description: 'Datum JJJJ-MM-TT' },
-            uhrzeit: { type: 'string', description: 'Uhrzeit HH:MM (optional, für Aufgaben)' },
+            uhrzeit: { type: 'string', description: 'Uhrzeit HH:MM (optional, für Aufgaben und Vorsorge-Termine)' },
             datum: { type: 'string', description: 'Datum JJJJ-MM-TT' },
             idee: { type: 'boolean' },
             aufgaben: { type: 'array', items: { type: 'string' }, description: 'Aufgaben für ein neues Projekt; bei treffen_anlegen: kurze To-dos (2–4 Wörter)' },

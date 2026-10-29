@@ -156,7 +156,7 @@ export default function Heute() {
       .forEach((x) => list.push({ key: 'i' + x.id, event: true, title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date === key)
-      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
+      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
     s.people
       .filter((p) => p.birthday && p.birthday.slice(5) === key.slice(5))
       .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
