@@ -11,6 +11,7 @@ import { DateRangeField } from '../components/DateRange';
 import PlaceBook, { ItemSheet as PlaceSheet } from '../components/PlaceBook';
 import { addBookItem, bookAreas, bookCats, bookMaps, bookOf, doctorLinks, findBookItem, searchDoctors } from '../lib/placebook';
 import { hoodHere } from '../lib/outings';
+import { ModeToggle, useSearchMode } from '../components/SourceLinks';
 
 const TYPES = [
   { id: 'termin', label: 'Termin', hint: 'Einmalig, z.B. Arzttermin am 12. Nov.' },
@@ -139,8 +140,8 @@ function ItemSheet({ s, open, onClose, item }) {
   );
 }
 
-// v1.01: Schnell hinzufügen – bearbeitbar; Antippen öffnet das Formular mit „Termin“ vorausgewählt
-function Presets({ s, items, onPick }) {
+// v1.01/1.20: Schnell hinzufügen – bearbeitbar; im Reiter Wiederkehrend mit Rhythmus
+function Presets({ s, items, onPick, type }) {
   const [edit, setEdit] = useState(false);
   const [txt, setTxt] = useState('');
   const all = healthPresetsOf(s);
@@ -154,7 +155,7 @@ function Presets({ s, items, onPick }) {
       <div className="chips">
         {shown.map((p) => (edit
           ? <button key={p.title} type="button" className="chip soft" onClick={() => setHealthPresets(all.filter((x) => x.title !== p.title))}>{p.title} ✕</button>
-          : <button key={p.title} type="button" className="chip soft" onClick={() => onPick({ title: p.title, type: 'termin', everyMonths: p.everyMonths || '' })}>+ {p.title}</button>))}
+          : <button key={p.title} type="button" className="chip soft" onClick={() => onPick({ title: p.title, type, everyMonths: type === 'routine' ? p.everyMonths || 6 : null })}>+ {p.title}{type === 'routine' && p.everyMonths ? <span className="tiny"> · {p.everyMonths} Mon.</span> : null}</button>))}
         {!shown.length && !edit && <span className="tiny">Alles schon eingetragen.</span>}
       </div>
       {edit && (
@@ -171,16 +172,43 @@ const HEALTH_GROUPS = [{
   key: 'termine',
   label: 'Termine',
   title: (x) => x.titel,
-  meta: (x) => [x.art === 'routine' ? `alle ${x.alle_monate || 6} Monate` : x.art === 'verletzung' ? 'Beschwerde' : 'Termin', x.datum && fmtShort(x.datum), x.uhrzeit].filter(Boolean).join(' · '),
+  meta: (x) => [x.art === 'routine' ? `alle ${x.alle_monate || 6} Monate` : 'Termin', x.datum && fmtShort(x.datum), x.uhrzeit].filter(Boolean).join(' · '),
 }];
 
-// v1.01: Termin finden – kostenlose Links + KI-Suche, Treffer als Ort speichern oder gleich Termin anlegen
-function FindTermin({ s, onTermin, items }) {
+// v1.20: „Mit der KI eintragen“ – unten in den Reitern Termine und Wiederkehrend
+function KiEntry({ s, type }) {
+  return (
+    <PlanChat
+      compact
+      title="Mit der KI eintragen"
+      intro={type === 'routine' ? 'z.B. „Physio jeden Donnerstag 18 Uhr bei Kinesio Palermo, ab nächster Woche“.' : 'z.B. „Zahnarzt bei Dr. López nächsten Dienstag 10 Uhr“ – ich trage ihn ein.'}
+      placeholder="Erzähl von deinem Termin …"
+      history={chatOf(s, type === 'routine' ? 'vorsorge-routine' : 'vorsorge')}
+      onSave={(h) => saveChatOf(type === 'routine' ? 'vorsorge-routine' : 'vorsorge', h)}
+      onAsk={(hist, o) => healthChat(s, hist, o)}
+      prefKey="vorsorge"
+      hideToggles
+      groups={HEALTH_GROUPS}
+      onApply={(sel) => {
+        for (const x of sel.termine || []) {
+          const placeId = x.ort_id && findBookItem(s, 'vorsorge', x.ort_id) ? x.ort_id : '';
+          const art = x.art === 'routine' || type === 'routine' ? 'routine' : 'termin';
+          addHealthItem({ title: x.titel, type: art, date: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || '') ? x.datum : null, everyMonths: art === 'routine' ? x.alle_monate || 6 : null, time: /^\d{1,2}:\d{2}$/.test(x.uhrzeit || '') ? x.uhrzeit.padStart(5, '0') : '', notes: [x.uhrzeit && !/^\d{1,2}:\d{2}$/.test(x.uhrzeit) && `🕒 ${x.uhrzeit}`, x.notiz].filter(Boolean).join(' · '), placeId });
+        }
+      }}
+      chips={[]}
+    />
+  );
+}
+
+// v1.20: Arzt / Praxis finden – im Reiter Orte → Finden, mit Links (kostenlos) oder KI
+function DoctorFinder({ s, onTermin }) {
   const [what, setWhat] = useState('');
   const [area, setArea] = useState('');
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState(null);
   const [saved, setSaved] = useState({});
+  const [mode, setMode] = useSearchMode('aerzte', 'links');
   const areas = bookAreas(s, 'vorsorge');
   const QUICK = ['Zahnarzt', 'Hausarzt', 'Hautarzt', 'Augenarzt', 'Physiotherapie', 'Sportmedizin', 'Blutabnahme'];
   const run = async () => {
@@ -189,39 +217,14 @@ function FindTermin({ s, onTermin, items }) {
   };
   const save = (h, i) => {
     const cat = /zahn|haut|augen|haus|arzt|orthop|hno|kardio|médic|medic|doctor/i.test(what) ? 'arzt' : /physio|osteo|massage|kines/i.test(what) ? 'therapie' : /labor|blut|röntgen|mrt|ultra/i.test(what) ? 'labor' : 'arzt';
-    const id = addBookItem('vorsorge', { name: h.name, cat, sub: '', address: h.adresse || '', area, phone: h.telefon || '', url: h.website || '', status: 'will' });
+    const id = addBookItem('vorsorge', { name: h.name, cat, sub: (bookCats(s, 'vorsorge').find((c) => c.id === cat)?.subs || []).find((x) => x.toLowerCase() === what.trim().toLowerCase()) || '', address: h.adresse || '', area, phone: h.telefon || '', url: h.website || '', status: 'will' });
     setSaved({ ...saved, [i]: id });
     return id;
   };
   return (
     <>
-      <div className="sec-h" style={{ padding: '0 4px' }}><h2 className="h2" style={{ fontSize: 19 }}>Termin eintragen</h2></div>
       <section className="card" style={{ gap: 10 }}>
-        <span className="label" style={{ padding: 0 }}>Selbst</span>
-        <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => onTermin({ type: 'termin' })}>+ Termin</button>
-      </section>
-      <Presets s={s} items={items} onPick={onTermin} />
-        <PlanChat
-          compact
-          title="Mit der KI eintragen"
-          intro="z.B. „Zahnarzt bei Dr. López nächsten Dienstag 10 Uhr“ – ich trage ihn ein."
-          placeholder="Erzähl von deinem Termin …"
-          history={chatOf(s, 'vorsorge')}
-          onSave={(h) => saveChatOf('vorsorge', h)}
-          onAsk={(hist, o) => healthChat(s, hist, o)}
-          prefKey="vorsorge"
-          hideToggles
-          groups={HEALTH_GROUPS}
-          onApply={(sel) => {
-            for (const x of sel.termine || []) {
-              const placeId = x.ort_id && findBookItem(s, 'vorsorge', x.ort_id) ? x.ort_id : '';
-              addHealthItem({ title: x.titel, type: ['termin', 'routine', 'verletzung'].includes(x.art) ? x.art : 'termin', date: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || '') ? x.datum : null, everyMonths: x.art === 'routine' ? x.alle_monate || 6 : null, time: /^\d{1,2}:\d{2}$/.test(x.uhrzeit || '') ? x.uhrzeit.padStart(5, '0') : '', notes: [x.uhrzeit && !/^\d{1,2}:\d{2}$/.test(x.uhrzeit) && `🕒 ${x.uhrzeit}`, x.notiz].filter(Boolean).join(' · '), placeId });
-            }
-          }}
-          chips={[]}
-        />
-      <div className="sec-h" style={{ padding: '0 4px' }}><h2 className="h2" style={{ fontSize: 19 }}>Arzt / Praxis finden</h2></div>
-      <section className="card" style={{ gap: 10 }}>
+        <ModeToggle mode={mode} onChange={setMode} />
         <label className="field"><span>Was suchst du?</span><input className="input" value={what} onChange={(e) => setWhat(e.target.value)} placeholder="z.B. Zahnarzt, Physiotherapie" /></label>
         <div className="chips" style={{ marginTop: -4 }}>{QUICK.map((q) => <button key={q} type="button" className={what === q ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setWhat(q)}>{q}</button>)}</div>
         <label className="field"><span>Wo ungefähr?</span><input className="input" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Viertel, z.B. Palermo" /></label>
@@ -229,26 +232,25 @@ function FindTermin({ s, onTermin, items }) {
           <button type="button" className="chip soft small-chip" onClick={async () => { try { setArea(await hoodHere()); } catch (e) { toast(e.message); } }}>📍 Mein Standort</button>
           {areas.filter((a) => a !== area).slice(0, 6).map((a) => <button key={a} type="button" className="chip soft small-chip" onClick={() => setArea(a)}>{a}</button>)}
         </div>
-        {what.trim() && (
-          <>
-            <span className="label" style={{ padding: 0 }}>Direkt nachsehen (kostenlos)</span>
-            <div className="chips">{doctorLinks(what.trim(), area.trim(), s.profile?.city).map((l) => <a key={l.url} className="pill link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button type="button" className="btn small" disabled={busy || !getAi().apiKey} onClick={run}>{busy ? 'Ich suche …' : '✨ KI sucht passende Praxen'}</button>
-              <Info>Eine Internet-Suche, ca. 1 Cent. Treffer kannst du als Ort speichern oder gleich einen Termin anlegen.</Info>
-            </div>
-          </>
+        {mode === 'links' && (what.trim()
+          ? <div className="chips">{doctorLinks(what.trim(), area.trim(), s.profile?.city).map((l) => <a key={l.url} className="pill link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}</div>
+          : <span className="tiny">Oben eingeben, was du suchst – dann erscheinen die Links.</span>)}
+        {mode === 'ki' && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button type="button" className="btn small" disabled={busy || !getAi().apiKey || !what.trim()} onClick={run}>{busy ? 'Ich suche …' : '✨ Passende Praxen suchen'}</button>
+            <Info>Eine Internet-Suche, ca. 1 Cent. Treffer kannst du als Ort speichern oder gleich einen Termin anlegen.</Info>
+          </div>
         )}
       </section>
-      {res && (
+      {mode === 'ki' && res && (
         <section className="card" style={{ gap: 8 }}>
-          {!res.treffer?.length && <span className="sub">{res.hinweis || 'Nichts gefunden – probier die Links oben.'}</span>}
+          {!res.treffer?.length && <span className="sub">{res.hinweis || 'Nichts gefunden – probier die Links.'}</span>}
           {(res.treffer || []).map((h, i) => (
             <div key={i} className="option" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6, cursor: 'default' }}>
               <span style={{ fontWeight: 600, fontSize: 15 }}>{h.name}</span>
               <span className="tiny">{[h.adresse, h.telefon, h.info].filter(Boolean).join(' · ')}</span>
               <span className="chips">
-                {saved[i] ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ bei Orten gespeichert</span> : <button type="button" className="chip soft small-chip" onClick={() => { save(h, i); toast('Bei Orten gespeichert'); }}>📌 Als Ort speichern</button>}
+                {saved[i] ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ bei Meine Praxen gespeichert</span> : <button type="button" className="chip soft small-chip" onClick={() => { save(h, i); toast('Bei Meine Praxen gespeichert'); }}>📌 Speichern</button>}
                 <button type="button" className="chip small-chip" onClick={() => onTermin({ title: `${what.trim() || 'Termin'} – ${h.name}`, type: 'termin', placeId: saved[i] || save(h, i) })}>+ Termin anlegen</button>
                 {h.website && <a className="chip soft small-chip" href={h.website} target="_blank" rel="noreferrer">Website ↗</a>}
                 {h.telefon && <a className="chip soft small-chip" href={`tel:${String(h.telefon).replace(/[^\d+]/g, '')}`}>📞</a>}
@@ -261,19 +263,39 @@ function FindTermin({ s, onTermin, items }) {
   );
 }
 
+function TermRow({ s, h, t, onOpen }) {
+  const overdue = h.date && h.date < t;
+  const place = findBookItem(s, 'vorsorge', h.placeId);
+  return (
+    <div className="row" style={{ minHeight: 60 }}>
+      <span className="block-icon" style={{ background: overdue ? 'color-mix(in srgb, var(--danger) 14%, transparent)' : 'var(--accent-bg)', color: overdue ? 'var(--danger)' : 'var(--accent)' }}><Icon name={h.type === 'routine' ? 'refresh' : 'calendar'} size={16} /></span>
+      <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, color: 'inherit', font: 'inherit' }} onClick={() => onOpen(h)}>
+        <span className="row-title plain">{h.title}</span>
+        <span className="row-meta" style={{ color: overdue ? 'var(--danger)' : undefined }}>{when(h, t)}{h.time ? ` · ${h.time} Uhr` : ''}{h.type === 'routine' && everyText(h) ? ` · ${everyText(h)}` : ''}{place ? ` · 📍 ${place.name}` : !h.placeId && h.address ? ` · 📍 ${h.address}` : ''}</span>
+      </button>
+      {!h.placeId && h.address && <a className="x-btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`} target="_blank" rel="noreferrer" aria-label="Adresse in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
+      {place && <a className="x-btn" href={bookMaps(place)} target="_blank" rel="noreferrer" aria-label="Ort in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
+      {h.date && <button type="button" className="pill" onClick={() => { doneHealthItem(h.id); toast(h.type === 'routine' ? `Erledigt – rückt ${everyText(h).replace(/^alle/, 'um')} weiter` : 'Erledigt'); }}>Erledigt</button>}
+    </div>
+  );
+}
+
+// v1.20 (Mateo): Reiter Termine · Wiederkehrend · Orte (Meine Praxen | Finden); Verletzungen raus
 export default function Vorsorge() {
   const s = useStore();
   const t = today();
   const [sheet, setSheet] = useState(() => (takeFlag('life-open-new-termin') ? { type: 'termin' } : null));
-  const [view, setViewState] = useState(() => { try { const v = sessionStorage.getItem('life-vorsorge-view'); return ['termine', 'finden', 'orte'].includes(v) ? v : 'termine'; } catch { return 'termine'; } });
+  const [view, setViewState] = useState(() => { try { const v = sessionStorage.getItem('life-vorsorge-view'); return ['termine', 'routine', 'orte'].includes(v) ? v : v === 'finden' ? 'orte' : 'termine'; } catch { return 'termine'; } });
   const setView = (v) => { setViewState(v); try { sessionStorage.setItem('life-vorsorge-view', v); } catch {} };
-  const [listOpen, setListOpenState] = useState(() => { try { return localStorage.getItem('life-vorsorge-open') !== '0'; } catch { return true; } });
-  const setListOpen = (v) => { setListOpenState(v); try { localStorage.setItem('life-vorsorge-open', v ? '1' : '0'); } catch {} };
+  const [orteView, setOrteViewS] = useState(() => { try { return localStorage.getItem('life-vorsorge-orte') || 'meine'; } catch { return 'meine'; } });
+  const setOrteView = (v) => { setOrteViewS(v); try { localStorage.setItem('life-vorsorge-orte', v); } catch {} };
   const items = s.healthItems;
-  const upcoming = items.filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt').sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
-  const injuries = items.filter((h) => h.type === 'verletzung');
+  const sortD = (a, b) => ((a.date || '9') < (b.date || '9') ? -1 : 1);
+  const terms = items.filter((h) => h.type === 'termin' && h.status !== 'erledigt').sort(sortD);
+  const routines = items.filter((h) => h.type === 'routine').sort(sortD);
   const done = items.filter((h) => h.type === 'termin' && h.status === 'erledigt').slice(-5).reverse();
   const nOrte = bookOf(s, 'vorsorge').items.length;
+  const isR = view === 'routine';
 
   return (
     <>
@@ -282,64 +304,36 @@ export default function Vorsorge() {
           <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
           <h1 className="h1">Vorsorge</h1>
         </div>
-        <Segmented full options={[{ id: 'termine', label: 'Termine' }, { id: 'finden', label: 'Finden' }, { id: 'orte', label: `Orte${nOrte ? ` (${nOrte})` : ''}` }]} value={view} onChange={setView} label="Ansicht" />
-        {view === 'orte' && <PlaceBook s={s} book="vorsorge" hint="Deine Ärzte, Therapeuten, Apotheke, Labor … – oben „+ Ort“. Beim Termin kannst du den Ort dann auswählen." />}
-        {view === 'finden' && <FindTermin s={s} items={items} onTermin={(x) => setSheet(x)} />}
-        {view === 'termine' && (<>
-        <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setSheet({ type: 'termin' })}>+ Termin</button>
+        <Segmented full options={[{ id: 'termine', label: 'Termine' }, { id: 'routine', label: 'Regelmäßig' }, { id: 'orte', label: 'Orte' }]} value={view} onChange={setView} label="Ansicht" />
 
-        <section className="group">
-          <button type="button" className="sec-h" style={{ border: 0, background: 'none', width: '100%', cursor: 'pointer', font: 'inherit', color: 'inherit' }} onClick={() => setListOpen(!listOpen)} aria-expanded={listOpen}>
-            <h2 className="h2" style={{ fontSize: 19 }}>Termine & Routinen{upcoming.length ? ` · ${upcoming.length}` : ''}</h2>
-            <span className="tiny">{listOpen ? '▴ Zuklappen' : '▾ Aufklappen'}</span>
-          </button>
-          {listOpen && <div className="list">            {upcoming.length === 0 && <div className="empty">Noch keine Termine – oben „+ Termin“. Ärzte finden oder per KI eintragen geht unter „Finden“.</div>}
-            {upcoming.map((h) => {
-              const overdue = h.date && h.date < t;
-              return (
-                <div key={h.id} className="row" style={{ minHeight: 60 }}>
-                  <span className="block-icon" style={{ background: overdue ? 'color-mix(in srgb, var(--danger) 14%, transparent)' : 'var(--accent-bg)', color: overdue ? 'var(--danger)' : 'var(--accent)' }}><Icon name={h.type === 'routine' ? 'refresh' : 'calendar'} size={16} /></span>
-                  <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, color: 'inherit', font: 'inherit' }} onClick={() => setSheet(h)}>
-                    <span className="row-title plain">{h.title}</span>
-                    <span className="row-meta" style={{ color: overdue ? 'var(--danger)' : undefined }}>{when(h, t)}{h.time ? ` · ${h.time} Uhr` : ''}{h.type === 'routine' && everyText(h) ? ` · ${everyText(h)}` : ''}{!h.placeId && h.address ? ` · 📍 ${h.address}` : ''}{findBookItem(s, 'vorsorge', h.placeId) ? ` · 📍 ${findBookItem(s, 'vorsorge', h.placeId).name}` : ''}</span>
-                  </button>
-                  {!h.placeId && h.address && <a className="x-btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`} target="_blank" rel="noreferrer" aria-label="Adresse in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
-                  {findBookItem(s, 'vorsorge', h.placeId) && <a className="x-btn" href={bookMaps(findBookItem(s, 'vorsorge', h.placeId))} target="_blank" rel="noreferrer" aria-label="Ort in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
-                  {h.date && <button type="button" className="pill" onClick={() => { doneHealthItem(h.id); toast(h.type === 'routine' ? `Erledigt – rückt ${everyText(h).replace(/^alle/, 'um')} weiter` : 'Erledigt'); }}>Erledigt</button>}
-                </div>
-              );
-            })}
-          </div>}
-        </section>
-
-
-        <section className="group">
-          <div className="sec-h">
-            <h2 className="h2" style={{ fontSize: 19 }}>Verletzungen & Beschwerden</h2>
-            <button type="button" className="link-btn" style={{ whiteSpace: 'nowrap' }} onClick={() => setSheet({ type: 'verletzung', date: t })}>+ Verletzung</button>
+        {view === 'orte' && (<>
+          <div className="seg full" role="group" aria-label="Orte">
+            <button type="button" className={orteView === 'meine' ? 'on' : ''} onClick={() => setOrteView('meine')}>🩺 Meine Praxen</button>
+            <button type="button" className={orteView === 'finden' ? 'on' : ''} onClick={() => setOrteView('finden')}>🔍 Finden</button>
           </div>
-          <div className="list">
-            {injuries.length === 0 && <div className="empty">Keine. Wenn etwas zwickt, trag es ein – der Coach und die Lauf-Analyse berücksichtigen es.</div>}
-            {injuries.map((h) => (
-              <div key={h.id} className="row" style={{ minHeight: 60 }}>
-                <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, color: 'inherit', font: 'inherit' }} onClick={() => setSheet(h)}>
-                  <span className={h.status === 'ausgeheilt' ? 'row-title plain done' : 'row-title plain'}>{h.title}</span>
-                  <span className="row-meta">{[h.status === 'ausgeheilt' ? 'ausgeheilt' : 'aktiv', h.date && `seit ${fmtShort(h.date)}`, h.notes].filter(Boolean).join(' · ')}</span>
-                </button>
-                <button type="button" className="pill" onClick={() => updateHealthItem(h.id, { status: h.status === 'ausgeheilt' ? 'aktiv' : 'ausgeheilt' })}>{h.status === 'ausgeheilt' ? 'Wieder aktiv' : 'Ausgeheilt'}</button>
-              </div>
-            ))}
-          </div>
-        </section>
+          {orteView === 'meine' && <PlaceBook s={s} book="vorsorge" hint="Deine Ärzte, Therapeuten, Apotheke, Labor … – oben „+ Ort“. Beim Termin kannst du den Ort dann auswählen." />}
+          {orteView === 'finden' && <DoctorFinder s={s} onTermin={(x) => setSheet(x)} />}
+        </>)}
 
-        {done.length > 0 && (
+        {view !== 'orte' && (<>
+          <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setSheet({ type: isR ? 'routine' : 'termin' })}>{isR ? '+ Wiederkehrender Termin' : '+ Termin'}</button>
+          <Presets s={s} items={items} type={isR ? 'routine' : 'termin'} onPick={(x) => setSheet(x)} />
           <section className="group">
-            <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Erledigt</h2></div>
+            <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>{isR ? 'Wiederkehrende Termine' : 'Anstehende Termine'}</h2></div>
             <div className="list">
-              {done.map((h) => <div key={h.id} className="row"><span className="row-main"><span className="row-title plain done">{h.title}</span><span className="row-meta">{h.date && fmtShort(h.date)}</span></span></div>)}
+              {(isR ? routines : terms).length === 0 && <div className="empty">{isR ? 'Noch nichts – z.B. „Zahnarzt alle 6 Monate“ oder „Physio jede Woche“.' : 'Noch keine Termine – oben „+ Termin“ oder unten der KI erzählen.'}</div>}
+              {(isR ? routines : terms).map((h) => <TermRow key={h.id} s={s} h={h} t={t} onOpen={setSheet} />)}
             </div>
           </section>
-        )}
+          {!isR && done.length > 0 && (
+            <section className="group">
+              <div className="sec-h"><h2 className="label" style={{ padding: 0 }}>Erledigt</h2></div>
+              <div className="list">
+                {done.map((h) => <div key={h.id} className="row compact"><span className="row-main"><span className="row-title plain done">{h.title}</span><span className="row-meta">{h.date && fmtShort(h.date)}</span></span></div>)}
+              </div>
+            </section>
+          )}
+          <KiEntry key={view} s={s} type={isR ? 'routine' : 'termin'} />
         </>)}
       </main>
       <ItemSheet s={s} open={!!sheet} item={sheet} onClose={() => setSheet(null)} />

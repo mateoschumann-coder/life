@@ -11,14 +11,15 @@ import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLink
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
 import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
-import RemovedList from '../components/RemovedList';
+import RemovedList, { RemovedButton } from '../components/RemovedList';
 import { fromHeute } from '../lib/router';
 
 const wd = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
+const mon = new Intl.DateTimeFormat('de-DE', { month: 'short' });
 const TAB_KEY = 'life-app-ausgehen-tab';
 
 // Eigene Such-Kategorien: Knöpfe hinzufügen, entfernen (gespeichert in s.profile.chips)
-function SearchChips({ s, kind, defaults, disabled, onPick }) {
+function SearchChips({ s, kind, defaults, disabled, onPick, scroll }) {
   const [edit, setEdit] = useState(false);
   const [text, setText] = useState('');
   const chips = s.profile?.chips?.[kind] ?? defaults;
@@ -27,7 +28,7 @@ function SearchChips({ s, kind, defaults, disabled, onPick }) {
   });
   return (
     <>
-      <div className="chips">
+      <div className={scroll && !edit ? 'chips chips-scroll' : 'chips'}>
         {chips.map((c) => (
           <button key={c} type="button" className={edit ? 'chip soft editing' : 'chip soft'} disabled={!edit && disabled} onClick={() => (edit ? save(chips.filter((x) => x !== c)) : onPick(c))} aria-label={edit ? `${c} entfernen` : c}>
             {c}{edit && <Icon name="x" size={11} />}
@@ -137,8 +138,9 @@ function DateBadge({ date }) {
   const d = parseKey(date);
   return (
     <span className="date-badge">
-      <span className="tiny">{wd.format(d)}</span>
+      <span className="tiny">{wd.format(d).replace('.', '')}</span>
       <b>{d.getDate()}</b>
+      <span className="tiny db-mon">{mon.format(d).replace('.', '')}</span>
     </span>
   );
 }
@@ -156,8 +158,8 @@ function Prefs({ s }) {
   const all = [...new Set([...EVENT_PREF_PRESETS, ...prefs])];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setOpen(!open)}>
-        Meine Vorlieben{prefs.length ? `: ${prefs.slice(0, 4).join(', ')}${prefs.length > 4 ? ' …' : ''}` : ' festlegen'} {open ? '▴' : '▾'}
+      <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13, padding: '2px 0' }} onClick={() => setOpen(!open)}>
+        ❤️ Vorlieben{prefs.length ? `: ${prefs.slice(0, 3).join(', ')}${prefs.length > 3 ? ' …' : ''}` : ' festlegen'} {open ? '▴' : '▾'}
       </button>
       {open && (
         <>
@@ -206,6 +208,7 @@ function EventSheet({ init, city, onClose }) {
   );
 }
 function EventTakeOver({ s, city, onOpen }) {
+  const [open, setOpen] = useState(false);
   const [paste, setPaste] = useState('');
   const [busy, setBusy] = useState(false);
   const take = async () => {
@@ -219,9 +222,16 @@ function EventTakeOver({ s, city, onOpen }) {
     } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es den KI-Schlüssel' : e.message); }
     setBusy(false);
   };
+  if (!open) return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <span className="tiny" style={{ flex: '1 1 auto' }}>Etwas gefunden?</span>
+      <button type="button" className="chip soft small-chip" onClick={() => setOpen(true)}>📥 Übernehmen</button>
+      <button type="button" className="chip soft small-chip" onClick={() => onOpen({ ...EV_EMPTY })}>✍️ Selbst</button>
+    </div>
+  );
   return (
     <div className="card" style={{ gap: 8, background: 'var(--card-2)', boxShadow: 'none' }}>
-      <span style={{ fontWeight: 650, fontSize: 14 }}>Etwas gefunden? Als Event eintragen</span>
+      <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 650, fontSize: 14, flex: 1 }}>Etwas gefunden? Als Event eintragen</span><button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => setOpen(false)}>Zuklappen</button></div>
       <textarea className="input" style={{ minHeight: 64 }} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Link oder Text vom Event einfügen (Instagram-Text, Passline-Link …)" aria-label="Link oder Text einfügen" />
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || busy || !getAi().apiKey} onClick={take}>{busy ? 'Ich lese …' : '✨ Übernehmen'}</button>
@@ -314,24 +324,19 @@ function Events({ s, city, view = 'find' }) {
     <>
       <EventSheet init={evForm} city={city} onClose={() => setEvForm(null)} />
       {view === 'find' && <>
-      <section className="card" style={{ gap: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: 17 }}>Was ist los in {city}?</span>
+      <section className="card" style={{ gap: 8, padding: 12 }}>
         <ModeToggle mode={smode} onChange={setSmode} />
-        <form onSubmit={(e) => { e.preventDefault(); if (smode === 'ki') run(q); }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Techno am Samstag, Laufevents …" aria-label="Wonach suchen" />
-          {smode === 'ki' && (
-            <div className="search-row">
-              <button type="submit" className="btn small" style={{ flex: 1 }} disabled={!q.trim() || !!busy || !hasKey}>{busy ? '…' : '🔍 Events suchen'}</button>
-            </div>
-          )}
+        <form onSubmit={(e) => { e.preventDefault(); if (smode === 'ki') run(q); }} style={{ display: 'flex', gap: 8 }}>
+          <input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Was ist los in ${city}?`} aria-label="Wonach suchen" />
+          {smode === 'ki' && <button type="submit" className="btn small" style={{ flexShrink: 0 }} disabled={!q.trim() || !!busy || !hasKey} aria-label="Events suchen">{busy ? '…' : '🔍'}</button>}
         </form>
-        <SearchChips s={s} kind="events" defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
+        <SearchChips s={s} kind="events" scroll defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
         {smode === 'links' ? <><SourceLinks embedded s={s} area="events" city={city} query={q} /><EventTakeOver s={s} city={city} onOpen={setEvForm} /></> : (
-          <>
-            <Info>Die KI sucht selbst im Internet (Passline, Eventbrite, Instagram & Co.) und zeigt dir konkrete Events passend zu deinen Vorlieben – ca. 3–5 Cent pro Suche.</Info>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Prefs s={s} />
+            <Info>Die KI sucht selbst im Internet (Passline, Eventbrite, Instagram & Co.) und zeigt dir konkrete Events passend zu deinen Vorlieben – ca. 3–5 Cent pro Suche.</Info>
             {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
-          </>
+          </div>
         )}
         {busy && (
           <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche auf Passline, Eventbrite, Meetup & Co. … (ca. 20–30 Sek.)' : 'Ich überlege gezielte Suchen … (ca. 5 Sek.)'}</span></div>
@@ -381,6 +386,7 @@ function Events({ s, city, view = 'find' }) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button type="button" className="btn tint small" onClick={() => setEvForm({ ...EV_EMPTY })}>+ Event eintragen</button>
         <button type="button" className={when === 'alle' ? 'chip soft' : 'chip on'} style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => setWhenOpen(true)} aria-label="Zeitraum wählen">🗓 {(WHEN.find((w) => w[0] === when) || WHEN[0])[1]} ▾</button>
+        <RemovedButton items={removed} storeKey="removedEvents" onRestore={restoreEvent} meta={(e) => [e.date && fmtShort(e.date), e.place].filter(Boolean).join(' · ')} />
       </div>
       <Sheet open={whenOpen} title="Wann?" onClose={() => { setWhenOpen(false); setWhenEdit(false); }}>
         <div className="list">
@@ -457,7 +463,6 @@ function Events({ s, city, view = 'find' }) {
           )}
         </section>
       )}
-      <RemovedList items={removed} storeKey="removedEvents" onRestore={restoreEvent} meta={(e) => [e.date && fmtShort(e.date), e.place].filter(Boolean).join(' · ')} />
       </>}
     </>
   );
@@ -877,7 +882,7 @@ export default function Ausgehen() {
   const s = useStore();
   const [pview, setPviewState] = useState(() => { try { return localStorage.getItem('life-app-places-view') || 'mine'; } catch { return 'mine'; } });
   const setPview = (v) => { setPviewState(v); try { localStorage.setItem('life-app-places-view', v); } catch {} };
-  const [eview, setEviewState] = useState(() => { try { return localStorage.getItem('life-app-events-view') || 'find'; } catch { return 'find'; } });
+  const [eview, setEviewState] = useState(() => { try { return localStorage.getItem('life-app-events-view') || 'mine'; } catch { return 'mine'; } });
   const setEview = (v) => { setEviewState(v); try { localStorage.setItem('life-app-events-view', v); } catch {} };
   const evN = s.events.filter((e) => e.stage !== 'besucht' && !e.travel && eventCity(e) === cityOf(s)).length;
   const plN = s.places.filter((p) => placeCity(p) === cityOf(s)).length;
@@ -908,7 +913,7 @@ export default function Ausgehen() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div className="sub-switch" style={{ flex: '1 1 auto', minWidth: 0 }}>
             {tab === 'events'
-              ? [['find', '🔍 Finden'], ['mine', `⭐ Meine${evN ? ` · ${evN}` : ''}`]].map(([k, l]) => <button key={k} type="button" className={eview === k ? 'on' : ''} onClick={() => setEview(k)}>{l}</button>)
+              ? [['mine', `⭐ Meine${evN ? ` · ${evN}` : ''}`], ['find', '🔍 Finden']].map(([k, l]) => <button key={k} type="button" className={eview === k ? 'on' : ''} onClick={() => setEview(k)}>{l}</button>)
               : [['mine', `📌 Meine${plN ? ` · ${plN}` : ''}`], ['find', '🔍 Neu']].map(([k, l]) => <button key={k} type="button" className={pview === k ? 'on' : ''} onClick={() => setPview(k)}>{l}</button>)}
           </div>
           <div style={{ flex: '0 1 42%', minWidth: 0, display: 'flex' }}><CityChips s={s} compact /></div>

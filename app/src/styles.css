@@ -721,3 +721,10 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .act-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; border: 0; border-radius: 14px; padding: 10px 6px; background: var(--card); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,.06)); font: inherit; font-size: 13px; font-weight: 600; line-height: 1.2; color: var(--text); min-height: 70px; }
 .act-tile:active { transform: scale(0.97); }
 .act-tile > span:last-child { min-width: 0; max-width: 100%; overflow-wrap: anywhere; hyphens: manual; }
+/* v1.20 */
+.chips.chips-scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px; -webkit-overflow-scrolling: touch; }
+.chips.chips-scroll::-webkit-scrollbar { display: none; }
+.chips.chips-scroll > * { flex-shrink: 0; }
+.date-badge .db-mon { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+.date-badge { min-height: 52px; }
+.removed-btn { flex-shrink: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; padding: 6px 4px; cursor: pointer; opacity: .8; }
