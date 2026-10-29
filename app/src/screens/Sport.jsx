@@ -1,6 +1,6 @@
 import { takeFlag } from '../lib/flags';
 import { useEffect, useRef, useState } from 'react';
-import { useStore } from '../lib/store';
+import { store, useStore } from '../lib/store';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addProject, addTask } from '../lib/actions';
@@ -311,22 +311,26 @@ function SportsPage({ s }) {
 
         {tab === 'meine' && <>
         {/* v0.98 (Mateo): „+ Event notieren“ hier unten statt oben rechts, mit KI-Ausfüllen */}
-        {!adding && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button type="button" className="btn tint small" onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>+ Event notieren</button><span style={{ marginLeft: 'auto' }} /><RemovedButton items={(s.removedSportEvents || []).filter((e) => !pick.length || pick.includes(e.sportId))} storeKey="removedSportEvents" onRestore={restoreSportEvent} meta={(e) => [e.date && fmtShort(e.date), e.place, s.sports.find((x) => x.id === e.sportId)?.name].filter(Boolean).join(' · ')} /></div>}
-        {adding && (
-          <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f })) toast('Notiert'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
-            <div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}</div>
-            <input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder="Name oder Link, z.B. 21K de Buenos Aires" aria-label="Name" />
-            <DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum (optional)" title="Datum" />
-            <input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort (optional)" aria-label="Ort" />
-            <input className="input" value={f.dist || ''} onChange={(ev) => setF({ ...f, dist: ev.target.value })} placeholder="Distanz, z.B. 21 km (optional)" aria-label="Distanz" />
-            <input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="Link zur Anmeldung (optional)" aria-label="Link" inputMode="url" />
+        {<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button type="button" className="btn tint small" onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>+ Event notieren</button><span style={{ marginLeft: 'auto' }} /><RemovedButton items={(s.removedSportEvents || []).filter((e) => !pick.length || pick.includes(e.sportId))} storeKey="removedSportEvents" onRestore={restoreSportEvent} meta={(e) => [e.date && fmtShort(e.date), e.place, s.sports.find((x) => x.id === e.sportId)?.name].filter(Boolean).join(' · ')} /></div>}
+        <Sheet open={adding} title="Neues Sport-Event" onClose={() => setAdding(false)}>
+          <SportPresets s={s} onPick={(p) => setF((x) => ({ ...x, name: p.name, dist: p.dist || x.dist || '' }))} />
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f, status: f.status || 'interessiert' })) toast(f.status === 'angemeldet' ? 'Unter „Ich nehme teil“ notiert' : 'Notiert'); else toast('Gibt es schon'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
+            <div className="field"><span>Sportart</span><div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}{!s.sports.length && <span className="tiny">Erst oben über ✎ eine Sportart hinzufügen.</span>}</div></div>
+            <label className="field"><span>Was?</span><input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder="Name oder Link, z.B. 21K de Buenos Aires" /></label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div className="field" style={{ flex: 1, minWidth: 0 }}><span>Datum</span><DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Datum wählen" title="Datum" /></div>
+              <label className="field" style={{ flex: '0 0 110px' }}><span>Distanz</span><input className="input" value={f.dist || ''} onChange={(ev) => setF({ ...f, dist: ev.target.value })} placeholder="21 km" /></label>
+            </div>
+            <label className="field"><span>Wo?</span><input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort, z.B. Palermo" /></label>
+            <label className="field"><span>Link zur Anmeldung</span><input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="https://…" inputMode="url" /></label>
+            <div className="seg full" role="group" aria-label="Status">
+              <button type="button" className={f.status !== 'angemeldet' ? 'on' : ''} onClick={() => setF({ ...f, status: 'interessiert' })}>⭐ Gemerkt</button>
+              <button type="button" className={f.status === 'angemeldet' ? 'on' : ''} onClick={() => setF({ ...f, status: 'angemeldet' })}>✅ Ich nehme teil</button>
+            </div>
             <button type="button" className="btn tint small" disabled={fBusy || !getAi().apiKey || !(f.name.trim() || f.url.trim())} onClick={fillAi}>{fBusy ? 'Ich suche die Daten …' : '✨ Rest mit KI ausfüllen'}</button>
-            <span style={{ display: 'flex', gap: 8 }}>
-              <button type="submit" className="btn small" style={{ flex: 1 }} disabled={!f.name.trim() || !f.sportId}>Notieren</button>
-              <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => setAdding(false)}>Abbrechen</button>
-            </span>
+            <button type="submit" className="btn" disabled={!f.name.trim() || !f.sportId}>Speichern</button>
           </form>
-        )}
+        </Sheet>
         <section className="group">
           <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Ich nehme teil</h2><span className="tiny">{going.length}</span></div>
           <div className="list">
@@ -433,4 +437,35 @@ async function parseSportText(s, text) {
   const base = { system: `Lies die Daten eines Sport-Events (Rennen) aus Mateos Nachricht.${hasUrl ? ' Enthält sie einen Link, öffne ihn mit web_fetch und lies Name, Datum, Ort und Distanzen von der Seite. Klappt das nicht, nutze die Wörter in der Adresse.' : ''} Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()}. Sportarten: ${s.sports.map((x) => x.name).join(', ')}. Antworte mit "rennen_lesen".`, user: text, tool: PARSE_RACE, maxUses: 0, maxTokens: 1500, label: 'Rennen übernehmen' };
   if (!hasUrl) return searchWithTool(base);
   try { return await searchWithTool({ ...base, fetch: true }); } catch { return searchWithTool(base); }
+}
+
+// v1.23 (Mateo): Schnell hinzufügen im „Neues Sport-Event“-Fenster – bearbeitbar (hinzufügen/entfernen)
+const EVENT_PRESETS = [{ name: 'Halbmarathon', dist: '21 km' }, { name: 'Marathon', dist: '42 km' }, { name: '10K', dist: '10 km' }, { name: '5K', dist: '5 km' }, { name: 'Trail' }];
+function SportPresets({ s, onPick }) {
+  const [edit, setEdit] = useState(false);
+  const [txt, setTxt] = useState('');
+  const [dist, setDist] = useState('');
+  const all = s.profile?.sportPresets || EVENT_PRESETS;
+  const save = (list) => store.update((d) => { d.profile = { ...d.profile, sportPresets: list }; });
+  return (
+    <section className="card" style={{ gap: 10, background: 'var(--card-2)', boxShadow: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="label" style={{ padding: 0, flex: 1 }}>Schnell hinzufügen</span>
+        <button type="button" className={edit ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎ Bearbeiten'}</button>
+      </div>
+      <div className="chips">
+        {all.map((p) => (edit
+          ? <button key={p.name} type="button" className="chip soft" onClick={() => save(all.filter((x) => x.name !== p.name))}>{p.name} ✕</button>
+          : <button key={p.name} type="button" className="chip soft" onClick={() => onPick(p)}>+ {p.name}{p.dist ? <span className="tiny"> · {p.dist}</span> : null}</button>))}
+        {!all.length && !edit && <span className="tiny">Noch nichts – über „✎ Bearbeiten“ hinzufügen.</span>}
+      </div>
+      {edit && (
+        <form style={{ display: 'flex', gap: 8 }} onSubmit={(e) => { e.preventDefault(); const t = txt.trim(); if (t && !all.some((x) => x.name.toLowerCase() === t.toLowerCase())) save([...all, { name: t, dist: dist.trim() }]); setTxt(''); setDist(''); }}>
+          <input className="input" style={{ flex: 1, minWidth: 0 }} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="z.B. Tenca Halbmarathon" aria-label="Schnell-Eintrag" />
+          <input className="input" style={{ flex: '0 0 80px' }} value={dist} onChange={(e) => setDist(e.target.value)} placeholder="km" aria-label="Distanz" />
+          <button type="submit" className="btn small" disabled={!txt.trim()} aria-label="Hinzufügen">+</button>
+        </form>
+      )}
+    </section>
+  );
 }

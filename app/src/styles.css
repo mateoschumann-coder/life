@@ -733,3 +733,11 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .add-task-btn { border: 0; background: var(--accent-bg); color: var(--accent); font: inherit; font-size: 14px; font-weight: 650; padding: 8px 12px; border-radius: 999px; white-space: nowrap; cursor: pointer; }
 .back-row .back { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .back-row .back svg { flex-shrink: 0; }
+/* v1.23: Sortieren wie iPhone-Homebildschirm */
+.sort-tile { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; cursor: pointer; }
+.sorting .sort-tile { touch-action: none; }
+@keyframes wiggle { 0% { transform: rotate(-1.2deg); } 50% { transform: rotate(1.2deg); } 100% { transform: rotate(-1.2deg); } }
+.sort-tile.wiggle { animation: wiggle .3s ease-in-out infinite; }
+.sort-tile.sort-ghost { opacity: .25; animation: none; }
+.sort-float { z-index: 1000; pointer-events: none; transform: scale(1.06); box-shadow: 0 10px 28px rgba(0,0,0,.22) !important; margin: 0; box-sizing: border-box; }
+.sort-done { position: fixed; left: 16px; right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 900; display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 10px 12px 10px 16px; border-radius: 16px; background: var(--card); box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; color: var(--muted); }

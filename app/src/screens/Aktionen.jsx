@@ -2,6 +2,8 @@
 // v1.08 (Mateo): Zentrale Stelle – jede Aktion mit einem Tipp direkt auf der richtigen Seite (Knopf in der Mitte der Tab-Leiste)
 import { go } from '../lib/router';
 import { Icon, TabBar, TopActions } from '../components/ui';
+import { useStore } from '../lib/store';
+import SortGrid, { SortDone } from '../components/SortGrid';
 
 const ls = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const ss = (k, v) => { try { sessionStorage.setItem(k, v); } catch {} };
@@ -36,6 +38,7 @@ export const ACTIONS = [
 ];
 
 export default function Aktionen() {
+  const s = useStore();
   return (
     <>
       <main className="screen" style={{ gap: 14 }}>
@@ -43,14 +46,19 @@ export default function Aktionen() {
         {ACTIONS.map((g) => (
           <section key={g.id} className="group act-group">
             <h2 className="label" style={{ padding: '0 4px' }}>{g.title}</h2>
-            <div className="act-grid3">
-              {g.items.map(([e, l, run]) => (
-                <button key={l} type="button" className="act-tile" onClick={run}><span className="act-emoji">{e}</span><span lang="de">{l}</span></button>
-              ))}
-            </div>
+            <SortGrid
+              s={s}
+              orderKey={`los-${g.id}`}
+              className="act-grid3"
+              tileClass="act-tile"
+              items={g.items.map(([e, l, run]) => ({ key: l, e, l, run }))}
+              onOpen={(x) => x.run()}
+              render={(x) => (<><span className="act-emoji">{x.e}</span><span lang="de">{x.l}</span></>)}
+            />
           </section>
         ))}
       </main>
+      <SortDone />
       <TabBar active="los" />
     </>
   );

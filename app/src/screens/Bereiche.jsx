@@ -3,6 +3,7 @@
 import { useStore } from '../lib/store';
 import { AreaIcon, Icon, TabBar, TopActions } from '../components/ui';
 import { DIRECT } from './Bereich';
+import SortGrid, { SortDone } from '../components/SortGrid';
 
 const SOZIAL = [
   { id: 'events', name: 'Veranstal\u00ADtungen', icon: 'sparkle', href: '#/saeule/sozial' },
@@ -49,19 +50,25 @@ export default function Bereiche() {
                 <span className="pillar-name">{p.name}</span>
                 <span className="pillar-count">{rows.length}</span>
               </a>
-              <div className="area-grid">
-                {rows.map((r) => (
-                  <a key={r.id} href={r.href} className="area-tile">
-                    <AreaIcon icon={r.icon} color={p.color} size={30} />
-                    <span className="area-tile-name" lang="de">{SHORT[r.id] || r.name}</span>
-                    {SUB[r.id] && <span className="area-tile-sub">{SUB[r.id]}</span>}
-                  </a>
-                ))}
-              </div>
+              <SortGrid
+                s={s}
+                orderKey={`bereiche-${p.id}`}
+                className="area-grid"
+                tileClass="area-tile"
+                tileStyle={() => ({ '--pc': p.color })}
+                items={rows.map((r) => ({ ...r, key: r.id }))}
+                onOpen={(r) => { location.hash = r.href; }}
+                render={(r) => (<>
+                  <AreaIcon icon={r.icon} color={p.color} size={30} />
+                  <span className="area-tile-name" lang="de">{SHORT[r.id] || r.name}</span>
+                  {SUB[r.id] && <span className="area-tile-sub">{SUB[r.id]}</span>}
+                </>)}
+              />
             </section>
           );
         })}
       </main>
+      <SortDone />
       <TabBar active="bereiche" />
     </>
   );
