@@ -709,3 +709,9 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 :root[data-theme="dark"] .seg button.on { background: rgba(255, 255, 255, 0.17); box-shadow: none; }
 
 :root[data-theme="dark"] .tip-badge { color: #FFD66B; background: rgba(251, 191, 36, 0.18); }
+
+/* v1.17 (Mateo): Gelb/Orange im Dunkeln besser lesbar */
+:root { --warn: #A86A00; }
+:root[data-theme="dark"] { --warn: #F5C451; --ink-amount: 42%; }
+:root[data-theme="dark"] .spark, :root[data-theme="dark"] .wx-icon { color: #FFD66B; }
+:root[data-theme="dark"] .avatar { background: color-mix(in srgb, currentColor 20%, transparent) !important; filter: brightness(1.7) saturate(0.9); }

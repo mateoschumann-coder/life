@@ -252,14 +252,14 @@ export function EventsList({ s }) {
           <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Sozial</h1>
-            {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>+ Event</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
+            {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>+ Veranstaltung</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
           </div>
         </div>
-        <Segmented full options={[{ id: 'eigene', label: 'Eigene Events' }, { id: 'andere', label: `Von anderen${(s.invites || []).filter((x) => !x.done).length ? ` · ${(s.invites || []).filter((x) => !x.done).length}` : ''}` }]} value={tab} onChange={setTab} label="Art der Events" />
+        <Segmented full options={[{ id: 'eigene', label: 'Eigene' }, { id: 'andere', label: `Von anderen${(s.invites || []).filter((x) => !x.done).length ? ` · ${(s.invites || []).filter((x) => !x.done).length}` : ''}` }]} value={tab} onChange={setTab} label="Art der Events" />
         {tab === 'andere' ? <Invites s={s} sheet={invSheet} setSheet={setInvSheet} /> : (<>
-        <span className="sub" style={{ marginTop: -6 }}>Deine eigenen Events – Asado, Spieleabend, Geburtstag … Menschen findest du unten unter „Menschen“.</span>
+        <span className="sub" style={{ marginTop: -6 }}>Deine eigenen Veranstaltungen – Asado, Spieleabend, Geburtstag … Menschen findest du unten unter „Menschen“.</span>
         <div className="list">
-          {upcoming.length === 0 && <div className="empty">Organisier dein eigenes Event – Asado, Spieleabend, Lauftreff … mit Einladung, Gästeliste, Einkaufsliste und To-dos.</div>}
+          {upcoming.length === 0 && <div className="empty">Organisier deine eigene Veranstaltung – Asado, Spieleabend, Lauftreff … mit Einladung, Gästeliste, Einkaufsliste und To-dos.</div>}
           {upcoming.map((g) => <Row key={g.id} g={g} />)}
         </div>
         {past.length > 0 && (

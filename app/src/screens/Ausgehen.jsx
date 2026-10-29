@@ -1,7 +1,7 @@
 import { takeFlag } from '../lib/flags';
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
-import { addDays, fmtShort, parseKey, today } from '../lib/dates';
+import { addDays, fmtShort, parseKey, startOfWeek, today } from '../lib/dates';
 import { addEvent, addPlace, addPlaceCat, addTask, archiveEvent, archivePlace, restoreEvent, restorePlace, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
 import {
   allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText, routeUrl, eventDest, findHours,
@@ -278,6 +278,27 @@ function Events({ s, city, view = 'find' }) {
   const shown = search && resCity === city ? search : null; // v0.87: KI-Vorschläge nur in ihrer Stadt (bleiben, kommen beim Zurückwechseln wieder)
   const upcoming = mine.filter((e) => e.stage !== 'besucht' && (!e.date || e.date >= t)).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
   const past = mine.filter((e) => e.date && e.date < t).sort((a, b) => (a.date < b.date ? 1 : -1));
+  // v1.17 (Mateo): Filter nach Zeitraum (eine kleine Auswahlliste) + „Bin dabei“ getrennt von „Interessiert“
+  const [when, setWhenS] = useState(() => { try { return localStorage.getItem('life-app-events-when') || 'alle'; } catch { return 'alle'; } });
+  const setWhen = (v) => { setWhenS(v); try { localStorage.setItem('life-app-events-when', v); } catch {} };
+  const monthEnd = (k) => { const d = parseKey(k); return addDays(k, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() - d.getDate()); };
+  const weekEnd = addDays(startOfWeek(t), 6);
+  const mEnd = monthEnd(t);
+  const nmEnd = monthEnd(addDays(mEnd, 1));
+  const WHEN = [
+    ['alle', 'Alle Termine', () => true],
+    ['woche', 'Diese Woche', (d) => d && d <= weekEnd],
+    ['wochenende', 'Dieses Wochenende', (d) => d && d >= addDays(startOfWeek(t), 4) && d <= weekEnd],
+    ['2wochen', 'Nächste 2 Wochen', (d) => d && d <= addDays(t, 14)],
+    ['monat', 'Diesen Monat', (d) => d && d <= mEnd],
+    ['naechster', 'Nächsten Monat', (d) => d && d > mEnd && d <= nmEnd],
+    ['spaeter', 'Später', (d) => d && d > nmEnd],
+    ['ohne', 'Ohne Datum', (d) => !d],
+  ];
+  const whenFn = (WHEN.find((w) => w[0] === when) || WHEN[0])[2];
+  const shownUp = upcoming.filter((e) => whenFn(e.date));
+  const goingList = shownUp.filter((e) => e.stage === 'zugesagt');
+  const interList = shownUp.filter((e) => e.stage !== 'zugesagt');
   const removed = (s.removedEvents || []).filter((e) => !e.travel && eventCity(e) === city);
   const fresh = (shown?.results || []).filter((r) => r.status === 'neu');
 
@@ -349,24 +370,38 @@ function Events({ s, city, view = 'find' }) {
       </>}
 
       {view === 'mine' && <>
-      <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={() => setEvForm({ ...EV_EMPTY })}>+ Event eintragen</button>
-      <section className="group">
-        <div className="list">
-          {upcoming.length === 0 && <div className="empty">Nichts Anstehendes. Unter „Finden“ suchen und „Interessiert“ oder „Bin dabei“ tippen.</div>}
-          {upcoming.map((e) => (
-            <div key={e.id} className="row" style={{ minHeight: 64 }}>
-              <DateBadge date={e.date} />
-              <div className="row-main">
-                {e.url ? <a className="row-title plain" href={e.url} target="_blank" rel="noreferrer">{e.name}</a> : <span className="row-title plain">{e.name}</span>}
-                <span className="row-meta">{[e.stage === 'zugesagt' ? 'Dabei' : e.stage === 'interessiert' ? 'Interessiert' : 'Entdeckt', e.time, e.place].filter(Boolean).join(' · ')}</span>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button type="button" className="btn tint small" onClick={() => setEvForm({ ...EV_EMPTY })}>+ Event eintragen</button>
+        <select className="input small-input" style={{ flex: 1, minWidth: 0 }} value={when} onChange={(e) => setWhen(e.target.value)} aria-label="Zeitraum">
+          {WHEN.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+      </div>
+      {upcoming.length === 0 && <div className="empty">Nichts Anstehendes. Unter „Finden“ suchen und „Interessiert“ oder „Bin dabei“ tippen.</div>}
+      {upcoming.length > 0 && shownUp.length === 0 && <div className="empty">Keine Events in diesem Zeitraum.</div>}
+      {[['✅ Bin dabei', goingList], ['⭐ Interessiert', interList]].filter(([, l]) => l.length).map(([title, list]) => (
+        <section key={title} className="group">
+          <div className="sec-h"><h2 className="label" style={{ padding: 0 }}>{title} · {list.length}</h2></div>
+          <div className="list">
+            {list.map((e) => (
+              <div key={e.id} className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, padding: '10px 12px 10px 16px' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <DateBadge date={e.date} />
+                  <div className="row-main" style={{ gap: 2 }}>
+                    {e.url ? <a className="row-title plain" href={e.url} target="_blank" rel="noreferrer">{e.name}</a> : <span className="row-title plain">{e.name}</span>}
+                    <span className="row-meta">{[e.time, e.place].filter(Boolean).join(' · ') || (e.date ? '' : 'Ohne Datum')}</span>
+                  </div>
+                  <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 56 }}>
+                  <a className="pill on" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>Route</a>
+                  {e.stage !== 'zugesagt' ? <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>
+                    : <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'interessiert'); toast('Zurück zu „Interessiert“'); }}>Doch nur interessiert</button>}
+                </div>
               </div>
-              <a className="pill on" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>Route</a>
-              {e.stage !== 'zugesagt' && <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>}
-              <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      ))}
       {/* v0.97 (Mateo): Vergangenes und Rausgenommenes bleiben unten erhalten */}
       {past.length > 0 && (
         <section className="group">
@@ -457,7 +492,7 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
       <div className="field">
         <span>Adresse</span>
         <div className="block-add">
-          <input className="input" value={f.address} onChange={(e) => set({ address: e.target.value, lat: null, lon: null })} placeholder="z.B. Gorriti 4800, Palermo" />
+          <input className="input" value={f.address} onChange={(e) => set({ address: e.target.value, lat: null, lon: null, hoursChecked: '' })} placeholder="z.B. Gorriti 4800, Palermo" />
           <button type="button" className="btn small" onClick={find} disabled={busy || !(f.address || f.name).trim()}>{busy ? '…' : 'Finden'}</button>
         </div>
         {f.lat != null && <span className="tiny" style={{ paddingLeft: 4, color: 'var(--accent)' }}>Auf der Karte gefunden</span>}
@@ -851,20 +886,26 @@ export default function Ausgehen() {
   );
 }
 
-// v1.16 (Mateo): Öffnungszeiten immer unten im aufgeklappten Ort – gespeichert, sonst kostenlos bei OpenStreetMap nachsehen, sonst Google Maps
+// v1.16/1.17 (Mateo): Öffnungszeiten unten im aufgeklappten Ort – wird beim Aufklappen automatisch (kostenlos, OpenStreetMap) gesucht;
+// ist nichts da, steht das gleich dort (und es wird nicht jedes Mal neu gesucht), dazu Google Maps
 function PlaceHours({ s, p }) {
   const [busy, setBusy] = useState(false);
-  const [none, setNone] = useState(false);
-  if (p.hours) return <span className="tiny" style={{ lineHeight: 1.4 }}>🕒 {p.hours}</span>;
-  const look = async () => {
+  useEffect(() => {
+    if (p.hours || p.hoursChecked) return;
+    let alive = true;
     setBusy(true);
-    const h = await findHours(s, p);
-    setBusy(false);
-    if (h) { updatePlace(p.id, { hours: h }); toast('Öffnungszeiten gefunden'); } else setNone(true);
-  };
+    findHours(s, p).then((h) => {
+      if (!alive) return;
+      setBusy(false);
+      updatePlace(p.id, h ? { hours: h } : { hoursChecked: today() });
+    }).catch(() => alive && setBusy(false));
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.id]);
+  if (p.hours) return <span className="tiny" style={{ lineHeight: 1.4 }}>🕒 {p.hours}</span>;
   return (
     <span className="tiny" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-      🕒 {none ? 'Keine Öffnungszeiten bei OpenStreetMap.' : <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={look} disabled={busy}>{busy ? 'Suche …' : 'Öffnungszeiten suchen'}</button>}
+      🕒 {busy ? 'Suche Öffnungszeiten …' : 'Keine Öffnungszeiten gefunden.'}
       <a className="link-btn" style={{ fontSize: 13 }} href={mapsUrl(p.name, p.address, placeCity(p))} target="_blank" rel="noreferrer">In Google Maps ↗</a>
     </span>
   );

@@ -180,7 +180,9 @@ function KeepTab({ s, t }) {
   const setMsort = (v) => { setMsortState(v); keep('life-app-people-msort', v); };
   // Rang für „Häufig zuerst“: Läuft von selbst → wöchentlich → … → halbjährlich → kein Ziel
   const rank = (p) => { const v = rhythmValue(p); return v === -1 ? 0 : v > 0 ? v : 9999; };
-  const people = s.people.filter((p) => freq === 'alle' || rhythmValue(p) === freq)
+  const [cat, setCatState] = useState(() => remember('life-app-people-cat2', 'alle'));
+  const setCat = (v) => { setCatState(v); keep('life-app-people-cat2', v); };
+  const people = s.people.filter((p) => (freq === 'alle' || rhythmValue(p) === freq) && inCat(p, cat))
     .sort((a, b) => (sort === 'az' ? 0 : sort === 'oft' ? rank(a) - rank(b) : rank(b) - rank(a)) || a.name.localeCompare(b.name, 'de'));
   return (
     <>
@@ -230,6 +232,8 @@ function KeepTab({ s, t }) {
             <span className="sub" style={{ flex: 1 }}>Person antippen = Rhythmus festlegen</span>
             <Info>Die App verteilt die Termine von selbst: Wer noch nie gemeldet wurde, bekommt einen Termin irgendwo im ersten Intervall – nicht alle am selben Tag. Danach zählt der letzte Kontakt plus Intervall, mit etwas Spielraum (±15 %), damit es nicht immer derselbe Tag ist. Ab „monatlich“ kannst du zusätzlich Anfang, Mitte oder Ende des Monats wählen. „Läuft von selbst“ = ihr habt sowieso Kontakt, keine Erinnerung.</Info>
           </span>
+          {/* v1.17 (Mateo): oben nach Kategorie filtern (wie in der Liste) */}
+          <CatChips s={s} filter={cat} setFilter={setCat} />
           {/* v0.96 (Mateo): nach Häufigkeit filtern und sortieren */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0 2px', flexWrap: 'wrap' }}>
             <label className="tiny" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>Zeigen:

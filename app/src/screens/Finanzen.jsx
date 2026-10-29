@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { isDark } from '../lib/theme';
-import { fetchChart, RANGES as MRANGES, yOf } from '../lib/markets';
 import { store } from '../lib/store';
 import { useStore } from '../lib/store';
 import { addCostCat, addLine, budgetOf, calc, catOf, costCatsOf, removeCostCat, convert, CURRENCIES, fetchRates, money, removeLine, setBudget, setRate, updateLine } from '../lib/budget';
@@ -220,75 +219,22 @@ const fmtNum = (v) => { const a = Math.abs(v); return v.toLocaleString('de-DE', 
 const fmtWhen = (t, r) => { const d = new Date(t); if (r === '1d') return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); if (r === '5d') return d.toLocaleDateString('de-DE', { weekday: 'short' }) + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); if (r === '5y') return d.toLocaleDateString('de-DE', { month: 'short', year: 'numeric' }); return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short', ...(r === '1y' ? { year: '2-digit' } : {}) }); };
 const CUR = { USD: '$', EUR: '€', ARS: 'ARS', GBP: '£', JPY: '¥' };
 const RKEY = 'life-app-fin-range2';
-function MiniTV({ t }) {
-  const dark = isDark();
-  const cfg = { symbol: t.sym, width: '100%', height: 170, locale: 'de_DE', dateRange: '12M', colorTheme: dark ? 'dark' : 'light', isTransparent: true, autosize: true };
-  return <iframe title={t.label} src={`https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=de_DE#${encodeURIComponent(JSON.stringify(cfg))}`} style={{ width: '100%', height: 170, border: 0, display: 'block' }} loading="lazy" />;
-}
+// v1.17 (Mateo): Yahoo ging nicht – Kurse direkt von TradingView (schnell, keine Umwege), eigener Zeitraum-Filter darunter
+const TV_RANGES = [['1D', '1T'], ['1M', '1M'], ['3M', '3M'], ['12M', '1J'], ['60M', '5J'], ['ALL', 'Alle']];
+const RKEY3 = 'life-app-fin-range3';
+// Kürzel, die im TradingView-Widget keine Daten zeigen, durch frei verfügbare ersetzen
+const WSYM = { 'TVC:SX5E': 'OANDA:EU50EUR', 'XETR:DAX': 'OANDA:DE30EUR', 'TVC:UKX': 'OANDA:UK100GBP', 'TVC:NI225': 'OANDA:JP225USD', 'FOREXCOM:DJI': 'OANDA:US30USD' };
+const widgetSym = (t) => WSYM[t.sym] || (t.sym || '').replace(/^\^/, '');
 function Ticker({ t }) {
-  const [range, setRangeS] = useState(() => { try { return localStorage.getItem(RKEY) || '1y'; } catch { return '1y'; } });
-  const setRange = (r) => { setRangeS(r); try { localStorage.setItem(RKEY, r); } catch {} };
-  const [data, setData] = useState(null);
-  const [err, setErr] = useState(null);
-  const [hover, setHover] = useState(null);
-  const svgRef = useRef(null);
-  const y = yOf(t);
-  useEffect(() => {
-    let alive = true;
-    setErr(null);
-    fetchChart(y, range).then((d) => alive && setData(d)).catch((e) => alive && setErr(e.message || 'Fehler'));
-    return () => { alive = false; };
-  }, [y, range]);
-  const W = 320, H = 130, P = 4;
-  let path = '', area = '', last = null, sx = null, sy = null, minV = 0, maxV = 0;
-  if (data) {
-    const vs = data.pts.map((p) => p[1]);
-    minV = Math.min(...vs); maxV = Math.max(...vs);
-    const span = maxV - minV || 1;
-    sx = (i) => P + (i / (data.pts.length - 1)) * (W - 2 * P);
-    sy = (v) => P + (1 - (v - minV) / span) * (H - 2 * P);
-    path = data.pts.map((p, i) => `${i ? 'L' : 'M'}${sx(i).toFixed(1)},${sy(p[1]).toFixed(1)}`).join('');
-    area = `${path}L${sx(data.pts.length - 1).toFixed(1)},${H}L${sx(0).toFixed(1)},${H}Z`;
-    last = data.pts[data.pts.length - 1];
-  }
-  const shown = hover != null && data ? data.pts[hover] : null;
-  const price = shown ? shown[1] : data?.price;
-  const base = data?.prev;
-  const ch = data && base ? price - base : 0;
-  const pct = data && base ? (ch / base) * 100 : 0;
-  const up = ch >= 0;
-  const col = up ? '#1F9D55' : '#D64545';
-  const move = (e) => {
-    if (!data || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-    const i = Math.round(((cx / rect.width) * W - P) / (W - 2 * P) * (data.pts.length - 1));
-    setHover(Math.max(0, Math.min(data.pts.length - 1, i)));
-  };
-  const gid = `g${y.replace(/[^a-z0-9]/gi, '')}`;
+  const [range, setRangeS] = useState(() => { try { return localStorage.getItem(RKEY3) || '12M'; } catch { return '12M'; } });
+  const setRange = (r) => { setRangeS(r); try { localStorage.setItem(RKEY3, r); } catch {} };
+  const dark = isDark();
+  const cfg = { symbol: widgetSym(t), width: '100%', height: 200, locale: 'de_DE', dateRange: range, colorTheme: dark ? 'dark' : 'light', isTransparent: true, autosize: true, trendLineColor: '#2F5FD0', underLineColor: 'rgba(47, 95, 208, 0.15)', chartOnly: false, noTimeScale: false };
   return (
     <div className="card mk-card">
-      <div className="mk-head">
-        <b className="mk-title">{t.label}</b>
-        {data && <span className="mk-price">{fmtNum(price)} <small>{CUR[data.cur] || data.cur}</small></span>}
-        {data && <span className="mk-ch" style={{ color: col }}>{up ? '▲' : '▼'} {fmtNum(Math.abs(ch))} ({up ? '+' : '−'}{Math.abs(pct).toLocaleString('de-DE', { maximumFractionDigits: 2 })} %)<span className="mk-when"> · {shown ? fmtWhen(shown[0], range) : MRANGES.find((r) => r.id === range)?.label}</span></span>}
-      </div>
-      {err && !data ? (
-        <><MiniTV t={t} /><span className="tiny">Eigener Chart gerade nicht verfügbar ({err}) – Ersatz von TradingView.</span></>
-      ) : !data ? (
-        <div className="mk-load">Lädt …</div>
-      ) : (
-        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="mk-svg" onMouseMove={move} onMouseLeave={() => setHover(null)} onTouchStart={move} onTouchMove={move} onTouchEnd={() => setHover(null)}>
-          <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={col} stopOpacity="0.22" /><stop offset="100%" stopColor={col} stopOpacity="0" /></linearGradient></defs>
-          {range === '1d' && base >= minV && base <= maxV && <line x1={P} x2={W - P} y1={sy(base)} y2={sy(base)} stroke="var(--muted)" strokeDasharray="3 3" strokeWidth="1" vectorEffect="non-scaling-stroke" opacity="0.6" />}
-          <path d={area} fill={`url(#${gid})`} />
-          <path d={path} fill="none" stroke={col} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-          {shown && <line x1={sx(hover)} x2={sx(hover)} y1={0} y2={H} stroke="var(--muted)" strokeWidth="1" vectorEffect="non-scaling-stroke" />}
-          {(shown || last) && <circle cx={sx(shown ? hover : data.pts.length - 1)} cy={sy((shown || last)[1])} r="3.5" fill={col} stroke="var(--card)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />}
-        </svg>
-      )}
-      {data && <div className="mk-axis"><span>{fmtWhen(data.pts[0][0], range)}</span><span>Hoch {fmtNum(maxV)} · Tief {fmtNum(minV)}</span><span>{fmtWhen(last[0], range)}</span></div>}
-      {!(err && !data) && <div className="mk-ranges">{MRANGES.map((r) => <button key={r.id} type="button" className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>{r.label}</button>)}</div>}
+      <div className="mk-head"><b className="mk-title">{t.label}</b></div>
+      <iframe key={range + cfg.symbol + dark} title={t.label} src={`https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=de_DE#${encodeURIComponent(JSON.stringify(cfg))}`} style={{ width: '100%', height: 200, border: 0, display: 'block' }} loading="lazy" />
+      <div className="mk-ranges">{TV_RANGES.map(([id, label]) => <button key={id} type="button" className={range === id ? 'on' : ''} onClick={() => setRange(id)}>{label}</button>)}</div>
     </div>
   );
 }
@@ -308,13 +254,13 @@ function AddAsset({ open, list, onClose }) {
       ))}
       <section className="card" style={{ gap: 8 }}>
         <b style={{ fontSize: 15 }}>Eigener Wert</b>
-        <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const sy = sym.trim().toUpperCase(); if (!sy) return; setTickers([...list.filter((x) => x.sym !== sy), { sym: sy, y: sy, label: label.trim() || sy }]); setSym(''); setLabel(''); toast('Hinzugefügt'); }}>
+        <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => { e.preventDefault(); const sy = sym.trim().toUpperCase(); if (!sy) return; setTickers([...list.filter((x) => x.sym !== sy), { sym: sy, label: label.trim() || sy }]); setSym(''); setLabel(''); toast('Hinzugefügt'); }}>
           <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name, z.B. Coca-Cola" aria-label="Name" />
-          <div className="block-add"><input className="input" value={sym} onChange={(e) => setSym(e.target.value)} placeholder="Yahoo-Kürzel, z.B. KO oder ^GDAXI" aria-label="Kürzel" /><button type="submit" className="btn small" disabled={!sym.trim()}>+</button></div>
+          <div className="block-add"><input className="input" value={sym} onChange={(e) => setSym(e.target.value)} placeholder="Kürzel, z.B. KO, NASDAQ:AAPL oder XETR:SAP" aria-label="Kürzel" /><button type="submit" className="btn small" disabled={!sym.trim()}>+</button></div>
         </form>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <a className="link-btn" style={{ fontSize: 13 }} href="https://finance.yahoo.com/lookup" target="_blank" rel="noreferrer">Kürzel finden ↗</a>
-          <Info>Auf Yahoo Finance einen Wert suchen – das Kürzel steht neben dem Namen, z.B. „AAPL“ (Apple), „SAP.DE“, „^GDAXI“ (DAX) oder „EURUSD=X“ (Euro/Dollar).</Info>
+          <a className="link-btn" style={{ fontSize: 13 }} href="https://www.tradingview.com/symbols/" target="_blank" rel="noreferrer">Kürzel finden ↗</a>
+          <Info>Auf TradingView einen Wert suchen – das Kürzel steht oben, z.B. „NASDAQ:AAPL“ (Apple), „XETR:SAP“ oder „FX:EURUSD“ (Euro/Dollar).</Info>
         </div>
       </section>
     </Sheet>
@@ -349,7 +295,7 @@ function Markets({ s }) {
       )}
       {!edit && list.map((t) => <Ticker key={t.sym} t={t} />)}
       {!list.length && <div className="empty">Noch keine Werte – tipp auf „＋ Wert“.</div>}
-      <span className="tiny" style={{ padding: '0 4px' }}>Finger über den Chart ziehen = Wert an dem Tag. Kurse von Yahoo Finance, teils verzögert.</span>
+      <span className="tiny" style={{ padding: '0 4px' }}>Kurse von TradingView, teils verzögert. Zeitraum unter dem Chart wählen.</span>
       <AddAsset open={add} list={list} onClose={() => setAdd(false)} />
     </section>
   );

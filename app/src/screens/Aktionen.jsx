@@ -13,7 +13,7 @@ export const ACTIONS = [
     ['✅', 'Aufgabe', () => { ss('life-focus-task', '1'); go('/heute'); }],
     ['🛒', 'Einkauf', () => { ls('life-app-kueche-tab', 'einkauf'); go('/kueche'); }],
     ['📍', 'Ort (Bar, Restaurant …)', () => { ls('life-app-ausgehen-tab', 'orte'); ls('life-app-places-view', 'mine'); ss('life-open-new-place', '1'); go('/ausgehen'); }],
-    ['🎉', 'Eigenes Event', () => { ss('life-open-new-event', '1'); go('/treffen'); }],
+    ['🎉', 'Eigene Veranstaltung', () => { ss('life-open-new-event', '1'); go('/treffen'); }],
     ['💌', 'Einladung von anderen', () => { ls('life-app-sozial-tab', 'andere'); ss('life-open-new-invite', '1'); go('/treffen'); }],
     ['🏃', 'Sport-Event / Rennen', () => { ls('life-app-sport-tab', 'meine'); ss('life-open-new-sport', '1'); go('/sport'); }],
   ] },
@@ -27,7 +27,7 @@ export const ACTIONS = [
   ] },
   { id: 'planen', title: '🗺 Planen & Organisieren', hint: 'Größere Vorhaben', items: [
     ['✈️', 'Reise planen', () => { ls('life-app-reisen-tab', 'reisen'); ss('life-open-new-trip', 'geplant'); go('/reisen'); }],
-    ['🎉', 'Event organisieren', () => { ss('life-open-new-event', '1'); go('/treffen'); }],
+    ['🎉', 'Veranstaltung organisieren', () => { ss('life-open-new-event', '1'); go('/treffen'); }],
     ['🛒', 'Einkaufsliste', () => { ls('life-app-kueche-tab', 'einkauf'); go('/kueche'); }],
     ['📞', 'Bei wem melden?', () => { ls('life-app-people-tab', 'kontakt'); ls('life-app-people-part', 'melden'); go('/menschen'); }],
     ['💼', 'Jobsuche', () => go('/karriere')],

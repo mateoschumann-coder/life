@@ -3,7 +3,7 @@ import { store } from './store';
 import { today } from './dates';
 
 export const INVITE_STATUS = { eingeladen: 'Eingeladen', vielleicht: 'Vielleicht', zugesagt: 'Zugesagt', abgesagt: 'Abgesagt' };
-export const INVITE_COLOR = { eingeladen: 'var(--accent)', vielleicht: '#D9A21B', zugesagt: '#2FA36B', abgesagt: 'var(--danger)' };
+export const INVITE_COLOR = { eingeladen: 'var(--accent)', vielleicht: 'var(--warn)', zugesagt: '#2FA36B', abgesagt: 'var(--danger)' };
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 export function addInvite({ name, host = '', date = '', time = '', place = '', note = '', bring = '', guests = '', status = 'eingeladen', url = '' }) {
