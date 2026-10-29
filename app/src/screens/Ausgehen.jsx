@@ -295,6 +295,14 @@ function Events({ s, city, view = 'find' }) {
     ['spaeter', 'Später', (d) => d && d > nmEnd],
     ['ohne', 'Ohne Datum', (d) => !d],
   ];
+  // v1.18 (Mateo): Zeitraum-Filter bearbeitbar (Standard ausblenden, eigene „Nächste n Tage“), Auswahl im kleinen Fenster
+  const wcfg = s.profile?.eventWhen || {};
+  for (const n of wcfg.custom || []) WHEN.push([`d${n}`, `Nächste ${n} Tage`, (d) => d && d <= addDays(t, n)]);
+  const WHEN_SHOWN = WHEN.filter((w) => w[0] === 'alle' || !(wcfg.hidden || []).includes(w[0]));
+  const [whenOpen, setWhenOpen] = useState(false);
+  const [whenEdit, setWhenEdit] = useState(false);
+  const [whenDays, setWhenDays] = useState('');
+  const saveWhen = (patch) => store.update((d) => { d.profile = { ...d.profile, eventWhen: { hidden: [], custom: [], ...(d.profile?.eventWhen || {}), ...patch } }; });
   const whenFn = (WHEN.find((w) => w[0] === when) || WHEN[0])[2];
   const shownUp = upcoming.filter((e) => whenFn(e.date));
   const goingList = shownUp.filter((e) => e.stage === 'zugesagt');
@@ -372,10 +380,36 @@ function Events({ s, city, view = 'find' }) {
       {view === 'mine' && <>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button type="button" className="btn tint small" onClick={() => setEvForm({ ...EV_EMPTY })}>+ Event eintragen</button>
-        <select className="input small-input" style={{ flex: 1, minWidth: 0 }} value={when} onChange={(e) => setWhen(e.target.value)} aria-label="Zeitraum">
-          {WHEN.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select>
+        <button type="button" className={when === 'alle' ? 'chip soft' : 'chip on'} style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => setWhenOpen(true)} aria-label="Zeitraum wählen">🗓 {(WHEN.find((w) => w[0] === when) || WHEN[0])[1]} ▾</button>
       </div>
+      <Sheet open={whenOpen} title="Wann?" onClose={() => { setWhenOpen(false); setWhenEdit(false); }}>
+        <div className="list">
+          {(whenEdit ? WHEN : WHEN_SHOWN).map(([id, label, fn]) => {
+            const hidden = (wcfg.hidden || []).includes(id);
+            const custom = id.startsWith('d') && /^d\d+$/.test(id);
+            const n = upcoming.filter((e) => fn(e.date)).length;
+            return (
+              <div key={id} className="row compact" style={{ opacity: whenEdit && hidden ? 0.45 : 1 }}>
+                <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0 }} disabled={whenEdit} onClick={() => { setWhen(id); setWhenOpen(false); }}>
+                  <span className="row-title plain">{label}</span>
+                </button>
+                {!whenEdit && <span className="tiny">{n}</span>}
+                {!whenEdit && when === id && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
+                {whenEdit && id !== 'alle' && (custom
+                  ? <button type="button" className="x-btn" aria-label={`${label} löschen`} onClick={() => { saveWhen({ custom: (wcfg.custom || []).filter((x) => `d${x}` !== id) }); if (when === id) setWhen('alle'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
+                  : <button type="button" className="pill" style={{ fontSize: 12.5 }} onClick={() => { saveWhen({ hidden: hidden ? (wcfg.hidden || []).filter((x) => x !== id) : [...(wcfg.hidden || []), id] }); if (!hidden && when === id) setWhen('alle'); }}>{hidden ? 'Zeigen' : 'Ausblenden'}</button>)}
+              </div>
+            );
+          })}
+        </div>
+        {whenEdit && (
+          <form className="block-add" onSubmit={(e) => { e.preventDefault(); const n = parseInt(whenDays, 10); if (n > 0 && !(wcfg.custom || []).includes(n)) saveWhen({ custom: [...(wcfg.custom || []), n].sort((a, b) => a - b) }); setWhenDays(''); }}>
+            <input className="input" type="number" inputMode="numeric" min="1" value={whenDays} onChange={(e) => setWhenDays(e.target.value)} placeholder="Eigener Zeitraum: nächste … Tage" aria-label="Anzahl Tage" />
+            <button type="submit" className="btn small" disabled={!(parseInt(whenDays, 10) > 0)}>+</button>
+          </form>
+        )}
+        <button type="button" className={whenEdit ? 'chip on' : 'chip soft'} style={{ alignSelf: 'flex-start' }} onClick={() => setWhenEdit(!whenEdit)}>{whenEdit ? 'Fertig' : '✎ Bearbeiten'}</button>
+      </Sheet>
       {upcoming.length === 0 && <div className="empty">Nichts Anstehendes. Unter „Finden“ suchen und „Interessiert“ oder „Bin dabei“ tippen.</div>}
       {upcoming.length > 0 && shownUp.length === 0 && <div className="empty">Keine Events in diesem Zeitraum.</div>}
       {[['✅ Bin dabei', goingList], ['⭐ Interessiert', interList]].filter(([, l]) => l.length).map(([title, list]) => (

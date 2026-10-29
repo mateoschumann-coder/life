@@ -56,13 +56,27 @@ function WaBtn({ p }) {
   return wa ? <a className="pill" href={wa} target="_blank" rel="noreferrer" aria-label={`WhatsApp-Chat mit ${p.name} öffnen`}>WhatsApp</a> : <a href={`#/person/${p.id}`} aria-label={`${p.name} öffnen`}><Icon name="chev" size={16} color="var(--chev)" /></a>;
 }
 
+// v1.18 (Mateo): Kategorie als ein Knopf, der ein kleines Auswahlfenster öffnet (statt Wisch-Leiste)
 function CatChips({ s, filter, setFilter }) {
+  const [open, setOpen] = useState(false);
   const n = (id) => (id === 'alle' ? s.people.length : id === 'ohne' ? s.people.filter((p) => !PEOPLE_CATEGORIES.some((c) => c.id === p.category)).length : s.people.filter((p) => p.category === id).length);
-  const opts = [{ id: 'alle', label: 'Alle' }, ...PEOPLE_CATEGORIES, ...(n('ohne') ? [{ id: 'ohne', label: 'Ohne' }] : [])];
+  const opts = [{ id: 'alle', label: 'Alle' }, ...PEOPLE_CATEGORIES, ...(n('ohne') ? [{ id: 'ohne', label: 'Ohne Kategorie' }] : [])];
+  const cur = opts.find((o) => o.id === filter) || opts[0];
   return (
-    <div className="box-tabs" role="group" aria-label="Kategorie">
-      {opts.map((f) => <button key={f.id} type="button" className={filter === f.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>{f.label} · {n(f.id)}</button>)}
-    </div>
+    <>
+      <button type="button" className={filter === 'alle' ? 'chip soft' : 'chip on'} style={{ alignSelf: 'flex-start' }} onClick={() => setOpen(true)} aria-label="Kategorie wählen">👥 {cur.label} · {n(cur.id)} ▾</button>
+      <Sheet open={open} title="Kategorie" onClose={() => setOpen(false)}>
+        <div className="list">
+          {opts.map((f) => (
+            <button key={f.id} type="button" className="row compact" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit' }} onClick={() => { setFilter(f.id); setOpen(false); }} aria-pressed={filter === f.id}>
+              <span className="row-main"><span className="row-title plain">{f.label}</span></span>
+              <span className="tiny">{n(f.id)}</span>
+              {filter === f.id && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      </Sheet>
+    </>
   );
 }
 const inCat = (p, filter) => filter === 'alle' || (filter === 'ohne' ? !PEOPLE_CATEGORIES.some((c) => c.id === p.category) : p.category === filter);
