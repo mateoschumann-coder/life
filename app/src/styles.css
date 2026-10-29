@@ -243,7 +243,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .fab.on { background: #e5534b; animation: pulse 1.4s ease-in-out infinite; }
 .fab.ready { background: var(--primary); color: var(--on-primary); }
 .fab.busy { opacity: 0.75; }
-.mini { position: fixed; z-index: 14; left: 12px; right: 12px; bottom: calc(146px + env(safe-area-inset-bottom)); max-width: 576px; margin: 0 auto;
+.mini { position: fixed; z-index: 14; left: 12px; right: 12px; bottom: calc(92px + env(safe-area-inset-bottom)); max-width: 576px; margin: 0 auto;
   background: var(--card); border-radius: 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22), 0 0 0 0.5px var(--line);
   display: flex; flex-direction: column; max-height: 58dvh; animation: up 0.22s ease-out; }
 .mini-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px 8px 16px; border-bottom: 0.5px solid var(--line); }
@@ -743,3 +743,6 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .sort-done { position: fixed; left: 16px; right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 900; display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 10px 12px 10px 16px; border-radius: 16px; background: var(--card); box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; color: var(--muted); }
 .act-tile { position: relative; }
 .act-swap { position: absolute; top: 4px; right: 6px; font-size: 12px; color: var(--accent); font-weight: 700; }
+/* v1.26: Senden-Knopf im Assistenten-Fenster unten rechts */
+.mini-send { width: 42px; height: 42px; flex-shrink: 0; border-radius: 50%; border: 0; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent); cursor: pointer; }
+.mini-send:disabled { opacity: .35; box-shadow: none; }

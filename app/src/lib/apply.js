@@ -9,6 +9,7 @@ import {
 import { store } from './store';
 import { locate } from './outings';
 import { addInvite, updateInvite } from './invites';
+import { archiveEvent, archiveGathering, archiveInvite, archiveSportEvent } from './actions';
 import { findGathering, upsertGathering } from './gather';
 import { addMaterial, ensureTopic, KINDS } from './library';
 import { addHomeItem, addReminder, EVERY, LISTS } from './home';
@@ -131,6 +132,10 @@ export function describe(s, raw) {
       return { ok: !!a.titel && !!a.hobby, label: join(`${a.hobby}: ${a.titel}`, a.hobby_art) };
     case 'reise_anlegen':
       return { ok: !!a.name, label: join(`Reise: ${a.name}`, isDate(a.datum) && date(a.datum), isDate(a.bis_datum) && `bis ${date(a.bis_datum)}`) };
+    case 'eintrag_verschieben': {
+      const src = moveSource(s, a);
+      return { ok: !!src && a.von !== a.nach && !!MOVE_LABEL[a.nach], label: src ? `Umziehen: „${src.name}“ von ${MOVE_LABEL[a.von] || a.von} nach ${MOVE_LABEL[a.nach] || a.nach}` : `Umziehen: „${a.name}“ nicht gefunden` };
+    }
     case 'einladung_eintragen':
       return { ok: !!a.name, label: join(`Einladung: ${a.name}`, a.gastgeber && `von ${a.gastgeber}`, isDate(a.datum) && date(a.datum), a.uhrzeit, a.ort, a.einladung_status === 'zugesagt' ? 'zugesagt' : a.einladung_status === 'abgesagt' ? 'abgesagt' : null) };
     case 'treffen_anlegen': {
@@ -260,6 +265,8 @@ export function applyAction(s, raw) {
       return addHobbyItem(addHobby(a.hobby), { title: a.titel, kind: a.hobby_art || 'idee', url: a.url || '', why: a.notiz || '' });
     case 'reise_anlegen':
       return addTrip({ name: a.name, dest: a.ort || a.name, from: d(a.datum) || '', to: d(a.bis_datum) || '' });
+    case 'eintrag_verschieben':
+      return moveEntry(s, a);
     case 'einladung_eintragen': {
       const ex = (s.invites || []).find((x) => !x.done && norm(x.name) === norm(a.name));
       const time = /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '';
@@ -326,4 +333,34 @@ export function applyActions(actions) {
     labels.push(info.label);
   });
   return labels;
+}
+
+// v1.26 (Mateo): Eintrag umziehen, z.B. Event ↔ Einladung ↔ eigene Veranstaltung ↔ Sport-Event (alter wird rausgenommen, zurückholbar)
+const MOVE_LABEL = { event: 'Ausgehen (Events)', einladung: 'Einladungen (Von anderen)', veranstaltung: 'Eigene Veranstaltungen', sport_event: 'Sport-Events' };
+const MOVE_LIST = { event: (s) => s.events || [], einladung: (s) => s.invites || [], veranstaltung: (s) => s.gatherings || [], sport_event: (s) => s.sportEvents || [] };
+function moveSource(s, a) {
+  const lists = a.von && MOVE_LIST[a.von] ? [a.von] : Object.keys(MOVE_LIST).filter((k) => k !== a.nach);
+  for (const k of lists) {
+    const hit = findBy(MOVE_LIST[k](s), a.name, 'name');
+    if (hit) { if (!a.von) a.von = k; return hit; }
+  }
+  return null;
+}
+function moveEntry(s, a) {
+  const src = moveSource(s, a);
+  if (!src || a.von === a.nach) return null;
+  // gemeinsame Felder auslesen
+  const c = { name: src.name, date: src.date || '', time: src.time || '', place: src.place || '', url: src.url || '', note: src.note || src.desc || '' };
+  const going = src.stage === 'zugesagt' || src.status === 'zugesagt' || src.status === 'angemeldet';
+  let id = null;
+  if (a.nach === 'event') id = addEvent({ ...c, price: a.preis || src.price || '', stage: going ? 'zugesagt' : 'interessiert', city: src.city || '' });
+  if (a.nach === 'einladung') id = addInvite({ ...c, host: a.gastgeber || src.host || '', bring: src.bring || '', status: going ? 'zugesagt' : 'eingeladen' });
+  if (a.nach === 'veranstaltung') id = upsertGathering(s, { name: c.name, date: c.date, time: c.time, place: c.place, desc: c.note });
+  if (a.nach === 'sport_event') {
+    const sportId = findSport(s, a.sportart || '')?.id || (a.sportart ? addSport(a.sportart) : s.sports[0]?.id || addSport('Laufen'));
+    id = addSportEvent({ sportId, name: c.name, date: c.date, place: c.place, url: c.url, note: c.note, status: going ? 'angemeldet' : 'interessiert' });
+  }
+  if (!id) return null;
+  ({ event: archiveEvent, einladung: archiveInvite, veranstaltung: archiveGathering, sport_event: archiveSportEvent })[a.von]?.(src.id);
+  return id;
 }

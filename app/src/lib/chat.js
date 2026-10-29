@@ -26,6 +26,7 @@ export function useChat() {
   return useSyncExternalStore(chat.subscribe, chat.get);
 }
 export const setDraft = (draft) => set({ draft });
+export const getDraft = () => state.draft;
 export const clearChat = () => set({ items: [] });
 export function setMode() {
   saveAi({ chatMode: 'assistent' });

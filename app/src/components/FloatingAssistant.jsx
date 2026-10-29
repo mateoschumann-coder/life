@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { getAi } from '../lib/ai';
-import { needsRetry, resend, send, setDraft, setMode, setSpeak, speechAvailable, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
+import { getDraft, needsRetry, resend, send, setDraft, setMode, setSpeak, speechAvailable, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
 import { Icon, toast } from './ui';
 import Proposal from './Proposal';
 
@@ -98,8 +98,8 @@ export default function FloatingAssistant() {
   const fabStyle = pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined;
   const fabTop = pos ? pos.y : null;
   const panelBelow = fabTop !== null && fabTop < window.innerHeight / 2;
+  // v1.26: Fenster immer fest unten über der Tab-Leiste (der Knopf ist dann ausgeblendet, Senden sitzt im Fenster)
   const panelStyle = {
-    ...(fabTop === null ? {} : panelBelow ? { top: fabTop + FAB + 10, bottom: 'auto' } : { bottom: window.innerHeight - fabTop + 10, top: 'auto' }),
     transform: `translate(${panelOff.x}px, ${panelOff.y}px)`,
   };
 
@@ -212,13 +212,17 @@ export default function FloatingAssistant() {
                 <button type="button" className={listening ? 'mic on' : 'mic'} style={{ width: 38, height: 38, flexShrink: 0 }} onClick={() => { unlockSpeech(); if (listening) stopListening(); else startListening({ continuous: true, onError: toast }); }} aria-label={listening ? 'Zuhören beenden' : 'Wieder sprechen'} aria-pressed={listening}>
                   <Icon name={listening ? 'stop' : 'mic'} size={17} color="currentColor" />
                 </button>
-                <span className="tiny" style={{ flex: 1 }}>{listening ? 'Ich höre zu. Unten auf den Knopf tippen = senden.' : draft.trim() ? 'Unten auf den Knopf tippen = senden.' : reply ? 'Mikro antippen = wieder sprechen.' : 'Mikro oder unten den Knopf antippen = sprechen.'}</span>
+                <span className="tiny" style={{ flex: 1 }}>{listening ? 'Ich höre zu. Rechts ➤ = senden.' : draft.trim() ? 'Rechts ➤ = senden.' : reply ? 'Mikro = wieder sprechen.' : 'Sprich oder tippe.'}</span>
+                {/* v1.26 (Mateo): Senden-Knopf fest unten rechts am Text – der schwebende Knopf ist bei offenem Fenster ausgeblendet */}
+                <button type="button" className="mini-send" disabled={!draft.trim() && !listening} onClick={() => { stopListening(); setTimeout(() => { if (getDraft().trim()) { setSentAt(items.length); send(); } }, 60); }} aria-label="Senden">
+                  <Icon name="send" size={18} color="currentColor" width={2} />
+                </button>
               </div>
             )}
           </div>
         </div>
       )}
-      <button
+      {!open && <button
         type="button"
         className={listening ? 'fab on' : busy ? 'fab busy' : open && draft.trim() ? 'fab ready' : 'fab'}
         style={fabStyle}
@@ -230,7 +234,7 @@ export default function FloatingAssistant() {
         aria-label={listening ? 'Senden' : open && draft.trim() ? 'Senden' : 'Assistent: sprechen'}
       >
         <Icon name={listening || (open && draft.trim()) ? 'send' : 'sparkle'} size={22} color="currentColor" width={2} />
-      </button>
+      </button>}
     </>
   );
 }
