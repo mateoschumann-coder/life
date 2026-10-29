@@ -12,6 +12,7 @@ import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
 import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info, TopActions } from '../components/ui';
 import RemovedList, { RemovedButton } from '../components/RemovedList';
+import AiFill from '../components/AiFill';
 import { fromHeute } from '../lib/router';
 
 const wd = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
@@ -192,10 +193,16 @@ function EventSheet({ init, city, onClose }) {
   };
   return (
     <Sheet open={!!init} title="Event eintragen" onClose={() => onClose(false)}>
+      <AiFill placeholder="z.B. „Samstag Jazz im Thelonious, 22 Uhr, 12.000 Pesos“ oder Passline-/Instagram-Link einfügen" hint="Bei einem Link öffnet die KI die Seite (Instagram nicht – dort den Text kopieren). Ca. 0,1 Cent." onFill={async (txt) => {
+        const r = await parseEventText(store.get(), [txt, f.name, f.url].filter(Boolean).join('\n'), city);
+        if (!r?.name && !r?.datum) throw new Error('Nichts erkannt – mehr Details oder den Text der Seite einfügen');
+        const url = (txt.match(/https?:\/\/\S+/) || [''])[0];
+        setF((x) => ({ ...x, name: x.name || r.name || '', date: x.date || (/^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : ''), time: x.time || r.uhrzeit || '', place: x.place || r.ort || '', price: x.price || r.preis || '', note: x.note || r.notiz || '', url: x.url || url }));
+      }} />
       <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Konzert im Niceto" /></Field>
       <div style={{ display: 'flex', gap: 10 }}>
         <Field label="Datum"><input className="input" type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
-        <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} style={{ maxWidth: 120 }} /></Field>
+        <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} style={{ maxWidth: 140 }} /></Field>
       </div>
       <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => set({ place: e.target.value })} placeholder="Ort / Adresse" /></Field>
       {f.place.trim() && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} href={routeUrl(f.place, city)} target="_blank" rel="noreferrer">Route (Google Maps) ↗</a>}

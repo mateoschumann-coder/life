@@ -359,3 +359,32 @@ export async function editTemplateAI(t, wish) {
     shop: { Essen: r.essen || t.shop.Essen || [], 'Getränke': r.getraenke || t.shop['Getränke'] || [], Sonstiges: r.einkauf_sonstiges || t.shop.Sonstiges || [] },
   };
 }
+
+// v1.25 (Mateo): neue Veranstaltung/Idee aus einer kurzen Erzählung ausfüllen (Haiku, ohne Internet)
+const GATHER_FILL = {
+  name: 'veranstaltung_lesen',
+  description: 'Daten einer selbst organisierten Veranstaltung',
+  input_schema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'Kurzer Name, z.B. „Asado bei mir“' },
+      datum: { type: 'string', description: 'JJJJ-MM-TT, leer wenn offen' },
+      uhrzeit: { type: 'string', description: 'HH:MM, leer wenn offen' },
+      art: { type: 'string', enum: ['zuhause', 'auswaerts'] },
+      vorlage: { type: 'string', description: 'Schlüssel der passendsten Vorlage aus der Liste, sonst leer' },
+      gaeste: { type: 'string', description: 'Ungefähre Gästezahl als Zahl, leer wenn unbekannt' },
+      ort: { type: 'string' },
+    },
+    required: ['name'],
+  },
+};
+export async function parseGatheringText(s, text) {
+  const tpls = Object.entries(templatesOf(s)).map(([k, o]) => `${k} (${o.kind || 'zuhause'}: ${o.label})`).join(', ');
+  const r = await searchWithTool({
+    system: `Mateo organisiert selbst eine Veranstaltung und beschreibt sie kurz. Lies Name, Datum, Uhrzeit, Art (zu Hause bei ihm oder woanders), Gästezahl und Ort heraus und wähle die passendste Vorlage. Vorlagen: ${tpls}. Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()} (${fmtLong(today())}). Antworte mit "veranstaltung_lesen".`,
+    user: text, tool: GATHER_FILL, maxUses: 0, maxTokens: 800, label: 'Veranstaltung ausfüllen',
+  });
+  const all = templatesOf(s);
+  if (r && r.vorlage && !all[r.vorlage]) r.vorlage = '';
+  return r;
+}

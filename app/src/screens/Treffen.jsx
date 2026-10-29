@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useDictation } from '../lib/dictate';
 import { getAi } from '../lib/ai';
 const hasKey = () => !!getAi().apiKey;
-import { useStore } from '../lib/store';
+import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
   addGathering, addGuest, addWaGroup, removeWaGroup, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, occasionOf, templatesOf, saveTemplate, removeTemplate, resetTemplates, tplForKind, editTemplateAI, stdTpl, setStdTpl, PHASES, todoCats, SHOP_CATS, updateGathering, updateItem, VENUE_STATUS,
@@ -16,6 +16,8 @@ import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Inf
 import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } from '../lib/invites';
 import { Missing } from './Saeule';
 import { RemovedButton } from '../components/RemovedList';
+import AiFill from '../components/AiFill';
+import { parseGatheringText } from '../lib/gather';
 import { archiveGathering, archiveInvite, restoreGathering, restoreInvite } from '../lib/actions';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
@@ -257,17 +259,25 @@ export function EventsList({ s }) {
           <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Sozial</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {tab === 'eigene' ? <RemovedButton items={(s.removedGatherings || []).filter((g) => !!g.idea === isIdea)} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} /> : <RemovedButton items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />}
-            {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>{isIdea ? '+ Idee' : '+ Veranstaltung'}</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
-            </div>
           </div>
         </div>
         <Segmented full options={[{ id: 'eigene', label: 'Eigene' }, { id: 'andere', label: `Von anderen${(s.invites || []).filter((x) => !x.done).length ? ` · ${(s.invites || []).filter((x) => !x.done).length}` : ''}` }]} value={tab} onChange={setTab} label="Art der Events" />
+        {tab === 'andere' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>{isIdea ? '+ Idee' : '+ Veranstaltung'}</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
+          <span style={{ flex: 1 }} />
+          {tab === 'eigene' ? <RemovedButton items={(s.removedGatherings || []).filter((g) => !!g.idea === isIdea)} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} /> : <RemovedButton items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />}
+        </div>
+        )}
         {tab === 'andere' ? <Invites s={s} sheet={invSheet} setSheet={setInvSheet} /> : (<>
         <div className="seg full" role="group" aria-label="Geplant oder Idee">
           <button type="button" className={!isIdea ? 'on' : ''} onClick={() => setView('plan')}>📅 Geplant{upcoming.length ? ` · ${upcoming.length}` : ''}</button>
           <button type="button" className={isIdea ? 'on' : ''} onClick={() => setView('idee')}>💡 Ideen{ideas.length ? ` · ${ideas.length}` : ''}</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>{isIdea ? '+ Idee' : '+ Veranstaltung'}</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
+          <span style={{ flex: 1 }} />
+          {tab === 'eigene' ? <RemovedButton items={(s.removedGatherings || []).filter((g) => !!g.idea === isIdea)} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} /> : <RemovedButton items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />}
         </div>
         {isIdea && (
           <div className="list">
@@ -305,6 +315,11 @@ export function EventsList({ s }) {
         </>)}
       </main>
       <Sheet open={open} title={isIdea ? 'Neue Idee' : 'Neue Veranstaltung'} onClose={() => setOpen(false)}>
+        <AiFill placeholder="z.B. „Asado bei mir nächsten Samstag ab 13 Uhr, so 10 Leute“" onFill={async (txt) => {
+          const r = await parseGatheringText(store.get(), txt);
+          if (!r?.name) throw new Error('Nichts erkannt – erzähl etwas mehr');
+          setF((x) => ({ ...x, name: r.name || x.name, date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : x.date, time: /^\d{1,2}:\d{2}$/.test(r.uhrzeit || '') ? r.uhrzeit.padStart(5, '0') : x.time, kind: r.art || x.kind, type: r.vorlage || x.type, expected: String(r.gaeste || '').replace(/[^\d–-]/g, '') || x.expected, place: r.ort || x.place }));
+        }} />
         <div className="seg-mini">
           {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => f.kind !== k && setF({ ...f, kind: k, type: tplForKind(f.type || 'leer', k, f.tplByKind || {}), tplByKind: { ...(f.tplByKind || {}), [f.kind]: f.type || 'leer' } })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
         </div>

@@ -113,7 +113,7 @@ export function describe(s, raw) {
     case 'ressource_anlegen':
       return { ok: !!a.titel, label: join(`Ressource: ${a.titel}`, where(s, a), a.url && 'mit Link') };
     case 'event_anlegen':
-      return { ok: !!a.name, label: join(`Event: ${a.name}`, a.datum && date(a.datum), a.ort, a.reise && 'Reise') };
+      return { ok: !!a.name, label: join(`Event (Ausgehen): ${a.name}`, a.datum && date(a.datum), a.uhrzeit, a.ort, a.preis, a.event_status === 'zugesagt' ? 'bin dabei' : 'interessiert', a.reise && 'Reise') };
     case 'radar_eintrag':
       return { ok: !!a.titel, label: join(`Radar: ${a.titel}`, a.thema) };
     case 'app_wunsch':
@@ -238,7 +238,7 @@ export function applyAction(s, raw) {
     case 'ressource_anlegen':
       return addResource({ title: a.titel, url: a.url || '', areaId: area, subId: sub, projectId: proj, tags: a.tags || [] });
     case 'event_anlegen':
-      return addEvent({ name: a.name, date: d(a.datum) || '', place: a.ort || '', travel: !!a.reise });
+      return addEvent({ name: a.name, date: d(a.datum) || '', place: a.ort || '', travel: !!a.reise, time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', price: a.preis || '', url: /^https?:\/\//.test(a.url || '') ? a.url : '', note: a.notiz || '', stage: a.event_status === 'zugesagt' ? 'zugesagt' : 'interessiert', city: a.stadt && !/buenos aires/i.test(a.stadt) ? a.stadt : '' });
     case 'app_wunsch':
       return addWish(a.titel);
     case 'merken':
