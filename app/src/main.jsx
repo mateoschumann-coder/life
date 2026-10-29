@@ -2,6 +2,8 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
 import { installFieldTools } from './lib/fieldtools';
+import { installTheme } from './lib/theme';
+installTheme();
 
 createRoot(document.getElementById('root')).render(<App />);
 installFieldTools();

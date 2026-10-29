@@ -120,7 +120,11 @@ export default function Heute() {
   const [weekStart, setWeekStart] = useState(startOfWeek(t));
   const [range, setRange] = useState('woche');
   const [newTask, setNewTask] = useState('');
-  useEffect(() => { if (takeFlag('life-focus-task')) setTimeout(() => { const el = document.querySelector('#tagesliste input[aria-label="Neue Aufgabe"]'); el?.scrollIntoView({ block: 'center' }); el?.focus(); }, 350); }, []);
+  // v1.15 (Mateo): To-dos und Überblick als zwei Reiter statt untereinander
+  const [view, setViewS] = useState(() => { try { return localStorage.getItem('life-app-heute-view') || 'todos'; } catch { return 'todos'; } });
+  const setView = (v) => { setViewS(v); try { localStorage.setItem('life-app-heute-view', v); } catch {} };
+  useEffect(() => { const h = () => setView('todos'); window.addEventListener('life-heute-todos', h); return () => window.removeEventListener('life-heute-todos', h); }, []);
+  useEffect(() => { if (takeFlag('life-focus-task')) { setView('todos'); setTimeout(() => { const el = document.querySelector('#tagesliste input[aria-label="Neue Aufgabe"]'); el?.scrollIntoView({ block: 'center' }); el?.focus(); }, 350); } }, []);
   const [newTime, setNewTime] = useState('');
   const isToday = day === t;
   const pillarColor = (areaId) => pillarOf(s, areaOf(s, areaId)?.pillarId)?.color || 'var(--accent)';
@@ -233,8 +237,11 @@ export default function Heute() {
           </div>
         </div>
 
-        <Overview s={s} />
+        <Segmented full options={[{ id: 'todos', label: '✅ To-dos' }, { id: 'ueberblick', label: '📋 Überblick' }]} value={view} onChange={setView} label="Ansicht" />
 
+        {view === 'ueberblick' && <Overview s={s} />}
+
+        {view === 'todos' && <>
         {/* Wochenleiste */}
         <section className="card" style={{ gap: 10, padding: '12px 12px 14px' }}>
           <div className="sec-h" style={{ padding: '0 4px' }}>
@@ -278,6 +285,7 @@ export default function Heute() {
             </form>
           </div>
         </section>
+        </>}
 
       </main>
       <TabBar active="heute" />

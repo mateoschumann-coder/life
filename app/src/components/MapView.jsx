@@ -1,4 +1,5 @@
 // Einfache Karte ohne Zusatzbibliothek: Kacheln von CARTO (OpenStreetMap-Daten), verschiebbar, zoombar
+import { isDark } from '../lib/theme';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './ui';
 
@@ -37,7 +38,7 @@ export default function MapView({ places, selectedId, onSelect, height = 300, ce
   const drag = useRef(null);
   const touches = useRef(new Map()); // für Zwei-Finger-Zoom
   const pinch = useRef(null);
-  const dark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const dark = isDark();
 
   useEffect(() => {
     const el = ref.current;

@@ -1,4 +1,4 @@
-/* Farben: hell (Standard) und dunkel (automatisch nach iPhone-Einstellung) */
+/* Farben: hell (Standard) und dunkel – gesteuert über data-theme an <html> (lib/theme.js, v1.15) */
 :root {
   --bg: #f9fafb;
   --card: #ffffff;
@@ -27,8 +27,8 @@
   --shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 4px 16px rgba(17, 24, 39, 0.05);
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
+@media all {
+  :root[data-theme="dark"] {
     --bg: #0b0d12;
     --card: #161a22;
     --card-2: #1e232d;
@@ -237,7 +237,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 
 /* Schwebender Assistent */
 .fab { position: fixed; z-index: 15; right: max(16px, calc(50vw - 284px)); bottom: calc(80px + env(safe-area-inset-bottom));
-  width: 54px; height: 54px; border-radius: 27px; border: 0; background: var(--accent); color: #fff;
+  width: 54px; height: 54px; border-radius: 27px; border: 0; background: var(--accent); color: var(--on-primary);
   display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(47, 95, 208, 0.38); transition: transform 0.15s, background 0.2s; }
 .fab:active { transform: scale(0.94); }
 .fab.on { background: #e5534b; animation: pulse 1.4s ease-in-out infinite; }
@@ -333,7 +333,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .map-attr { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: #555; background: rgba(255,255,255,.7); padding: 1px 5px; border-radius: 4px; }
 .map-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--card); padding: 8px 12px; border-radius: 10px; font-size: 14px; color: var(--muted); box-shadow: var(--shadow); }
 .cat-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-@media (prefers-color-scheme: dark) { .map { background: #262626; } }
+:root[data-theme="dark"] .map { background: #262626; }
 
 .mode-toggle { display: inline-flex; background: var(--fill); border-radius: 999px; padding: 2px; }
 .mode-toggle button { border: 0; background: none; border-radius: 999px; padding: 5px 11px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
@@ -439,7 +439,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .price-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
 .price-chip { font-size: 12.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, #2FA36B 13%, transparent); color: #1f7a4f; white-space: nowrap; }
 .price-chip.sum { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
-@media (prefers-color-scheme: dark) { .price-chip { color: #7fd6a8; } }
+:root[data-theme="dark"] .price-chip { color: #7fd6a8; }
 .cost-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 0.5px solid var(--line); }
 .cost-ico { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, #2FA36B 13%, transparent); font-size: 14px; font-weight: 700; flex-shrink: 0; }
 .cost-row b { white-space: nowrap; }
@@ -496,7 +496,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 /* v0.74 Zeitleiste (Route/Varianten) */
 .tl { display: flex; flex-direction: column; }
 .tl-node { display: flex; align-items: center; gap: 10px; min-height: 44px; }
-.tl-dot { width: 28px; height: 28px; border-radius: 14px; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; border: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.tl-dot { width: 28px; height: 28px; border-radius: 14px; background: var(--accent); color: var(--on-primary); font-weight: 700; font-size: 13px; border: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .tl-dot.add { background: var(--card-2); color: var(--accent); cursor: default; }
 .tl-main { flex: 1; border: 0; background: none; text-align: left; padding: 4px 0; display: flex; flex-direction: column; color: inherit; min-width: 0; cursor: pointer; }
 .tl-link { margin-left: 13px; border-left: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent); padding: 6px 0 6px 18px; display: flex; align-items: center; gap: 8px; }
@@ -591,7 +591,7 @@ textarea.ft-on { padding-right: 70px !important; }
 .plan-compact .plan-input { min-height: 38px; font-size: 15px; }
 .plan-compact .mic { width: 38px; height: 38px; }
 .mini-chip { border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
-.mini-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mini-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-primary); }
 .small-chip { padding: 5px 10px !important; font-size: 13px !important; }
 /* v0.94 Menschen: Leiste zum Sortieren */
 .sel-bar { position: fixed; left: 8px; right: 8px; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 11; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.16); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; max-width: 520px; margin: 0 auto; }
@@ -611,7 +611,7 @@ textarea.ft-on { padding-right: 70px !important; }
 .sec-pick-btn.on { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .sec-pick { position: absolute; right: 0; top: calc(100% + 6px); z-index: 41; width: min(330px, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 70vh; overflow-y: auto; }
 .sec-all { border: 1px solid var(--line); background: var(--card-2); border-radius: 12px; padding: 10px; font-size: 14.5px; font-weight: 650; color: var(--text); cursor: pointer; }
-.sec-all.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sec-all.on { background: var(--accent); border-color: var(--accent); color: var(--on-primary); }
 .sec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .sec-chip { display: flex; align-items: center; gap: 6px; text-align: left; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px; padding: 8px 9px; font-size: 13px; font-weight: 550; cursor: pointer; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sec-chip.on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
@@ -677,3 +677,32 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .area-tile:active { transform: scale(0.98); }
 .area-tile-name { font-size: 13.5px; font-weight: 700; line-height: 1.2; margin-top: 4px; hyphens: auto; overflow-wrap: anywhere; }
 .area-tile-sub { font-size: 11px; color: var(--muted); line-height: 1.25; }
+
+/* v1.15: dunkle Stufen (Standard „Abgestuft“: neutrale Grautöne, klar unterscheidbar) */
+:root[data-theme="dark"][data-dark="stufen"], :root[data-theme="dark"]:not([data-dark]) {
+  --bg: #121417; --card: #1f2227; --card-2: #2c3036; --input-bg: #2a2e34; --input-border: #4a505a;
+  --placeholder: #8e949e; --muted: #a0a6b0; --soft: #d6d9de;
+  --line: rgba(255, 255, 255, 0.11); --border: #353a42; --chev: #5d636d; --fill: rgba(255, 255, 255, 0.09);
+  --heat0: #2c3036; --bar: rgba(26, 28, 32, 0.92); --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+:root[data-theme="dark"][data-dark="schwarz"] {
+  --bg: #000000; --card: #141416; --card-2: #232326; --input-bg: #1c1c1e; --input-border: #3a3a3d;
+  --line: rgba(255, 255, 255, 0.1); --border: #2c2c2e; --chev: #48484a; --fill: rgba(255, 255, 255, 0.08);
+  --heat0: #232326; --bar: rgba(10, 10, 10, 0.92); --shadow: none;
+}
+/* Akzentfarben */
+:root[data-accent="gruen"] { --accent: #1f8a5b; --accent-bg: #e3f4ec; --primary: #1f8a5b; }
+:root[data-accent="lila"] { --accent: #6a4bd6; --accent-bg: #eeeafc; --primary: #6a4bd6; }
+:root[data-accent="orange"] { --accent: #c95f2a; --accent-bg: #fcefe6; --primary: #c95f2a; }
+:root[data-accent="grau"] { --accent: #374151; --accent-bg: #eceef1; --primary: #1f2937; --navy: #1f2937; }
+:root[data-theme="dark"][data-accent="gruen"] { --accent: #5fcf98; --accent-bg: rgba(95, 207, 152, 0.15); --primary: #23925f; }
+:root[data-theme="dark"][data-accent="lila"] { --accent: #a68cf7; --accent-bg: rgba(166, 140, 247, 0.16); --primary: #6a4bd6; }
+:root[data-theme="dark"][data-accent="orange"] { --accent: #f5a06c; --accent-bg: rgba(245, 160, 108, 0.16); --primary: #c95f2a; }
+:root[data-theme="dark"][data-accent="grau"] { --accent: #e5e7eb; --accent-bg: rgba(255, 255, 255, 0.12); --primary: #e5e7eb; --on-primary: #111418; --navy: #e5e7eb; }
+/* Schlicht: auch Bereichsfarben in Grau */
+:root[data-accent="grau"] .area-icon { --c: var(--muted) !important; }
+:root[data-accent="grau"] .pillar-sec { --pc: var(--muted) !important; }
+.theme-sw { display: flex; gap: 3px; flex-shrink: 0; }
+.theme-sw span { width: 16px; height: 22px; border-radius: 5px; border: 1px solid rgba(128, 128, 128, 0.35); }
+.accent-dot { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+:root[data-theme="dark"] .seg button.on { background: rgba(255, 255, 255, 0.17); box-shadow: none; }

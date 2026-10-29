@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { isDark } from '../lib/theme';
 import { fetchChart, RANGES as MRANGES, yOf } from '../lib/markets';
 import { store } from '../lib/store';
 import { useStore } from '../lib/store';
@@ -220,7 +221,7 @@ const fmtWhen = (t, r) => { const d = new Date(t); if (r === '1d') return d.toLo
 const CUR = { USD: '$', EUR: '€', ARS: 'ARS', GBP: '£', JPY: '¥' };
 const RKEY = 'life-app-fin-range2';
 function MiniTV({ t }) {
-  const dark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const dark = isDark();
   const cfg = { symbol: t.sym, width: '100%', height: 170, locale: 'de_DE', dateRange: '12M', colorTheme: dark ? 'dark' : 'light', isTransparent: true, autosize: true };
   return <iframe title={t.label} src={`https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=de_DE#${encodeURIComponent(JSON.stringify(cfg))}`} style={{ width: '100%', height: 170, border: 0, display: 'block' }} loading="lazy" />;
 }

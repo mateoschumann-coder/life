@@ -5,6 +5,7 @@ import { buildIcs } from '../lib/ics';
 import { loadDemo } from '../lib/demo';
 import { seed } from '../lib/seed';
 import { Back, Chevron, Field, Segmented, TabBar, toast, Info } from '../components/ui';
+import { ACCENTS, DARKS, MODES, setTheme, themeOf } from '../lib/theme';
 import { getAi, MODELS, monthUsage, saveAi, testKey } from '../lib/ai';
 
 // Datei teilen (iPhone: „In Dateien sichern“, AirDrop …) oder herunterladen
@@ -96,6 +97,8 @@ export default function Einstellungen() {
             <input className="input" value={s.profile?.name || ''} onChange={(e) => store.update((d) => { d.profile = { ...d.profile, name: e.target.value }; })} />
           </Field>
         </section>
+
+        <Appearance />
 
         <section className="card">
           <h2 className="h2">KI-Assistent</h2>
@@ -203,9 +206,43 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.14 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.15 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>
+  );
+}
+
+// v1.15 (Mateo): Aussehen – Modus, Stufen im dunklen Modus, Akzentfarbe
+function Appearance() {
+  const [t, setT] = useState(themeOf);
+  const set = (patch) => { setTheme(patch); setT(themeOf()); };
+  return (
+    <section className="card" style={{ gap: 12 }}>
+      <h2 className="h2">Aussehen</h2>
+      <Segmented full options={MODES} value={t.mode} onChange={(v) => set({ mode: v })} label="Hell oder dunkel" />
+      <span className="label" style={{ padding: 0 }}>Dunkler Modus</span>
+      <div className="list">
+        {DARKS.map((d) => (
+          <button key={d.id} type="button" className="row" style={{ textAlign: 'left', width: '100%', border: 0, background: 'transparent', gap: 12 }} onClick={() => set({ dark: d.id })} aria-pressed={t.dark === d.id}>
+            <span className="theme-sw">{d.sw.map((c) => <span key={c} style={{ background: c }} />)}</span>
+            <span className="row-main" style={{ gap: 2 }}>
+              <span style={{ fontWeight: 600 }}>{d.label}</span>
+              <span className="tiny">{d.hint}</span>
+            </span>
+            {t.dark === d.id && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
+          </button>
+        ))}
+      </div>
+      <span className="label" style={{ padding: 0 }}>Farbe</span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {ACCENTS.map((a) => (
+          <button key={a.id} type="button" className={t.accent === a.id ? 'chip on' : 'chip'} style={{ gap: 7, display: 'inline-flex', alignItems: 'center', paddingLeft: 8 }} onClick={() => set({ accent: a.id })} aria-pressed={t.accent === a.id}>
+            <span className="accent-dot" style={{ background: a.c }} />{a.label}
+          </button>
+        ))}
+      </div>
+      <span className="tiny">„Schlicht“ macht auch die Bereichs-Symbole grau. Die Wahl gilt nur auf diesem iPhone.</span>
+    </section>
   );
 }
