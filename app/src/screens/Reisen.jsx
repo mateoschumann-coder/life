@@ -405,7 +405,7 @@ function TripList({ s }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/freizeit" label="Freizeit und Erlebnisse" />
+          <Back href="#/bereiche" label="Bereiche" />
           <h1 className="h1">Reisen</h1>
         </div>
         <Segmented full options={[{ id: 'reisen', label: `🧳 Reisen${planned.length ? ` · ${planned.length}` : ''}` }, { id: 'ideen', label: `💡 Ideen${ideas.length ? ` · ${ideas.length}` : ''}` }]} value={view} onChange={setView} label="Reisen oder Ideen" />

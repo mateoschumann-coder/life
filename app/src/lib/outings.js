@@ -189,6 +189,7 @@ const EVENT_TOOL = {
             datum: { type: 'string', description: 'JJJJ-MM-TT; bei mehrtägigen Events der nächste Tag' },
             uhrzeit: { type: 'string', description: 'HH:MM, falls bekannt' },
             ort: { type: 'string', description: 'Location und Viertel, z.B. „Niceto Club, Palermo“' },
+            adresse: { type: 'string', description: 'Straße + Hausnummer des Veranstaltungsorts, falls in den Ergebnissen oder sicher bekannt (für die Wegbeschreibung)' },
             preis: { type: 'string', description: 'z.B. „gratis“, „ab 15.000 ARS“, falls bekannt' },
             kategorie: { type: 'string', description: 'z.B. Konzert, Sport, Tech, Kultur, Party, Markt' },
             warum: { type: 'string', description: 'Halbsatz, warum es zu Mateo passt' },
@@ -222,7 +223,7 @@ ${ba ? `So suchst du (höchstens 3 Suchen – jede kostet Geld, also gezielt und
 2. Eine Suche nach einer guten lokalen Sammel-Seite (Stadtmagazin, Veranstaltungskalender, „was ist los“), die viele Events auf einmal listet.
 3. Eine Suche nach Ungewöhnlichem: kleine Clubs und Bars mit Live-Musik, Kulturzentren, Märkte, Workshops, Open-Air, Meetups/Luma (Tech), Resident Advisor, Time Out, lokale Blogs.`}
 Verschiedene Quellen: höchstens 2 Events aus derselben Website; insgesamt mindestens 4 verschiedene Quellen, wenn möglich.
-Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bekannt + Geheimtipp), sortiert nach Datum. Markiere Geheimtipps mit geheimtipp=true. Im Feld warum: konkret, warum es zu SEINEN Vorlieben passt. Nur echte Events aus den Suchergebnissen, keine erfundenen Daten oder Links. Texte auf Deutsch, kurz.`;
+Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bekannt + Geheimtipp), sortiert nach Datum. Markiere Geheimtipps mit geheimtipp=true. Im Feld warum: konkret, warum es zu SEINEN Vorlieben passt. Gib bei jedem Event den Veranstaltungsort (ort) und wenn möglich die Adresse (adresse) an, damit Mateo den Weg findet. Nur echte Events aus den Suchergebnissen, keine erfundenen Daten oder Links. Texte auf Deutsch, kurz.`;
   const tool = { ...EVENT_TOOL, input_schema: JSON.parse(JSON.stringify(EVENT_TOOL.input_schema)) };
   tool.input_schema.properties.events.items.properties.geheimtipp = { type: 'boolean', description: 'true = eher unbekannt/ungewöhnlich' };
   const input = await searchWithTool({ system, user: `Anfrage: ${query} (Stadt: ${city})`, tool, maxUses: 3, label: 'Events suchen', city });
@@ -233,6 +234,7 @@ Dann rufe "events_zeigen" auf: 6 bis 10 konkrete Events mit Datum, gemischt (bek
     date: okDate(e.datum),
     time: /^\d{1,2}:\d{2}$/.test(e.uhrzeit || '') ? e.uhrzeit.padStart(5, '0') : '',
     place: e.ort || '',
+    address: e.adresse || '',
     price: e.preis || '',
     category: e.kategorie || '',
     why: e.warum || '',
@@ -463,4 +465,5 @@ export async function parseEventText(s, text, city = '') {
   try { return await searchWithTool({ ...base, fetch: true }); } catch { return searchWithTool(base); }
 }
 // v1.12: Weg zu einem Event/Ort (Google Maps Routenplaner mit Ziel = Ort + Stadt)
+export const eventDest = (e) => [e.place || e.name, e.address && !String(e.place || '').includes(e.address) ? e.address : ''].filter(Boolean).join(', ');
 export const routeUrl = (place, city = HOME_CITY) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([place, city && !String(place).toLowerCase().includes(String(city).toLowerCase()) ? city : ''].filter(Boolean).join(', '))}`;

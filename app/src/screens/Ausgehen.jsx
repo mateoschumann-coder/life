@@ -4,7 +4,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addPlaceCat, addTask, archiveEvent, archivePlace, restoreEvent, restorePlace, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
 import {
-  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText, routeUrl,
+  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText, routeUrl, eventDest,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
@@ -266,7 +266,7 @@ function Events({ s, city, view = 'find' }) {
     setSearch(next);
   };
   const take = (r, stage) => {
-    addEvent({ name: r.name, date: r.date, place: r.place, stage, url: r.url, time: r.time, price: r.price, note: r.why, city: resCity === HOME_CITY ? '' : resCity });
+    addEvent({ name: r.name, date: r.date, place: r.place, address: r.address, stage, url: r.url, time: r.time, price: r.price, note: r.why, city: resCity === HOME_CITY ? '' : resCity });
     if (r.date) addTask({ title: `${stage === 'zugesagt' ? '' : 'Vielleicht: '}${r.name}`, areaId: 'erlebnisse', due: r.date, time: r.time || null, url: r.url || null });
     mark(r.id, stage);
     toast(stage === 'zugesagt' ? 'Zugesagt und im Kalender' : 'Gemerkt' + (r.date ? ' und am Tag eingetragen' : ''));
@@ -332,6 +332,7 @@ function Events({ s, city, view = 'find' }) {
                 <div className="row-main" style={{ gap: 3 }}>
                   <span style={{ fontSize: 16, fontWeight: 650, lineHeight: 1.3 }}>{r.name}</span>
                   <span className="tiny">{[r.time, r.place, r.price, r.source].filter(Boolean).join(' · ')}</span>
+                  {r.address && <span className="tiny">📍 {r.address}</span>}
                   {r.why && <span style={{ fontSize: 14.5, lineHeight: 1.4, color: 'var(--muted)' }}>{r.tip && <b className="tip-badge">Geheimtipp</b>}{r.why}</span>}
                 </div>
                 <button type="button" className="x-btn" aria-label={`${r.name} ausblenden`} onClick={() => mark(r.id, 'weg')}><Icon name="x" size={12} color="var(--chev)" /></button>
@@ -339,7 +340,7 @@ function Events({ s, city, view = 'find' }) {
               <div className="nudge-actions" style={{ paddingLeft: 56 }}>
                 <button type="button" className="pill on" onClick={() => take(r, 'interessiert')}>Interessiert</button>
                 <button type="button" className="pill" onClick={() => take(r, 'zugesagt')}>Bin dabei</button>
-                {r.place && <a className="pill" href={routeUrl(r.place, resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>🧭</a>}
+                <a className="pill" href={routeUrl(eventDest(r), resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>🧭 Weg</a>
                 {r.url && <a className="pill" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} auf ${r.source || 'der Website'} öffnen`}><Icon name="link" size={14} /></a>}
               </div>
             </article>
@@ -361,7 +362,7 @@ function Events({ s, city, view = 'find' }) {
                 {e.url ? <a className="row-title plain" href={e.url} target="_blank" rel="noreferrer">{e.name}</a> : <span className="row-title plain">{e.name}</span>}
                 <span className="row-meta">{[e.stage === 'zugesagt' ? 'Dabei' : e.stage === 'interessiert' ? 'Interessiert' : 'Entdeckt', e.time, e.place].filter(Boolean).join(' · ')}</span>
               </div>
-              {e.place && <a className="pill" href={routeUrl(e.place, eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>🧭</a>}
+              <a className="pill" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>🧭</a>
               {e.stage !== 'zugesagt' && <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>}
               <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
             </div>

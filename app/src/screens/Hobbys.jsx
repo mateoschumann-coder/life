@@ -19,7 +19,7 @@ function HobbyList({ s }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/freizeit" label="Freizeit und Erlebnisse" />
+          <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Hobbys</h1>
             {s.hobbies.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}

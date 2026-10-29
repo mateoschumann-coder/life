@@ -9,12 +9,18 @@ const SOZIAL = [
   { id: 'menschen', name: 'Menschen', icon: 'users', href: '#/menschen' },
   { id: 'ausgehen', name: 'Ausgehen', icon: 'calendar', href: '#/ausgehen' },
 ];
+// v1.13 (Mateo): Hobbys und Reisen als eigene Kacheln statt „Freizeit und Erlebnisse“, nach Finanzen
+const FREIZEIT = [
+  { id: 'hobbys', name: 'Hobbys', icon: 'play', href: '#/hobbys' },
+  { id: 'reisen', name: 'Reisen', icon: 'plane', href: '#/reisen' },
+];
 const SHORT = { koerper: 'Gesundheit', freizeit: 'Freizeit', karriere: 'Karriere', informiert: 'Informiert bleiben' };
 const SUB = {
   koerper: 'Sport · Küche · Vorsorge',
   mental: 'Bücher · Podcasts',
   zuhause: 'Haushalt · Kleidung',
-  freizeit: 'Hobbys · Reisen',
+  hobbys: 'To-dos · Material',
+  reisen: 'Reisen · Ideen',
   finanzen: 'Märkte · Rechner',
   events: 'Eigene & Einladungen',
   menschen: 'Kontakte · Geburtstage',
@@ -34,7 +40,8 @@ export default function Bereiche() {
           <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a>
         </div>
         {s.pillars.map((p) => {
-          const rows = p.id === 'sozial' ? SOZIAL : s.areas.filter((a) => a.pillarId === p.id).map((a) => ({ id: a.id, name: a.name, icon: a.icon, href: DIRECT[a.id] || `#/bereich/${a.id}` }));
+          let rows = p.id === 'sozial' ? SOZIAL : s.areas.filter((a) => a.pillarId === p.id).map((a) => ({ id: a.id, name: a.name, icon: a.icon, href: DIRECT[a.id] || `#/bereich/${a.id}` }));
+          if (rows.some((r) => r.id === 'freizeit')) rows = [...rows.filter((r) => r.id !== 'freizeit'), ...FREIZEIT];
           return (
             <section key={p.id} className="pillar-sec" style={{ '--pc': p.color }}>
               <a href={`#/saeule/${p.id}`} className="pillar-head">
