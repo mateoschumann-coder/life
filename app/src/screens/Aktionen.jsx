@@ -114,7 +114,7 @@ export default function Aktionen() {
           );
         })()}
       </Sheet>
-      {!pick && <SortDone hint="Ziehen = verschieben · Antippen = austauschen" />}
+      <SortDone hidden={!!pick} hint="Ziehen = verschieben · Antippen = austauschen" />
       <TabBar active="los" />
     </>
   );

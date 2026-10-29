@@ -17,10 +17,10 @@ export function useEditing() {
 
 // „Fertig“-Leiste – einmal pro Seite einbauen
 export const startEditing = () => setEditing(true);
-export function SortDone({ hint = 'Ziehen zum Verschieben' }) {
+export function SortDone({ hint = 'Ziehen zum Verschieben', hidden = false }) {
   const on = useEditing();
   useEffect(() => () => setEditing(false), []);
-  if (!on) return null;
+  if (!on || hidden) return null;
   return createPortal(
     <div className="sort-done">
       <span>{hint}</span>
