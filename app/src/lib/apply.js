@@ -3,7 +3,7 @@ import { fmtShort, today } from './dates';
 import { areaOf, subOf } from './logic';
 import { addBlocks, makeBlock } from './blocks';
 import {
-  addMemory, addPlace, updatePlace, addSub, deleteTask, updateProject, addTopic,
+  addMemory, addPersonDate, addPlace, updatePlace, addSub, deleteTask, updateProject, addTopic,
   addEvent, addHabit, addWish, addProject, addRadarItem, addResource, addTask, logActivity, logContact, savePerson, toggleCheckin, updateTask,
 } from './actions';
 import { store } from './store';
@@ -75,7 +75,7 @@ export function describe(s, raw) {
   const person = a.person_id && s.people.find((x) => x.id === a.person_id);
   switch (a.typ) {
     case 'aufgabe_anlegen':
-      return { ok: !!a.titel, label: join(`${a.idee ? 'Idee' : 'Aufgabe'}: ${a.titel}`, where(s, a), a.faellig && `fällig ${date(a.faellig)}${/^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? `, ${a.uhrzeit} Uhr` : ''}`) };
+      return { ok: !!a.titel, label: join(`${a.idee ? 'Idee' : 'Aufgabe'}: ${a.titel}`, person && `mit ${person.name}`, where(s, a), a.faellig && `fällig ${date(a.faellig)}${/^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? `, ${a.uhrzeit} Uhr` : ''}`) };
     case 'aufgabe_erledigen':
       return { ok: !!task, label: `Erledigt: ${task?.title || 'unbekannte Aufgabe'}` };
     case 'aufgabe_aendern':
@@ -132,6 +132,8 @@ export function describe(s, raw) {
       return { ok: !!a.titel && !!a.hobby, label: join(`${a.hobby}: ${a.titel}`, a.hobby_art) };
     case 'reise_anlegen':
       return { ok: !!a.name, label: join(`Reise: ${a.name}`, isDate(a.datum) && date(a.datum), isDate(a.bis_datum) && `bis ${date(a.bis_datum)}`) };
+    case 'person_termin':
+      return { ok: !!person && !!a.titel, label: join(`Bei ${person?.name || a.person_id || '?'} vermerken: ${a.titel}`, isDate(a.datum) && date(a.datum), isDate(a.bis_datum) && `bis ${date(a.bis_datum)}`) };
     case 'eintrag_verschieben': {
       const src = moveSource(s, a);
       return { ok: !!src && a.von !== a.nach && !!MOVE_LABEL[a.nach], label: src ? `Umziehen: „${src.name}“ von ${MOVE_LABEL[a.von] || a.von} nach ${MOVE_LABEL[a.nach] || a.nach}` : `Umziehen: „${a.name}“ nicht gefunden` };
@@ -181,7 +183,9 @@ export function applyAction(s, raw) {
   const d = (x) => (isDate(x) ? x : null);
   switch (a.typ) {
     case 'aufgabe_anlegen':
-      return addTask({ title: a.titel, areaId: proj ? null : area, subId: proj ? null : sub, projectId: proj, due: d(a.faellig), time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : null, idea: !!a.idee });
+      return addTask({ title: a.titel, areaId: proj ? null : area, subId: proj ? null : sub, projectId: proj, due: d(a.faellig), time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : null, idea: !!a.idee, personId: s.people.some((x) => x.id === a.person_id) ? a.person_id : null });
+    case 'person_termin':
+      return addPersonDate(a.person_id, { text: a.titel, date: d(a.datum) || '', to: d(a.bis_datum) || '' });
     case 'aufgabe_erledigen':
       return updateTask(a.aufgabe_id, { done: true, doneAt: today() });
     case 'aufgabe_aendern': {

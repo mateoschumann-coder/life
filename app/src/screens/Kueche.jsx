@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import {
-  addRecipe, addShopping, clearBought, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe, cuisinesOf, setCuisines, removeCatalogItem,
+  addRecipe, addShopping, clearBought, clearShopping, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe, cuisinesOf, setCuisines, removeCatalogItem,
   activeListName, shoppingLists, listNameTaken, createShoppingList, addToList, removeFromList, switchShoppingList, renameShoppingList, deleteShoppingList,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
@@ -379,6 +379,7 @@ function Shopping({ s, editor = false }) {
         </button>
         <button type="button" className="chip soft" style={{ minWidth: 0, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => setLists(true)} aria-label="Gespeicherte Listen">📋 {activeListName(s)} ▾</button>
         {open.length > 0 && <button type="button" className="chip soft" style={{ flexShrink: 0, padding: '6px 10px' }} onClick={() => setSaveAs(true)} aria-label="Als Liste speichern" title="Als Liste speichern">💾</button>}
+        {s.shopping.items.length > 0 && <button type="button" className="chip soft" style={{ flexShrink: 0, padding: '6px 10px' }} onClick={() => { if (confirm(`Alle ${s.shopping.items.length} Artikel von „${activeListName(s)}“ löschen?`)) { clearShopping(); toast('Liste geleert'); } }} aria-label="Liste leeren" title="Liste leeren">🗑</button>}
       </div>}
       {!editor && <ListsSheet s={s} open={lists} onClose={() => setLists(false)} onEdit={(id) => { setLists(false); setEditList(id); }} />}
       {editList && <ListEditor s={s} listId={editList} onClose={() => setEditList(null)} />}

@@ -5,7 +5,7 @@ import { addDays, diffDays, dueText, fmtLong, parseKey, relDays, startOfWeek, ta
 import {
   allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink,
 } from '../lib/logic';
-import { addTask, logContact, toggleCheckin, toggleTask } from '../lib/actions';
+import { addTask, logContact, toggleCheckin, toggleTask, deleteTask } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast, TopActions } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
@@ -129,6 +129,9 @@ export default function Heute() {
   const isToday = day === t;
   const pillarColor = (areaId) => pillarOf(s, areaOf(s, areaId)?.pillarId)?.color || 'var(--accent)';
 
+  // v1.27 (Mateo): Aufgaben (auch überfällige) direkt löschen; Aufgaben zu einer Person zeigen den Namen
+  const personTag = (x) => { const p = x.personId && s.people.find((q) => q.id === x.personId); return p ? `👤 ${p.name}` : ''; };
+  const delTask = (x) => { if (confirm(`„${x.title}“ löschen?`)) { deleteTask(x.id); toast('Gelöscht'); } };
   // ---------- Einträge für den gewählten Tag ----------
   const dayItems = (key) => {
     const list = [];
@@ -138,8 +141,8 @@ export default function Heute() {
         const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
         const areaId = proj ? proj.areaId : x.areaId;
         list.push({
-          key: 't' + x.id, done: x.done, onCheck: () => toggleTask(x.id), title: x.title, time: x.time, url: x.url,
-          color: pillarColor(areaId), meta: proj ? proj.name : areaOf(s, areaId)?.name || 'Aufgabe',
+          key: 't' + x.id, done: x.done, onCheck: () => toggleTask(x.id), title: x.title, time: x.time, url: x.url, onDelete: () => delTask(x),
+          color: pillarColor(areaId), meta: personTag(x) || (proj ? proj.name : areaOf(s, areaId)?.name || 'Aufgabe'),
         });
       });
     s.events
@@ -170,7 +173,7 @@ export default function Heute() {
       .filter((x) => !x.idea && !x.done && x.due && x.due < t)
       .forEach((x) => {
         const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
-        extra.push({ key: 't' + x.id, done: false, onCheck: () => toggleTask(x.id), title: x.title, color: pillarColor(proj ? proj.areaId : x.areaId), meta: `überfällig · ${dueText(x.due, t)}`, overdue: true });
+        extra.push({ key: 't' + x.id, done: false, onCheck: () => toggleTask(x.id), onDelete: () => delTask(x), title: x.title, color: pillarColor(proj ? proj.areaId : x.areaId), meta: `überfällig · ${dueText(x.due, t)}${personTag(x) ? ` · ${personTag(x)}` : ''}`, overdue: true });
       });
     (s.reminders || [])
       .filter((r) => r.next < t)
@@ -218,6 +221,7 @@ export default function Heute() {
       {i.wa && !i.done && <a className="pill" href={i.wa} target="_blank" rel="noreferrer">WhatsApp</a>}
       {i.url && !i.done && <a className="pill" href={i.url} target="_blank" rel="noreferrer" aria-label={`Link zu ${i.title} öffnen`}><Icon name="link" size={14} /></a>}
       {i.time && <span className="row-side" style={{ fontSize: 14 }}>{i.time}</span>}
+      {i.onDelete && <button type="button" className="x-btn" onClick={i.onDelete} aria-label={`${i.title} löschen`}><Icon name="x" size={12} color="var(--chev)" /></button>}
     </div>
   );
 

@@ -5,12 +5,29 @@ import { today } from './dates';
 const now = () => new Date().toISOString();
 
 // Aufgaben
-export function addTask({ title, areaId = null, subId = null, projectId = null, due = null, time = null, idea = false, url = null }) {
+export function addTask({ title, areaId = null, subId = null, projectId = null, due = null, time = null, idea = false, url = null, personId = null }) {
   if (!title.trim()) return;
+  const id = uid();
   store.update((s) => {
-    s.tasks.push({ id: uid(), title: title.trim(), areaId, subId, projectId, due, time, idea, url: url || undefined, done: false, doneAt: null, createdAt: now() });
+    s.tasks.push({ id, title: title.trim(), areaId, subId, projectId, due, time, idea, url: url || undefined, ...(personId ? { personId } : {}), done: false, doneAt: null, createdAt: now() });
   });
+  return id;
 }
+// v1.27 (Mateo): Termine/Infos zu einer Person (z.B. „reist nach Italien“ 10.–24.11.) – im Profil
+export function addPersonDate(personId, { text, date = '', to = '' }) {
+  const t = String(text || '').trim();
+  if (!t) return null;
+  const id = uid();
+  store.update((s) => {
+    const p = s.people.find((x) => x.id === personId);
+    if (p) p.dates = [...(p.dates || []), { id, text: t, date: date || '', to: to && to !== date ? to : '' }];
+  });
+  return id;
+}
+export const removePersonDate = (personId, id) => store.update((s) => {
+  const p = s.people.find((x) => x.id === personId);
+  if (p) p.dates = (p.dates || []).filter((d) => d.id !== id);
+});
 // Aus einer Idee ein Projekt machen
 export function ideaToProject(taskId) {
   let id = null;

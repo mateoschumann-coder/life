@@ -428,6 +428,9 @@ export function toggleShopping(id) {
     if (it.done) s.shopping.history[norm(it.name)] = { name: it.name, count: (s.shopping.history[norm(it.name)]?.count || 0) + 1, last: today() };
   });
 }
+export function clearShopping() {
+  store.update((s) => { s.shopping.items = []; });
+}
 export function clearBought() {
   store.update((s) => {
     s.shopping.items = s.shopping.items.filter((x) => !x.done);
