@@ -76,6 +76,7 @@ function Invites({ s, sheet, setSheet }) {
         <span className={x.done ? 'row-title strong done' : 'row-title strong'}>{x.name}</span>
         <span className="row-meta">{[x.host && `von ${x.host}`, x.date ? `${fmtShort(x.date)}${x.time ? `, ${x.time}` : ''}` : 'Datum offen', x.date && x.date >= t && `in ${diffDays(t, x.date)} Tagen`, x.place, x.bring && `🎁 ${x.bring}`, x.guests && `👥 ${x.guests}`].filter(Boolean).join(' · ')}</span>
       </button>
+      {!x.done && x.place && <a className="pill" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(x.place)}`} target="_blank" rel="noreferrer" aria-label={`Weg zu ${x.name}`}>🧭</a>}
       {!x.done && <button type="button" className="pill" style={{ color: INVITE_COLOR[x.status], whiteSpace: 'nowrap' }} onClick={() => updateInvite(x.id, { status: INV_NEXT[x.status] || 'eingeladen' })} aria-label={`Status ${INVITE_STATUS[x.status]}, antippen zum Ändern`}>{INVITE_STATUS[x.status]}</button>}
     </div>
   );

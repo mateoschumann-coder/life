@@ -254,7 +254,7 @@ function CategoryPage({ s, cat }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/saeule/persoenlich" label="Persönlich" />
+          <Back href="#/bereiche" label="Bereiche" />
           <span className="tiny">Lernen & Wissen</span>
           <h1 className="h1">Bibliothek</h1>
         </div>

@@ -56,7 +56,7 @@ export default function Bereich({ id }) {
       <>
         <main className="screen">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <Back href={`#/saeule/${pillar.id}`} label={pillar.name} />
+            <Back href="#/bereiche" label="Bereiche" />
             <div className="title-row">
               <AreaIcon icon={area.icon} color={pillar.color} size={40} />
               <h1 className="h1 sm">{area.name}</h1>
@@ -84,7 +84,7 @@ export default function Bereich({ id }) {
       <>
         <main className="screen">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <Back href={`#/saeule/${pillar.id}`} label={pillar.name} />
+            <Back href="#/bereiche" label="Bereiche" />
             <div className="title-row">
               <AreaIcon icon={area.icon} color={pillar.color} size={40} />
               <h1 className="h1 sm">{area.name}</h1>
@@ -123,7 +123,7 @@ export default function Bereich({ id }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href={`#/saeule/${pillar.id}`} label={pillar.name} />
+          <Back href="#/bereiche" label="Bereiche" />
           <div className="title-row">
             <AreaIcon icon={area.icon} color={pillar.color} size={40} />
             <h1 className="h1 sm">{area.name}</h1>

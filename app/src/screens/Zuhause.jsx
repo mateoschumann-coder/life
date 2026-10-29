@@ -337,7 +337,7 @@ export default function Zuhause({ tab = 'allgemein' }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/saeule/persoenlich" label="Persönlich" />
+          <Back href="#/bereiche" label="Bereiche" />
           <h1 className="h1">Zuhause</h1>
         </div>
         <Segmented full options={TABS} value={current} onChange={(v) => go(`/zuhause/${v}`)} label="Ansicht" />

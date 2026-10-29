@@ -462,3 +462,5 @@ export async function parseEventText(s, text, city = '') {
   if (!hasUrl) return searchWithTool(base);
   try { return await searchWithTool({ ...base, fetch: true }); } catch { return searchWithTool(base); }
 }
+// v1.12: Weg zu einem Event/Ort (Google Maps Routenplaner mit Ziel = Ort + Stadt)
+export const routeUrl = (place, city = HOME_CITY) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([place, city && !String(place).toLowerCase().includes(String(city).toLowerCase()) ? city : ''].filter(Boolean).join(', '))}`;

@@ -9,16 +9,17 @@ const SOZIAL = [
   { id: 'menschen', name: 'Menschen', icon: 'users', href: '#/menschen' },
   { id: 'ausgehen', name: 'Ausgehen', icon: 'calendar', href: '#/ausgehen' },
 ];
+const SHORT = { koerper: 'Gesundheit', freizeit: 'Freizeit', karriere: 'Karriere', informiert: 'Informiert bleiben' };
 const SUB = {
   koerper: 'Sport · Küche · Vorsorge',
-  mental: 'Bücher · Podcasts · Videos',
-  zuhause: 'Haushalt · Einrichtung · Kleidung',
+  mental: 'Bücher · Podcasts',
+  zuhause: 'Haushalt · Kleidung',
   freizeit: 'Hobbys · Reisen',
   finanzen: 'Märkte · Rechner',
   events: 'Eigene & Einladungen',
   menschen: 'Kontakte · Geburtstage',
   ausgehen: 'Events · Lieblingsorte',
-  karriere: 'Jobsuche · Eigene Projekte',
+  karriere: 'Jobsuche · Projekte',
   entwicklung: 'Sprachen · Skills',
   informiert: 'Zeitungen · Quellen',
 };
@@ -44,8 +45,8 @@ export default function Bereiche() {
               <div className="area-grid">
                 {rows.map((r) => (
                   <a key={r.id} href={r.href} className="area-tile">
-                    <AreaIcon icon={r.icon} color={p.color} size={38} />
-                    <span className="area-tile-name">{r.name}</span>
+                    <AreaIcon icon={r.icon} color={p.color} size={30} />
+                    <span className="area-tile-name" lang="de">{SHORT[r.id] || r.name}</span>
                     {SUB[r.id] && <span className="area-tile-sub">{SUB[r.id]}</span>}
                   </a>
                 ))}

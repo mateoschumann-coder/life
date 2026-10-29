@@ -25,7 +25,7 @@ function SkillList({ s }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/saeule/professionell" label="Professionell" />
+          <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Weiterentwicklung</h1>
             {skills.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}

@@ -230,7 +230,7 @@ export default function News() {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/saeule/professionell" label="Professionell" />
+          <Back href="#/bereiche" label="Bereiche" />
           <h1 className="h1">Informiert bleiben</h1>
         </div>
         <div className="box-tabs main-tabs">

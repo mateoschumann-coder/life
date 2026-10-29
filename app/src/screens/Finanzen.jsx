@@ -437,7 +437,7 @@ export default function Finanzen() {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/saeule/persoenlich" label="Persönlich" />
+          <Back href="#/bereiche" label="Bereiche" />
           <h1 className="h1">Finanzen</h1>
         </div>
         <Segmented full options={FTABS} value={tab} onChange={setTab} label="Ansicht" />

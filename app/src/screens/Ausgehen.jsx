@@ -4,7 +4,7 @@ import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, today } from '../lib/dates';
 import { addEvent, addPlace, addPlaceCat, addTask, archiveEvent, archivePlace, restoreEvent, restorePlace, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
 import {
-  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText,
+  allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText, routeUrl,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
@@ -196,6 +196,7 @@ function EventSheet({ init, city, onClose }) {
         <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} style={{ maxWidth: 120 }} /></Field>
       </div>
       <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => set({ place: e.target.value })} placeholder="Ort / Adresse" /></Field>
+      {f.place.trim() && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} href={routeUrl(f.place, city)} target="_blank" rel="noreferrer">🧭 Weg dorthin (Google Maps) ↗</a>}
       <Field label="Preis"><input className="input" value={f.price} onChange={(e) => set({ price: e.target.value })} placeholder="z.B. 15.000 ARS" /></Field>
       <Field label="Link"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Tickets / Instagram …" /></Field>
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} /></Field>
@@ -338,6 +339,7 @@ function Events({ s, city, view = 'find' }) {
               <div className="nudge-actions" style={{ paddingLeft: 56 }}>
                 <button type="button" className="pill on" onClick={() => take(r, 'interessiert')}>Interessiert</button>
                 <button type="button" className="pill" onClick={() => take(r, 'zugesagt')}>Bin dabei</button>
+                {r.place && <a className="pill" href={routeUrl(r.place, resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>🧭</a>}
                 {r.url && <a className="pill" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} auf ${r.source || 'der Website'} öffnen`}><Icon name="link" size={14} /></a>}
               </div>
             </article>
@@ -359,6 +361,7 @@ function Events({ s, city, view = 'find' }) {
                 {e.url ? <a className="row-title plain" href={e.url} target="_blank" rel="noreferrer">{e.name}</a> : <span className="row-title plain">{e.name}</span>}
                 <span className="row-meta">{[e.stage === 'zugesagt' ? 'Dabei' : e.stage === 'interessiert' ? 'Interessiert' : 'Entdeckt', e.time, e.place].filter(Boolean).join(' · ')}</span>
               </div>
+              {e.place && <a className="pill" href={routeUrl(e.place, eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>🧭</a>}
               {e.stage !== 'zugesagt' && <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>}
               <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
             </div>
