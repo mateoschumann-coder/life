@@ -15,7 +15,7 @@ import { getAi } from '../lib/ai';
 import { cityHere, searchWithTool } from '../lib/outings';
 import MiniChart from '../components/MiniChart';
 import PaceCalc from '../components/PaceCalc';
-import RemovedList from '../components/RemovedList';
+import { RemovedButton } from '../components/RemovedList';
 import { archiveSportEvent, restoreSportEvent } from '../lib/actions';
 import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 import { Missing } from './Saeule';
@@ -311,7 +311,7 @@ function SportsPage({ s }) {
 
         {tab === 'meine' && <>
         {/* v0.98 (Mateo): „+ Event notieren“ hier unten statt oben rechts, mit KI-Ausfüllen */}
-        {!adding && <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>+ Event notieren</button>}
+        {!adding && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button type="button" className="btn tint small" onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>+ Event notieren</button><span style={{ marginLeft: 'auto' }} /><RemovedButton items={(s.removedSportEvents || []).filter((e) => !pick.length || pick.includes(e.sportId))} storeKey="removedSportEvents" onRestore={restoreSportEvent} meta={(e) => [e.date && fmtShort(e.date), e.place, s.sports.find((x) => x.id === e.sportId)?.name].filter(Boolean).join(' · ')} /></div>}
         {adding && (
           <form className="card" style={{ gap: 8 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f })) toast('Notiert'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
             <div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}</div>
@@ -362,7 +362,6 @@ function SportsPage({ s }) {
             ))}</div>}
           </section>
         )}
-        <RemovedList items={(s.removedSportEvents || []).filter((e) => !pick.length || pick.includes(e.sportId))} storeKey="removedSportEvents" onRestore={restoreSportEvent} meta={(e) => [e.date && fmtShort(e.date), e.place, s.sports.find((x) => x.id === e.sportId)?.name].filter(Boolean).join(' · ')} />
         </>}
         {tab === 'rechner' && (
           <section className="card" style={{ gap: 10 }}>

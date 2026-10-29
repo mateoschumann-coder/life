@@ -30,6 +30,7 @@ import Hobbys from './screens/Hobbys';
 import Reisen from './screens/Reisen';
 import Treffen from './screens/Treffen';
 import FloatingAssistant from './components/FloatingAssistant';
+import QuickTask from './components/QuickTask';
 
 export default function App() {
   const [page, a, b] = useRoute();
@@ -71,6 +72,7 @@ export default function App() {
     <div className="app">
       {screen}
       {page !== 'assistent' && !(page === 'reisen' && a) && <FloatingAssistant />}
+      <QuickTask />
       <Toaster />
     </div>
   );

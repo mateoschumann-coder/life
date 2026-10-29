@@ -10,7 +10,7 @@ import LinkList from '../components/LinkList';
 import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
-import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
+import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info, TopActions } from '../components/ui';
 import RemovedList, { RemovedButton } from '../components/RemovedList';
 import { fromHeute } from '../lib/router';
 
@@ -739,7 +739,10 @@ function Orte({ s, city, view = 'mine' }) {
   return (
     <>
       {view === 'mine' && (<>
-      <input className="input small-input" type="search" value={mq} onChange={(e) => setMq(e.target.value)} placeholder={`🔎 Suchen in ${here.length} Orten`} aria-label="Meine Orte durchsuchen" />
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input className="input small-input" style={{ flex: 1, minWidth: 0 }} type="search" value={mq} onChange={(e) => setMq(e.target.value)} placeholder={`🔎 Suchen in ${here.length} Orten`} aria-label="Meine Orte durchsuchen" />
+        <RemovedButton items={(s.removedPlaces || []).filter((p) => placeCity(p) === city)} storeKey="removedPlaces" onRestore={restorePlace} meta={(p) => [p.subcat || p.category, p.hood].filter(Boolean).join(' · ')} />
+      </div>
       {/* v0.66 (Mateo): kompakt – vier Filter-Knöpfe, jeder öffnet eine Auswahl (mehrere möglich) */}
       <div className="filter-row">
         <button type="button" className={hoodSel.length ? 'chip on' : 'chip soft'} onClick={() => setFsheet('viertel')}>🏘 {label('Viertel', hoodSel)}</button>
@@ -790,7 +793,6 @@ function Orte({ s, city, view = 'mine' }) {
         </section>
       ))}
 
-      <RemovedList items={(s.removedPlaces || []).filter((p) => placeCity(p) === city)} storeKey="removedPlaces" onRestore={restorePlace} meta={(p) => [p.subcat || p.category, p.hood].filter(Boolean).join(' · ')} />
       </>)}
       {view === 'find' && <section className="card" style={{ gap: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Orte in {city} entdecken</span>
@@ -904,9 +906,9 @@ export default function Ausgehen() {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {fromHeute() && <Back href="#/heute" label="Heute" />}
+          {fromHeute() && <Back href="#/heute" label="Heute" actions={false} />}
           <span className="eyebrow">{soon.length ? `Diese Woche: ${soon.map((e) => `${e.name} (${fmtShort(e.date)})`).join(', ')}` : 'Events und Lieblingsorte'}</span>
-          <div className="top" style={{ padding: 0 }}><h1 className="h1">Ausgehen</h1><a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a></div>
+          <div className="top" style={{ padding: 0 }}><h1 className="h1">Ausgehen</h1><TopActions /></div>
         </div>
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
         {/* v0.96 (Mateo): Umschalter und Stadt in EINER Zeile */}

@@ -117,13 +117,26 @@ export function TabBar({ active }) {
   );
 }
 
-export function Back({ href, label }) {
+export function Back({ href, label, actions = true }) {
   if (fromHeute()) { href = '#/heute'; label = 'Heute'; }
-  return (
+  const link = (
     <a href={href} className="back">
       <Icon name="back" size={22} width={2.4} />
       {label}
     </a>
+  );
+  if (!actions) return link;
+  return <div className="back-row">{link}<TopActions /></div>;
+}
+
+// v1.22 (Mateo): oben rechts auf jeder Seite „＋ Aufgabe“ + Einstellungen
+export function TopActions() {
+  const onSettings = typeof location !== 'undefined' && location.hash.startsWith('#/einstellungen');
+  return (
+    <div className="top-actions">
+      <button type="button" className="add-task-btn" onClick={() => window.dispatchEvent(new Event('life-quick-task'))}>＋ Aufgabe</button>
+      {!onSettings && <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a>}
+    </div>
   );
 }
 

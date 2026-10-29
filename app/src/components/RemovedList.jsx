@@ -39,7 +39,10 @@ export function RemovedButton({ items, storeKey, onRestore, meta, label = 'Rausg
   if (!items.length) return null;
   return (
     <>
-      <button type="button" className="removed-btn" onClick={() => setOpen(true)} aria-label={`${label} (${items.length}) anzeigen`}>🗑 {items.length}</button>
+      <button type="button" className="removed-btn" onClick={() => setOpen(true)} aria-label={`${label} (${items.length}) anzeigen`} title={label}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5" /><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9" /><path d="M10 13h4" /></svg>
+        {items.length}
+      </button>
       <Sheet open={open} title={`${label} (${items.length})`} onClose={() => setOpen(false)}>
         <Rows items={items} storeKey={storeKey} onRestore={onRestore} meta={meta} />
       </Sheet>

@@ -45,7 +45,7 @@ export default function Assistent() {
   return (
     <div className="chat">
       <header className="chat-head">
-        <Back href="#/heute" label="Heute" />
+        <Back href="#/heute" label="Heute" actions={false} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{ fontSize: 17, fontWeight: 600 }}>Assistent</span>
           <span className="tiny">trägt ein, du bestätigst</span>

@@ -5,7 +5,7 @@ import { store, useStore } from '../lib/store';
 import { daysUntilBirthday, diffDays, fmtShort, relDays, targetText, today } from '../lib/dates';
 import { contactDue, initials, lastContact, peopleOverdue, upcomingBirthdays, waLink, WHEN_IN_MONTH } from '../lib/logic';
 import { logContact } from '../lib/actions';
-import { Back, Check, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Icon, Info, Segmented, Sheet, TabBar, toast, TopActions } from '../components/ui';
 import { fromHeute } from '../lib/router';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 import ContactImport from '../components/ContactImport';
@@ -299,10 +299,10 @@ export default function Menschen() {
   return (
     <>
       <main className="screen">
-        {fromHeute() && <Back href="#/heute" label="Heute" />}
+        {fromHeute() && <Back href="#/heute" label="Heute" actions={false} />}
         <div className="top">
           <h1 className="h1">Menschen</h1>
-          <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a>
+          <TopActions />
         </div>
         <Segmented full options={[{ id: 'liste', label: `Liste · ${s.people.length}` }, { id: 'kontakt', label: `Im Kontakt bleiben${dueN ? ` · ${dueN}` : ''}` }]} value={tab} onChange={setTab} label="Ansicht" />
         {tab === 'liste' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

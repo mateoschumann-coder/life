@@ -1,7 +1,7 @@
 // v1.14 (Mateo): auf die wichtigsten 6 pro Teil beschränkt
 // v1.08 (Mateo): Zentrale Stelle – jede Aktion mit einem Tipp direkt auf der richtigen Seite (Knopf in der Mitte der Tab-Leiste)
 import { go } from '../lib/router';
-import { Icon, TabBar } from '../components/ui';
+import { Icon, TabBar, TopActions } from '../components/ui';
 
 const ls = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const ss = (k, v) => { try { sessionStorage.setItem(k, v); } catch {} };
@@ -39,7 +39,7 @@ export default function Aktionen() {
   return (
     <>
       <main className="screen" style={{ gap: 14 }}>
-        <div className="top"><h1 className="h1 sm">Was möchtest du tun?</h1><a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a></div>
+        <div className="top"><h1 className="h1 sm">Was möchtest du tun?</h1><TopActions /></div>
         {ACTIONS.map((g) => (
           <section key={g.id} className="group act-group">
             <h2 className="label" style={{ padding: '0 4px' }}>{g.title}</h2>

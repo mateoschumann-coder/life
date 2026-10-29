@@ -293,7 +293,7 @@ export default function Vorsorge() {
   const sortD = (a, b) => ((a.date || '9') < (b.date || '9') ? -1 : 1);
   const terms = items.filter((h) => h.type === 'termin' && h.status !== 'erledigt').sort(sortD);
   const routines = items.filter((h) => h.type === 'routine').sort(sortD);
-  const done = items.filter((h) => h.type === 'termin' && h.status === 'erledigt').slice(-5).reverse();
+  const done = items.filter((h) => h.type === 'termin' && h.status === 'erledigt').slice(-15).reverse();
   const nOrte = bookOf(s, 'vorsorge').items.length;
   const isR = view === 'routine';
 
@@ -329,7 +329,13 @@ export default function Vorsorge() {
             <section className="group">
               <div className="sec-h"><h2 className="label" style={{ padding: 0 }}>Erledigt</h2></div>
               <div className="list">
-                {done.map((h) => <div key={h.id} className="row compact"><span className="row-main"><span className="row-title plain done">{h.title}</span><span className="row-meta">{h.date && fmtShort(h.date)}</span></span></div>)}
+                {done.map((h) => (
+                  <div key={h.id} className="row compact">
+                    <span className="row-main"><span className="row-title plain done">{h.title}</span><span className="row-meta">{[h.date && fmtShort(h.date), h.time && `${h.time} Uhr`].filter(Boolean).join(' · ')}</span></span>
+                    <button type="button" className="pill" onClick={() => { updateHealthItem(h.id, { status: 'offen' }); toast('Wieder offen – steht oben bei den Terminen'); }} aria-label={`${h.title} wieder öffnen`}>↩</button>
+                    <button type="button" className="pill" style={{ color: 'var(--danger)' }} aria-label={`${h.title} löschen`} onClick={() => { if (confirm(`„${h.title}“ löschen?`)) { deleteHealthItem(h.id); toast('Gelöscht'); } }}>✕</button>
+                  </div>
+                ))}
               </div>
             </section>
           )}

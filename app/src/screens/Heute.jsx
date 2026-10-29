@@ -7,7 +7,7 @@ import {
 } from '../lib/logic';
 import { addTask, logContact, toggleCheckin, toggleTask } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
-import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast } from '../components/ui';
+import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast, TopActions } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
 import Overview from '../components/Overview';
 import { doneHealthItem } from '../lib/health';
@@ -225,15 +225,12 @@ export default function Heute() {
     <>
       <main className="screen">
         <div className="top">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span className="eyebrow">{fmtLong(t)}</span>
-            <h1 className="h1 sm">{greeting(s.profile?.name)}</h1>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+            <span className="eyebrow" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmtLong(t)}</span>
+            <h1 className="h1 sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 26 }}>{greeting(s.profile?.name)}</h1>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <a href="#/erfassen" className="icon-btn" aria-label="Schnell erfassen"><Icon name="plus" size={20} width={2.2} /></a>
-            <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen">
-              <Icon name="gear" size={20} width={1.8} />
-            </a>
+                        <TopActions />
           </div>
         </div>
 

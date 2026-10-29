@@ -15,7 +15,7 @@ import { DateRangeField } from '../components/DateRange';
 import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } from '../lib/invites';
 import { Missing } from './Saeule';
-import RemovedList from '../components/RemovedList';
+import { RemovedButton } from '../components/RemovedList';
 import { archiveGathering, archiveInvite, restoreGathering, restoreInvite } from '../lib/actions';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
@@ -99,7 +99,6 @@ function Invites({ s, sheet, setSheet }) {
           {showDone && <div className="list">{done.map((x) => <Row key={x.id} x={x} />)}</div>}
         </>
       )}
-      <RemovedList items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />
       <InviteSheet open={!!sheet} invite={sheet && sheet !== 'neu' ? (s.invites || []).find((x) => x.id === sheet.id) : null} onClose={() => setSheet(null)} />
     </>
   );
@@ -252,7 +251,10 @@ export function EventsList({ s }) {
           <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Sozial</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {tab === 'eigene' ? <RemovedButton items={s.removedGatherings || []} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} /> : <RemovedButton items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />}
             {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>+ Veranstaltung</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
+            </div>
           </div>
         </div>
         <Segmented full options={[{ id: 'eigene', label: 'Eigene' }, { id: 'andere', label: `Von anderen${(s.invites || []).filter((x) => !x.done).length ? ` · ${(s.invites || []).filter((x) => !x.done).length}` : ''}` }]} value={tab} onChange={setTab} label="Art der Events" />
@@ -274,7 +276,6 @@ export function EventsList({ s }) {
             {showDone && <div className="list">{done.map((g) => <Row key={g.id} g={g} />)}</div>}
           </>
         )}
-        <RemovedList items={s.removedGatherings || []} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} />
         </>)}
       </main>
       <Sheet open={open} title="Neues Event" onClose={() => setOpen(false)}>
