@@ -10,7 +10,7 @@ const ss = (k, v) => { try { sessionStorage.setItem(k, v); } catch {} };
 // v1.18 (Mateo): alle drei Teile auf einer Seite, je 6, nichts doppelt
 export const ACTIONS = [
   { id: 'eintragen', title: '✍️ Eintragen', items: [
-    ['✅', 'Aufgabe', () => { ss('life-focus-task', '1'); go('/heute'); }],
+    ['🩺', 'Termin', () => { ss('life-open-new-termin', '1'); ss('life-vorsorge-view', 'termine'); go('/vorsorge'); }],
     ['🛒', 'Einkauf', () => { ls('life-app-kueche-tab', 'einkauf'); go('/kueche'); }],
     ['🎉', 'Veranstal­tung', () => { ls('life-app-sozial-tab', 'eigene'); ss('life-open-new-event', '1'); go('/treffen'); }],
     ['💌', 'Einladung', () => { ls('life-app-sozial-tab', 'andere'); ss('life-open-new-invite', '1'); go('/treffen'); }],
