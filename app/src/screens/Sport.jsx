@@ -1,3 +1,4 @@
+import MicBtn from '../components/MicBtn';
 import AiFill from '../components/AiFill';
 import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
@@ -272,7 +273,7 @@ function SportsPage({ s }) {
             </form>
           )}
           <ModeToggle mode={smode} onChange={setSmode} />
-          <input className="input" value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" />
+          <div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" /><MicBtn value={q} onChange={setQ} /></div>
           {smode === 'links' && <SourceLinks embedded s={s} area="rennen" instant query={[q || 'carreras running', periodWords(period)].filter(Boolean).join(' ')} city={regPick.filter((r) => regions.includes(r)).join(', ')} siteQuery={q} />}
           {smode === 'links' && (
             <div className="take-box">

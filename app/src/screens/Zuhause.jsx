@@ -1,3 +1,4 @@
+import MicBtn from '../components/MicBtn';
 import AiFill from '../components/AiFill';
 import { askDel } from '../lib/undo';
 import { useEffect, useState } from 'react';
@@ -206,7 +207,7 @@ function FindItems({ s, listKey }) {
       {mode === 'links' && <SourceLinks s={s} area={listKey} instant />}
       {mode === 'ki' && <section className="card checkin" style={{ gap: 10 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 16 }}><span className="spark"><Icon name="sparkle" size={14} color="currentColor" /></span>Ideen von der KI</span>
-        <label className="field"><span>Was suchst du? (optional)</span><input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. gemütliche Leselampe'} /></label>
+        <div className="field"><span>Was suchst du? (optional)</span><div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. gemütliche Leselampe'} aria-label="Was suchst du?" /><MicBtn value={q} onChange={setQ} /></div></div>
         <span className="label" style={{ padding: 0 }}>Für welchen Bereich?</span>
         <div className="chips">{l.cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCat(c)}>{c}</button>)}</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

@@ -1,3 +1,4 @@
+import MicBtn from '../components/MicBtn';
 import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { useEffect, useState } from 'react';
@@ -337,6 +338,7 @@ function Events({ s, city, view = 'find' }) {
         <ModeToggle mode={smode} onChange={setSmode} />
         <form onSubmit={(e) => { e.preventDefault(); if (smode === 'ki') run(q); }} style={{ display: 'flex', gap: 8 }}>
           <input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Was ist los in ${city}?`} aria-label="Wonach suchen" />
+          <MicBtn value={q} onChange={setQ} onDone={(t) => { if (smode === 'ki' && hasKey) run(t); }} />
           {smode === 'ki' && <button type="submit" className="btn small" style={{ flexShrink: 0 }} disabled={!q.trim() || !!busy || !hasKey} aria-label="Events suchen">{busy ? '…' : '🔍'}</button>}
         </form>
         <SearchChips s={s} kind="events" scroll defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
@@ -817,6 +819,7 @@ function Orte({ s, city, view = 'mine' }) {
         <ModeToggle mode={pmode} onChange={setPmode} />
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (pmode === 'ki') run(q); }}>
           <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Specialty Coffee in Palermo" aria-label="Orte suchen" />
+          <MicBtn value={q} onChange={setQ} onDone={(t) => { if (pmode === 'ki' && hasKey) run(t); }} />
           {pmode === 'ki' && <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>}
         </form>
         <SearchChips s={s} kind="places" defaults={PLACE_CHIPS} disabled={pmode === 'ki' && (busy || !hasKey)} onPick={(c) => (pmode === 'ki' ? run(c) : setQ(c))} />

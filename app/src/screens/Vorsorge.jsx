@@ -1,3 +1,4 @@
+import MicBtn from '../components/MicBtn';
 import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { useState } from 'react';
@@ -243,7 +244,7 @@ function DoctorFinder({ s, onTermin }) {
     <>
       <section className="card" style={{ gap: 10 }}>
         <ModeToggle mode={mode} onChange={setMode} />
-        <label className="field"><span>Was suchst du?</span><input className="input" value={what} onChange={(e) => setWhat(e.target.value)} placeholder="z.B. Zahnarzt, Physiotherapie" /></label>
+        <div className="field"><span>Was suchst du?</span><div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1, minWidth: 0 }} value={what} onChange={(e) => setWhat(e.target.value)} placeholder="z.B. Zahnarzt, Physiotherapie" aria-label="Was suchst du?" /><MicBtn value={what} onChange={setWhat} /></div></div>
         <div className="chips" style={{ marginTop: -4 }}>{QUICK.map((q) => <button key={q} type="button" className={what === q ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setWhat(q)}>{q}</button>)}</div>
         <label className="field"><span>Wo ungefähr?</span><input className="input" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Viertel, z.B. Palermo" /></label>
         <div className="chips" style={{ marginTop: -4 }}>
@@ -303,6 +304,7 @@ export default function Vorsorge() {
   const s = useStore();
   const t = today();
   const [sheet, setSheet] = useState(() => (takeFlag('life-open-new-termin') ? { type: 'termin' } : null));
+  const [quick, setQuick] = useState(false);
   const [view, setViewState] = useState(() => { try { const v = sessionStorage.getItem('life-vorsorge-view'); return ['termine', 'routine', 'orte'].includes(v) ? v : v === 'finden' ? 'orte' : 'termine'; } catch { return 'termine'; } });
   const setView = (v) => { setViewState(v); try { sessionStorage.setItem('life-vorsorge-view', v); } catch {} };
   const [orteView, setOrteViewS] = useState(() => { try { return localStorage.getItem('life-vorsorge-orte') || 'meine'; } catch { return 'meine'; } });
@@ -334,8 +336,14 @@ export default function Vorsorge() {
         </>)}
 
         {view !== 'orte' && (<>
-          <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setSheet({ type: isR ? 'routine' : 'termin' })}>{isR ? '+ Wiederkehrender Termin' : '+ Termin'}</button>
-          <Presets s={s} items={items} type={isR ? 'routine' : 'termin'} onPick={(x) => setSheet(x)} />
+          {/* v1.31 (Mateo): Schnell hinzufügen nur noch als Knopf neben „+ Termin“ – die Termine stehen direkt oben */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn small" onClick={() => setSheet({ type: isR ? 'routine' : 'termin' })}>{isR ? '+ Wiederkehrender Termin' : '+ Termin'}</button>
+            <button type="button" className="btn small tint" onClick={() => setQuick(true)}>⚡ Schnell</button>
+          </div>
+          <Sheet open={quick} title={isR ? 'Schnell: wiederkehrender Termin' : 'Schnell: Termin'} onClose={() => setQuick(false)}>
+            <Presets s={s} items={items} type={isR ? 'routine' : 'termin'} onPick={(x) => { setQuick(false); setTimeout(() => setSheet(x), 200); }} />
+          </Sheet>
           <section className="group">
             <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>{isR ? 'Wiederkehrende Termine' : 'Anstehende Termine'}</h2></div>
             <div className="list">
@@ -351,7 +359,7 @@ export default function Vorsorge() {
                   <div key={h.id} className="row compact">
                     <span className="row-main"><span className="row-title plain done">{h.title}</span><span className="row-meta">{[h.date && fmtShort(h.date), h.time && `${h.time} Uhr`].filter(Boolean).join(' · ')}</span></span>
                     <button type="button" className="pill" onClick={() => { updateHealthItem(h.id, { status: 'offen' }); toast('Wieder offen – steht oben bei den Terminen'); }} aria-label={`${h.title} wieder öffnen`}>↩</button>
-                    <button type="button" className="pill" style={{ color: 'var(--danger)' }} aria-label={`${h.title} löschen`} onClick={() => { if (askDel(`„${h.title}“ löschen?`)) { deleteHealthItem(h.id); toast('Gelöscht'); } }}>✕</button>
+                    <button type="button" className="pill" style={{ color: 'var(--danger)' }} aria-label={`${h.title} löschen`} onClick={() => { if (askDel(`„${h.title}“ löschen?`)) deleteHealthItem(h.id); }}>✕</button>
                   </div>
                 ))}
               </div>

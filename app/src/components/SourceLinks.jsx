@@ -1,4 +1,5 @@
 // Karte „Meine Seiten“: Suchbegriff eintippen → Seite antippen → öffnet direkt mit der Suche (kostenlos, keine KI)
+import MicBtn from './MicBtn';
 import { useState } from 'react';
 import { addSource, forgetSearch, instaTags, instaUrl, isFixed, isNative, learnSearch, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
 import { getAi } from '../lib/ai';
@@ -63,7 +64,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
           <span style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>🔗 {cfg.title}{cfg.perCity && city ? <span className="tiny" style={{ fontWeight: 500 }}> · {city}</span> : null}</span>
         </div>
         {query === undefined && cfg.chips && <div className="chips">{(cfg.chips).map((c) => <button key={c} type="button" className={q === c ? 'chip on' : 'chip soft'} style={{ padding: '6px 10px', fontSize: 13 }} onClick={() => setQ(c)}>{c}</button>)}</div>}
-        {query === undefined && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') make(); }} placeholder={cfg.placeholder} aria-label={`Suchbegriff für ${cfg.title}`} />}
+        {query === undefined && <div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') make(); }} placeholder={cfg.placeholder} aria-label={`Suchbegriff für ${cfg.title}`} /><MicBtn value={q} onChange={setQ} /></div>}
       </>}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button type="button" className="btn small" style={{ flex: 1 }} onClick={make} disabled={!q.trim() || busy}>{busy ? 'Ich baue die Suchen …' : fresh ? '↻ Neu erstellen' : '🔗 Links erstellen'}</button>
