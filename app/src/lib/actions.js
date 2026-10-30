@@ -388,3 +388,6 @@ export const archiveGathering = (id) => moveBetween('gatherings', 'removedGather
 export const restoreGathering = (id) => moveBetween('removedGatherings', 'gatherings', id, { removedAt: null });
 export const archiveInvite = (id) => moveBetween('invites', 'removedInvites', id, { removedAt: today() });
 export const restoreInvite = (id) => moveBetween('removedInvites', 'invites', id, { removedAt: null });
+// v1.44 (Mateo): gelöschte Aufgaben landen in der Archiv-Kiste auf Heute (zurückholbar, höchstens 150)
+export const archiveTask = (id) => { moveBetween('tasks', 'removedTasks', id, { removedAt: today() }); store.update((s) => { if ((s.removedTasks || []).length > 150) s.removedTasks = s.removedTasks.slice(-150); }); };
+export const restoreTask = (id) => moveBetween('removedTasks', 'tasks', id, { removedAt: null });

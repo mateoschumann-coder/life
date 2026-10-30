@@ -2,13 +2,14 @@ import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { go, markFromHeute } from '../lib/router';
 import Swipe from '../components/Swipe';
+import { RemovedButton } from '../components/RemovedList';
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
-import { addDays, diffDays, dueText, fmtLong, parseKey, relDays, startOfWeek, targetText, today } from '../lib/dates';
+import { addDays, diffDays, dueText, fmtLong, fmtShort, parseKey, relDays, startOfWeek, targetText, today } from '../lib/dates';
 import {
   allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink,
 } from '../lib/logic';
-import { addTask, logContact, toggleCheckin, toggleTask, deleteTask, archiveEvent, archiveGathering, archiveInvite } from '../lib/actions';
+import { addTask, logContact, toggleCheckin, toggleTask, deleteTask, archiveTask, restoreTask, archiveEvent, archiveGathering, archiveInvite } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast, TopActions } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
@@ -151,7 +152,7 @@ export default function Heute() {
     if (x.areaId && areaOf(s, x.areaId)) return jump(`#/bereich/${x.areaId}`);
     return null;
   };
-  const delTask = (x) => { if (askDel(`„${x.title}“ löschen?`)) deleteTask(x.id); };
+  const delTask = (x) => { if (askDel(`„${x.title}“ entfernen`)) archiveTask(x.id); };
   // v1.38 (Mateo): auch Events, Veranstaltungen, Einladungen, Erinnerungen und Termine per ✕/Wischen entfernen (Rückgängig über den Hinweis; Events/Veranstaltungen/Einladungen landen in der Archiv-Kiste)
   const del = (label, fn) => () => { if (askDel(`„${label}“ entfernen`)) fn(); };
   // ---------- Einträge für den gewählten Tag ----------
@@ -298,6 +299,7 @@ export default function Heute() {
           <div className="sec-h">
             <h2 className="h2">{dayLabel}</h2>
             {checkable.length > 0 && <span className="sub">{doneCount}/{checkable.length} erledigt</span>}
+            <span style={{ marginLeft: checkable.length ? 8 : 'auto' }}><RemovedButton label="Gelöschte Aufgaben" items={[...(s.removedTasks || [])].reverse().map((x) => ({ ...x, name: x.title }))} storeKey="removedTasks" onRestore={restoreTask} meta={(x) => [x.due && `war für ${fmtShort(x.due)}`, x.removedAt && `gelöscht ${fmtShort(x.removedAt)}`].filter(Boolean).join(' · ')} /></span>
           </div>
           {checkable.length > 0 && <div className="progress" style={{ margin: '0 4px' }}><div style={{ width: `${(doneCount / checkable.length) * 100}%` }} /></div>}
           <div className="list">

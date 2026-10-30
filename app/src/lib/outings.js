@@ -108,15 +108,20 @@ async function post(body) {
 // maxUses = 0: ohne Websuche (viel günstiger) – die KI antwortet aus ihrem eigenen Wissen
 // smart = true: gründlicheres Modell (Sonnet) statt des eingestellten
 // fetch = true: die KI darf Links aus Mateos Nachricht lesen (web_fetch, nur Text-Kosten, keine Suchgebühr; v0.68)
+// v1.44: hat die letzte Bereichs-KI eine Frage an den Assistenten weitergereicht?
+let lastForward = false;
+export const takeForward = () => { const f = lastForward; lastForward = false; return f; };
 export async function searchWithTool({ system, user, messages: history, tool, maxUses, maxTokens = 8000, label, smart = false, city, fetch: canFetch = false, fetchMax = 2 }) {
   if (label) setCostLabel(label);
+  lastForward = false;
   // Sicherheitsnetz: „required“ gehört in input_schema (sonst lehnt die API das Werkzeug ab)
   if (tool && tool.required) { const { required, ...rest } = tool; tool = { ...rest, input_schema: { ...rest.input_schema, required: rest.input_schema?.required || required } }; }
   // Chats mit Vorschlägen (Mateo, v0.35): kurze Antwort, die Vorschläge erscheinen als Häkchen-Liste darunter
   if (history && tool?.input_schema?.properties?.antwort) {
     tool = JSON.parse(JSON.stringify(tool));
+    tool.input_schema.properties.weiterleiten = { type: 'boolean', description: 'true, wenn die Frage NICHT zu deinem Bereich gehört und der allgemeine Assistent sie übernehmen soll' };
     tool.input_schema.properties.antwort.description = 'KURZ: 1–2 Sätze (höchstens 3). Die Vorschläge NICHT im Text aufzählen – sie erscheinen als antippbare Liste. Nur eine Rückfrage, wenn wirklich nötig.';
-    system = `${system}\n\nWICHTIG: Antworte immer kurz (1–2 Sätze, keine Aufzählungen, kein langer Text). Konkrete Vorschläge gehören in die Listen-Felder des Werkzeugs – kurz formuliert (wenige Wörter pro Punkt), damit Mateo sie einfach antippen kann.`;
+    system = `${system}\n\nBLEIB IN DEINEM BEREICH (v1.44, Mateo): Du bist nur für das Thema dieses Chats zuständig. Fragt oder erzählt Mateo etwas, das nicht dazugehört (z.B. ein Termin, eine Person, ein Event oder etwas Allgemeines außerhalb deines Themas), schlag dazu nichts vor, setze weiterleiten=true und antworte nur kurz, dass der Assistent das übernehmen kann.\n\nWICHTIG: Antworte immer kurz (1–2 Sätze, keine Aufzählungen, kein langer Text). Konkrete Vorschläge gehören in die Listen-Felder des Werkzeugs – kurz formuliert (wenige Wörter pro Punkt), damit Mateo sie einfach antippen kann.`;
   }
   const model = smart ? SMART_MODEL : undefined;
   // Sonnet 5.5 lehnt erzwungene Werkzeuge (tool_choice "tool") mit Fehler 400 ab und denkt immer mit (zählt zu max_tokens):
@@ -137,6 +142,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
       f = d.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
     }
     if (!f) throw new Error('Keine Antwort erhalten. Bitte noch einmal versuchen.');
+    lastForward = !!(history && f.input?.weiterleiten);
     return f.input || {};
   }
   const tools = [...(maxUses ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses, user_location: locOf(city) }] : []), ...(canFetch ? [{ type: 'web_fetch_20250910', name: 'web_fetch', max_uses: fetchMax, max_content_tokens: 8000 }] : []), tool];
@@ -160,6 +166,7 @@ export async function searchWithTool({ system, user, messages: history, tool, ma
     found = data.content.find((c) => c.type === 'tool_use' && c.name === tool.name);
   }
   if (!found) throw new Error('Die Suche hat keine Ergebnisse geliefert. Bitte noch einmal versuchen.');
+  lastForward = !!(history && found.input?.weiterleiten);
   return found.input || {};
 }
 

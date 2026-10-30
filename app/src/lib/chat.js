@@ -129,7 +129,7 @@ function begin({ continuous, onError }) {
     onError?.('Hier nicht verfügbar – nutze das Mikrofon der Tastatur');
     return false;
   }
-  stopSpeaking();
+  try { if (typeof speechSynthesis !== 'undefined' && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); } catch {}
   try {
     rec?.abort?.();
   } catch {}

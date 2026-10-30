@@ -18,7 +18,7 @@ import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } fr
 import { Missing } from './Saeule';
 import { RemovedButton } from '../components/RemovedList';
 import AiFill from '../components/AiFill';
-import { parseGatheringText } from '../lib/gather';
+import { parseGatheringText, fillGathering } from '../lib/gather';
 import { archiveGathering, archiveInvite, restoreGathering, restoreInvite } from '../lib/actions';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
@@ -26,7 +26,7 @@ const COLOR = '#E8775A';
 const NEXT = { offen: 'eingeladen', eingeladen: 'zugesagt', zugesagt: 'abgesagt', abgesagt: 'offen' };
 const STATUS_COLOR = { offen: 'var(--muted)', eingeladen: 'var(--accent)', zugesagt: '#2FA36B', abgesagt: 'var(--danger)' };
 const VENUE_NEXT = { idee: 'angefragt', angefragt: 'reserviert', reserviert: 'abgelehnt', abgelehnt: 'idee' };
-const EMPTY = { name: '', date: '', time: '', place: '', kind: 'zuhause', expected: '', type: '' };
+const EMPTY = { name: '', date: '', time: '', place: '', kind: 'zuhause', expected: '', type: '', guests: '', address: '', motto: '', diet: '', budget: '' };
 
 // ---------- Events von anderen (v0.42): Einladungen eintragen ----------
 const INV_EMPTY = { name: '', host: '', date: '', time: '', place: '', bring: '', guests: '', note: '', status: 'eingeladen', url: '' };
@@ -240,6 +240,7 @@ export function EventsList({ s }) {
   useEffect(() => { try { if (sessionStorage.getItem('life-open-new-event')) { sessionStorage.removeItem('life-open-new-event'); setTab('eigene'); setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); } } catch {} }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const save = () => {
     const id = addGathering({ ...f, idea: isIdea });
+    fillGathering(id, f);
     setOpen(false);
     setF(EMPTY);
     go(`/treffen/${id}`);
@@ -323,7 +324,8 @@ export function EventsList({ s }) {
         <AiFill key={String(open)} values={{ name: f.name, date: f.date, time: f.time, place: f.place }} placeholder="z.B. „Asado bei mir nächsten Samstag ab 13 Uhr, so 10 Leute“" onFill={async (txt) => {
           const r = await parseGatheringText(store.get(), txt);
           if (!r?.name) throw new Error('Nichts erkannt – erzähl etwas mehr');
-          setF((x) => ({ ...x, name: r.name || x.name, date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : x.date, time: /^\d{1,2}:\d{2}$/.test(r.uhrzeit || '') ? r.uhrzeit.padStart(5, '0') : x.time, kind: r.art || x.kind, type: r.vorlage || x.type, expected: String(r.gaeste || '').replace(/[^\d–-]/g, '') || x.expected, place: r.ort || x.place }));
+          const names = (Array.isArray(r.gaeste_namen) ? r.gaeste_namen : []).filter(Boolean);
+          setF((x) => ({ ...x, name: r.name || x.name, date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : x.date, time: /^\d{1,2}:\d{2}$/.test(r.uhrzeit || '') ? r.uhrzeit.padStart(5, '0') : x.time, kind: r.art || x.kind, type: r.vorlage || x.type, expected: String(r.gaeste || '').replace(/[^\d–-]/g, '') || (names.length ? String(names.length) : '') || x.expected, place: r.ort || x.place, address: r.adresse || x.address, guests: [x.guests, ...names].filter(Boolean).join(', '), motto: r.motto || x.motto, diet: r.einschraenkungen || x.diet, budget: r.budget || x.budget }));
         }} />
         <div className="seg-mini">
           {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => f.kind !== k && setF({ ...f, kind: k, type: tplForKind(f.type || 'leer', k, f.tplByKind || {}), tplByKind: { ...(f.tplByKind || {}), [f.kind]: f.type || 'leer' } })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
@@ -339,6 +341,14 @@ export function EventsList({ s }) {
           <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field>
         </div>
         <Field label="Ungefähr wie viele Gäste?"><input className="input" inputMode="numeric" value={f.expected} onChange={(e) => setF({ ...f, expected: e.target.value.replace(/[^\d–-]/g, '') })} placeholder="z.B. 8 – darf auch leer bleiben" /></Field>
+        <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => setF({ ...f, place: e.target.value })} placeholder={f.kind === 'zuhause' ? 'z.B. bei mir' : 'z.B. Don Julio'} /></Field>
+        <Field label="Wer kommt? (Namen mit Komma, optional)"><input className="input" value={f.guests} onChange={(e) => setF({ ...f, guests: e.target.value })} placeholder="z.B. Juan, Pedro, Lucía" /></Field>
+        {(f.address || f.motto || f.diet || f.budget) && <>
+          {f.address && <Field label="Adresse"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>}
+          {f.motto && <Field label="Motto"><input className="input" value={f.motto} onChange={(e) => setF({ ...f, motto: e.target.value })} /></Field>}
+          {f.diet && <Field label="Einschränkungen"><input className="input" value={f.diet} onChange={(e) => setF({ ...f, diet: e.target.value })} /></Field>}
+          {f.budget && <Field label="Budget"><input className="input" value={f.budget} onChange={(e) => setF({ ...f, budget: e.target.value })} /></Field>}
+        </>}
         <button type="button" className="btn" onClick={save}>Anlegen</button>
         <Info>Danach hilft dir die KI: Ideen, Motto, Menü, Getränke{f.kind === 'auswaerts' ? ', passende Orte' : ''} und Einladung.</Info>
       </Sheet>

@@ -166,6 +166,20 @@ export function upsertGathering(s, a) {
   });
   return id;
 }
+// v1.44 (Mateo): nach dem Anlegen alles übernehmen, was beim Ausfüllen erzählt wurde (Gäste einzeln, Motto, Einschränkungen, Budget, Adresse)
+export function fillGathering(id, a) {
+  store.update((st) => {
+    const g = st.gatherings.find((x) => x.id === id);
+    if (!g) return;
+    for (const k of ['motto', 'diet', 'budget', 'address']) if (String(a[k] || '').trim()) g[k] = String(a[k]).trim();
+    g.guests = g.guests || [];
+    for (const name of splitList(a.guests)) {
+      if (g.guests.some((x) => norm(x.name) === norm(name))) continue;
+      const p = st.people.find((x) => norm(x.name) === norm(name)) || st.people.find((x) => norm(x.name).split(' ')[0] === norm(name));
+      g.guests.push({ id: uid(), name: p?.name || name, personId: p?.id || null, status: 'offen' });
+    }
+  });
+}
 // Art wechseln: Vorlage der neuen Art ergänzen, unerledigte Punkte der alten Vorlage entfernen
 // v1.04: Art wechseln merkt sich die Vorlage je Art (zurückwechseln holt sie wieder); passt sie nicht, gilt „Leer“
 export const tplForKind = (type, kind, memo = {}) => {
@@ -373,7 +387,12 @@ const GATHER_FILL = {
       art: { type: 'string', enum: ['zuhause', 'auswaerts'] },
       vorlage: { type: 'string', description: 'Schlüssel der passendsten Vorlage aus der Liste, sonst leer' },
       gaeste: { type: 'string', description: 'Ungefähre Gästezahl als Zahl, leer wenn unbekannt' },
-      ort: { type: 'string' },
+      ort: { type: 'string', description: 'Ort/Location, z.B. „bei mir“, „Don Julio“' },
+      adresse: { type: 'string', description: 'Adresse, falls genannt' },
+      gaeste_namen: { type: 'array', items: { type: 'string' }, description: 'JEDE genannte Person einzeln (Vornamen), z.B. ["Juan","Pedro"]' },
+      motto: { type: 'string' },
+      einschraenkungen: { type: 'string', description: 'vegetarisch, Allergien …' },
+      budget: { type: 'string' },
     },
     required: ['name'],
   },
@@ -381,7 +400,7 @@ const GATHER_FILL = {
 export async function parseGatheringText(s, text) {
   const tpls = Object.entries(templatesOf(s)).map(([k, o]) => `${k} (${o.kind || 'zuhause'}: ${o.label})`).join(', ');
   const r = await searchWithTool({
-    system: `Mateo organisiert selbst eine Veranstaltung und beschreibt sie kurz. Lies Name, Datum, Uhrzeit, Art (zu Hause bei ihm oder woanders), Gästezahl und Ort heraus und wähle die passendste Vorlage. Vorlagen: ${tpls}. Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()} (${fmtLong(today())}). Antworte mit "veranstaltung_lesen".`,
+    system: `Mateo organisiert selbst eine Veranstaltung und beschreibt sie kurz. Übernimm ALLES, was er erzählt: Name, Datum, Uhrzeit, Art (zu Hause bei ihm oder woanders), Gästezahl („drei Personen“ = 3; nennt er Namen, zählt die Zahl die Namen plus Mateo nur, wenn er es so sagt), Namen der Gäste einzeln, Ort, Adresse, Motto, Einschränkungen und Budget und wähle die passendste Vorlage. Vorlagen: ${tpls}. Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()} (${fmtLong(today())}). Antworte mit "veranstaltung_lesen".`,
     user: text, tool: GATHER_FILL, maxUses: 0, maxTokens: 800, label: 'Treffen ausfüllen',
   });
   const all = templatesOf(s);

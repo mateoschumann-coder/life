@@ -1,6 +1,7 @@
 // KI-Planer im Gespräch: sprechen oder tippen → Antwort + Vorschläge zum Abhaken und Übernehmen
 import { useEffect, useRef, useState } from 'react';
 import { getAi } from '../lib/ai';
+import { takeForward } from '../lib/outings';
 import { useDictation } from '../lib/dictate';
 import { Icon, Info, toast } from './ui';
 
@@ -109,13 +110,14 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       while (ctx.length && ctx[0].role !== 'user') ctx = ctx.slice(1);
       setSearching(useWeb);
       const r = await onAsk(ctx, { web: useWeb, smart });
+      const forward = takeForward();
       const { antwort, ...rest } = r || {};
       const proposal = {};
       for (const g of groups) if (Array.isArray(rest[g.key]) && rest[g.key].length) proposal[g.key] = rest[g.key];
         else if (typeof rest[g.key] === 'string' && rest[g.key].trim()) proposal[g.key] = [rest[g.key]];
       const names = Object.entries(proposal).map(([k, list]) => `${groups.find((g) => g.key === k).label}: ${list.map((x) => groups.find((g) => g.key === k).title(x)).join('; ')}`).join(' | ');
       const picked = Object.fromEntries(Object.entries(proposal).map(([k, list]) => [k, list.map(() => false)]));
-      onSave([...hist, { id: mid(), role: 'assistant', text: (antwort || 'Hier sind meine Vorschläge.') + (names ? `\n[Vorgeschlagen – ${names}]` : ''), shown: antwort || 'Hier sind meine Vorschläge.', proposal, picked, applied: false, web: useWeb }]);
+      onSave([...hist, { id: mid(), role: 'assistant', text: (antwort || 'Hier sind meine Vorschläge.') + (names ? `\n[Vorgeschlagen – ${names}]` : ''), shown: antwort || 'Hier sind meine Vorschläge.', proposal, picked, applied: false, web: useWeb, ...(forward ? { forward: q } : {}) }]);
     } catch (e) {
       onSave(base); // Frage wieder heraus, damit das Gespräch gültig bleibt
       setText(q);
@@ -183,6 +185,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
                 <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} disabled={!hasKey} onClick={() => send(history[history.length - 2].text, true, history.slice(0, -2))}>🔍 Nochmal mit Internet suchen (aktuelle Preise & Links)</button>
               )}
               {m.web && <span className="tiny" style={{ paddingLeft: 4 }}>🔍 mit Internet gesucht</span>}
+              {m.forward && <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={() => window.dispatchEvent(new CustomEvent('life-ask', { detail: { text: m.forward } }))}>✨ An den Assistenten weitergeben</button>}
               {Object.keys(m.proposal || {}).length > 0 && (
                 <div className="proposal">
                   {groups.filter((g) => m.proposal[g.key]).map((g) => (
