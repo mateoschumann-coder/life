@@ -1,4 +1,5 @@
 // v0.97: einklappbare Liste „Rausgenommen“ – zurückholen oder endgültig löschen
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { purgeRemoved } from '../lib/actions';
 import { Sheet, toast } from './ui';
@@ -26,7 +27,7 @@ function Rows({ items, storeKey, onRestore, meta }) {
             {meta && meta(x) && <span className="row-meta">{meta(x)}</span>}
           </span>
           <button type="button" className="pill" onClick={() => { onRestore(x.id); toast('Wieder in der Liste'); }}>↩ Zurück</button>
-          <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`„${x.name}“ endgültig löschen?`) && purgeRemoved(storeKey, x.id)} aria-label={`${x.name} endgültig löschen`}>Löschen</button>
+          <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => askDel(`„${x.name}“ endgültig löschen?`) && purgeRemoved(storeKey, x.id)} aria-label={`${x.name} endgültig löschen`}>Löschen</button>
         </div>
       ))}
     </div>

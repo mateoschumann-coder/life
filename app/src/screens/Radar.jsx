@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { fmtShort, parseKey } from '../lib/dates';
@@ -47,7 +48,7 @@ export default function Radar() {
         <button type="button" onClick={() => advanceEvent(e.id)} disabled={e.stage === 'besucht'} style={{ fontSize: 11, fontWeight: 500, color: fg, background: bg, padding: '6px 9px', borderRadius: 999, border: 0, flexShrink: 0 }} aria-label={`Status ${STAGE_LABEL[e.stage]}, weiter`}>
           {STAGE_LABEL[e.stage]}{e.stage !== 'besucht' ? ' →' : ''}
         </button>
-        <button type="button" className="x-btn" aria-label={`${e.name} löschen`} onClick={() => confirm('Event löschen?') && deleteEvent(e.id)}>
+        <button type="button" className="x-btn" aria-label={`${e.name} löschen`} onClick={() => askDel('Event löschen?') && deleteEvent(e.id)}>
           <Icon name="x" size={14} color="var(--chev)" />
         </button>
       </div>

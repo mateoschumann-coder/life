@@ -1,5 +1,6 @@
 // Informiert bleiben (v0.31, v0.90): Zeitungen nach Region mit Rubriken (Politik, Wirtschaft, Tech & KI …)
 // + Quellen nach Art (Newsletter, Blog, Podcast …) und Thema (Wirtschaft, Geopolitik, KI, Startups) – Auswahl + eigene
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { addSource, CURATED, host, outletLink, removeSource, SOURCE_TYPES, newsTypesOf, addNewsType, removeNewsType, resetNewsTypes, rubrikenOf, addRubrik, removeRubrik, resetRubriken, topicsListOf, setTopicsList, countriesOf, removeCountry, addCountry, addPaper, removePaper, resetCountries, knownCountry, suggestPapers } from '../lib/news';
@@ -94,14 +95,14 @@ function Outlets({ s }) {
           <section key={g.region} className="group">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px' }}>
               <button type="button" className="label" style={{ border: 0, background: 'none', padding: 0, flex: 1, textAlign: 'left', cursor: 'pointer', font: 'inherit' }} onClick={() => toggle(g.region)} aria-expanded={!isClosed}>{isClosed ? '▸' : '▾'} {g.flag} {g.region} · {g.list.length}</button>
-              {editC && <button type="button" className="link-btn" style={{ fontSize: 13, color: 'var(--danger)' }} onClick={() => confirm(`${g.region} entfernen?`) && removeCountry(g.region)}>Land entfernen</button>}
+              {editC && <button type="button" className="link-btn" style={{ fontSize: 13, color: 'var(--danger)' }} onClick={() => askDel(`${g.region} entfernen?`) && removeCountry(g.region)}>Land entfernen</button>}
             </div>
             {!isClosed && (
               <div className="news-grid">
                 {g.list.map((x) => {
                   const l = outletLink(x, cur);
                   return editC ? (
-                    <button key={x.url} type="button" className="news-tile" style={{ border: 0, font: 'inherit', color: 'inherit', textAlign: 'left' }} onClick={() => confirm(`${x.name} entfernen?`) && removePaper(g.region, x.url)}>
+                    <button key={x.url} type="button" className="news-tile" style={{ border: 0, font: 'inherit', color: 'inherit', textAlign: 'left' }} onClick={() => askDel(`${x.name} entfernen?`) && removePaper(g.region, x.url)}>
                       <b>{x.name} ✕</b><span className="tiny">{host(x.url)}</span>
                     </button>
                   ) : (

@@ -1,3 +1,5 @@
+import AiFill from '../components/AiFill';
+import { askDel } from '../lib/undo';
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
@@ -273,12 +275,15 @@ function ReminderSheet({ item, onClose }) {
     <Sheet open={!!item} title={item?.id ? 'Erinnerung bearbeiten' : 'Neue Erinnerung'} onClose={onClose}>
       {f && (
         <>
+          {!item?.id && <AiFill title="Wiederkehrende Erinnerung" values={{ title: f.title, note: f.note }} onResult={(r) => setF((x) => ({ ...x, ...r }))}
+            fields={{ title: 'Was (kurz)', every: { d: 'Wie oft', enum: Object.keys(EVERY) }, next: 'Nächstes Mal YYYY-MM-DD', note: 'Notiz (Betrag, Konto, Link)' }}
+            placeholder="z.B. „Jeden Monat am 5. Miete zahlen, 450.000 Pesos“" />}
           <Field label="Was?"><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="z.B. Miete bezahlen" /></Field>
           <div className="field"><span>Wie oft?</span><div className="chips">{Object.entries(EVERY).map(([k, v]) => <button key={k} type="button" className={f.every === k ? 'chip on' : 'chip'} onClick={() => setF({ ...f, every: k })}>{v}</button>)}</div></div>
           <Field label="Nächstes Mal"><input className="input" type="date" value={f.next} onChange={(e) => setF({ ...f, next: e.target.value })} /></Field>
           <Field label="Notiz (optional)"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="z.B. Betrag, Konto, Link" /></Field>
           <button type="button" className="btn" onClick={save} disabled={!f.title.trim()}>Speichern</button>
-          {item?.id && <button type="button" className="btn danger" onClick={() => { if (confirm('Löschen?')) { deleteReminder(item.id); onClose(); } }}>Löschen</button>}
+          {item?.id && <button type="button" className="btn danger" onClick={() => { if (askDel('Löschen?')) { deleteReminder(item.id); onClose(); } }}>Löschen</button>}
         </>
       )}
     </Sheet>

@@ -1,3 +1,5 @@
+import AiFill from '../components/AiFill';
+import { askDel } from '../lib/undo';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
@@ -398,7 +400,7 @@ function TripList({ s }) {
       </span>
       {!idea && <Chevron />}
     </a>
-    {idea && <button type="button" className="x-btn" aria-label={`${tr.name} entfernen`} onClick={() => confirm(`Idee „${tr.name}“ entfernen?`) && removeTrip(tr.id)}><Icon name="x" size={13} color="var(--chev)" /></button>}
+    {idea && <button type="button" className="x-btn" aria-label={`${tr.name} entfernen`} onClick={() => askDel(`Idee „${tr.name}“ entfernen?`) && removeTrip(tr.id)}><Icon name="x" size={13} color="var(--chev)" /></button>}
     </div>
   );
   return (
@@ -467,7 +469,7 @@ function TripList({ s }) {
                   </button>
                   <button type="button" className="pill" style={{ fontSize: 12.5, padding: '4px 9px', whiteSpace: 'nowrap' }} onClick={() => setPriceFor({ trips: items, title: `Preise: ${g}` })}>✈️🏠 Preise</button>
                   <button type="button" className="x-btn" aria-label={`Gruppe ${g} umbenennen`} onClick={() => { const n = prompt('Neuer Name der Gruppe', g); if (n && n.trim()) renameGroup(g, n); }}><Icon name="edit" size={13} color="var(--muted)" /></button>
-                  <button type="button" className="x-btn" aria-label={`Gruppe ${g} auflösen`} onClick={() => confirm(`Gruppe „${g}“ auflösen? Die Ideen bleiben erhalten.`) && ungroup(g)}><Icon name="x" size={13} color="var(--chev)" /></button>
+                  <button type="button" className="x-btn" aria-label={`Gruppe ${g} auflösen`} onClick={() => askDel(`Gruppe „${g}“ auflösen? Die Ideen bleiben erhalten.`) && ungroup(g)}><Icon name="x" size={13} color="var(--chev)" /></button>
                 </div>
                 {!isClosed && <div className="list">{items.map((tr) => <div key={tr.id} style={{ paddingLeft: 10 }}><Row tr={tr} idea /></div>)}</div>}
               </div>
@@ -486,6 +488,9 @@ function TripList({ s }) {
       </main>
       <PriceSheet s={s} trips={priceFor?.trips ? priceFor.trips.map((x) => s.trips.find((y) => y.id === x.id) || x) : null} title={priceFor?.title} onClose={() => setPriceFor(null)} />
       <Sheet open={open} title="Neue Reise" onClose={() => setOpen(false)}>
+        <AiFill key={String(open)} title="Reise oder Reise-Idee" values={{ dest: f.dest, from: f.from, to: f.to, budget: f.budget }} onResult={(r) => setF((x) => ({ ...x, ...r }))}
+          fields={{ dest: 'Wohin (Stadt, Land oder Region)', status: { d: 'geplant = steht fest, idee = erst mal Idee', enum: ['geplant', 'idee'] }, from: 'Beginn YYYY-MM-DD', to: 'Ende YYYY-MM-DD', budget: 'Budget in USD, nur Zahl' }}
+          placeholder="z.B. „Im Januar zwei Wochen Florianópolis, erst mal Idee“" />
         <Field label="Wohin?"><input className="input" value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })} placeholder="z.B. Florianópolis" /></Field>
         <div className="seg-mini">
           {[['geplant', 'Steht fest'], ['idee', 'Erst mal Idee']].map(([k, l]) => <button key={k} type="button" className={f.status === k ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, status: k })}>{l}</button>)}
@@ -574,7 +579,7 @@ function Route({ s, tr }) {
           onLeg={(i) => setLegAB({ a: stops[i].name, b: stops[i + 1].name })}
           onInsert={(name, at) => insertStop(tr.id, name, at)}
           onReorder={(a, b) => reorderStop(tr.id, a, b)}
-          onRemove={(i) => { const st = stops[i]; const n = tr.places.filter((p) => p.stopId === st.id).length; if (!n || confirm(`„${st.name}“ entfernen? ${n} gesammelte Orte bleiben in der Reise erhalten.`)) removeStop(tr.id, st.id); }}
+          onRemove={(i) => { const st = stops[i]; const n = tr.places.filter((p) => p.stopId === st.id).length; if (!n || askDel(`„${st.name}“ entfernen? ${n} gesammelte Orte bleiben in der Reise erhalten.`)) removeStop(tr.id, st.id); }}
           addPlaceholder="Station hinzufügen, z.B. Garopaba"
         />
         {autoLine(rueck, 'Rückreise')}
@@ -1313,7 +1318,7 @@ function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
         <button type="button" className={v.chosen ? 'pill on' : 'pill'} disabled={!v.stops.length || v.chosen} onClick={() => { if (tr.stops.length && !confirm(`Die finale Route (${tr.stops.map((x) => x.name).join(' → ')}) wird durch „${v.name}“ ersetzt. Die bisherige wird als Variante „Bisherige Route“ gesichert. Weiter?`)) return; chooseVariant(tr.id, v.id); toast(`Finale Route = „${v.name}“`); onChosen?.(); }}>{v.chosen ? '✓ Ist die finale Route' : 'Als finale Route übernehmen'}</button>
         {isIdea && <button type="button" className="pill on" disabled={!v.stops.length} onClick={() => { chooseVariant(tr.id, v.id); onCommit(); }}>Zur Reise machen</button>}
         <span style={{ flex: 1 }} />
-        <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`Variante „${v.name}“ löschen?`) && removeVariant(tr.id, v.id)}>Löschen</button>
+        <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => askDel(`Variante „${v.name}“ löschen?`) && removeVariant(tr.id, v.id)}>Löschen</button>
       </div>
       {openI !== null && v.stops[openI] && <VariantStopSheet s={s} tr={tr} v={v} i={openI} onClose={() => setOpenI(null)} />}
       {legAB && <LegSheet s={s} tr={tr} v={v} a={legAB.a} b={legAB.b} date={legAB.date} onClose={() => setLegAB(null)} />}
@@ -1446,7 +1451,7 @@ function TripDetail({ s, tr }) {
           onApply={(sel) => applyTripProposal(tr.id, sel)}
           chips={kind === 'ort' ? (isIdea ? ['In welchem Viertel wohnen?', 'Was muss ich sehen?', 'Restaurant-Tipps', 'Tagesausflüge'] : ['Unterkunft-Lage: wo am besten?', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen']) : (isIdea ? ['Mehr Orte für die Sammlung', 'Vergleich meine Varianten', 'Was gibt es dort zu sehen?'] : ['Alternative Route als Variante', 'Sehenswürdigkeiten', 'Restaurant-Tipps', 'Packliste anpassen', 'Was fehlt noch?'])}
         />}
-        <button type="button" className="btn danger" onClick={() => { if (confirm(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
+        <button type="button" className="btn danger" onClick={() => { if (askDel(`Reise „${tr.name}“ löschen?`)) { removeTrip(tr.id); go('/reisen'); } }}>{isIdea ? 'Idee löschen' : 'Reise löschen'}</button>
       </main>
       <PriceSheet s={s} trips={priceFor} title={tr.group ? `Preise: ${tr.group}` : `Preise: ${tr.name}`} onClose={() => setPriceFor(null)} />
       <Sheet open={commit} title="Reise festlegen" onClose={() => setCommit(false)}>

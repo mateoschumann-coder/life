@@ -97,6 +97,27 @@ export function Chevron() {
   return <Icon name="chev" size={15} color="var(--chev)" width={2.4} />;
 }
 
+// v1.30 (Mateo): Blitz antippen = „Was möchtest du tun?“, lange drücken = sofort mit der KI sprechen (loslassen = senden)
+function BoltButton({ on }) {
+  const st = useRef({});
+  const [talking, setTalking] = useState(false);
+  const down = () => {
+    clearTimeout(st.current.t);
+    st.current = { long: false, t: setTimeout(() => { st.current.long = true; setTalking(true); navigator.vibrate?.(20); window.dispatchEvent(new Event('life-voice-start')); }, 450) };
+  };
+  const up = (e) => {
+    clearTimeout(st.current.t);
+    if (st.current.long) { e.preventDefault(); setTalking(false); window.dispatchEvent(new Event('life-voice-send')); st.current.skip = true; }
+  };
+  const click = () => { if (st.current.skip) { st.current.skip = false; return; } clearFrom(); location.hash = '/los'; };
+  return (
+    <button type="button" className={`${on ? 'tab-plus on' : 'tab-plus'}${talking ? ' talking' : ''}`} aria-label="Was möchtest du tun? Lange drücken: mit der KI sprechen"
+      onTouchStart={down} onTouchEnd={up} onTouchCancel={up} onMouseDown={down} onMouseUp={up} onClick={click} onContextMenu={(e) => e.preventDefault()}>
+      <Icon name={talking ? 'mic' : 'bolt'} size={25} color="currentColor" width={2.2} />
+    </button>
+  );
+}
+
 export function TabBar({ active }) {
   const tab = (id, href, label, icon) => (
     <a href={href} onClick={clearFrom} className={active === id ? 'tab on' : 'tab'} aria-current={active === id ? 'page' : undefined}>
@@ -108,9 +129,7 @@ export function TabBar({ active }) {
     <nav className="tabbar" aria-label="Hauptnavigation">
       {tab('heute', '#/heute', 'Heute', 'today')}
       {tab('bereiche', '#/bereiche', 'Bereiche', 'grid')}
-      <a href="#/los" onClick={clearFrom} className={active === 'los' ? 'tab-plus on' : 'tab-plus'} aria-label="Was möchtest du tun?">
-        <Icon name="bolt" size={25} color="currentColor" width={2.2} />
-      </a>
+      <BoltButton on={active === 'los'} />
       {tab('ausgehen', '#/ausgehen', 'Ausgehen', 'pin')}
       {tab('menschen', '#/menschen', 'Menschen', 'person')}
     </nav>
@@ -237,12 +256,20 @@ export function Toaster() {
     const f = (e) => {
       setMsg(e.detail);
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => setMsg(null), 2200);
+      toastTimer = setTimeout(() => setMsg(null), e.detail && e.detail.action ? 5000 : 2200);
     };
     window.addEventListener('app-toast', f);
     return () => window.removeEventListener('app-toast', f);
   }, []);
-  return msg ? <div className="toast" role="status">{msg}</div> : null;
+  if (!msg) return null;
+  // v1.30: Hinweis mit Knopf (z.B. „↶ Rückgängig“ nach dem Löschen)
+  if (typeof msg === 'object') return (
+    <div className="toast toast-act" role="status">
+      <span>{msg.text}</span>
+      <button type="button" onClick={() => { msg.onAction?.(); setMsg(null); }}>{msg.action}</button>
+    </div>
+  );
+  return <div className="toast" role="status">{msg}</div>;
 }
 
 export function SectionHead({ title, right }) {

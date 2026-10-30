@@ -1,4 +1,5 @@
 // Darstellung und Bedienung der Projekt-Bausteine
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { fmtShort, today } from '../lib/dates';
 import { BLOCK_TYPES, editBlock, moveBlock, removeBlock } from '../lib/blocks';
@@ -22,7 +23,7 @@ function Head({ p, b, first, last }) {
         <div className="block-menu">
           {!first && <button type="button" onClick={() => { moveBlock(p.id, b.id, -1); setMenu(false); }}>Nach oben</button>}
           {!last && <button type="button" onClick={() => { moveBlock(p.id, b.id, 1); setMenu(false); }}>Nach unten</button>}
-          <button type="button" style={{ color: 'var(--danger)' }} onClick={() => confirm(`„${b.title}“ entfernen?`) && removeBlock(p.id, b.id)}>Entfernen</button>
+          <button type="button" style={{ color: 'var(--danger)' }} onClick={() => askDel(`„${b.title}“ entfernen?`) && removeBlock(p.id, b.id)}>Entfernen</button>
         </div>
       )}
     </div>

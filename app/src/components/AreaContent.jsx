@@ -1,4 +1,5 @@
 // Inhalt eines Lebensbereichs oder Unterbereichs: Rhythmen, Projekte, Aufgaben/Ideen, Ressourcen
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { fmtShort, today } from '../lib/dates';
 import { areaColor, habitProgress, habitStreak, projectProgress, subOf } from '../lib/logic';
@@ -45,7 +46,7 @@ export default function AreaContent({ s, area, subId = null, only = null }) {
                   <span className="row-title">{h.name}</span>
                   <span className="row-meta">{h.count ? meta(`${h.count}× pro ${h.period === 'monat' ? 'Monat' : 'Woche'}`, `${p.done}/${p.count}`, str.streak > 0 && `Serie ${str.streak} ${str.unit}`, subTag(h)) : meta('Fokus, ohne feste Zahl', p.last ? `zuletzt ${fmtShort(p.last)}` : 'noch nie', subTag(h))}</span>
                 </div>
-                <button type="button" className="x-btn" aria-label={`${h.name} löschen`} onClick={() => confirm(`Rhythmus „${h.name}“ mit allen Einträgen löschen?`) && deleteHabit(h.id)}>
+                <button type="button" className="x-btn" aria-label={`${h.name} löschen`} onClick={() => askDel(`Rhythmus „${h.name}“ mit allen Einträgen löschen?`) && deleteHabit(h.id)}>
                   <Icon name="x" size={14} color="var(--chev)" />
                 </button>
               </div>
@@ -131,7 +132,7 @@ export default function AreaContent({ s, area, subId = null, only = null }) {
                 {r.url ? <a className="row-title" style={{ color: 'var(--accent)' }} href={r.url} target="_blank" rel="noreferrer">{r.title}</a> : <span className="row-title">{r.title}</span>}
                 {(r.tags.length > 0 || subTag(r)) && <span className="row-meta">{meta(r.tags.map((x) => '#' + x).join(' '), subTag(r))}</span>}
               </div>
-              <button type="button" className="x-btn" aria-label={`${r.title} löschen`} onClick={() => confirm('Ressource löschen?') && deleteResource(r.id)}>
+              <button type="button" className="x-btn" aria-label={`${r.title} löschen`} onClick={() => askDel('Ressource löschen?') && deleteResource(r.id)}>
                 <Icon name="x" size={14} color="var(--chev)" />
               </button>
             </div>

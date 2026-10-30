@@ -1,4 +1,5 @@
 // Karriere → Eigene Projekte: Meilensteine, Arbeitszeit pro Woche, KI-Mentor
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addTask } from '../lib/actions';
@@ -158,7 +159,7 @@ export function ProjectPage({ s, p }) {
           }}
           chips={['Meilensteine vorschlagen', 'Was ist der nächste Schritt?', 'Wie mache ich es sichtbar?']}
         />
-        <button type="button" className="btn danger" onClick={() => { if (confirm(`„${p.name}“ löschen?`)) { removeSideProject(p.id); go('/karriere/projekte'); } }}>Projekt löschen</button>
+        <button type="button" className="btn danger" onClick={() => { if (askDel(`„${p.name}“ löschen?`)) { removeSideProject(p.id); go('/karriere/projekte'); } }}>Projekt löschen</button>
       </main>
       <TabBar active="bereiche" />
     </>

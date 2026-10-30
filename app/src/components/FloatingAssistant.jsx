@@ -7,7 +7,7 @@ import { getDraft, needsRetry, resend, send, setDraft, setMode, setSpeak, speech
 import { Icon, toast } from './ui';
 import Proposal from './Proposal';
 
-export default function FloatingAssistant() {
+export default function FloatingAssistant({ hideFab = false }) {
   const s = useStore();
   const { items, busy, listening, draft, mode } = useChat();
   const [open, setOpen] = useState(false);
@@ -150,6 +150,16 @@ export default function FloatingAssistant() {
     return () => window.removeEventListener('life-listen', f);
   }, []);
 
+  // v1.30: Blitz lange drücken → zuhören, loslassen → senden
+  const itemsRef = useRef(items); itemsRef.current = items;
+  useEffect(() => {
+    const st = () => { unlockSpeech(); stopSpeaking(); setDraft(''); setOpen(true); setSentAt(itemsRef.current.length); if (!startListening({ continuous: true, onError: toast })) toast('Spracheingabe nicht verfügbar – tippe im Fenster'); };
+    const sd = () => { stopListening(); setTimeout(() => { if (getDraft().trim()) { setSentAt(itemsRef.current.length); send(); } }, 250); };
+    window.addEventListener('life-voice-start', st);
+    window.addEventListener('life-voice-send', sd);
+    return () => { window.removeEventListener('life-voice-start', st); window.removeEventListener('life-voice-send', sd); };
+  }, []);
+
   const close = () => {
     stopListening();
     stopSpeaking();
@@ -222,7 +232,7 @@ export default function FloatingAssistant() {
           </div>
         </div>
       )}
-      {!open && <button
+      {!open && !hideFab && <button
         type="button"
         className={listening ? 'fab on' : busy ? 'fab busy' : open && draft.trim() ? 'fab ready' : 'fab'}
         style={fabStyle}

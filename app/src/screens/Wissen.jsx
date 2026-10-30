@@ -1,3 +1,5 @@
+import AiFill from '../components/AiFill';
+import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
@@ -179,14 +181,19 @@ function MaterialSheet({ s, item, onClose, defaultTopic, cat }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   const m = item?.id ? s.library.find((x) => x.id === item.id) : null;
-  const save = () => {
+  const [n, setN] = useState(0);
+  const save = (next) => {
     if (m) updateMaterial(m.id, { title: f.title, kind: f.kind, subId: f.subId, author: f.author, url: f.url, note: f.note, about: f.about || '' });
     else if (!addMaterial({ ...f, cat: undefined })) return toast('Ist schon in deiner Liste');
     toast('Gespeichert');
-    onClose();
+    if (next === true) { setF({ ...blank, kind: f.kind, subId: f.subId }); setN((x) => x + 1); } else onClose();
   };
   return (
     <Sheet open={!!item} title={isNew ? `Neu: ${KINDS[f.kind]?.label || 'Material'}` : f.title || 'Material'} onClose={onClose}>
+      {!m && <AiFill key={`${loaded}-${n}`} title="Buch / Podcast / Video / Artikel / Kurs / Tipp" values={{ title: f.title, author: f.author, url: f.url, note: f.note }}
+        onResult={(r) => { const topic = r.thema ? (findTopic(s, r.thema)?.id || ensureTopic(r.thema)) : null; const { thema, ...rest } = r; setF((x) => ({ ...x, ...rest, ...(topic ? { subId: topic } : {}) })); }}
+        fields={{ title: 'Titel', author: 'Autor / Quelle', kind: { d: 'Art', enum: Object.keys(KINDS) }, thema: `Thema, möglichst eins von: ${topicsOf(s).map((t) => t.name).join(', ')}`, url: 'Link', about: 'Kurzbeschreibung, 1 Satz', note: 'Notiz – nur was Mateo selbst sagt' }}
+        placeholder="z.B. „Sapiens von Harari, will ich lesen, Thema Geschichte“ oder YouTube-/Artikel-Link" />}
       <div className="field">
         <span>Titel</span>
         <div className="block-add">
@@ -219,8 +226,11 @@ function MaterialSheet({ s, item, onClose, defaultTopic, cat }) {
       )}
       <Field label={f.kind === 'tipp' ? 'Der Tipp' : m?.status === 'fertig' ? 'Was hast du mitgenommen?' : 'Notiz'}><textarea className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder={f.kind === 'tipp' ? 'Wie geht der Trick? Wofür ist er gut?' : m?.status === 'fertig' ? 'Die 2–3 wichtigsten Gedanken …' : 'Warum interessiert es dich?'} /></Field>
       {m && <MaterialExtras s={s} m={m} />}
-      <button type="button" className="btn" onClick={save} disabled={!f.title.trim()}>Speichern</button>
-      {m && <button type="button" className="btn danger" onClick={() => { if (confirm('Löschen?')) { deleteMaterial(m.id); onClose(); } }}>Löschen</button>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn" style={{ flex: 1 }} onClick={save} disabled={!f.title.trim()}>Speichern</button>
+        {!m && <button type="button" className="btn tint" onClick={() => save(true)} disabled={!f.title.trim()}>+ Nächstes</button>}
+      </div>
+      {m && <button type="button" className="btn danger" onClick={() => { if (askDel('Löschen?')) { deleteMaterial(m.id); onClose(); } }}>Löschen</button>}
     </Sheet>
   );
 }
@@ -279,7 +289,7 @@ function CategoryPage({ s, cat }) {
         <div className="chips">
           <button type="button" className={!topic ? 'chip on' : 'chip'} onClick={() => setTopic(null)}>Alle Themen</button>
           {topics.map((t) => (
-            <button key={t.id} type="button" className={edit ? 'chip editing' : topic === t.id ? 'chip on' : 'chip'} onClick={() => (edit ? confirm(`Thema „${t.name}“ entfernen? Das Material bleibt erhalten.`) && removeTopic(t.id) : setTopic(t.id))}>
+            <button key={t.id} type="button" className={edit ? 'chip editing' : topic === t.id ? 'chip on' : 'chip'} onClick={() => (edit ? askDel(`Thema „${t.name}“ entfernen? Das Material bleibt erhalten.`) && removeTopic(t.id) : setTopic(t.id))}>
               {t.name}{edit && <Icon name="x" size={11} />}
             </button>
           ))}

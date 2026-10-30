@@ -749,3 +749,17 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 
 /* v1.28: eingebautes ✕ der Suchfelder ausblenden – eigenes ✕/↶ aus fieldtools reicht */
 input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+/* v1.30: Hinweis mit Rückgängig-Knopf */
+.toast.toast-act { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; }
+.toast.toast-act button { border: 0; background: rgba(255,255,255,0.18); color: inherit; font: inherit; font-weight: 650; padding: 7px 12px; border-radius: 12px; white-space: nowrap; }
+/* v1.30: Wischen in Listen */
+.swipe { position: relative; margin-left: -16px; }
+.swipe-in { padding-left: 16px; background: var(--card); position: relative; }
+.swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-weight: 650; color: #fff; font-size: 14px; }
+.swipe-bg.r { background: #2FA36B; }
+.swipe-bg.l { background: var(--danger); }
+.swipe + .swipe .row::before, .row + .swipe .row::before, .swipe + .row::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 0.5px; background: var(--line); }
+.aifill-row { display: flex; gap: 8px; align-items: center; }
+/* v1.30: Blitz lange drücken = sprechen */
+.tab-plus { border: 0; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.tab-plus.talking { background: var(--danger); transform: scale(1.12); box-shadow: 0 0 0 8px rgba(229, 83, 75, 0.22); }

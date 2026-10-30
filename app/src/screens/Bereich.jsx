@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, fmtShort, startOfWeek, targetText, today } from '../lib/dates';
@@ -227,7 +228,7 @@ export function LibCatsSheet({ s, open, onClose }) {
           return (
             <div key={c.id} className="row" style={{ minHeight: 52 }}>
               <span className="row-main"><span className="row-title plain">{c.name}</span><span className="row-meta">{c.kind ? KINDS[c.kind]?.label : 'Gemischt'} · {n} Einträge</span></span>
-              <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(n ? `„${c.name}“ mit ${n} Einträgen entfernen?` : `„${c.name}“ entfernen?`) && removeLibCat(c.id)}>Entfernen</button>
+              <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => askDel(n ? `„${c.name}“ mit ${n} Einträgen entfernen?` : `„${c.name}“ entfernen?`) && removeLibCat(c.id)}>Entfernen</button>
             </div>
           );
         })}

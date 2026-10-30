@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useEffect, useState } from 'react';
 import { useDictation } from '../lib/dictate';
 import { getAi } from '../lib/ai';
@@ -44,6 +45,9 @@ function InviteSheet({ open, invite, onClose }) {
   };
   return (
     <Sheet open={open} title={invite ? 'Einladung' : 'Neue Einladung'} onClose={onClose}>
+      <AiFill key={key || 'x'} title="Einladung von Bekannten (privat, nichts bezahlt)" values={{ name: f.name, host: f.host, date: f.date, time: f.time, place: f.place, guests: f.guests, bring: f.bring, note: f.note, url: f.url }} onResult={(r) => set(r)}
+        fields={{ name: 'Was (z.B. Geburtstag von Juan)', host: 'Wer lädt ein', date: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM', place: 'Ort/Adresse', status: { d: 'Zusage-Stand', enum: Object.keys(INVITE_STATUS) }, guests: 'Wer ist noch dabei, Namen mit Komma', bring: 'Was Mateo mitbringt', note: 'Notiz', url: 'Link' }}
+        placeholder="z.B. „Juan lädt Samstag 20 Uhr zum Geburtstag ein, bei ihm in Palermo, ich bring Wein“" />
       <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Geburtstag von Juan, Hochzeit, Asado" /></Field>
       <Field label="Wer lädt ein?"><input className="input" value={f.host} onChange={(e) => set({ host: e.target.value })} placeholder="z.B. Juan" /></Field>
       <div style={{ display: 'flex', gap: 10 }}>
@@ -148,7 +152,7 @@ function TemplateEditor({ s, open, onClose, kindHint }) {
                   <span className="row-title plain">{o.emoji} {o.label}</span>
                   <span className="row-meta">{o.kind === 'auswaerts' ? 'Woanders' : o.kind === 'zuhause' ? 'Zu Hause' : 'Beides'} · {PHASES.reduce((n, p) => n + (o.todos?.[p] || []).length, 0)} To-dos{o.kind !== 'auswaerts' ? ` · ${SHOP_CATS.reduce((n, c) => n + (o.shop?.[c] || []).length, 0)} Einkauf` : ''}</span>
                 </button>
-                <button type="button" className="x-btn" aria-label={`${o.label} entfernen`} onClick={() => confirm(`Vorlage „${o.label}“ entfernen? Bestehende Events bleiben unverändert.`) && removeTemplate(k)}><Icon name="x" size={12} color="var(--chev)" /></button>
+                <button type="button" className="x-btn" aria-label={`${o.label} entfernen`} onClick={() => askDel(`Vorlage „${o.label}“ entfernen? Bestehende Events bleiben unverändert.`) && removeTemplate(k)}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
             ))}
           </div>
@@ -315,7 +319,7 @@ export function EventsList({ s }) {
         </>)}
       </main>
       <Sheet open={open} title={isIdea ? 'Neue Idee' : 'Neue Veranstaltung'} onClose={() => setOpen(false)}>
-        <AiFill placeholder="z.B. „Asado bei mir nächsten Samstag ab 13 Uhr, so 10 Leute“" onFill={async (txt) => {
+        <AiFill key={String(open)} values={{ name: f.name, date: f.date, time: f.time, place: f.place }} placeholder="z.B. „Asado bei mir nächsten Samstag ab 13 Uhr, so 10 Leute“" onFill={async (txt) => {
           const r = await parseGatheringText(store.get(), txt);
           if (!r?.name) throw new Error('Nichts erkannt – erzähl etwas mehr');
           setF((x) => ({ ...x, name: r.name || x.name, date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : x.date, time: /^\d{1,2}:\d{2}$/.test(r.uhrzeit || '') ? r.uhrzeit.padStart(5, '0') : x.time, kind: r.art || x.kind, type: r.vorlage || x.type, expected: String(r.gaeste || '').replace(/[^\d–-]/g, '') || x.expected, place: r.ort || x.place }));
@@ -444,7 +448,7 @@ function WaGroups({ s, text }) {
       {groups.length > 0 && (
         <div className="chips">
           {groups.map((x) => (edit
-            ? <button key={x.id} type="button" className="chip editing" onClick={() => confirm(`„${x.name}“ entfernen?`) && removeWaGroup(x.id)}>{x.name} ✕</button>
+            ? <button key={x.id} type="button" className="chip editing" onClick={() => askDel(`„${x.name}“ entfernen?`) && removeWaGroup(x.id)}>{x.name} ✕</button>
             : <button key={x.id} type="button" className="chip on" onClick={() => go(x)}>👥 {x.name}</button>))}
         </div>
       )}

@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, today } from '../lib/dates';
@@ -42,7 +43,7 @@ function SkillList({ s }) {
                   <span className="row-meta">{st.all ? `${st.done} von ${st.all} erledigt${st.next ? ` · als Nächstes: ${st.next.text}` : ' · alles geschafft 🎉'}` : 'Noch keine Ziele – antippen und festlegen'}</span>
                 </a>
                 <Progress sk={sk} />
-                {edit ? <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`„${sk.name}“ entfernen?`) && removeSkill(sk.id)}>Entfernen</button> : <Chevron />}
+                {edit ? <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => askDel(`„${sk.name}“ entfernen?`) && removeSkill(sk.id)}>Entfernen</button> : <Chevron />}
               </div>
             );
           })}
@@ -91,7 +92,7 @@ function MaterialSheet({ sk, m, onClose }) {
       <label className="field"><span>{info.noteLabel || 'Notiz'}</span><textarea className="input" rows={info.noteLabel === 'Code / Notiz' ? 6 : 3} value={f.note || ''} onChange={(e) => setF({ ...f, note: e.target.value })} style={info.noteLabel === 'Code / Notiz' ? { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13 } : undefined} /></label>
       {info.status && <div className="field"><span>Stand</span><div className="chips">{info.status.map((l, i) => <button key={l} type="button" className={(f.stage || 0) === i ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, stage: i })}>{l}</button>)}</div></div>}
       <button type="button" className="btn" disabled={!f.title.trim()} onClick={() => { let url = String(f.url || '').trim(); if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`; updateMaterialOf(sk.id, m.id, { ...f, url }); toast('Gespeichert'); setLoaded(null); onClose(); }}>Speichern</button>
-      <button type="button" className="btn danger" onClick={() => { if (confirm('Löschen?')) { removeMaterialOf(sk.id, m.id); setLoaded(null); onClose(); } }}>Löschen</button>
+      <button type="button" className="btn danger" onClick={() => { if (askDel('Löschen?')) { removeMaterialOf(sk.id, m.id); setLoaded(null); onClose(); } }}>Löschen</button>
     </Sheet>
   );
 }

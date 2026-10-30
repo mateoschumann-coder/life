@@ -1,5 +1,7 @@
 // Orte-Verzeichnis (v0.91) – gleiche Ansicht für Küche (Läden) und Vorsorge (Ärzte …):
 // Kategorien als Reiter, optionale Unterkategorien, „+ Ort“ oben, kurze Zeilen mit Maps-Knopf, antippen = bearbeiten
+import AiFill from './AiFill';
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { addBookCat, addBookItem, addBookSub, BOOK_STATUS, bookAreas, rememberArea, bookCats, bookMaps, bookOf, findBookPlace, mapsSearch, removeBookCat, removeBookItem, restoreBookCats, telOf, updateBookItem } from '../lib/placebook';
 import { getAi } from '../lib/ai';
@@ -49,6 +51,9 @@ export function ItemSheet({ s, book, cats, item, onClose, onSaved, city = null }
   };
   return (
     <Sheet open title={isNew ? 'Neuer Ort' : f.name || 'Ort'} onClose={onClose}>
+      {isNew && <AiFill key={loaded} title={`Ort im Verzeichnis (${cat?.label || 'Geschäft/Praxis'})`} values={{ name: f.name, area: f.area, address: f.address, phone: f.phone, url: f.url, note: f.note }} onResult={(r) => setF((x) => ({ ...x, ...r }))}
+        fields={{ name: 'Name', area: 'Viertel', address: 'Adresse', phone: 'Telefon', url: 'Link', note: 'Notiz', status: { d: 'war = war schon, will = will hin', enum: ['war', 'will'] } }}
+        placeholder="z.B. „Zahnarzt Dr. García in Palermo, war schon, sehr gut“" />}
       <Field label="Name"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="z.B. Coto, Dr. García" /></Field>
       {!f.name.trim() && isNew && <span className="tiny" style={{ marginTop: -4 }}>Name eingeben – dann kann die KI Adresse & Telefon suchen.</span>}
       <Field label="Wo ungefähr?"><input className="input" value={f.area} onChange={(e) => setF({ ...f, area: e.target.value })} placeholder="Viertel oder Straße, z.B. Palermo" /></Field>
@@ -120,7 +125,7 @@ export function ItemSheet({ s, book, cats, item, onClose, onSaved, city = null }
         </div>
       )}
       <button type="button" className="btn" onClick={save} disabled={!f.name.trim()}>Speichern</button>
-      {!isNew && <button type="button" className="btn danger" onClick={() => { if (confirm(`„${item.name}“ löschen?`)) { removeBookItem(book, item.id); onClose(); } }}>Löschen</button>}
+      {!isNew && <button type="button" className="btn danger" onClick={() => { if (askDel(`„${item.name}“ löschen?`)) { removeBookItem(book, item.id); onClose(); } }}>Löschen</button>}
     </Sheet>
   );
 }
@@ -151,7 +156,7 @@ export default function PlaceBook({ s, book, hint, city = null }) {
       {edit && (
         <section className="card" style={{ gap: 8 }}>
           <span className="label" style={{ padding: 0 }}>Kategorien</span>
-          <div className="chips">{cats.map((c) => <button key={c.id} type="button" className="chip soft" onClick={() => confirm(`Kategorie „${c.label}“ entfernen? Gespeicherte Orte bleiben.`) && removeBookCat(book, c.id)}>{c.emoji} {c.label} ✕</button>)}</div>
+          <div className="chips">{cats.map((c) => <button key={c.id} type="button" className="chip soft" onClick={() => askDel(`Kategorie „${c.label}“ entfernen? Gespeicherte Orte bleiben.`) && removeBookCat(book, c.id)}>{c.emoji} {c.label} ✕</button>)}</div>
           <form className="block-add" onSubmit={(e) => { e.preventDefault(); const id = addBookCat(book, newCat); if (id) setCat(id); setNewCat(''); }}>
             <input className="input" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Neue Kategorie" aria-label="Neue Kategorie" />
             <button type="submit" className="btn small" disabled={!newCat.trim()}>+</button>

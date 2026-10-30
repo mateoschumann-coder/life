@@ -208,7 +208,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.29 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.30 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>
@@ -263,7 +263,7 @@ function FabSetting() {
         <input type="checkbox" checked={on} onChange={(e) => { setFab(e.target.checked); setOn(e.target.checked); }} />
         <span>✨-Knopf unten rechts auf allen Seiten zeigen</span>
       </label>
-      <span className="tiny">Ausgeschaltet bleibt der Assistent über „Was möchtest du tun?“ (Blitz) und die KI-Felder in den Bereichen erreichbar.</span>
+      <span className="tiny">Ausgeschaltet erreichst du ihn, indem du den Blitz in der Mitte lange drückst (halten, sprechen, loslassen = senden), oder über die KI-Knöpfe in den Formularen.</span>
     </section>
   );
 }

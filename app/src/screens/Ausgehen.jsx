@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
@@ -91,7 +92,7 @@ function AllCitiesSheet({ s, open, onClose, pick }) {
     if (v != null) store.update((d) => { d.profile = { ...d.profile, cityCountry: { ...(d.profile?.cityCountry || {}), [c]: v.trim() } }; });
   };
   const del = (c) => {
-    if (!confirm(`„${c}“ ganz löschen?`)) return;
+    if (!askDel(`„${c}“ ganz löschen?`)) return;
     store.update((d) => { d.profile = { ...d.profile, cities: (d.profile?.cities || []).filter((x) => x !== c), allCities: (d.profile?.allCities || []).filter((x) => x !== c) }; });
   };
   const choose = (c) => { setQ(''); pick(c); };
@@ -182,23 +183,21 @@ const EV_EMPTY = { name: '', date: '', time: '', place: '', price: '', url: '', 
 function EventSheet({ init, city, onClose }) {
   const [f, setF] = useState(EV_EMPTY);
   const [key, setKey] = useState(null);
+  const [n, setN] = useState(0);
   const k = init ? JSON.stringify(init) : null;
   if (k !== key) { setKey(k); if (init) setF({ ...EV_EMPTY, ...init }); }
   const set = (p) => setF((x) => ({ ...x, ...p }));
-  const save = () => {
+  const save = (next) => {
     addEvent({ ...f, city: city === HOME_CITY ? '' : city });
     if (f.date) addTask({ title: `${f.stage === 'zugesagt' ? '' : 'Vielleicht: '}${f.name}`, areaId: 'erlebnisse', due: f.date, time: f.time || null, url: f.url || null });
     toast(f.date ? 'Eingetragen – auch am Tag in deiner Liste' : 'Eingetragen');
-    onClose(true);
+    if (next === true) { setF({ ...EV_EMPTY, stage: f.stage }); setN((x) => x + 1); } else onClose(true);
   };
   return (
     <Sheet open={!!init} title="Event eintragen" onClose={() => onClose(false)}>
-      <AiFill placeholder="z.B. „Samstag Jazz im Thelonious, 22 Uhr, 12.000 Pesos“ oder Passline-/Instagram-Link einfügen" hint="Bei einem Link öffnet die KI die Seite (Instagram nicht – dort den Text kopieren). Ca. 0,1 Cent." onFill={async (txt) => {
-        const r = await parseEventText(store.get(), [txt, f.name, f.url].filter(Boolean).join('\n'), city);
-        if (!r?.name && !r?.datum) throw new Error('Nichts erkannt – mehr Details oder den Text der Seite einfügen');
-        const url = (txt.match(/https?:\/\/\S+/) || [''])[0];
-        setF((x) => ({ ...x, name: x.name || r.name || '', date: x.date || (/^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : ''), time: x.time || r.uhrzeit || '', place: x.place || r.ort || '', price: x.price || r.preis || '', note: x.note || r.notiz || '', url: x.url || url }));
-      }} />
+      <AiFill key={`${key}-${n}`} title="Event (Konzert, Party, Ausstellung … mit Ticket)" values={{ name: f.name, date: f.date, time: f.time, place: f.place, price: f.price, url: f.url, note: f.note }} onResult={(r) => set(r)}
+        fields={{ name: 'Name des Events', date: 'Datum YYYY-MM-DD', time: 'Beginn HH:MM', place: 'Ort/Location', price: 'Preis mit Währung', url: 'Link', note: 'Kurze Notiz', stage: { d: 'interessiert oder zugesagt (Mateo geht sicher hin)', enum: ['interessiert', 'zugesagt'] } }}
+        aiHint={`Stadt: ${city}.`} placeholder="z.B. „Samstag Jazz im Thelonious, 22 Uhr, 12.000 Pesos“ oder Passline-Link" hint="Bei einem Link liest die KI die Seite (Instagram nicht – dort Text kopieren)." />
       <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Konzert im Niceto" /></Field>
       <div style={{ display: 'flex', gap: 10 }}>
         <Field label="Datum"><input className="input" type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
@@ -210,7 +209,10 @@ function EventSheet({ init, city, onClose }) {
       <Field label="Link"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Tickets / Instagram …" /></Field>
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} /></Field>
       <div className="chips">{[['interessiert', '⭐ Interessiert'], ['zugesagt', '✓ Bin dabei']].map(([v, l]) => <button key={v} type="button" className={f.stage === v ? 'chip on' : 'chip soft'} onClick={() => set({ stage: v })}>{l}</button>)}</div>
-      <button type="button" className="btn" disabled={!f.name.trim()} onClick={save}>Speichern</button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn" style={{ flex: 1 }} disabled={!f.name.trim()} onClick={save}>Speichern</button>
+        <button type="button" className="btn tint" disabled={!f.name.trim()} onClick={() => save(true)}>+ Nächstes</button>
+      </div>
     </Sheet>
   );
 }
@@ -514,14 +516,19 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
       setBusy(false);
     }
   };
-  const save = () => {
+  const [n, setN] = useState(0);
+  const save = (next) => {
     if (place) updatePlace(place.id, f);
     else addPlace(f);
     toast(place ? 'Gespeichert' : 'Ort gespeichert');
-    onClose();
+    if (next === true) { setF({ ...blank, category: f.category, status: f.status, hood: f.hood, city: f.city }); setHits(null); setN((x) => x + 1); } else onClose();
   };
   return (
     <Sheet open={open} title={place ? 'Ort bearbeiten' : 'Neuer Ort'} onClose={onClose}>
+      {/* v1.30: KI von Anfang an – sprechen, schreiben oder Link einfügen */}
+      <AiFill key={`${open}-${n}`} title="Ort (Restaurant, Bar, Café …)" values={{ name: f.name, address: f.address, hood: f.hood, hours: f.hours, note: f.note, url: f.url }} onResult={(r) => set({ ...r, ...(r.price ? { price: Math.max(1, Math.min(3, Number(r.price) || 0)) } : {}), ...(r.status ? {} : {}) })}
+        fields={{ name: 'Name des Orts', address: 'Straße + Hausnummer', hood: 'Stadtviertel', category: { d: 'Art', enum: placeCatsOf(s) }, subcat: 'Genauer, z.B. Parrilla, Rooftop', hours: 'Öffnungszeiten kurz', price: { d: 'Preisniveau 1 günstig, 2 mittel, 3 teuer', enum: ['1', '2', '3'] }, status: { d: 'will = will hin, war = war schon', enum: ['will', 'war'] }, note: 'Notiz – nur was Mateo selbst sagt', url: 'Link' }}
+        aiHint={`Stadt: ${f.city || city || HOME_CITY}.`} placeholder="z.B. „Don Julio, Parrilla in Palermo, will ich hin“ oder Instagram-/Maps-Link" />
       <Field label="Name"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Café Crisol" /></Field>
       {allCities(s).length > 1 && (
         <Field label="Stadt">
@@ -597,7 +604,10 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
       {f.status === 'war' && <div className="field"><span>Wie fandest du es?</span><Stars value={f.rating} onChange={(v) => set({ rating: v })} size={26} /></div>}
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} placeholder="z.B. Bester Flat White, gut zum Arbeiten, Terrasse" /></Field>
       <Field label="Link (optional)"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Instagram, Website …" /></Field>
-      <button type="button" className="btn" onClick={save} disabled={!f.name.trim()}>Speichern</button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn" style={{ flex: 1 }} onClick={save} disabled={!f.name.trim()}>Speichern</button>
+        {!place && <button type="button" className="btn tint" onClick={() => save(true)} disabled={!f.name.trim()}>+ Nächster</button>}
+      </div>
       {place && <button type="button" className="btn danger" onClick={() => { archivePlace(place.id); toast('Rausgenommen – unten zurückholbar'); onClose(); }}>Rausnehmen</button>}
     </Sheet>
   );

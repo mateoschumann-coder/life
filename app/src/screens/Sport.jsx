@@ -1,3 +1,5 @@
+import AiFill from '../components/AiFill';
+import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { useEffect, useRef, useState } from 'react';
 import { store, useStore } from '../lib/store';
@@ -172,6 +174,7 @@ function SportsPage({ s }) {
     } catch (e) { toast(e.message); } finally { setPBusy(false); }
   };
   const [fBusy, setFBusy] = useState(false);
+  const [addN, setAddN] = useState(0);
   // KI füllt die übrigen Felder aus dem, was schon eingetragen ist (Name/Link/Ort) – eigene Angaben bleiben
   const fillAi = async () => {
     setFBusy(true);
@@ -226,7 +229,7 @@ function SportsPage({ s }) {
         <div className="box-tabs">
           <button type="button" className={!pick.length ? 'chip on' : 'chip'} onClick={() => setPick([])}>Alle</button>
           {s.sports.map((sp) => (
-            <button key={sp.id} type="button" className={editSports ? 'chip editing' : pick.includes(sp.id) ? 'chip on' : 'chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => (editSports ? confirm(`„${sp.name}“ entfernen? Die Events dazu bleiben gespeichert, werden aber ausgeblendet.`) && removeSport(sp.id) : toggle(sp.id))}>
+            <button key={sp.id} type="button" className={editSports ? 'chip editing' : pick.includes(sp.id) ? 'chip on' : 'chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => (editSports ? askDel(`„${sp.name}“ entfernen? Die Events dazu bleiben gespeichert, werden aber ausgeblendet.`) && removeSport(sp.id) : toggle(sp.id))}>
               {sp.name}{editSports && <Icon name="x" size={11} />}
             </button>
           ))}
@@ -313,8 +316,12 @@ function SportsPage({ s }) {
         {/* v0.98 (Mateo): „+ Event notieren“ hier unten statt oben rechts, mit KI-Ausfüllen */}
         {<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button type="button" className="btn tint small" onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>+ Event notieren</button><span style={{ marginLeft: 'auto' }} /><RemovedButton items={(s.removedSportEvents || []).filter((e) => !pick.length || pick.includes(e.sportId))} storeKey="removedSportEvents" onRestore={restoreSportEvent} meta={(e) => [e.date && fmtShort(e.date), e.place, s.sports.find((x) => x.id === e.sportId)?.name].filter(Boolean).join(' · ')} /></div>}
         <Sheet open={adding} title="Neues Sport-Event" onClose={() => setAdding(false)}>
+          <AiFill key={`${adding}-${addN}`} title="Sport-Event / Rennen" values={{ name: f.name, date: f.date, place: f.place, dist: f.dist, url: f.url }}
+            onResult={(r) => { const sp = s.sports.find((x) => x.name.toLowerCase() === String(r.sportart || '').toLowerCase()); const { sportart, ...rest } = r; setF((x) => ({ ...x, ...rest, ...(sp ? { sportId: sp.id } : {}) })); }}
+            fields={{ name: 'Name des Rennens', date: 'Datum YYYY-MM-DD', place: 'Ort', dist: 'Distanz, z.B. 21 km', url: 'Link zur Anmeldung', sportart: { d: 'Sportart', enum: s.sports.map((x) => x.name) }, status: { d: 'interessiert oder angemeldet', enum: ['interessiert', 'angemeldet'] } }}
+            placeholder="z.B. „Halbmarathon Rosario im April, bin angemeldet“ oder Link zur Anmeldung" />
           <SportPresets s={s} onPick={(p) => setF((x) => ({ ...x, name: p.name, dist: p.dist || x.dist || '' }))} />
-          <form style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onSubmit={(ev) => { ev.preventDefault(); if (addSportEvent({ ...f, status: f.status || 'interessiert' })) toast(f.status === 'angemeldet' ? 'Unter „Ich nehme teil“ notiert' : 'Notiert'); else toast('Gibt es schon'); setF({ name: '', date: '', place: '', url: '', sportId: f.sportId }); setAdding(false); }}>
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onSubmit={(ev) => { ev.preventDefault(); const next = ev.nativeEvent?.submitter?.dataset?.next === '1'; if (addSportEvent({ ...f, status: f.status || 'interessiert' })) toast(f.status === 'angemeldet' ? 'Unter „Ich nehme teil“ notiert' : 'Notiert'); else toast('Gibt es schon'); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId, status: f.status }); if (next) setAddN((x) => x + 1); else setAdding(false); }}>
             <div className="field"><span>Sportart</span><div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}{!s.sports.length && <span className="tiny">Erst oben über ✎ eine Sportart hinzufügen.</span>}</div></div>
             <label className="field"><span>Was?</span><input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder="Name oder Link, z.B. 21K de Buenos Aires" /></label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -327,8 +334,10 @@ function SportsPage({ s }) {
               <button type="button" className={f.status !== 'angemeldet' ? 'on' : ''} onClick={() => setF({ ...f, status: 'interessiert' })}>⭐ Gemerkt</button>
               <button type="button" className={f.status === 'angemeldet' ? 'on' : ''} onClick={() => setF({ ...f, status: 'angemeldet' })}>✅ Ich nehme teil</button>
             </div>
-            <button type="button" className="btn tint small" disabled={fBusy || !getAi().apiKey || !(f.name.trim() || f.url.trim())} onClick={fillAi}>{fBusy ? 'Ich suche die Daten …' : '✨ Rest mit KI ausfüllen'}</button>
-            <button type="submit" className="btn" disabled={!f.name.trim() || !f.sportId}>Speichern</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="submit" className="btn" style={{ flex: 1 }} disabled={!f.name.trim() || !f.sportId}>Speichern</button>
+              <button type="submit" data-next="1" className="btn tint" disabled={!f.name.trim() || !f.sportId}>+ Nächstes</button>
+            </div>
           </form>
         </Sheet>
         <section className="group">

@@ -37,8 +37,7 @@ import QuickTask from './components/QuickTask';
 export default function App() {
   const [page, a, b] = useRoute();
   const fab = useFabOn();
-  // ohne schwebenden Knopf: „Erzählen“-Aufrufe öffnen den Chat
-  useEffect(() => { if (fab) return; const f = () => { location.hash = '/assistent'; }; window.addEventListener('life-listen', f); return () => window.removeEventListener('life-listen', f); }, [fab]);
+
   let screen;
   switch (page) {
     case '':
@@ -76,7 +75,7 @@ export default function App() {
   return (
     <div className="app">
       {screen}
-      {fab && page !== 'assistent' && !(page === 'reisen' && a) && <FloatingAssistant />}
+      {page !== 'assistent' && <FloatingAssistant hideFab={!fab || (page === 'reisen' && !!a)} />}
       <QuickTask />
       <Toaster />
     </div>

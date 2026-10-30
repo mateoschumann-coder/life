@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { dueText, fmtShort, today } from '../lib/dates';
@@ -139,7 +140,7 @@ export default function Projekt({ id }) {
           <button type="button" className="btn sec" onClick={() => { updateProject(id, { status: p.status === 'aktiv' ? 'archiviert' : 'aktiv' }); toast(p.status === 'aktiv' ? 'Archiviert' : 'Wieder aktiv'); }}>
             {p.status === 'aktiv' ? 'Archivieren' : 'Wieder aktivieren'}
           </button>
-          <button type="button" className="btn danger" onClick={() => { if (confirm(`Projekt „${p.name}“ endgültig löschen?`)) { deleteProject(id); go(`/bereich/${p.areaId}`); } }}>
+          <button type="button" className="btn danger" onClick={() => { if (askDel(`Projekt „${p.name}“ endgültig löschen?`)) { deleteProject(id); go(`/bereich/${p.areaId}`); } }}>
             Löschen
           </button>
         </div>

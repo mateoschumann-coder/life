@@ -1,3 +1,5 @@
+import AiFill from '../components/AiFill';
+import { askDel } from '../lib/undo';
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, today } from '../lib/dates';
@@ -309,7 +311,10 @@ function SearchPage({ s, search }) {
           )}
           {adding && (
             <form className="card" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); const id = addJob({ searchId: search.id, ...manual }); setManual({ title: '', company: '', url: '', description: '', status: 'interessiert' }); setAdding(false); if (id) toast('Im Trichter'); }}>
-              <input className="input" value={manual.title} onChange={(e) => setManual({ ...manual, title: e.target.value })} placeholder="Stelle, z.B. Investment Analyst" aria-label="Stelle" autoFocus />
+              <AiFill title="Stelle / Bewerbung" values={{ title: manual.title, company: manual.company, url: manual.url }} onResult={(r) => setManual((x) => ({ ...x, ...r }))}
+                fields={{ title: 'Stellenbezeichnung', company: 'Firma', status: { d: 'Phase', enum: STAGES.map((st) => st.id) }, url: 'Link zur Anzeige', description: 'Anzeigentext bzw. wichtigste Infos' }}
+                placeholder="z.B. „Hab mich heute bei Kaszek als Associate beworben“ oder Link zur Anzeige" />
+              <input className="input" value={manual.title} onChange={(e) => setManual({ ...manual, title: e.target.value })} placeholder="Stelle, z.B. Investment Analyst" aria-label="Stelle" />
               <input className="input" value={manual.company} onChange={(e) => setManual({ ...manual, company: e.target.value })} placeholder="Firma" aria-label="Firma" />
               <div className="chips">{STAGES.map((st) => <button key={st.id} type="button" className={manual.status === st.id ? 'chip on' : 'chip soft'} onClick={() => setManual({ ...manual, status: st.id })}>{st.short}</button>)}</div>
               <input className="input" value={manual.url} onChange={(e) => setManual({ ...manual, url: e.target.value })} placeholder="Link zur Anzeige (optional)" aria-label="Link" inputMode="url" />
@@ -351,7 +356,7 @@ function SearchPage({ s, search }) {
           placeholder="Was hat sich getan? Oder Anzeige einfügen …"
         />}
 
-        {tab === 'uebersicht' && <button type="button" className="btn danger" onClick={() => { if (confirm(`Suche „${search.name}“ löschen? Stellen, die nur „Interessiert“ sind, werden mitgelöscht.`)) { removeSearch(search.id); go('/karriere'); } }}>Suche löschen</button>}
+        {tab === 'uebersicht' && <button type="button" className="btn danger" onClick={() => { if (askDel(`Suche „${search.name}“ löschen? Stellen, die nur „Interessiert“ sind, werden mitgelöscht.`)) { removeSearch(search.id); go('/karriere'); } }}>Suche löschen</button>}
       </main>
       <TabBar active="bereiche" />
     </>
@@ -556,7 +561,7 @@ function JobPage({ s, job }) {
           <textarea className="input" defaultValue={job.note} key={job.id + 'no'} placeholder="Kontakte, Gesprächsnotizen, Gehalt …" onBlur={(e) => e.target.value !== job.note && updateJob(job.id, { note: e.target.value })} aria-label="Notizen" />
           <div className="field"><span>Bewerbungsfrist</span><DateRangeField single from={job.deadline || ''} to="" onChange={(v) => updateJob(job.id, { deadline: v.from || '' })} placeholder="Keine Frist" title="Bewerbungsfrist" /></div>
         </section>
-        <button type="button" className="btn danger" onClick={() => { if (confirm('Stelle löschen?')) { removeJob(job.id); go(search ? `/karriere/suche/${search.id}` : '/karriere'); } }}>Stelle löschen</button>
+        <button type="button" className="btn danger" onClick={() => { if (askDel('Stelle löschen?')) { removeJob(job.id); go(search ? `/karriere/suche/${search.id}` : '/karriere'); } }}>Stelle löschen</button>
         </>}
       </main>
       <TabBar active="bereiche" />

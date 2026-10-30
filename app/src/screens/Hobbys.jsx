@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { SkillPage } from './Skills';
 import { useStore } from '../lib/store';
@@ -37,7 +38,7 @@ function HobbyList({ s }) {
                   <span className="row-title strong">{h.name}</span>
                   <span className="row-meta">{[h.level, open ? `${open} To-dos offen` : 'Keine offenen To-dos', mat && `${mat} Material`].filter(Boolean).join(' · ')}</span>
                 </a>
-                {edit ? <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => confirm(`„${h.name}“ entfernen?`) && removeHobby(h.id)}>Entfernen</button> : <Chevron />}
+                {edit ? <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => askDel(`„${h.name}“ entfernen?`) && removeHobby(h.id)}>Entfernen</button> : <Chevron />}
               </div>
             );
           })}
@@ -138,7 +139,7 @@ function ItemSheet({ h, item, onClose }) {
           <Field label="Notiz"><textarea className="input" value={f.why} onChange={(e) => setF({ ...f, why: e.target.value })} placeholder="z.B. Tonart, Akkorde, wo gefunden …" /></Field>
           <Field label="Link (optional)"><input className="input" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} inputMode="url" placeholder="z.B. YouTube-Video oder Tabs" /></Field>
           <button type="button" className="btn" onClick={save} disabled={!f.title.trim()}>Speichern</button>
-          <button type="button" className="btn danger" onClick={() => { if (confirm('Eintrag löschen?')) { removeHobbyItem(h.id, item.id); onClose(); } }}>Löschen</button>
+          <button type="button" className="btn danger" onClick={() => { if (askDel('Eintrag löschen?')) { removeHobbyItem(h.id, item.id); onClose(); } }}>Löschen</button>
         </>
       )}
     </Sheet>

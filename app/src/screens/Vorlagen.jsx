@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { deleteTemplate, saveTemplate } from '../lib/actions';
@@ -50,7 +51,7 @@ export default function Vorlagen() {
             </Field>
             <button type="button" className="btn" onClick={save} disabled={!edit.name.trim()}>Speichern</button>
             {edit.id && (
-              <button type="button" className="btn danger" onClick={() => { if (confirm('Vorlage löschen?')) { deleteTemplate(edit.id); setEdit(null); } }}>Vorlage löschen</button>
+              <button type="button" className="btn danger" onClick={() => { if (askDel('Vorlage löschen?')) { deleteTemplate(edit.id); setEdit(null); } }}>Vorlage löschen</button>
             )}
           </>
         )}

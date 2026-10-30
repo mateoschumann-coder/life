@@ -5,31 +5,34 @@ import { addDays, fmtShort, today } from '../lib/dates';
 import { DateRangeField } from './DateRange';
 import { Sheet, toast } from './ui';
 import { go } from '../lib/router';
+import AiFill from './AiFill';
 
 export default function QuickTask() {
   const [open, setOpen] = useState(false);
+  const [n, setN] = useState(0);
   const [title, setTitle] = useState('');
   const [due, setDue] = useState(today());
   const [time, setTime] = useState('');
   const ref = useRef(null);
   useEffect(() => {
-    const h = () => { setTitle(''); setDue(today()); setTime(''); setOpen(true); setTimeout(() => ref.current?.focus(), 250); };
+    const h = () => { setTitle(''); setDue(today()); setTime(''); setOpen(true); setN((x) => x + 1); setTimeout(() => ref.current?.focus(), 250); };
     const hc = () => setOpen(false);
     window.addEventListener('life-quick-task', h);
     window.addEventListener('hashchange', hc);
     return () => { window.removeEventListener('life-quick-task', h); window.removeEventListener('hashchange', hc); };
   }, []);
   const t = today(), tm = addDays(t, 1);
-  const save = () => {
+  const save = (next) => {
     if (!title.trim()) return;
     addTask({ title, due: due || null, time: due && time ? time : null });
     toast(due === t ? 'Aufgabe für heute eingetragen' : due === tm ? 'Aufgabe für morgen eingetragen' : due ? `Aufgabe für ${fmtShort(due)} eingetragen` : 'Aufgabe ohne Datum eingetragen');
-    setOpen(false);
+    if (next === true) { setTitle(''); setTime(''); setN((x) => x + 1); setTimeout(() => ref.current?.focus(), 50); } else setOpen(false);
   };
   const other = due && due !== t && due !== tm;
   return (
     <Sheet open={open} title="Neue Aufgabe" onClose={() => setOpen(false)}>
       <form onSubmit={(e) => { e.preventDefault(); save(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <AiFill key={n} title="Aufgabe" fields={{ title: 'Was zu tun ist, kurz', due: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM' }} values={{ title, time }} onResult={(r) => { if (r.title) setTitle(r.title); if (r.due) setDue(r.due); if (r.time) setTime(r.time); }} placeholder="z.B. „Morgen um 10 Juan wegen Asado anrufen“" />
         <label className="field"><span>Was?</span><input ref={ref} className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z.B. Mama anrufen, Rechnung zahlen" /></label>
         <div className="field">
           <span>Wann?</span>
@@ -43,7 +46,10 @@ export default function QuickTask() {
             {due && <input className="input" type="time" style={{ flex: '0 0 120px' }} value={time} onChange={(e) => setTime(e.target.value)} aria-label="Uhrzeit" />}
           </div>
         </div>
-        <button type="submit" className="btn" disabled={!title.trim()}>Eintragen</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="submit" className="btn" style={{ flex: 1 }} disabled={!title.trim()}>Eintragen</button>
+          <button type="button" className="btn tint" disabled={!title.trim()} onClick={() => save(true)}>+ Nächste</button>
+        </div>
         <button type="button" className="link-btn" style={{ alignSelf: 'center', fontSize: 14 }} onClick={() => { setOpen(false); go('/erfassen'); }}>Etwas anderes erfassen (Idee, Einkauf, Notiz …) →</button>
       </form>
     </Sheet>

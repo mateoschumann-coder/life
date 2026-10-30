@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
@@ -12,6 +13,7 @@ import PlaceBook, { ItemSheet as PlaceSheet } from '../components/PlaceBook';
 import { addBookItem, bookAreas, bookCats, bookMaps, bookOf, doctorLinks, findBookItem, searchDoctors } from '../lib/placebook';
 import { hoodHere } from '../lib/outings';
 import { ModeToggle, useSearchMode } from '../components/SourceLinks';
+import AiFill from '../components/AiFill';
 
 const TYPES = [
   { id: 'termin', label: 'Termin', hint: 'Einmalig, z.B. Arzttermin am 12. Nov.' },
@@ -87,12 +89,22 @@ function ItemSheet({ s, open, onClose, item }) {
     setF(base);
   }
   const injury = f.type === 'verletzung';
-  const save = () => {
+  const [n2, setN2] = useState(0);
+  const aiResult = (r) => {
+    const items = bookOf(s, 'vorsorge').items || [];
+    const lc = (x) => String(x || '').toLowerCase();
+    const hit = r.ort && items.find((x) => lc(x.name).includes(lc(r.ort)) || lc(r.ort).includes(lc(x.name)));
+    setF((x) => ({ ...x, ...(r.title ? { title: r.title } : {}), ...(r.date ? { date: r.date } : {}), ...(r.time ? { time: r.time } : {}), ...(r.notes ? { notes: [x.notes, r.notes].filter(Boolean).join('\n') } : {}),
+      ...(r.everyN ? { type: 'routine', everyN: r.everyN.replace(/\D/g, ''), unit: r.unit === 'w' ? 'w' : 'm' } : {}),
+      ...(hit ? { placeId: hit.id } : r.ort || r.address ? { address: [r.ort, r.address].filter(Boolean).join(', ') } : {}) }));
+  };
+  const save = (next) => {
     const n = Number(f.everyN) || (f.unit === 'w' ? 1 : 6);
     const data = { title: f.title, type: f.type, date: f.date || null, time: injury ? '' : f.time || '', everyMonths: f.type === 'routine' && f.unit === 'm' ? n : null, everyWeeks: f.type === 'routine' && f.unit === 'w' ? n : null, notes: f.notes, placeId: injury ? '' : f.placeId || '', address: injury || f.placeId ? '' : f.address || '' };
     if (item?.id) updateHealthItem(item.id, data);
     else addHealthItem(data);
     toast('Gespeichert');
+    if (next === true) { setF({ ...blank, type: f.type }); setN2((x) => x + 1); return; }
     setLoaded(null);
     onClose();
   };
@@ -104,6 +116,9 @@ function ItemSheet({ s, open, onClose, item }) {
   const c = p && bookCats(s, 'vorsorge').find((x) => x.id === p.cat);
   return (
     <Sheet open={open} title={item?.id ? 'Bearbeiten' : injury ? 'Neue Verletzung' : 'Neuer Termin'} onClose={close}>
+      {!injury && <AiFill key={`${loaded}-${n2}`} title="Arzttermin / Vorsorge" values={{ title: f.title, date: f.date, time: f.time, address: f.address, notes: f.notes }} onResult={aiResult}
+        fields={{ title: 'Was (z.B. Zahnarzt-Kontrolle)', date: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM', ort: 'Name der Praxis/des Arztes', address: 'Adresse', notes: 'Notiz (mitnehmen, Fragen)', everyN: 'Nur bei regelmäßigen Terminen: alle wie viele', unit: { d: 'w = Wochen, m = Monate', enum: ['w', 'm'] } }}
+        aiHint={`Gespeicherte Praxen: ${(bookOf(s, 'vorsorge').items || []).map((x) => x.name).slice(0, 40).join(', ')}.`} placeholder="z.B. „Zahnarzt Dr. López am 12. um 10:30, Röntgenbild mitnehmen“" />}
       {!injury && <Segmented full options={[{ id: 'termin', label: '📅 Einmalig' }, { id: 'routine', label: '🔁 Wiederkehrend' }]} value={f.type} onChange={(v) => setF({ ...f, type: v })} label="Art" />}
       <Field label={injury ? 'Was ist es?' : 'Was?'}><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={injury ? 'z.B. Knie rechts zwickt beim Laufen' : 'z.B. Zahnarzt-Kontrolle'} /></Field>
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
@@ -133,8 +148,11 @@ function ItemSheet({ s, open, onClose, item }) {
         </div>
       )}
       <Field label="Notizen"><textarea className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={injury ? 'Wann tut es weh? Was hilft? Was hat der Arzt gesagt?' : 'Was mitnehmen, Fragen an den Arzt …'} /></Field>
-      <button type="button" className="btn" onClick={save} disabled={!f.title.trim()}>Speichern</button>
-      {item?.id && <button type="button" className="btn danger" onClick={() => { if (confirm('Löschen?')) { deleteHealthItem(item.id); close(); } }}>Löschen</button>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn" style={{ flex: 1 }} onClick={save} disabled={!f.title.trim()}>Speichern</button>
+        {!item?.id && <button type="button" className="btn tint" onClick={() => save(true)} disabled={!f.title.trim()}>+ Nächster</button>}
+      </div>
+      {item?.id && <button type="button" className="btn danger" onClick={() => { if (askDel('Löschen?')) { deleteHealthItem(item.id); close(); } }}>Löschen</button>}
       <PlacePicker s={s} open={pick} value={f.placeId} onClose={() => setPick(false)} onPick={(id) => { setF({ ...f, placeId: id }); setPick(false); }} />
     </Sheet>
   );
@@ -333,7 +351,7 @@ export default function Vorsorge() {
                   <div key={h.id} className="row compact">
                     <span className="row-main"><span className="row-title plain done">{h.title}</span><span className="row-meta">{[h.date && fmtShort(h.date), h.time && `${h.time} Uhr`].filter(Boolean).join(' · ')}</span></span>
                     <button type="button" className="pill" onClick={() => { updateHealthItem(h.id, { status: 'offen' }); toast('Wieder offen – steht oben bei den Terminen'); }} aria-label={`${h.title} wieder öffnen`}>↩</button>
-                    <button type="button" className="pill" style={{ color: 'var(--danger)' }} aria-label={`${h.title} löschen`} onClick={() => { if (confirm(`„${h.title}“ löschen?`)) { deleteHealthItem(h.id); toast('Gelöscht'); } }}>✕</button>
+                    <button type="button" className="pill" style={{ color: 'var(--danger)' }} aria-label={`${h.title} löschen`} onClick={() => { if (askDel(`„${h.title}“ löschen?`)) { deleteHealthItem(h.id); toast('Gelöscht'); } }}>✕</button>
                   </div>
                 ))}
               </div>

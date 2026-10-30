@@ -1,5 +1,7 @@
+import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { go, markFromHeute } from '../lib/router';
+import Swipe from '../components/Swipe';
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, diffDays, dueText, fmtLong, parseKey, relDays, startOfWeek, targetText, today } from '../lib/dates';
@@ -149,7 +151,7 @@ export default function Heute() {
     if (x.areaId && areaOf(s, x.areaId)) return jump(`#/bereich/${x.areaId}`);
     return null;
   };
-  const delTask = (x) => { if (confirm(`„${x.title}“ löschen?`)) { deleteTask(x.id); toast('Gelöscht'); } };
+  const delTask = (x) => { if (askDel(`„${x.title}“ löschen?`)) deleteTask(x.id); };
   // ---------- Einträge für den gewählten Tag ----------
   const dayItems = (key) => {
     const list = [];
@@ -230,7 +232,8 @@ export default function Heute() {
   const dayLabel = isToday ? 'Heute' : day === addDays(t, 1) ? 'Morgen' : day === addDays(t, -1) ? 'Gestern' : dayFmt.format(parseKey(day));
 
   const Row = (i) => (
-    <div key={i.key} className="row">
+    <Swipe key={i.key} onRight={i.onCheck && !i.done ? i.onCheck : null} onLeft={i.onDelete || null}>
+    <div className="row">
       {i.onCheck ? <Check on={i.done} color={i.color} onClick={i.onCheck} label={(i.done ? 'Offen: ' : 'Erledigt: ') + i.title} /> : <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center' }}><Icon name="today" size={18} color={i.color} /></span>}
       <div className="row-main" onClick={i.open || undefined} role={i.open ? 'link' : undefined} style={i.open ? { cursor: 'pointer' } : undefined} aria-label={i.open ? `${i.title} öffnen` : undefined}>
         <span className={i.done ? 'row-title done' : 'row-title'}>{i.title}</span>
@@ -241,6 +244,7 @@ export default function Heute() {
       {i.time && <span className="row-side" style={{ fontSize: 14 }}>{i.time}</span>}
       {i.onDelete && <button type="button" className="x-btn" onClick={i.onDelete} aria-label={`${i.title} löschen`}><Icon name="x" size={12} color="var(--chev)" /></button>}
     </div>
+    </Swipe>
   );
 
   return (

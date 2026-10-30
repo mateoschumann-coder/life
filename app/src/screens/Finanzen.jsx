@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useEffect, useRef, useState } from 'react';
 import { isDark } from '../lib/theme';
 import { store } from '../lib/store';
@@ -123,7 +124,7 @@ function Alltag({ s }) {
         <section className="group">
           <div className="sec-h"><h2 className="h2" style={{ fontSize: 19 }}>Fixkosten pro Monat</h2><span className="tiny">{money(r.fixed, b.base)}</span></div>
           <div className="chips">
-            {costCatsOf(b).map((c) => <button key={c.id} type="button" className={cat === c.id ? 'chip on' : 'chip soft'} onClick={() => (editCats && c.own ? (confirm(`Kategorie „${c.label}“ entfernen? Einträge landen unter Sonstiges.`) && removeCostCat(c.id)) : setCat(c.id))}>{c.label}{editCats && c.own ? ' ✕' : ''}</button>)}
+            {costCatsOf(b).map((c) => <button key={c.id} type="button" className={cat === c.id ? 'chip on' : 'chip soft'} onClick={() => (editCats && c.own ? (askDel(`Kategorie „${c.label}“ entfernen? Einträge landen unter Sonstiges.`) && removeCostCat(c.id)) : setCat(c.id))}>{c.label}{editCats && c.own ? ' ✕' : ''}</button>)}
             {newCat === null && <button type="button" className="chip soft" onClick={() => setNewCat('')}>+ Neue Kategorie</button>}
             {(b.cats || []).length > 0 && <button type="button" className={editCats ? 'chip on' : 'chip soft'} onClick={() => setEditCats(!editCats)}>{editCats ? 'Fertig' : '✎'}</button>}
           </div>

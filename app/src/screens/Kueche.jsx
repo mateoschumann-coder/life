@@ -1,3 +1,5 @@
+import { askDel } from '../lib/undo';
+import Swipe from '../components/Swipe';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import {
@@ -77,7 +79,7 @@ function RecipeSheet({ s, recipe, onClose }) {
           ) : (
             <div className="btn-row">
               <button type="button" className="btn sec" onClick={startEdit}>Bearbeiten</button>
-              <button type="button" className="btn danger" onClick={() => { if (confirm('Rezept löschen?')) { deleteRecipe(r.id); onClose(); } }}>Löschen</button>
+              <button type="button" className="btn danger" onClick={() => { if (askDel('Rezept löschen?')) { deleteRecipe(r.id); onClose(); } }}>Löschen</button>
             </div>
           )}
         </>
@@ -178,7 +180,7 @@ function StructureSheet({ s, open, onClose }) {
             {nameInput(g.label, (v) => shopEdit.updateGroup(g.id, { label: v }), 'Hauptkategorie', { flex: 1, minWidth: 0, fontWeight: 650, padding: '8px 10px', minHeight: 42 })}
             <button type="button" className="mini-btn" disabled={gi === 0} onClick={() => shopEdit.moveGroup(g.id, -1)} aria-label="Nach oben">↑</button>
             <button type="button" className="mini-btn" disabled={gi === st.groups.length - 1} onClick={() => shopEdit.moveGroup(g.id, 1)} aria-label="Nach unten">↓</button>
-            {st.groups.length > 1 && <button type="button" className="mini-btn" onClick={() => confirm(`„${g.label}“ mit allen Unterkategorien löschen?`) && shopEdit.removeGroup(g.id)} aria-label="Hauptkategorie löschen"><Icon name="x" size={12} color="var(--danger)" /></button>}
+            {st.groups.length > 1 && <button type="button" className="mini-btn" onClick={() => askDel(`„${g.label}“ mit allen Unterkategorien löschen?`) && shopEdit.removeGroup(g.id)} aria-label="Hauptkategorie löschen"><Icon name="x" size={12} color="var(--danger)" /></button>}
           </div>
           {st.cats.filter((c) => c.group === g.id).map((c, ci, arr) => (
             <div key={c.id} style={{ display: 'flex', gap: 4, alignItems: 'center', paddingLeft: 8 }}>
@@ -186,7 +188,7 @@ function StructureSheet({ s, open, onClose }) {
               {c.id === 'sonstiges' ? <span style={{ flex: 1, fontSize: 15 }}>{c.label}</span> : nameInput(c.label, (v) => shopEdit.updateCat(c.id, { label: v }), 'Unterkategorie', { flex: 1, minWidth: 0, fontSize: 15, padding: '7px 10px', minHeight: 38 })}
               <button type="button" className="mini-btn" disabled={ci === 0} onClick={() => shopEdit.moveCat(c.id, -1)} aria-label="Nach oben">↑</button>
               <button type="button" className="mini-btn" disabled={ci === arr.length - 1} onClick={() => shopEdit.moveCat(c.id, 1)} aria-label="Nach unten">↓</button>
-              {c.id !== 'sonstiges' ? <button type="button" className="mini-btn" onClick={() => confirm(`Unterkategorie „${c.label}“ löschen?`) && shopEdit.removeCat(c.id)} aria-label="Unterkategorie löschen"><Icon name="x" size={11} color="var(--chev)" /></button> : <span className="mini-btn" />}
+              {c.id !== 'sonstiges' ? <button type="button" className="mini-btn" onClick={() => askDel(`Unterkategorie „${c.label}“ löschen?`) && shopEdit.removeCat(c.id)} aria-label="Unterkategorie löschen"><Icon name="x" size={11} color="var(--chev)" /></button> : <span className="mini-btn" />}
             </div>
           ))}
           <form className="block-add" style={{ paddingLeft: 14 }} onSubmit={(e) => { e.preventDefault(); shopEdit.addCat(g.id, newCat[g.id]); setNewCat({ ...newCat, [g.id]: '' }); }}>
@@ -343,7 +345,7 @@ function ListsSheet({ s, open, onClose, onEdit }) {
                 <span className="tiny">{openCount(l)} Artikel{l.active ? ' · gerade offen' : ''}</span>
               </button>
               <button type="button" className="x-btn" aria-label={`${l.name} bearbeiten`} onClick={() => onEdit(l.id)}><Icon name="edit" size={14} color="var(--muted)" /></button>
-              {all.length > 1 && <button type="button" className="x-btn" aria-label={`${l.name} löschen`} onClick={() => confirm(`Liste „${l.name}“ löschen?`) && deleteShoppingList(l.id)}><Icon name="x" size={12} color="var(--chev)" /></button>}
+              {all.length > 1 && <button type="button" className="x-btn" aria-label={`${l.name} löschen`} onClick={() => askDel(`Liste „${l.name}“ löschen?`) && deleteShoppingList(l.id)}><Icon name="x" size={12} color="var(--chev)" /></button>}
             </div>
           ))}
         </div>
@@ -379,7 +381,7 @@ function Shopping({ s, editor = false }) {
         </button>
         <button type="button" className="chip soft" style={{ minWidth: 0, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => setLists(true)} aria-label="Gespeicherte Listen">📋 {activeListName(s)} ▾</button>
         {open.length > 0 && <button type="button" className="chip soft" style={{ flexShrink: 0, padding: '6px 10px' }} onClick={() => setSaveAs(true)} aria-label="Als Liste speichern" title="Als Liste speichern">💾</button>}
-        {s.shopping.items.length > 0 && <button type="button" className="chip soft" style={{ flexShrink: 0, padding: '6px 10px' }} onClick={() => { if (confirm(`Alle ${s.shopping.items.length} Artikel von „${activeListName(s)}“ löschen?`)) { clearShopping(); toast('Liste geleert'); } }} aria-label="Liste leeren" title="Liste leeren">🗑</button>}
+        {s.shopping.items.length > 0 && <button type="button" className="chip soft" style={{ flexShrink: 0, padding: '6px 10px' }} onClick={() => { if (askDel(`Alle ${s.shopping.items.length} Artikel von „${activeListName(s)}“ löschen?`)) { clearShopping(); toast('Liste geleert'); } }} aria-label="Liste leeren" title="Liste leeren">🗑</button>}
       </div>}
       {!editor && <ListsSheet s={s} open={lists} onClose={() => setLists(false)} onEdit={(id) => { setLists(false); setEditList(id); }} />}
       {editList && <ListEditor s={s} listId={editList} onClose={() => setEditList(null)} />}
@@ -394,11 +396,13 @@ function Shopping({ s, editor = false }) {
             <span className="label" style={{ padding: '0 4px' }}>{c.emoji} {c.label} · {items.length}</span>
             <div className="list">
               {items.map((x) => (
-                <div key={x.id} className="row" style={{ minHeight: 48 }}>
+                <Swipe key={x.id} onRight={() => toggleShopping(x.id)} rightLabel="✓ Gekauft" onLeft={() => { askDel(`„${x.name}“ entfernen`); removeShopping(x.id); }} leftLabel="🗑 Entfernen">
+                <div className="row" style={{ minHeight: 48 }}>
                   <Check on={false} color={COLOR} onClick={() => toggleShopping(x.id)} label={`${x.name} gekauft`} />
                   <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => setMove(x)} aria-label={`${x.name}: Kategorie ändern`}><span className="row-title plain">{x.name}</span></button>
                   <button type="button" className="x-btn" aria-label={`${x.name} entfernen`} onClick={() => removeShopping(x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
                 </div>
+                </Swipe>
               ))}
             </div>
           </div>

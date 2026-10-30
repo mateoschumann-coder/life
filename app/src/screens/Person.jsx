@@ -1,3 +1,4 @@
+import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays as addDaysKey, fmtShort, today } from '../lib/dates';
@@ -6,6 +7,7 @@ import { addPersonDate, addTask, deletePerson, deleteTask, logContact, removePer
 import { DateRangeField } from '../components/DateRange';
 import { Back, Check, Field, Icon, TabBar, toast } from '../components/ui';
 import AiFill from '../components/AiFill';
+import Swipe from '../components/Swipe';
 import { parsePersonText } from '../lib/personai';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 import { go } from '../lib/router';
@@ -131,7 +133,7 @@ export default function Person({ id, metAt }) {
             <Fold title="🕓 Letzte Kontakte" count={(current.contacts || []).length}>
               {contacts.length === 0 ? <span className="sub">Noch keiner notiert.</span> : <span className="sub">{contacts.map((d) => (d === today() ? 'heute' : fmtShort(d))).join(' · ')}</span>}
             </Fold>
-            <button type="button" className="btn danger" onClick={() => { if (confirm(`${existing.name} löschen?`)) { deletePerson(id); go('/menschen'); } }}>Person löschen</button>
+            <button type="button" className="btn danger" onClick={() => { if (askDel(`${existing.name} löschen?`)) { deletePerson(id); go('/menschen'); } }}>Person löschen</button>
           </>
         )}
       </main>
@@ -172,11 +174,13 @@ function PersonPlans({ s, p }) {
         {tasks.length > 0 && (
           <div className="list">
             {tasks.map((x) => (
-              <div key={x.id} className="row compact">
+              <Swipe key={x.id} onRight={() => { toggleTask(x.id); toast('Erledigt'); }} onLeft={() => { askDel(`„${x.title}“ löschen`); deleteTask(x.id); }}>
+              <div className="row compact">
                 <Check on={false} color="#E8775A" onClick={() => { toggleTask(x.id); toast('Erledigt'); }} label={`Erledigt: ${x.title}`} />
                 <span className="row-main"><span className="row-title plain">{x.title}</span>{(x.due || x.idea) && <span className="row-meta" style={{ color: x.due && x.due < t ? 'var(--danger)' : undefined }}>{x.due ? (x.due === t ? 'heute' : x.due < t ? `überfällig · ${fmtShort(x.due)}` : fmtShort(x.due)) + (x.time ? ` · ${x.time}` : '') : 'Idee'}</span>}</span>
-                <button type="button" className="x-btn" onClick={() => deleteTask(x.id)} aria-label={`${x.title} löschen`}><Icon name="x" size={12} color="var(--chev)" /></button>
+                <button type="button" className="x-btn" onClick={() => { askDel(`„${x.title}“ löschen`); deleteTask(x.id); }} aria-label={`${x.title} löschen`}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
+              </Swipe>
             ))}
           </div>
         )}
