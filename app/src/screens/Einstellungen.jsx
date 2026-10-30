@@ -67,7 +67,10 @@ export default function Einstellungen() {
   };
   const counts = `${s.habits.length} Rhythmen · ${s.tasks.length} Aufgaben · ${s.projects.length} Projekte · ${s.people.length} Personen`;
 
-  const exportJson = () => shareFile(`life-backup-${today()}.json`, JSON.stringify(s, null, 2), 'application/json');
+  // v1.41: „Komplett“ nimmt auch die Geräte-Einstellungen mit (API-Schlüssel, Aussehen, gemerkte Reiter …) – für den Umzug beim neuen App-Symbol
+  const [full, setFull] = useState(false);
+  const deviceData = () => { const d = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('life-') && k !== 'life-app-v1' && !k.startsWith('life-td-')) d[k] = localStorage.getItem(k); } } catch {} return d; };
+  const exportJson = () => shareFile(full ? `life-komplett-${today()}.json` : `life-backup-${today()}.json`, JSON.stringify(full ? { ...s, _device: deviceData() } : s, null, 2), 'application/json');
   const exportIcs = () => shareFile('life-kalender.ics', buildIcs(s), 'text/calendar');
   const importJson = (e) => {
     const f = e.target.files?.[0];
@@ -77,9 +80,11 @@ export default function Einstellungen() {
       try {
         const data = JSON.parse(reader.result);
         if (!data.areas || !data.pillars) throw new Error('Keine Life-Sicherung');
-        if (confirm('Sicherung laden? Die aktuellen Daten auf diesem Gerät werden ersetzt.')) {
-          store.replace(data);
-          toast('Sicherung geladen');
+        if (confirm(data._device ? 'Komplette Sicherung laden? Daten und Einstellungen (inkl. Schlüssel) auf diesem Gerät werden ersetzt.' : 'Sicherung laden? Die aktuellen Daten auf diesem Gerät werden ersetzt.')) {
+          const { _device: dev, ...rest } = data;
+          store.replace(rest);
+          if (dev) { try { Object.entries(dev).forEach(([k, v]) => { if (k.startsWith('life-') && k !== 'life-app-v1' && typeof v === 'string') localStorage.setItem(k, v); }); } catch {} toast('Sicherung geladen – Einstellungen werden übernommen …'); setTimeout(() => location.reload(), 900); }
+          else toast('Sicherung geladen');
         }
       } catch {
         alert('Diese Datei ist keine gültige Sicherung.');
@@ -163,8 +168,13 @@ export default function Einstellungen() {
           <span className="sub" style={{ lineHeight: 1.5 }}>
             Deine Daten liegen im Moment nur auf diesem Gerät ({counts}). Bis die Cloud-Synchronisation kommt: bitte ab und zu eine Sicherung in „Dateien“ oder iCloud Drive speichern.
           </span>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+            <input type="checkbox" checked={full} onChange={(e) => setFull(e.target.checked)} data-noclear />
+            <span>Komplett – auch Einstellungen und API-Schlüssel</span>
+            <Info>Für den Umzug, z.B. nach dem Löschen und neu Hinzufügen der App: Dann musst du Schlüssel, Aussehen usw. nicht neu eingeben. Die Datei enthält deinen API-Schlüssel – nur in deinen eigenen Dateien/iCloud speichern, nicht weitergeben.</Info>
+          </label>
           <div className="btn-row">
-            <button type="button" className="btn" onClick={exportJson}>Sicherung speichern</button>
+            <button type="button" className="btn" onClick={exportJson}>{full ? 'Komplett speichern' : 'Sicherung speichern'}</button>
             <button type="button" className="btn tint" onClick={() => fileRef.current?.click()}>Sicherung laden</button>
           </div>
           <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={importJson} />
@@ -209,7 +219,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.40 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.41 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>
