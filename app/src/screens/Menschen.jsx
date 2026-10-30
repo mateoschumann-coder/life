@@ -57,14 +57,14 @@ function WaBtn({ p }) {
 }
 
 // v1.18 (Mateo): Kategorie als ein Knopf, der ein kleines Auswahlfenster öffnet (statt Wisch-Leiste)
-function CatChips({ s, filter, setFilter }) {
+function CatChips({ s, filter, setFilter, full }) {
   const [open, setOpen] = useState(false);
   const n = (id) => (id === 'alle' ? s.people.length : id === 'ohne' ? s.people.filter((p) => !PEOPLE_CATEGORIES.some((c) => c.id === p.category)).length : s.people.filter((p) => p.category === id).length);
   const opts = [{ id: 'alle', label: 'Alle' }, ...PEOPLE_CATEGORIES, ...(n('ohne') ? [{ id: 'ohne', label: 'Ohne Kategorie' }] : [])];
   const cur = opts.find((o) => o.id === filter) || opts[0];
   return (
     <>
-      <button type="button" className={filter === 'alle' ? 'chip soft' : 'chip on'} style={{ alignSelf: 'flex-start' }} onClick={() => setOpen(true)} aria-label="Kategorie wählen">👥 {cur.label} · {n(cur.id)} ▾</button>
+      <button type="button" className={filter === 'alle' ? 'chip soft' : 'chip on'} style={full ? { width: '100%' } : { alignSelf: 'flex-start' }} onClick={() => setOpen(true)} aria-label="Kategorie wählen">👥 {cur.label} · {n(cur.id)} ▾</button>
       <Sheet open={open} title="Kategorie" onClose={() => setOpen(false)}>
         <div className="list">
           {opts.map((f) => (
@@ -72,6 +72,29 @@ function CatChips({ s, filter, setFilter }) {
               <span className="row-main"><span className="row-title plain">{f.label}</span></span>
               <span className="tiny">{n(f.id)}</span>
               {filter === f.id && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      </Sheet>
+    </>
+  );
+}
+// v1.33: Häufigkeit als Knopf mit Auswahlfenster (wie die Kategorie)
+function FreqChips({ s, freq, setFreq }) {
+  const [open, setOpen] = useState(false);
+  const opts = [{ v: 'alle', label: 'Alle' }, ...RHYTHMS.map((r) => ({ ...r, label: r.v === 0 ? 'Kein Ziel' : r.label }))];
+  const n = (v) => (v === 'alle' ? s.people.length : s.people.filter((p) => rhythmValue(p) === v).length);
+  const cur = opts.find((o) => o.v === freq) || opts[0];
+  return (
+    <>
+      <button type="button" className={freq === 'alle' ? 'chip soft' : 'chip on'} style={{ width: '100%' }} onClick={() => setOpen(true)} aria-label="Häufigkeit wählen">🔁 {cur.label} · {n(cur.v)} ▾</button>
+      <Sheet open={open} title="Wie oft melden?" onClose={() => setOpen(false)}>
+        <div className="list">
+          {opts.map((o) => (
+            <button key={String(o.v)} type="button" className="row compact" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit' }} onClick={() => { setFreq(o.v); setOpen(false); }}>
+              <span className="row-main"><span className="row-title plain">{o.label}</span></span>
+              <span className="tiny">{n(o.v)}</span>
+              {freq === o.v && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
             </button>
           ))}
         </div>
@@ -243,28 +266,17 @@ function KeepTab({ s, t }) {
         </>
       ) : (
         <section className="group">
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 4px' }}>
-            <span className="sub" style={{ flex: 1 }}>Person antippen = Rhythmus festlegen</span>
-            <Info>Die App verteilt die Termine von selbst: Wer noch nie gemeldet wurde, bekommt einen Termin irgendwo im ersten Intervall – nicht alle am selben Tag. Danach zählt der letzte Kontakt plus Intervall, mit etwas Spielraum (±15 %), damit es nicht immer derselbe Tag ist. Ab „monatlich“ kannst du zusätzlich Anfang, Mitte oder Ende des Monats wählen. „Läuft von selbst“ = ihr habt sowieso Kontakt, keine Erinnerung.</Info>
-          </span>
-          {/* v1.28 (Mateo): Suchleiste */}
+          {/* v1.33 (Mateo): Suche, darunter zwei Filter nebeneinander mit Beschriftung, Sortieren + ⓘ in einer Zeile */}
           <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name suchen …" aria-label="Personen suchen" />
-          {/* v1.17 (Mateo): oben nach Kategorie filtern (wie in der Liste) */}
-          <CatChips s={s} filter={cat} setFilter={setCat} />
-          {/* v0.96 (Mateo): nach Häufigkeit filtern und sortieren */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0 2px', flexWrap: 'wrap' }}>
-            <label className="tiny" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>Zeigen:
-              <select className="input rhythm-sel" style={{ fontWeight: 600, color: freq === 'alle' ? 'var(--text)' : 'var(--accent)' }} value={String(freq)} onChange={(e) => setFreq(e.target.value === 'alle' ? 'alle' : Number(e.target.value))} aria-label="Nach Häufigkeit filtern">
-                {[{ v: 'alle', label: 'Alle' }, ...RHYTHMS].map((r) => {
-                  const n = r.v === 'alle' ? s.people.length : s.people.filter((p) => rhythmValue(p) === r.v).length;
-                  return <option key={r.v} value={String(r.v)}>{r.v === 'alle' ? 'Alle' : r.v === 0 ? 'Kein Ziel' : r.label} ({n})</option>;
-                })}
-              </select>
-            </label>
+          <div className="filter-pair">
+            <div><span className="tiny">Gruppe</span><CatChips s={s} filter={cat} setFilter={setCat} full /></div>
+            <div><span className="tiny">Wie oft</span><FreqChips s={s} freq={freq} setFreq={setFreq} /></div>
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '0 2px' }}>
             <span className="tiny">Sortieren:</span>
             {[['az', 'A–Z'], ['oft', 'Häufig zuerst'], ['selten', 'Selten zuerst']].map(([k, l]) => <button key={k} type="button" className={sort === k ? 'mini-chip on' : 'mini-chip'} onClick={() => setSort(k)}>{l}</button>)}
+            <span style={{ flex: 1 }} />
+            <Info>Person antippen = Rhythmus festlegen. Die App verteilt die Termine von selbst: Wer noch nie gemeldet wurde, bekommt einen Termin irgendwo im ersten Intervall – nicht alle am selben Tag. Danach zählt der letzte Kontakt plus Intervall, mit etwas Spielraum (±15 %), damit es nicht immer derselbe Tag ist. Ab „monatlich“ kannst du zusätzlich Anfang, Mitte oder Ende des Monats wählen. „Läuft von selbst“ = ihr habt sowieso Kontakt, keine Erinnerung.</Info>
           </div>
           <div className="list">
             {people.length === 0 && <div className="empty">{q.trim() ? `Niemand mit „${q.trim()}“.` : 'Niemand in dieser Auswahl.'}</div>}

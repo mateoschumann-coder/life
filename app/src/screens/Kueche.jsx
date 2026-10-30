@@ -1,3 +1,4 @@
+import MicBtn from '../components/MicBtn';
 import { askDel } from '../lib/undo';
 import Swipe from '../components/Swipe';
 import { useEffect, useRef, useState } from 'react';
@@ -5,6 +6,7 @@ import { useStore } from '../lib/store';
 import {
   addRecipe, addShopping, clearBought, clearShopping, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe, cuisinesOf, setCuisines, removeCatalogItem,
   activeListName, shoppingLists, listNameTaken, createShoppingList, addToList, removeFromList, switchShoppingList, renameShoppingList, deleteShoppingList,
+  splitShopping,
 } from '../lib/health';
 import { getAi } from '../lib/ai';
 import PlaceBook from '../components/PlaceBook';
@@ -372,13 +374,12 @@ function Shopping({ s, editor = false }) {
   return (
     <>
       <form className="block-add" onSubmit={add}>
+        {/* v1.33 (Mateo): 🎙 direkt am Feld – auch beim Zusammenstellen einer Liste; die KI zerlegt das Gesagte in Artikel */}
+        <MicBtn value={text} onChange={setText} onDone={async (t) => { try { const items = await splitShopping(t); if (items.length) { addShopping(items); setText(''); toast(`${items.length} ${items.length === 1 ? 'Artikel' : 'Artikel'} auf der Liste`); } } catch (e) { toast(e.message); } }} />
         <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Eier, Haferflocken, Bananen" aria-label="Artikel hinzufügen" />
         <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
       </form>
       {!editor && <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button type="button" className="tell" style={{ flexShrink: 0 }} onClick={() => listen('Auf die Einkaufsliste: ')}>
-          <Icon name="mic" size={16} /> Einsprechen
-        </button>
         <button type="button" className="chip soft" style={{ minWidth: 0, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => setLists(true)} aria-label="Gespeicherte Listen">📋 {activeListName(s)} ▾</button>
         {open.length > 0 && <button type="button" className="chip soft" style={{ flexShrink: 0, padding: '6px 10px' }} onClick={() => setSaveAs(true)} aria-label="Als Liste speichern" title="Als Liste speichern">💾</button>}
         {s.shopping.items.length > 0 && <button type="button" className="chip soft" style={{ flexShrink: 0, padding: '6px 10px' }} onClick={() => { if (askDel(`Alle ${s.shopping.items.length} Artikel von „${activeListName(s)}“ löschen?`)) { clearShopping(); toast('Liste geleert'); } }} aria-label="Liste leeren" title="Liste leeren">🗑</button>}

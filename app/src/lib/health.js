@@ -1,7 +1,7 @@
 // Körperliche Gesundheit: Sportarten & Einheiten, Küche (Rezepte, Einkaufsliste), Vorsorge
 import { store, uid } from './store';
 import { addDays, fmtLong, today } from './dates';
-import { callApi } from './ai';
+import { callApi, getAi } from './ai';
 import { searchWithTool } from './outings';
 import { bookOf, bookCats } from './placebook';
 
@@ -813,3 +813,17 @@ export function distOf(e) {
 
 // v1.19: „alle 2 Wochen“ / „alle 6 Monate“
 export const everyText = (h) => (h.everyWeeks ? (h.everyWeeks === 1 ? 'jede Woche' : `alle ${h.everyWeeks} Wochen`) : h.everyMonths ? (h.everyMonths === 1 ? 'jeden Monat' : `alle ${h.everyMonths} Monate`) : '');
+
+// v1.33 (Mateo): Eingesprochene Einkäufe in einzelne Artikel zerlegen („Eier Milch und zwei Kilo Tomaten“ → Eier, Milch, Tomaten)
+export async function splitShopping(text) {
+  const t = String(text || '').trim();
+  if (!t) return [];
+  const simple = t.split(/,|\n|;| und | y /i).map((x) => x.trim()).filter(Boolean);
+  if (!getAi().apiKey || (/[,\n;]/.test(t) && simple.every((x) => x.split(/\s+/).length <= 3))) return simple;
+  const r = await searchWithTool({
+    system: 'Mateo spricht seine Einkaufsliste ein. Zerlege den Text in einzelne Artikel, kurz und ohne Mengen (z.B. „zwei Kilo Tomaten“ → „Tomaten“), in der Sprache, in der er sie sagt. Antworte mit "artikel".',
+    user: t, tool: { name: 'artikel', description: 'Einzelne Artikel', input_schema: { type: 'object', properties: { artikel: { type: 'array', items: { type: 'string' } } }, required: ['artikel'] } },
+    maxUses: 0, maxTokens: 400, label: 'Einkauf einsprechen',
+  });
+  return (r?.artikel || []).map((x) => String(x).trim()).filter(Boolean);
+}

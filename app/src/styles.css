@@ -785,3 +785,8 @@ select.input.rhythm-sel { height: auto; padding: 2px 8px; }
 .ai-input { display: flex; flex-direction: column; gap: 8px; }
 .ai-input-row { display: flex; align-items: center; gap: 10px; }
 .mini-send:disabled { opacity: 0.35; box-shadow: none; }
+/* v1.33: zwei Filter nebeneinander mit Beschriftung */
+.filter-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.filter-pair > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.filter-pair > div > .tiny { padding-left: 4px; }
+.filter-pair .chip { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: block; line-height: 36px; }

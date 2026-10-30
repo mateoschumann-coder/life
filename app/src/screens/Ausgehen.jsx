@@ -314,17 +314,23 @@ function Events({ s, city, view = 'find' }) {
     ['2wochen', 'Nächste 2 Wochen', (d) => d && d <= addDays(t, 14)],
     ['monat', 'Diesen Monat', (d) => d && d <= mEnd],
     ['naechster', 'Nächsten Monat', (d) => d && d > mEnd && d <= nmEnd],
-    ['spaeter', 'Später', (d) => d && d > nmEnd],
+    ['jahr', 'Dieses Jahr', (d) => d && d.slice(0, 4) === t.slice(0, 4)],
+    ['spaeter', 'Später', (d) => d && d.slice(0, 4) > t.slice(0, 4)],
     ['ohne', 'Ohne Datum', (d) => !d],
   ];
   // v1.18 (Mateo): Zeitraum-Filter bearbeitbar (Standard ausblenden, eigene „Nächste n Tage“), Auswahl im kleinen Fenster
-  const wcfg = s.profile?.eventWhen || {};
+  // v1.33 (Mateo): Standard nur Alle · Diese Woche · Diesen Monat · Dieses Jahr · Später (+ eigene); Rest über ✎ einblendbar
+  const wcfg = { hidden: ['wochenende', '2wochen', 'naechster', 'ohne'], ...(s.profile?.eventWhen || {}) };
+  if (!s.profile?.eventWhen?.v133) wcfg.hidden = [...new Set([...(wcfg.hidden || []), 'wochenende', '2wochen', 'naechster', 'ohne'])];
   for (const n of wcfg.custom || []) WHEN.push([`d${n}`, `Nächste ${n} Tage`, (d) => d && d <= addDays(t, n)]);
   const WHEN_SHOWN = WHEN.filter((w) => w[0] === 'alle' || !(wcfg.hidden || []).includes(w[0]));
   const [whenOpen, setWhenOpen] = useState(false);
   const [whenEdit, setWhenEdit] = useState(false);
   const [whenDays, setWhenDays] = useState('');
-  const saveWhen = (patch) => store.update((d) => { d.profile = { ...d.profile, eventWhen: { hidden: [], custom: [], ...(d.profile?.eventWhen || {}), ...patch } }; });
+  const saveWhen = (patch) => store.update((d) => { d.profile = { ...d.profile, eventWhen: { custom: [], ...wcfg, ...(d.profile?.eventWhen || {}), hidden: wcfg.hidden, v133: true, ...patch } }; });
+  // v1.33 (Mateo): „Bin dabei“ und „Interessiert“ als Umschalter statt untereinander
+  const [stage, setStageS] = useState(() => { try { return localStorage.getItem('life-app-events-stage') || 'zugesagt'; } catch { return 'zugesagt'; } });
+  const setStage = (v) => { setStageS(v); try { localStorage.setItem('life-app-events-stage', v); } catch {} };
   const whenFn = (WHEN.find((w) => w[0] === when) || WHEN[0])[2];
   const shownUp = upcoming.filter((e) => whenFn(e.date));
   const goingList = shownUp.filter((e) => e.stage === 'zugesagt');
@@ -431,9 +437,15 @@ function Events({ s, city, view = 'find' }) {
       </Sheet>
       {upcoming.length === 0 && <div className="empty">Nichts Anstehendes. Unter „Finden“ suchen und „Interessiert“ oder „Bin dabei“ tippen.</div>}
       {upcoming.length > 0 && shownUp.length === 0 && <div className="empty">Keine Events in diesem Zeitraum.</div>}
-      {[['✅ Bin dabei', goingList], ['⭐ Interessiert', interList]].filter(([, l]) => l.length).map(([title, list]) => (
+      {upcoming.length > 0 && (
+        <div className="seg full" role="group" aria-label="Zusage">
+          <button type="button" className={stage === 'zugesagt' ? 'on' : ''} onClick={() => setStage('zugesagt')}>✅ Bin dabei · {goingList.length}</button>
+          <button type="button" className={stage !== 'zugesagt' ? 'on' : ''} onClick={() => setStage('interessiert')}>⭐ Interessiert · {interList.length}</button>
+        </div>
+      )}
+      {shownUp.length > 0 && (stage === 'zugesagt' ? goingList : interList).length === 0 && <div className="empty">{stage === 'zugesagt' ? 'Noch nichts zugesagt in diesem Zeitraum.' : 'Nichts vorgemerkt in diesem Zeitraum.'}</div>}
+      {[stage === 'zugesagt' ? ['✅ Bin dabei', goingList] : ['⭐ Interessiert', interList]].filter(([, l]) => l.length).map(([title, list]) => (
         <section key={title} className="group">
-          <div className="sec-h"><h2 className="label" style={{ padding: 0 }}>{title} · {list.length}</h2></div>
           <div className="list">
             {list.map((e) => (
               <div key={e.id} className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, padding: '10px 12px 10px 16px' }}>
