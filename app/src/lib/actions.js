@@ -1,6 +1,7 @@
 // Alle Änderungen an den Daten an einem Ort.
 import { store, uid } from './store';
 import { today } from './dates';
+import { personInText } from './logic';
 
 const now = () => new Date().toISOString();
 
@@ -9,6 +10,8 @@ export function addTask({ title, areaId = null, subId = null, projectId = null, 
   if (!title.trim()) return;
   const id = uid();
   store.update((s) => {
+    // v1.28: erwähnt die Aufgabe eine Person („Juan anrufen“), wird sie automatisch mit ihr verknüpft → erscheint im Profil
+    if (!personId) personId = personInText(s, title)?.id || null;
     s.tasks.push({ id, title: title.trim(), areaId, subId, projectId, due, time, idea, url: url || undefined, ...(personId ? { personId } : {}), done: false, doneAt: null, createdAt: now() });
   });
   return id;

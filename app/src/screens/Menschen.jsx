@@ -196,7 +196,8 @@ function KeepTab({ s, t }) {
   const rank = (p) => { const v = rhythmValue(p); return v === -1 ? 0 : v > 0 ? v : 9999; };
   const [cat, setCatState] = useState(() => remember('life-app-people-cat2', 'alle'));
   const setCat = (v) => { setCatState(v); keep('life-app-people-cat2', v); };
-  const people = s.people.filter((p) => (freq === 'alle' || rhythmValue(p) === freq) && inCat(p, cat))
+  const [q, setQ] = useState('');
+  const people = s.people.filter((p) => (freq === 'alle' || rhythmValue(p) === freq) && inCat(p, cat) && (!q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase())))
     .sort((a, b) => (sort === 'az' ? 0 : sort === 'oft' ? rank(a) - rank(b) : rank(b) - rank(a)) || a.name.localeCompare(b.name, 'de'));
   return (
     <>
@@ -246,6 +247,8 @@ function KeepTab({ s, t }) {
             <span className="sub" style={{ flex: 1 }}>Person antippen = Rhythmus festlegen</span>
             <Info>Die App verteilt die Termine von selbst: Wer noch nie gemeldet wurde, bekommt einen Termin irgendwo im ersten Intervall – nicht alle am selben Tag. Danach zählt der letzte Kontakt plus Intervall, mit etwas Spielraum (±15 %), damit es nicht immer derselbe Tag ist. Ab „monatlich“ kannst du zusätzlich Anfang, Mitte oder Ende des Monats wählen. „Läuft von selbst“ = ihr habt sowieso Kontakt, keine Erinnerung.</Info>
           </span>
+          {/* v1.28 (Mateo): Suchleiste */}
+          <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name suchen …" aria-label="Personen suchen" />
           {/* v1.17 (Mateo): oben nach Kategorie filtern (wie in der Liste) */}
           <CatChips s={s} filter={cat} setFilter={setCat} />
           {/* v0.96 (Mateo): nach Häufigkeit filtern und sortieren */}
@@ -264,7 +267,7 @@ function KeepTab({ s, t }) {
             {[['az', 'A–Z'], ['oft', 'Häufig zuerst'], ['selten', 'Selten zuerst']].map(([k, l]) => <button key={k} type="button" className={sort === k ? 'mini-chip on' : 'mini-chip'} onClick={() => setSort(k)}>{l}</button>)}
           </div>
           <div className="list">
-            {people.length === 0 && <div className="empty">Niemand in dieser Auswahl.</div>}
+            {people.length === 0 && <div className="empty">{q.trim() ? `Niemand mit „${q.trim()}“.` : 'Niemand in dieser Auswahl.'}</div>}
             {people.map((p) => {
               const last = lastContact(p);
               const d = contactDue(p, t);

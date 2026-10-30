@@ -214,3 +214,31 @@ export function initials(name) {
     .slice(0, 2)
     .toUpperCase();
 }
+
+// v1.28 (Mateo): Wird eine Person in einem Text erwähnt (z.B. Aufgabe „Juan anrufen“, „bei Oma Rosa melden“)?
+// Ganzer Name oder eindeutiger Vorname als ganzes Wort, Groß-/Kleinschreibung und Akzente egal.
+const fold = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const wordIn = (text, w) => w.length >= 2 && new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(text);
+export function mentions(s, p, text) {
+  const tx = fold(text);
+  const full = fold(p.name).trim();
+  if (!full || !tx) return false;
+  if (wordIn(tx, full)) return true;
+  const first = full.split(/\s+/)[0];
+  if (first.length < 3 || !wordIn(tx, first)) return false;
+  // Vorname nur, wenn er eindeutig ist (sonst wüsste man nicht, wer gemeint ist)
+  return s.people.filter((o) => fold(o.name).split(/\s+/)[0] === first).length === 1;
+}
+export function personInText(s, text) {
+  const hits = s.people.filter((p) => mentions(s, p, text));
+  if (hits.length <= 1) return hits[0] || null;
+  // mehrere: der längste ganze Name gewinnt, sonst niemand
+  const full = hits.filter((p) => wordIn(fold(text), fold(p.name).trim())).sort((a, b) => b.name.length - a.name.length);
+  return full[0] || null;
+}
+// Alles, was zu einer Person irgendwo eingetragen ist: verknüpfte oder erwähnende Aufgaben, Erinnerungen
+export function personMentions(s, p) {
+  const tasks = (s.tasks || []).filter((x) => !x.done && (x.personId === p.id || (!x.personId && mentions(s, p, x.title))));
+  const reminders = (s.reminders || []).filter((r) => mentions(s, p, `${r.title} ${r.note || ''}`));
+  return { tasks, reminders };
+}

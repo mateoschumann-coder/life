@@ -746,3 +746,6 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 /* v1.26: Senden-Knopf im Assistenten-Fenster unten rechts */
 .mini-send { width: 42px; height: 42px; flex-shrink: 0; border-radius: 50%; border: 0; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent); cursor: pointer; }
 .mini-send:disabled { opacity: .35; box-shadow: none; }
+
+/* v1.28: eingebautes ✕ der Suchfelder ausblenden – eigenes ✕/↶ aus fieldtools reicht */
+input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays as addDaysKey, fmtShort, today } from '../lib/dates';
-import { waLink, WHEN_IN_MONTH } from '../lib/logic';
+import { personMentions, waLink, WHEN_IN_MONTH } from '../lib/logic';
 import { addPersonDate, addTask, deletePerson, deleteTask, logContact, removePersonDate, savePerson, toggleTask } from '../lib/actions';
 import { DateRangeField } from '../components/DateRange';
 import { Back, Check, Field, Icon, TabBar, toast } from '../components/ui';
@@ -126,7 +126,9 @@ function PersonPlans({ s, p }) {
   const [dr, setDr] = useState({ from: '', to: '' });
   const [showPast, setShowPast] = useState(false);
   const first = p.name.split(' ')[0];
-  const tasks = s.tasks.filter((x) => x.personId === p.id && !x.done).sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1));
+  // v1.28: auch Aufgaben, die die Person nur erwähnen (z.B. im Kalender „bei Juan melden“), und Erinnerungen
+  const { tasks: allTasks, reminders } = personMentions(s, p);
+  const tasks = allTasks.sort((a, b) => ((a.due || '9') < (b.due || '9') ? -1 : 1));
   const dates = [...(p.dates || [])].sort((a, b) => ((a.date || '9') < (b.date || '9') ? -1 : 1));
   const past = dates.filter((d) => (d.to || d.date) && (d.to || d.date) < t);
   const coming = dates.filter((d) => !past.includes(d));
@@ -144,15 +146,25 @@ function PersonPlans({ s, p }) {
             {[['', 'Ohne Datum'], [t, 'Heute'], [addDaysKey(t, 1), 'Morgen'], [addDaysKey(t, 7), 'In 1 Woche']].map(([v, l]) => <button key={l} type="button" className={due === v ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setDue(v)}>{l}</button>)}
           </div>
         )}
-        {tasks.length === 0 && <span className="tiny">Noch nichts. Auch per Assistent: „Ich will mit {first} über die Reise sprechen.“</span>}
+        {tasks.length === 0 && reminders.length === 0 && <span className="tiny">Noch nichts. Auch per Assistent: „Ich will mit {first} über die Reise sprechen.“</span>}
         {tasks.length > 0 && (
           <div className="list">
             {tasks.map((x) => (
               <div key={x.id} className="row compact">
                 <Check on={false} color="#E8775A" onClick={() => { toggleTask(x.id); toast('Erledigt'); }} label={`Erledigt: ${x.title}`} />
-                <span className="row-main"><span className="row-title plain">{x.title}</span>{x.due && <span className="row-meta" style={{ color: x.due < t ? 'var(--danger)' : undefined }}>{x.due === t ? 'heute' : fmtShort(x.due)}</span>}</span>
+                <span className="row-main"><span className="row-title plain">{x.title}</span>{(x.due || x.idea) && <span className="row-meta" style={{ color: x.due && x.due < t ? 'var(--danger)' : undefined }}>{x.due ? (x.due === t ? 'heute' : x.due < t ? `überfällig · ${fmtShort(x.due)}` : fmtShort(x.due)) + (x.time ? ` · ${x.time}` : '') : 'Idee'}</span>}</span>
                 <button type="button" className="x-btn" onClick={() => deleteTask(x.id)} aria-label={`${x.title} löschen`}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
+            ))}
+          </div>
+        )}
+        {reminders.length > 0 && (
+          <div className="list">
+            {reminders.map((r) => (
+              <a key={r.id} href="#/zuhause/erinnerungen" className="row compact">
+                <span className="row-main"><span className="row-title plain">🔔 {r.title}</span><span className="row-meta">Erinnerung{r.next ? ` · nächstes Mal ${r.next === t ? 'heute' : fmtShort(r.next)}` : ''}</span></span>
+                <Icon name="chev" size={14} color="var(--chev)" />
+              </a>
             ))}
           </div>
         )}
