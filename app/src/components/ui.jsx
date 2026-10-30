@@ -131,7 +131,7 @@ export function TabBar({ active }) {
       {tab('bereiche', '#/bereiche', 'Bereiche', 'grid')}
       <BoltButton on={active === 'los'} />
       {tab('ausgehen', '#/ausgehen', 'Ausgehen', 'pin')}
-      {tab('menschen', '#/menschen', 'Menschen', 'person')}
+      {tab('menschen', '#/menschen', 'Personen', 'person')}
     </nav>
   );
 }

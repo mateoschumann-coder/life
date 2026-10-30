@@ -315,8 +315,8 @@ export default function Menschen() {
     <>
       <main className="screen">
         {fromHeute() && <Back href="#/heute" label="Heute" actions={false} />}
-        <div className="top">
-          <h1 className="h1">Menschen</h1>
+        <div className="top one">
+          <h1 className="h1">Personen</h1>
           <TopActions />
         </div>
         <Segmented full options={[{ id: 'liste', label: `Liste · ${s.people.length}` }, { id: 'kontakt', label: `Im Kontakt bleiben${dueN ? ` · ${dueN}` : ''}` }]} value={tab} onChange={setTab} label="Ansicht" />

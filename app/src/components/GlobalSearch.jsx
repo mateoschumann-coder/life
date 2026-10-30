@@ -16,7 +16,7 @@ const meta = (...x) => x.filter(Boolean).join(' · ');
 function groups(s) {
   const G = [];
   const add = (key, label, items) => G.push({ key, label, items: items.filter((x) => x.title) });
-  add('people', '👤 Menschen', (s.people || []).map((p) => ({ title: p.name, extra: [p.notes, p.phone], sub: meta(p.category && { familie: 'Familie', freunde: 'Freunde', neu: 'Neue Kontakte', beruflich: 'Beruflich' }[p.category]), open: () => go(`/person/${p.id}`) })));
+  add('people', '👤 Personen', (s.people || []).map((p) => ({ title: p.name, extra: [p.notes, p.phone], sub: meta(p.category && { familie: 'Familie', freunde: 'Freunde', neu: 'Neue Kontakte', beruflich: 'Beruflich' }[p.category]), open: () => go(`/person/${p.id}`) })));
   add('tasks', '✅ Aufgaben', (s.tasks || []).filter((t) => !t.done).map((t) => ({ title: t.title, extra: [t.notes], sub: meta(t.due ? short(t.due) : 'ohne Datum', t.time), open: () => (t.personId ? go(`/person/${t.personId}`) : t.projectId ? go(`/projekt/${t.projectId}`) : (ls('life-app-heute-view', 'todos'), go('/heute'))) })));
   add('events', '🎶 Events (Ausgehen)', (s.events || []).map((e) => ({ title: e.name, extra: [e.place, e.note, e.city], sub: meta(short(e.date), e.place), open: () => { ls('life-app-ausgehen-tab', 'events'); ls('life-app-events-view', 'mine'); ls('life-app-events-stage', e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'); go('/ausgehen'); } })));
   add('gatherings', '🎉 Treffen', (s.gatherings || []).map((g) => ({ title: g.name, extra: [g.place, g.motto, g.address], sub: meta(g.idea ? 'Idee' : '', short(g.date), g.place), open: () => go(`/treffen/${g.id}`) })));
@@ -83,7 +83,7 @@ export default function GlobalSearch() {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <MicBtn value={q} onChange={setQ} />
         <input ref={ref} className="input" type="search" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, Ort, Rezept, Aufgabe …" aria-label="In Life suchen" />
-        <Info>Sucht in allem, was du gespeichert hast: Menschen, Aufgaben, Events, Orte, Rezepte, Termine, Reisen, Stellen … – kostenlos, ohne KI.</Info>
+        <Info>Sucht in allem, was du gespeichert hast: Personen, Aufgaben, Events, Orte, Rezepte, Termine, Reisen, Stellen … – kostenlos, ohne KI.</Info>
       </div>
       {words.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>{total ? `${total} Treffer` : 'Nichts gefunden.'}</span>}
       {res.map((g) => {

@@ -78,7 +78,7 @@ export default function Person({ id, metAt }) {
   return (
     <>
       <main className="screen">
-        <Back href="#/menschen" label="Menschen" />
+        <Back href="#/menschen" label="Personen" />
         <h1 className="h1">{existing ? existing.name : 'Neue Person'}</h1>
 
         {existing && (

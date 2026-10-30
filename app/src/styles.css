@@ -85,6 +85,9 @@ a { color: inherit; text-decoration: none; }
 .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px 12px; min-height: 52px; flex-wrap: wrap-reverse; }
 .h1 { font-size: 34px; font-weight: 700; letter-spacing: 0.005em; margin: 0; line-height: 1.12; }
 .h1.sm { font-size: 30px; }
+/* v1.42: Titel und ＋ Aufgabe in einer Zeile (Ausgehen, Personen) */
+.top.one { flex-wrap: nowrap; align-items: center; }
+.top.one .h1 { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(24px, 7.6vw, 34px); }
 .h2 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: 0; }
 .label { font-size: 13px; font-weight: 400; color: var(--muted); margin: 0; text-transform: uppercase; letter-spacing: 0.02em; }
 .sub { font-size: 14px; color: var(--muted); }

@@ -477,7 +477,7 @@ function GuestPicker({ s, g, open, onClose }) {
   const close = () => { setSel([]); setQ(''); onClose(); };
   return (
     <Sheet open={open} title="Gäste auswählen" onClose={close}>
-      <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name suchen …" aria-label="Menschen suchen" />
+      <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name suchen …" aria-label="Personen suchen" />
       <div className="box-tabs">{[{ id: 'alle', label: 'Alle' }, ...PEOPLE_CATEGORIES].map((c) => <button key={c.id} type="button" className={cat === c.id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCat(c.id)}>{c.label}</button>)}</div>
       <div className="list">
         {list.length === 0 && <div className="empty">Niemand (mehr) in dieser Auswahl.</div>}
@@ -491,7 +491,7 @@ function GuestPicker({ s, g, open, onClose }) {
           );
         })}
       </div>
-      <button type="button" className="btn" disabled={!sel.length} onClick={() => { for (const id of sel) { const p = s.people.find((x) => x.id === id); if (p) addGuest(g.id, { name: p.name, personId: p.id }); } toast(`${sel.length} Gäste hinzugefügt`); close(); }}>{sel.length ? `${sel.length} hinzufügen` : 'Menschen antippen'}</button>
+      <button type="button" className="btn" disabled={!sel.length} onClick={() => { for (const id of sel) { const p = s.people.find((x) => x.id === id); if (p) addGuest(g.id, { name: p.name, personId: p.id }); } toast(`${sel.length} Gäste hinzugefügt`); close(); }}>{sel.length ? `${sel.length} hinzufügen` : 'Personen antippen'}</button>
     </Sheet>
   );
 }
@@ -581,7 +581,7 @@ function Detail({ s, g }) {
               ))}
             </div>
             <Info>Status antippen: Einladen → Eingeladen → Zugesagt → Abgesagt.</Info>
-            {s.people.length > 0 && <button type="button" className="btn tint small" onClick={() => setPickGuests(true)}>👥 Aus Menschen auswählen</button>}
+            {s.people.length > 0 && <button type="button" className="btn tint small" onClick={() => setPickGuests(true)}>👥 Aus Personen auswählen</button>}
             {(() => {
               const next = g.guests.filter((x) => x.status === 'offen' && phoneOf(x));
               if (!next.length) return null;

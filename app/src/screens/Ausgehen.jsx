@@ -896,7 +896,7 @@ export default function Ausgehen() {
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {fromHeute() && <Back href="#/heute" label="Heute" actions={false} />}
-          <div className="top" style={{ padding: 0 }}><h1 className="h1">Ausgehen</h1><TopActions /></div>
+          <div className="top one" style={{ padding: 0 }}><h1 className="h1">Ausgehen</h1><TopActions /></div>
         </div>
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
         {/* v0.96 (Mateo): Umschalter und Stadt in EINER Zeile */}

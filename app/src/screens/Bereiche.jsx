@@ -8,7 +8,7 @@ import SortGrid, { SortDone } from '../components/SortGrid';
 const SOZIAL = [
   { id: 'events', name: 'Treffen', icon: 'sparkle', href: '#/saeule/sozial' },
   { id: 'ausgehen', name: 'Ausgehen', icon: 'calendar', href: '#/ausgehen' },
-  { id: 'menschen', name: 'Menschen', icon: 'users', href: '#/menschen' },
+  { id: 'menschen', name: 'Personen', icon: 'users', href: '#/menschen' },
 ];
 // v1.13 (Mateo): Hobbys und Reisen als eigene Kacheln statt „Freizeit und Erlebnisse“, nach Finanzen
 const FREIZEIT = [
