@@ -299,7 +299,7 @@ export default function Heute() {
           <div className="sec-h">
             <h2 className="h2">{dayLabel}</h2>
             {checkable.length > 0 && <span className="sub">{doneCount}/{checkable.length} erledigt</span>}
-            <span style={{ marginLeft: checkable.length ? 8 : 'auto' }}><RemovedButton label="Gelöschte Aufgaben" items={[...(s.removedTasks || [])].reverse().map((x) => ({ ...x, name: x.title }))} storeKey="removedTasks" onRestore={restoreTask} meta={(x) => [x.due && `war für ${fmtShort(x.due)}`, x.removedAt && `gelöscht ${fmtShort(x.removedAt)}`].filter(Boolean).join(' · ')} /></span>
+            <span style={{ marginLeft: checkable.length ? 8 : 'auto' }}><RemovedButton always label="Gelöschte Aufgaben" items={[...(s.removedTasks || [])].reverse().map((x) => ({ ...x, name: x.title }))} storeKey="removedTasks" onRestore={restoreTask} meta={(x) => [x.due && `war für ${fmtShort(x.due)}`, x.removedAt && `gelöscht ${fmtShort(x.removedAt)}`].filter(Boolean).join(' · ')} /></span>
           </div>
           {checkable.length > 0 && <div className="progress" style={{ margin: '0 4px' }}><div style={{ width: `${(doneCount / checkable.length) * 100}%` }} /></div>}
           <div className="list">

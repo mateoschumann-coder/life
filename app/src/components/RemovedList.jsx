@@ -35,9 +35,9 @@ function Rows({ items, storeKey, onRestore, meta }) {
 }
 
 // v1.20: unauffälliger Knopf oben (z.B. neben dem Filter) → Fenster mit den rausgenommenen Einträgen
-export function RemovedButton({ items, storeKey, onRestore, meta, label = 'Rausgenommen' }) {
+export function RemovedButton({ items, storeKey, onRestore, meta, label = 'Rausgenommen', always = false }) {
   const [open, setOpen] = useState(false);
-  if (!items.length) return null;
+  if (!items.length && !always) return null;
   return (
     <>
       <button type="button" className="removed-btn" onClick={() => setOpen(true)} aria-label={`${label} (${items.length}) anzeigen`} title={label}>
@@ -45,7 +45,7 @@ export function RemovedButton({ items, storeKey, onRestore, meta, label = 'Rausg
         {items.length}
       </button>
       <Sheet open={open} title={`${label} (${items.length})`} onClose={() => setOpen(false)}>
-        <Rows items={items} storeKey={storeKey} onRestore={onRestore} meta={meta} />
+        {items.length ? <Rows items={items} storeKey={storeKey} onRestore={onRestore} meta={meta} /> : <div className="empty">Noch nichts gelöscht. Gelöschte Einträge landen hier und lassen sich zurückholen.</div>}
       </Sheet>
     </>
   );

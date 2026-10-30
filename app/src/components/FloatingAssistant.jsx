@@ -127,6 +127,10 @@ export default function FloatingAssistant({ hideFab = false }) {
       if (draft.trim()) {
         setSentAt(items.length);
         send();
+      } else {
+        // v1.45: noch nichts gehört (iPhone hat die Erkennung evtl. still beendet) → neu starten statt nichts zu tun
+        setOpen(true);
+        startListening({ continuous: true, onError: toast });
       }
       return;
     }

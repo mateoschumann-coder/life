@@ -118,9 +118,12 @@ export const speechAvailable = !!SR;
 let rec = null;
 let want = null; // { continuous, onError, until } solange weiter zugehört werden soll
 // onError bekommt eine verständliche Meldung
+let gestureRec = null; // die per Tipp gestartete Erkennung (Neustarts danach laufen ohne Tipp)
 export function startListening({ continuous = false, onError } = {}) {
   want = continuous ? { continuous, onError, until: Date.now() + 10 * 60 * 1000 } : null;
-  return begin({ continuous, onError });
+  const ok = begin({ continuous, onError });
+  gestureRec = rec;
+  return ok;
 }
 // Das iPhone beendet die Spracherkennung bei Pausen oder nach ca. 1 Minute von selbst.
 // Bei langen Sprachnachrichten wird deshalb automatisch weiter zugehört (der Text bleibt erhalten).
@@ -145,7 +148,9 @@ function begin({ continuous, onError }) {
   };
   rec.onerror = (e) => {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      const auto = me !== gestureRec; // automatischer Neustart ohne Tipp: iPhone verweigert das – still beenden
       want = null;
+      if (auto) return;
       onError?.('Mikrofon nicht erlaubt – bitte erlauben oder das Mikrofon der Tastatur nutzen');
     }
     else if (e.error !== 'aborted' && e.error !== 'no-speech') onError?.('Spracheingabe fehlgeschlagen – bitte noch einmal versuchen');

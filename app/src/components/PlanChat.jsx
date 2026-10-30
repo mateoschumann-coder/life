@@ -110,8 +110,9 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       while (ctx.length && ctx[0].role !== 'user') ctx = ctx.slice(1);
       setSearching(useWeb);
       const r = await onAsk(ctx, { web: useWeb, smart });
-      const forward = takeForward();
-      const { antwort, ...rest } = r || {};
+      const forward = !!r?.weiterleiten || takeForward();
+      if (forward) setTimeout(() => window.dispatchEvent(new CustomEvent('life-ask', { detail: { text: q } })), 300);
+      const { antwort, weiterleiten, ...rest } = r || {};
       const proposal = {};
       for (const g of groups) if (Array.isArray(rest[g.key]) && rest[g.key].length) proposal[g.key] = rest[g.key];
         else if (typeof rest[g.key] === 'string' && rest[g.key].trim()) proposal[g.key] = [rest[g.key]];
@@ -181,11 +182,12 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
           ) : (
             <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div className="bubble ai" style={{ fontSize: 15, maxWidth: '100%' }}>{m.shown || m.text}{lang !== 'de-DE' && <button type="button" className="say-btn" onClick={() => say(m.shown || m.text)} aria-label="Vorlesen"><Icon name="speaker" size={14} /></button>}</div>
-              {!hideToggles && !m.web && !m.applied && !busy && vi === visible.length - 1 && history.length >= 2 && history[history.length - 2].role === 'user' && (
+              {!hideToggles && !m.web && !m.forward && !m.applied && !busy && vi === visible.length - 1 && history.length >= 2 && history[history.length - 2].role === 'user' && (
                 <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} disabled={!hasKey} onClick={() => send(history[history.length - 2].text, true, history.slice(0, -2))}>🔍 Nochmal mit Internet suchen (aktuelle Preise & Links)</button>
               )}
               {m.web && <span className="tiny" style={{ paddingLeft: 4 }}>🔍 mit Internet gesucht</span>}
-              {m.forward && <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={() => window.dispatchEvent(new CustomEvent('life-ask', { detail: { text: m.forward } }))}>✨ An den Assistenten weitergeben</button>}
+              {m.forward && <div className="tiny" style={{ paddingLeft: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>→ an den Assistenten weitergegeben <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => window.dispatchEvent(new CustomEvent('life-ask', { detail: { text: m.forward } }))}>nochmal öffnen</button></div>}
+              {!m.forward && vi === visible.length - 1 && !busy && history.length >= 2 && history[history.length - 2].role === 'user' && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13, color: 'var(--muted)' }} onClick={() => window.dispatchEvent(new CustomEvent('life-ask', { detail: { text: history[history.length - 2].text } }))}>Passt nicht hierher? → an den Assistenten</button>}
               {Object.keys(m.proposal || {}).length > 0 && (
                 <div className="proposal">
                   {groups.filter((g) => m.proposal[g.key]).map((g) => (
