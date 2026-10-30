@@ -237,7 +237,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 
 /* Schwebender Assistent */
 .fab { position: fixed; z-index: 15; right: max(16px, calc(50vw - 284px)); bottom: calc(80px + env(safe-area-inset-bottom));
-  width: 54px; height: 54px; border-radius: 27px; border: 0; background: var(--accent); color: var(--on-primary);
+  width: 54px; height: 54px; border-radius: 27px; border: 0; background: var(--primary); color: var(--on-primary);
   display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(47, 95, 208, 0.38); transition: transform 0.15s, background 0.2s; }
 .fab:active { transform: scale(0.94); }
 .fab.on { background: #e5534b; animation: pulse 1.4s ease-in-out infinite; }
@@ -496,7 +496,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 /* v0.74 Zeitleiste (Route/Varianten) */
 .tl { display: flex; flex-direction: column; }
 .tl-node { display: flex; align-items: center; gap: 10px; min-height: 44px; }
-.tl-dot { width: 28px; height: 28px; border-radius: 14px; background: var(--accent); color: var(--on-primary); font-weight: 700; font-size: 13px; border: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.tl-dot { width: 28px; height: 28px; border-radius: 14px; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 13px; border: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .tl-dot.add { background: var(--card-2); color: var(--accent); cursor: default; }
 .tl-main { flex: 1; border: 0; background: none; text-align: left; padding: 4px 0; display: flex; flex-direction: column; color: inherit; min-width: 0; cursor: pointer; }
 .tl-link { margin-left: 13px; border-left: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent); padding: 6px 0 6px 18px; display: flex; align-items: center; gap: 8px; }
@@ -544,7 +544,7 @@ textarea.ft-on { padding-right: 70px !important; }
 /* v0.89: Hauptkategorien im Einkaufs-Katalog als große Kacheln (2 pro Zeile) */
 .shop-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .shop-group { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card-2); color: var(--text); font-size: 14.5px; font-weight: 600; text-align: left; cursor: pointer; }
-.shop-group.on { background: var(--accent); border-color: var(--accent); color: var(--on-primary, #fff); }
+.shop-group.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary, #fff); }
 .shop-group .sg-emoji { font-size: 19px; }
 .shop-group .sg-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shop-group .sg-count { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 10px; background: rgba(0,0,0,.08); }
@@ -592,7 +592,7 @@ textarea.ft-on { padding-right: 70px !important; }
 .plan-compact .plan-input { min-height: 38px; font-size: 15px; }
 .plan-compact .mic { width: 38px; height: 38px; }
 .mini-chip { border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
-.mini-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-primary); }
+.mini-chip.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .small-chip { padding: 5px 10px !important; font-size: 13px !important; }
 /* v0.94 Menschen: Leiste zum Sortieren */
 .sel-bar { position: fixed; left: 8px; right: 8px; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 11; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.16); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; max-width: 520px; margin: 0 auto; }
@@ -612,7 +612,7 @@ textarea.ft-on { padding-right: 70px !important; }
 .sec-pick-btn.on { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .sec-pick { position: absolute; right: 0; top: calc(100% + 6px); z-index: 41; width: min(330px, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 70vh; overflow-y: auto; }
 .sec-all { border: 1px solid var(--line); background: var(--card-2); border-radius: 12px; padding: 10px; font-size: 14.5px; font-weight: 650; color: var(--text); cursor: pointer; }
-.sec-all.on { background: var(--accent); border-color: var(--accent); color: var(--on-primary); }
+.sec-all.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .sec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .sec-chip { display: flex; align-items: center; gap: 6px; text-align: left; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px; padding: 8px 9px; font-size: 13px; font-weight: 550; cursor: pointer; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sec-chip.on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
@@ -744,7 +744,7 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .act-tile { position: relative; }
 .act-swap { position: absolute; top: 4px; right: 6px; font-size: 12px; color: var(--accent); font-weight: 700; }
 /* v1.26: Senden-Knopf im Assistenten-Fenster unten rechts */
-.mini-send { width: 42px; height: 42px; flex-shrink: 0; border-radius: 50%; border: 0; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent); cursor: pointer; }
+.mini-send { width: 42px; height: 42px; flex-shrink: 0; border-radius: 50%; border: 0; background: var(--primary); color: var(--on-primary); display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 35%, transparent); cursor: pointer; }
 .mini-send:disabled { opacity: .35; box-shadow: none; }
 
 /* v1.28: eingebautes ✕ der Suchfelder ausblenden – eigenes ✕/↶ aus fieldtools reicht */
@@ -763,3 +763,25 @@ input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; dis
 /* v1.30: Blitz lange drücken = sprechen */
 .tab-plus { border: 0; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .tab-plus.talking { background: var(--danger); transform: scale(1.12); box-shadow: 0 0 0 8px rgba(229, 83, 75, 0.22); }
+
+/* v1.32 (Mateo): Einheitlichkeit
+   1) Text in Knöpfen immer mittig (auch mehrzeilig) */
+.btn, .chip, .pill, .mini-chip, .link-chip, .seg button, .seg-mini .chip, .act-tile { text-align: center; }
+.chip, .pill, .mini-chip { display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1.2; }
+.btn { line-height: 1.2; }
+/* 2) Eingabefelder: gleiche Höhe, nichts überlappt */
+.input { min-width: 0; box-sizing: border-box; line-height: 1.25; }
+input.input[type="time"], input.input[type="date"], select.input { height: 50px; padding-top: 0; padding-bottom: 0; -webkit-appearance: none; appearance: none; }
+.block-add input.input[type="time"], .block-add input.input[type="date"], .block-add select.input { height: 44px; }
+input.input[type="time"]::-webkit-date-and-time-value, input.input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; line-height: 50px; }
+.field { min-width: 0; }
+label.field, .field > * { min-width: 0; }
+/* 3) Gewähltes in "check"-Kreisen */
+.check.on { background: var(--primary) !important; border-color: var(--primary) !important; }
+.input.date-field { min-height: 50px; height: 50px; padding-top: 0; padding-bottom: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.input.date-field > span { overflow: hidden; text-overflow: ellipsis; }
+select.input.rhythm-sel { height: auto; padding: 2px 8px; }
+/* v1.32: einheitliche KI-Eingabe (Bereichs-Chats, Formular-KI, Assistent) */
+.ai-input { display: flex; flex-direction: column; gap: 8px; }
+.ai-input-row { display: flex; align-items: center; gap: 10px; }
+.mini-send:disabled { opacity: 0.35; box-shadow: none; }

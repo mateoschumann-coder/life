@@ -168,8 +168,9 @@ function TemplateEditor({ s, open, onClose, kindHint }) {
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <b style={{ fontSize: 15 }}>✨ Mit der KI {ed.key ? 'ändern' : 'erstellen'}</b>
             <textarea className="input" rows={2} value={wish} onChange={(e) => setWish(e.target.value)} placeholder={ed.key ? 'z.B. „Füg Nachtisch hinzu und streich die Deko“' : 'z.B. „Weihnachtsessen für 10 Leute mit Fondue“'} />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" className={dict.on ? 'btn small danger' : 'btn small tint'} onClick={dict.toggle}>{dict.on ? '■ Stopp' : '🎙 Sprechen'}</button>
+            <div className="ai-input-row">
+              <button type="button" className={dict.on ? 'mic on' : 'mic'} onClick={dict.toggle} aria-label={dict.on ? 'Zuhören stoppen' : 'Sprechen'}><Icon name={dict.on ? 'stop' : 'mic'} size={18} /></button>
+              <span style={{ flex: 1 }} />
               <button type="button" className="btn small" disabled={busy || !wish.trim() || !hasKey()} onClick={runAI}>{busy ? 'Denkt nach …' : ed.key ? '✨ Ändern' : '✨ Erstellen'}</button>
             </div>
             {!hasKey() && <span className="tiny">Dafür braucht es den KI-Schlüssel (Einstellungen).</span>}

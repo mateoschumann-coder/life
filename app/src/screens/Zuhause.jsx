@@ -1,3 +1,4 @@
+import QuickSheet from '../components/QuickSheet';
 import MicBtn from '../components/MicBtn';
 import AiFill from '../components/AiFill';
 import { askDel } from '../lib/undo';
@@ -207,7 +208,7 @@ function FindItems({ s, listKey }) {
       {mode === 'links' && <SourceLinks s={s} area={listKey} instant />}
       {mode === 'ki' && <section className="card checkin" style={{ gap: 10 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 16 }}><span className="spark"><Icon name="sparkle" size={14} color="currentColor" /></span>Ideen von der KI</span>
-        <div className="field"><span>Was suchst du? (optional)</span><div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. gemütliche Leselampe'} aria-label="Was suchst du?" /><MicBtn value={q} onChange={setQ} /></div></div>
+        <div className="field"><span>Was suchst du? (optional)</span><div style={{ display: 'flex', gap: 8 }}><MicBtn value={q} onChange={setQ} /><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. gemütliche Leselampe'} aria-label="Was suchst du?" /></div></div>
         <span className="label" style={{ padding: 0 }}>Für welchen Bereich?</span>
         <div className="chips">{l.cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCat(c)}>{c}</button>)}</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -306,7 +307,10 @@ function Reminders({ s }) {
     <>
       <div className="sec-h" style={{ padding: '0 4px' }}>
         <span className="sub">Erscheinen am Tag automatisch auf „Heute“.</span>
-        <button type="button" className="btn small" onClick={() => setSheet({})}>+ Neu</button>
+        <span style={{ display: 'flex', gap: 8 }}>
+          <button type="button" className="btn small" onClick={() => setSheet({})}>+ Neu</button>
+          {presets.length > 0 && <QuickSheet title="Schnell: Erinnerung">{(close) => <div className="chips">{presets.map((p) => <button key={p.title} type="button" className="chip soft" onClick={() => { close(); setTimeout(() => setSheet(p), 200); }}>+ {p.title}</button>)}</div>}</QuickSheet>}
+        </span>
       </div>
       <div className="list">
         {list.length === 0 && <div className="empty">Noch keine Erinnerungen.</div>}
@@ -324,12 +328,6 @@ function Reminders({ s }) {
           );
         })}
       </div>
-      {presets.length > 0 && (
-        <section className="card" style={{ gap: 10 }}>
-          <span className="label" style={{ padding: 0 }}>Schnell hinzufügen</span>
-          <div className="chips">{presets.map((p) => <button key={p.title} type="button" className="chip soft" onClick={() => setSheet(p)}>+ {p.title}</button>)}</div>
-        </section>
-      )}
       <ReminderSheet item={sheet} onClose={() => setSheet(null)} />
     </>
   );

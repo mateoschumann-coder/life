@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getAi } from '../lib/ai';
 import { fillForm } from '../lib/formfill';
 import { canDictate, useDictation } from '../lib/dictate';
-import { toast } from './ui';
+import { Icon, toast } from './ui';
 
 const filledText = (values, fields) => Object.entries(values || {})
   .filter(([k, v]) => (!fields || fields[k]) && v != null && typeof v !== 'object' && String(v).trim() && !/^(id|key)$/.test(k))
@@ -49,10 +49,11 @@ export default function AiFill({ placeholder = 'Erzähl kurz oder füg Link/Text
   return (
     <div className="card" style={{ gap: 8, background: 'var(--card-2)', boxShadow: 'none', padding: 12 }}>
       <textarea className="input" style={{ minHeight: 70 }} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder={mic.on ? '🎙 Ich höre zu … erzähl einfach' : placeholder} autoFocus={!mic.on} />
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="btn small" style={{ flex: 1 }} disabled={(!txt.trim() && !ctx) || busy} onClick={run}>{busy ? 'Ich fülle aus …' : txt.trim() || mic.on ? '✨ Ausfüllen' : '✨ Rest ausfüllen'}</button>
-        {canDictate && <button type="button" className={mic.on ? 'btn small' : 'btn small tint'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören stoppen' : 'Einsprechen'}>{mic.on ? '■ Stopp' : '🎙'}</button>}
-        <button type="button" className="btn small sec" style={{ background: 'var(--card)' }} onClick={() => { mic.stop(); setOpen(false); }}>Abbrechen</button>
+      {/* v1.32: gleiche Anordnung wie alle KI-Boxen – links 🎙, rechts ausführen */}
+      <div className="ai-input-row">
+        {canDictate && <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören stoppen' : 'Einsprechen'}><Icon name={mic.on ? 'stop' : 'mic'} size={18} /></button>}
+        <button type="button" className="link-btn" style={{ fontSize: 14, flex: 1, textAlign: 'left' }} onClick={() => { mic.stop(); setOpen(false); }}>Abbrechen</button>
+        <button type="button" className="btn small" disabled={(!txt.trim() && !ctx && !mic.on) || busy} onClick={run}>{busy ? 'Ich fülle aus …' : txt.trim() || mic.on ? '✨ Ausfüllen' : '✨ Rest ausfüllen'}</button>
       </div>
       {(hint || ctx) && <span className="tiny">{ctx ? 'Was schon im Formular steht, nutzt die KI mit. ' : ''}{hint || ''}</span>}
     </div>

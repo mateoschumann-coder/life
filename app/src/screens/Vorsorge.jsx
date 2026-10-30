@@ -244,7 +244,7 @@ function DoctorFinder({ s, onTermin }) {
     <>
       <section className="card" style={{ gap: 10 }}>
         <ModeToggle mode={mode} onChange={setMode} />
-        <div className="field"><span>Was suchst du?</span><div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1, minWidth: 0 }} value={what} onChange={(e) => setWhat(e.target.value)} placeholder="z.B. Zahnarzt, Physiotherapie" aria-label="Was suchst du?" /><MicBtn value={what} onChange={setWhat} /></div></div>
+        <div className="field"><span>Was suchst du?</span><div style={{ display: 'flex', gap: 8 }}><MicBtn value={what} onChange={setWhat} /><input className="input" style={{ flex: 1, minWidth: 0 }} value={what} onChange={(e) => setWhat(e.target.value)} placeholder="z.B. Zahnarzt, Physiotherapie" aria-label="Was suchst du?" /></div></div>
         <div className="chips" style={{ marginTop: -4 }}>{QUICK.map((q) => <button key={q} type="button" className={what === q ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setWhat(q)}>{q}</button>)}</div>
         <label className="field"><span>Wo ungefähr?</span><input className="input" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Viertel, z.B. Palermo" /></label>
         <div className="chips" style={{ marginTop: -4 }}>

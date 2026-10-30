@@ -131,7 +131,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
   const allChips = [...webChips.filter((c) => !chips.includes(c)), ...chips];
   const chipRow = !busy && allChips.length > 0 ? (
     <div className="box-tabs">
-      {(compact ? allChips.slice(0, maxChips) : allChips).map((c) => <button key={c} type="button" className={compact ? 'chip soft small-chip' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
+      {(compact ? allChips.slice(0, maxChips) : allChips).map((c) => <button key={c} type="button" className="chip soft small-chip" style={{ whiteSpace: 'nowrap' }} disabled={!hasKey} onClick={() => send(c, webChips.includes(c))}>{webChips.includes(c) ? '🔍 ' : ''}{c}</button>)}
     </div>
   ) : null;
   return (
@@ -139,7 +139,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: compact ? 'wrap' : undefined }}>
         <span className="spark"><Icon name="sparkle" size={compact ? 13 : 15} color="currentColor" /></span>
         <span style={{ fontWeight: 700, fontSize: compact ? 15 : 17, flex: 1 }}>{title}</span>
-        {compact && !hideToggles && (
+        {!hideToggles && (
           <span style={{ display: 'flex', gap: 4 }}>
             <button type="button" className={web ? 'mini-chip on' : 'mini-chip'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })} title={web ? 'Internet an: aktuelle Infos & Links, ca. 1–3 Cent mehr' : 'Ohne Internet: günstig'}>🔍 {web ? 'an' : 'aus'}</button>
             <button type="button" className={smart ? 'mini-chip on' : 'mini-chip'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })} title={smart ? 'Gründlich: besseres Modell, teurer' : 'Schnell: günstig'}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
@@ -200,21 +200,19 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{searching ? 'Ich suche im Internet und plane … (ca. 20–40 Sek.)' : 'Ich denke nach … (ca. 5–10 Sek.)'}</span></div>}
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {mic.error && <span className="sub" style={{ color: 'var(--danger)' }}>{mic.error}</span>}
-      {!compact && chipRow}
       {extra}
-      {!hideToggles && !compact && <div className="ai-toggles">
-        <button type="button" className={web ? 'chip on' : 'chip soft'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })}>🔍 Internet {web ? 'an' : 'aus'}</button>
-        <button type="button" className={smart ? 'chip on' : 'chip soft'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
-        <Info>{[web ? 'Internet: aktuelle Infos & Links, ca. 1–3 Cent mehr' : autoWeb ? 'Ohne Internet: aus KI-Wissen – bei Flügen, Unterkünften und Preisen sucht die KI automatisch im Internet' : 'Ohne Internet: aus KI-Wissen, günstig', smart ? 'Gründlich: besseres Modell, ca. 20× teurer' : null].filter(Boolean).join(' · ')}</Info>
-      </div>}
-      <form className="block-add" style={{ alignItems: 'flex-end' }} onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören beenden' : 'Sprechen'} disabled={busy}>
-          <Icon name={mic.on ? 'stop' : 'mic'} size={18} />
-        </button>
-        <textarea className="input plan-input" rows={1} value={text} ref={(el) => { if (el) { el.style.height = '42px'; el.style.height = Math.min(140, el.scrollHeight) + 'px'; } }} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label="Nachricht an die KI" />
-        <button type="submit" className="btn small" disabled={busy || !text.trim() || !hasKey} aria-label="Senden"><Icon name="send" size={16} color="currentColor" /></button>
+      {/* v1.32 (Mateo): überall gleich – Textfeld, darunter links 🎙 sprechen, rechts ➤ senden */}
+      <form className="ai-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
+        <textarea className="input plan-input" rows={2} value={text} ref={(el) => { if (el) { el.style.height = '64px'; el.style.height = Math.min(160, Math.max(64, el.scrollHeight)) + 'px'; } }} onChange={(e) => setText(e.target.value)} placeholder={mic.on ? '🎙 Ich höre zu …' : placeholder} aria-label="Nachricht an die KI" />
+        <div className="ai-input-row">
+          <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören beenden' : 'Sprechen'} disabled={busy}>
+            <Icon name={mic.on ? 'stop' : 'mic'} size={18} />
+          </button>
+          <span className="tiny" style={{ flex: 1 }}>{mic.on ? 'Ich höre zu – ➤ sendet' : 'Sprechen oder schreiben'}</span>
+          <button type="submit" className="mini-send" disabled={busy || (!text.trim() && !mic.on) || !hasKey} aria-label="Senden"><Icon name="send" size={18} color="currentColor" width={2} /></button>
+        </div>
       </form>
-      {compact && chipRow}
+      {chipRow}
       {!hasKey && <span className="tiny">Für den KI-Planer braucht es einen API-Schlüssel (Einstellungen).</span>}
     </section>
   );

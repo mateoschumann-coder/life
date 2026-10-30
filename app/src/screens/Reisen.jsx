@@ -1,3 +1,4 @@
+import MicBtn from '../components/MicBtn';
 import AiFill from '../components/AiFill';
 import { askDel } from '../lib/undo';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -1311,6 +1312,7 @@ function VariantCard({ s, tr, v, vi, isIdea, onChosen, onCommit }) {
       {v.stops.length > 0 && (() => { const H = tripHome(s, tr); const z = v.stops[v.stops.length - 1].name; const n = legsOf(v.legs, z, H.home).length; return H.home.toLowerCase() !== z.toLowerCase() && <div className="tl-auto"><button type="button" className="tl-main" style={{ flex: 1, minWidth: 0, padding: 0 }} onClick={() => setLegAB({ a: z, b: H.home, date: tr.to })}><span><b>{MODE_ICON[H.mode] || '➡️'} Rückreise:</b> {z} → {H.home}{tr.to ? ` · ${fmtShort(tr.to)}` : ''}</span><span className="tiny">{n ? `${n} gespeichert – antippen` : 'Antippen zum Speichern'}</span></button><a className="pill" style={{ fontSize: 12 }} href={legUrl(s, tr, z, H.home, H.mode, tr.to || '')} target="_blank" rel="noreferrer">{H.mode === 'flug' ? 'Flüge ↗' : 'Suchen ↗'}</a></div>; })()}
       {v.stops.length > 1 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={legs} disabled={!!busy || !getAi().apiKey}>{busy === 'legs' ? 'Ich schätze die Strecken …' : v.legs?.length ? '↻ Transport neu schätzen (KI)' : '🚌 Transport zwischen allen Orten schätzen (KI)'}</button>}
       <form className="block-add" onSubmit={(e) => { e.preventDefault(); ai(); }}>
+        <MicBtn value={wish} onChange={setWish} size={38} />
         <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder="✨ KI: z.B. „mehr Strand“, „2 Nächte weniger“" aria-label={`KI für Variante ${vi + 1}`} />
         <button type="submit" className="btn small" style={{ whiteSpace: 'nowrap' }} disabled={!wish.trim() || !!busy || !getAi().apiKey}>{busy === 'ai' ? '…' : '✨ Ändern'}</button>
       </form>
@@ -1335,6 +1337,7 @@ function Variants({ s, tr, onChosen, onCommit }) {
       <section className="card" style={{ gap: 8 }}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>✨ Varianten erstellen</span>
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); build(); }}>
+          <MicBtn value={wish} onChange={setWish} size={38} />
           <input className="input" value={wish} onChange={(e) => setWish(e.target.value)} placeholder={`z.B. „eine entspannt, eine mit viel Kultur“`} aria-label="Wunsch für die Varianten" />
           <button type="submit" className="btn small" style={{ whiteSpace: 'nowrap' }} disabled={busy || !getAi().apiKey}>{busy ? 'Baue …' : '✨ Erstellen'}</button>
         </form>

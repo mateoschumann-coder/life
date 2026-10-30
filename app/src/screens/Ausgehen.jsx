@@ -1,3 +1,4 @@
+import QuickSheet from '../components/QuickSheet';
 import MicBtn from '../components/MicBtn';
 import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
@@ -22,7 +23,8 @@ const mon = new Intl.DateTimeFormat('de-DE', { month: 'short' });
 const TAB_KEY = 'life-app-ausgehen-tab';
 
 // Eigene Such-Kategorien: Knöpfe hinzufügen, entfernen (gespeichert in s.profile.chips)
-function SearchChips({ s, kind, defaults, disabled, onPick, scroll }) {
+function SearchChips({ s, kind, defaults, disabled, onPick, scroll, quick }) {
+  if (quick) return <QuickSheet label="⚡" title={kind === 'events' ? 'Schnell suchen: Events' : 'Schnell suchen: Orte'}>{(close) => <SearchChips s={s} kind={kind} defaults={defaults} disabled={disabled} onPick={(c) => { close(); onPick(c); }} />}</QuickSheet>;
   const [edit, setEdit] = useState(false);
   const [text, setText] = useState('');
   const chips = s.profile?.chips?.[kind] ?? defaults;
@@ -337,11 +339,11 @@ function Events({ s, city, view = 'find' }) {
       <section className="card" style={{ gap: 8, padding: 12 }}>
         <ModeToggle mode={smode} onChange={setSmode} />
         <form onSubmit={(e) => { e.preventDefault(); if (smode === 'ki') run(q); }} style={{ display: 'flex', gap: 8 }}>
-          <input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Was ist los in ${city}?`} aria-label="Wonach suchen" />
           <MicBtn value={q} onChange={setQ} onDone={(t) => { if (smode === 'ki' && hasKey) run(t); }} />
+          <input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Was ist los in ${city}?`} aria-label="Wonach suchen" />
+          <SearchChips quick s={s} kind="events" defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
           {smode === 'ki' && <button type="submit" className="btn small" style={{ flexShrink: 0 }} disabled={!q.trim() || !!busy || !hasKey} aria-label="Events suchen">{busy ? '…' : '🔍'}</button>}
         </form>
-        <SearchChips s={s} kind="events" scroll defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
         {smode === 'links' ? <><SourceLinks embedded s={s} area="events" city={city} query={q} /><EventTakeOver s={s} city={city} onOpen={setEvForm} /></> : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Prefs s={s} />
@@ -818,11 +820,11 @@ function Orte({ s, city, view = 'mine' }) {
         <Info>„Merken“ legt den Ort unter „Meine Orte“ als „Will hin“ ab – dort findest du ihn wieder.</Info>
         <ModeToggle mode={pmode} onChange={setPmode} />
         <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (pmode === 'ki') run(q); }}>
-          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Specialty Coffee in Palermo" aria-label="Orte suchen" />
           <MicBtn value={q} onChange={setQ} onDone={(t) => { if (pmode === 'ki' && hasKey) run(t); }} />
+          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Specialty Coffee in Palermo" aria-label="Orte suchen" />
+          <SearchChips quick s={s} kind="places" defaults={PLACE_CHIPS} disabled={pmode === 'ki' && (busy || !hasKey)} onPick={(c) => (pmode === 'ki' ? run(c) : setQ(c))} />
           {pmode === 'ki' && <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>}
         </form>
-        <SearchChips s={s} kind="places" defaults={PLACE_CHIPS} disabled={pmode === 'ki' && (busy || !hasKey)} onPick={(c) => (pmode === 'ki' ? run(c) : setQ(c))} />
         {pmode === 'links' && <SourceLinks embedded s={s} area="orte" city={city} query={q} />}
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Empfehlungen … (ca. 20 Sek.)</span></div>}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
