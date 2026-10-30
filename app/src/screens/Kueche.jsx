@@ -12,7 +12,7 @@ import {
 import { getAi } from '../lib/ai';
 import PlaceBook from '../components/PlaceBook';
 import { chatOf, saveChatOf } from '../lib/chats';
-import PlanChat from '../components/PlanChat';
+import PlanChat, { ChatToggles } from '../components/PlanChat';
 import SourceLinks, { useSearchMode } from '../components/SourceLinks';
 import SearchCard, { QuickChips } from '../components/SearchCard';
 import { SOURCE_AREAS } from '../lib/sources';
@@ -239,8 +239,8 @@ function ShopCatalog({ s, head = null }) {
       {/* v1.36 (Mateo): Kopfzeile = Listen-Knöpfe (📋 Liste ▾ · 💾 · 🗑) + Katalog auf-/zuklappen */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {head ? <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: 1, minWidth: 0 }}>{head}</div> : <span style={{ flex: 1, fontWeight: 650, fontSize: 15 }}>Katalog</span>}
+        <button type="button" className={open ? 'pill' : 'pill on'} style={{ flexShrink: 0, fontSize: 13 }} onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'Einklappen ▴' : 'Katalog ▾'}</button>
         {open && <button type="button" className="pill" style={{ flexShrink: 0 }} onClick={() => setStructOpen(true)} aria-label="Katalog bearbeiten">✎</button>}
-        <button type="button" className="link-btn" style={{ fontSize: 12.5, flexShrink: 0 }} onClick={() => setOpen(!open)} aria-expanded={open}>{open ? '▴' : 'Katalog ▾'}</button>
       </div>
       {open && (<>
         <div className="shop-groups">
@@ -477,8 +477,8 @@ const kitchenGroups = (onSave) => [
 ];
 
 const MODES = {
-  neu: { label: '🍳 Neues Rezept', intro: 'Worauf hast du Lust? Ich schlage Rezepte vor.', placeholder: 'z.B. Airfryer Hähnchen, proteinreich …', chips: ['Was koche ich heute?', 'Proteinreich nach dem Lauf', 'Schnelles Frühstück', 'Wochenplan + Einkauf'] },
-  kuehlschrank: { label: '🧊 Aus dem Kühlschrank', intro: 'Oben auswählen und „Rezept erstellen“ – oder hier schreiben.', placeholder: 'Was hast du noch da?', chips: [] },
+  neu: { label: '🔍 Rezept suchen', intro: 'Worauf hast du Lust? Ich schlage Rezepte vor.', placeholder: 'z.B. Airfryer Hähnchen, proteinreich …', chips: ['Was koche ich heute?', 'Proteinreich nach dem Lauf', 'Schnelles Frühstück', 'Wochenplan + Einkauf'] },
+  kuehlschrank: { label: '🧊 Aus dem Kühlschrank', intro: 'Oben antippen, was da ist, und „Rezept erstellen“ – oder einfach erzählen bzw. schreiben, was du noch hast.', placeholder: 'z.B. „2 Eier, Spinat, etwas Feta …“', chips: [] },
   diktieren: { label: '🎙 Rezept diktieren', intro: 'Mikro antippen und dein Rezept erzählen – ich schreibe es sauber auf.', placeholder: 'Erzähl dein Rezept …', chips: [] },
 };
 
@@ -581,6 +581,9 @@ function FridgePicker({ s, onAsk, disabled }) {
 
 // Neue Rezepte (v0.65): entweder kostenlose Links zu Rezeptseiten oder der KI-Küchen-Chat
 function RecipeFinder({ s }) {
+  // v1.37 (Mateo): oben die Art wählen; nur „Rezept suchen“ nutzt die Suchkarte, Kühlschrank/Diktieren haben ihre eigene KI mit Mikro
+  const [kmode, setKmodeS] = useState(() => { try { const v = localStorage.getItem('life-app-kueche-mode'); return MODES[v] ? v : 'neu'; } catch { return 'neu'; } });
+  const setKmode = (v) => { setKmodeS(v); try { localStorage.setItem('life-app-kueche-mode', v); } catch {} };
   const [mode, setMode] = useSearchMode('rezepte', 'ki');
   const [q, setQ] = useState(() => takeFlag('life-search-q') || '');
   const ask = useRef(null);
@@ -588,18 +591,25 @@ function RecipeFinder({ s }) {
   const ai = (t) => { setMode('ki'); const x = t.trim(); if (!x) return; if (ask.current) { ask.current(x); setQ(''); } else { pend.current = x; setQ(''); } };
   return (
     <>
-      <SearchCard q={q} setQ={setQ} placeholder="z.B. Airfryer Hähnchen, schnelles Abendessen" kiPlaceholder="Wunsch oder Rückfrage an den Küchen-Chat …" mode={mode}
-        quick={<QuickChips chips={SOURCE_AREAS.rezepte.chips} q={q} setQ={setQ} />}
-        onLinks={() => setMode('links')} onAi={ai} aiLabel="✨ KI" aiCost="<1 ct"
-        hint="🔗 Links: Chefkoch, Paulina Cocina, BBC Good Food & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: der Küchen-Chat schlägt Rezepte vor (auch aus dem Kühlschrank) – Rückfragen unten im Chat.">
-        {mode === 'links' && <SourceLinks embedded s={s} area="rezepte" query={q} />}
-      </SearchCard>
-      {mode === 'ki' && <KitchenChat s={s} askRef={ask} pending={pend} />}
+      <div className="box-tabs">
+        {Object.entries(MODES).map(([id, x]) => <button key={id} type="button" className={kmode === id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setKmode(id)}>{x.label}</button>)}
+      </div>
+      {kmode === 'neu' ? (
+        <>
+          <SearchCard q={q} setQ={setQ} placeholder="z.B. Airfryer Hähnchen, schnelles Abendessen" kiPlaceholder="Wunsch oder Rückfrage an die KI …" mode={mode}
+            quick={<QuickChips chips={[...MODES.neu.chips, ...SOURCE_AREAS.rezepte.chips]} q={q} setQ={setQ} />}
+            toggles={<ChatToggles prefKey="kueche" />}
+            onLinks={() => setMode('links')} onAi={ai}
+            hint="🔗 Links: Chefkoch, Paulina Cocina, BBC Good Food & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: schlägt Rezepte vor (ohne Internet unter 1 Cent, mit Internet ca. 1–3 Cent). Rückfragen ebenfalls oben ins Feld.">
+            {mode === 'links' && <SourceLinks embedded s={s} area="rezepte" query={q} />}
+          </SearchCard>
+          {mode === 'ki' && <KitchenChat key="neu" s={s} mode="neu" askRef={ask} pending={pend} />}
+        </>
+      ) : <KitchenChat key={kmode} s={s} mode={kmode} />}
     </>
   );
 }
-function KitchenChat({ s, askRef, pending }) {
-  const [mode, setMode] = useState('neu');
+function KitchenChat({ s, mode = 'neu', askRef, pending }) {
   const [saving, setSaving] = useState(null); // { r, done }
   const sendRef = useRef(null);
   if (askRef) askRef.current = (t) => sendRef.current?.(t);
@@ -615,16 +625,14 @@ function KitchenChat({ s, askRef, pending }) {
   };
   return (
     <>
-      <div className="box-tabs">
-        {Object.entries(MODES).map(([id, x]) => <button key={id} type="button" className={mode === id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setMode(id)}>{x.label}</button>)}
-      </div>
       {mode === 'kuehlschrank' && <FridgePicker s={s} disabled={!getAi().apiKey} onAsk={(t) => sendRef.current?.(t)} />}
       <PlanChat
         key={mode}
         compact
         noInput={!!askRef}
+        bare={!!askRef}
         sendRef={sendRef}
-        title="Küchen-Chat"
+        title={mode === 'diktieren' ? 'Rezept diktieren' : mode === 'kuehlschrank' ? 'KI-Koch' : 'Küchen-Chat'}
         intro={m.intro}
         placeholder={m.placeholder}
         history={chatOf(s, 'kueche')}
@@ -677,7 +685,7 @@ export default function Kueche() {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
+          <Back href="#/bereich/koerper" label="Gesundheit" />
           <h1 className="h1">Küche</h1>
         </div>
         <Segmented full options={[{ id: 'rezepte', label: 'Rezepte' }, { id: 'einkauf', label: `Einkauf${openCount ? ` (${openCount})` : ''}` }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />

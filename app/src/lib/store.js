@@ -77,6 +77,12 @@ function migrate(s) {
   // Version 0.94: importierte Kontakte bekamen automatisch „monatlich melden“ → alle waren sofort fällig.
   // Rhythmus nur bei Freunden mit Standard 30 Tage und noch keinem notierten Kontakt entfernen (einmalig)
   // Version 1.04: Hobbys sind aufgebaut wie Weiterentwicklung (To-dos + Material) – alte Ideen umziehen (einmalig)
+  // v1.37 (Mateo): „Körperliche Gesundheit“ heißt überall nur noch „Gesundheit“
+  if (!s.profile?.mig137) {
+    const a = (s.areas || []).find((x) => x.id === 'koerper');
+    if (a && a.name === 'Körperliche Gesundheit') a.name = 'Gesundheit';
+    s.profile = { ...(s.profile || {}), mig137: true };
+  }
   if (!s.profile?.mig104) {
     const LAST = { song: 2, video: 2, buch: 2, uebung: 2, link: 0 };
     for (const h of s.hobbies || []) {

@@ -299,7 +299,7 @@ export default function Vorsorge() {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
+          <Back href="#/bereich/koerper" label="Gesundheit" />
           <h1 className="h1">Vorsorge</h1>
         </div>
         <Segmented full options={[{ id: 'termine', label: 'Termine' }, { id: 'routine', label: 'Regelmäßig' }, { id: 'orte', label: 'Orte' }]} value={view} onChange={setView} label="Ansicht" />

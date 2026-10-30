@@ -15,7 +15,7 @@ import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
 import GroupedChecklist from '../components/GroupedChecklist';
 import NotesArea from '../components/NotesArea';
-import PlanChat from '../components/PlanChat';
+import PlanChat, { ChatToggles } from '../components/PlanChat';
 import MapView from '../components/MapView';
 import { DateRangeField, rangeText } from '../components/DateRange';
 import { Back, Chevron, Field, Icon, Sheet, TabBar, toast, Info } from '../components/ui';
@@ -330,7 +330,7 @@ function Inspiration({ s }) {
   const ai = (t) => { setMode('ki'); const x = t.trim(); if (!x) return; setQ(''); if (ask.current) ask.current(x); else { pend.current = x; setTimeout(() => { if (pend.current && ask.current) { ask.current(pend.current); pend.current = ''; } }, 350); } };
   return (
     <>
-      <SearchCard title="Wohin könnte ich?" q={q} setQ={setQ} placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD" kiPlaceholder="Wunsch oder Rückfrage an die Reiseführer-KI …" mode={mode}
+      <SearchCard title="Wohin könnte ich?" q={q} setQ={setQ} placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD" kiPlaceholder="Wunsch oder Rückfrage an die Reiseführer-KI …" mode={mode} toggles={<ChatToggles prefKey="reiseziele" />}
         quick={<QuickChips chips={SOURCE_AREAS.reiseziele?.chips || INSPO_CHIPS} q={q} setQ={setQ} />}
         onLinks={() => setMode('links')} onAi={ai} aiLabel="✨ KI" aiCost="~1 ct"
         hint="🔗 Links: Skyscanner „Überall“, Google Flights, Pinterest, Reddit & Co. – kostenlos. ✨ KI: schlägt passende Ziele vor; ankreuzen = als Ideen speichern. Rückfragen unten im Chat.">
@@ -341,6 +341,7 @@ function Inspiration({ s }) {
         compact
         sendRef={ask}
         noInput
+        bare
         history={chatOf(s, 'reiseziele')}
         prefKey="reiseziele"
         onSave={(h) => saveChatOf('reiseziele', h)}

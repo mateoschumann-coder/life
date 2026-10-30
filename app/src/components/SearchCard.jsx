@@ -8,7 +8,7 @@ import MicBtn from './MicBtn';
 import QuickSheet from './QuickSheet';
 import { Info } from './ui';
 
-export default function SearchCard({ title, q, setQ, placeholder, quick, filters, mode, onLinks, onAi, aiLabel = '✨ KI', aiCost, linksLabel = '🔗 Links', kiPlaceholder, busy, hint, children, emptyOk = true }) {
+export default function SearchCard({ title, q, setQ, placeholder, quick, filters, mode, onLinks, onAi, aiLabel = '✨ KI', aiCost, linksLabel = '🔗 Links', kiPlaceholder, toggles, busy, hint, children, emptyOk = true }) {
   const hasKey = !!getAi().apiKey;
   const canAi = hasKey && !busy && (emptyOk || q.trim());
   const doLinks = (t = q) => onLinks?.(t);
@@ -27,6 +27,7 @@ export default function SearchCard({ title, q, setQ, placeholder, quick, filters
         <button type="button" className={mode === 'ki' ? 'btn small' : 'btn small tint'} disabled={!canAi} onClick={() => doAi()}>{busy ? '…' : aiLabel}</button>
         {hint && <Info>{hint}</Info>}
       </div>
+      {mode === 'ki' && hasKey && toggles}
       {!hasKey && <a href="#/einstellungen" className="link-btn" style={{ fontSize: 13 }}>Für die KI: Schlüssel hinterlegen</a>}
       {children}
     </section>

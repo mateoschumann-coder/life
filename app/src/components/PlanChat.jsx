@@ -19,7 +19,27 @@ const savePrefs = (k, v) => {
     all[k] = v;
     localStorage.setItem(PREF_KEY, JSON.stringify(all));
   } catch {}
+  window.dispatchEvent(new CustomEvent('life-chatprefs', { detail: k }));
 };
+
+// v1.37 (Mateo): Schalter „Ohne/Mit Internet“ und „Schnell/Gründlich“ als kleine Knöpfe – z.B. in der Suchkarte
+export function ChatToggles({ prefKey }) {
+  const [p, setP] = useState(() => loadPrefs(prefKey));
+  useEffect(() => { const h = (e) => { if (e.detail === prefKey) setP(loadPrefs(prefKey)); }; window.addEventListener('life-chatprefs', h); return () => window.removeEventListener('life-chatprefs', h); }, [prefKey]);
+  const set = (patch) => savePrefs(prefKey, { ...loadPrefs(prefKey), ...patch });
+  return (
+    <div className="ki-toggles">
+      <div className="seg seg-xs" role="group" aria-label="Internet">
+        <button type="button" className={!p.web ? 'on' : ''} aria-pressed={!p.web} onClick={() => set({ web: false })}>Ohne Internet</button>
+        <button type="button" className={p.web ? 'on' : ''} aria-pressed={!!p.web} onClick={() => set({ web: true })}>Mit Internet</button>
+      </div>
+      <div className="seg seg-xs" role="group" aria-label="Tempo">
+        <button type="button" className={!p.smart ? 'on' : ''} aria-pressed={!p.smart} onClick={() => set({ smart: false })}>Schnell</button>
+        <button type="button" className={p.smart ? 'on' : ''} aria-pressed={!!p.smart} onClick={() => set({ smart: true })}>Gründlich</button>
+      </div>
+    </div>
+  );
+}
 
 // groups: [{ key, label, title: (x) => string, meta?: (x) => string, links?: (x) => [{ label, url }] }]
 // v0.99: Vorschlag zum Ansehen (z.B. Rezept): Titel + „Ansehen ▾“ mit Details, eigene Aktion (z.B. „Als Rezept speichern“) statt Häkchen
@@ -41,7 +61,7 @@ function ViewItem({ g, x, done, onAction }) {
   );
 }
 
-export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null, compact = false, extra = null, maxChips = 4, sendRef = null, noInput = false }) {
+export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null, compact = false, extra = null, maxChips = 4, sendRef = null, noInput = false, bare = false }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -50,6 +70,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
   const [prefs, setPrefs] = useState(() => loadPrefs(prefKey));
   const { web = false, smart = false } = prefs;
   const setPref = (patch) => { const next = { ...prefs, ...patch }; setPrefs(next); savePrefs(prefKey, next); };
+  useEffect(() => { const h = (e) => { if (e.detail === prefKey) setPrefs(loadPrefs(prefKey)); }; window.addEventListener('life-chatprefs', h); return () => window.removeEventListener('life-chatprefs', h); }, [prefKey]);
   const [searching, setSearching] = useState(false);
   const mic = useDictation(text, setText, lang);
   const sentAuto = useRef(false);
@@ -135,19 +156,21 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
     </div>
   ) : null;
   return (
-    <section className={compact ? 'card checkin plan-compact' : 'card checkin'} style={{ gap: compact ? 8 : 12 }}>
+    bare && !history.length && !busy && !err ? null :
+    <section className={compact || bare ? 'card checkin plan-compact' : 'card checkin'} style={{ gap: compact || bare ? 8 : 12 }}>
+      {bare ? (history.length > 0 && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -4 }}><button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => confirm('Gespräch löschen? Übernommene Einträge bleiben.') && onSave([])}>Neu beginnen</button></div>) :
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: compact ? 'wrap' : undefined }}>
         <span className="spark"><Icon name="sparkle" size={compact ? 13 : 15} color="currentColor" /></span>
         <span style={{ fontWeight: 700, fontSize: compact ? 15 : 17, flex: 1 }}>{title}</span>
         {!hideToggles && (
           <span style={{ display: 'flex', gap: 4 }}>
-            <button type="button" className={web ? 'mini-chip on' : 'mini-chip'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })} title={web ? 'Internet an: aktuelle Infos & Links, ca. 1–3 Cent mehr' : 'Ohne Internet: günstig'}>🔍 {web ? 'an' : 'aus'}</button>
-            <button type="button" className={smart ? 'mini-chip on' : 'mini-chip'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })} title={smart ? 'Gründlich: besseres Modell, teurer' : 'Schnell: günstig'}>🧠 {smart ? 'Gründlich' : 'Schnell'}</button>
+            <button type="button" className={web ? 'mini-chip on' : 'mini-chip'} aria-pressed={web} disabled={busy} onClick={() => setPref({ web: !web })} title={web ? 'Internet an: aktuelle Infos & Links, ca. 1–3 Cent mehr' : 'Ohne Internet: günstig'}>{web ? 'Mit Internet' : 'Ohne Internet'}</button>
+            <button type="button" className={smart ? 'mini-chip on' : 'mini-chip'} aria-pressed={smart} disabled={busy} onClick={() => setPref({ smart: !smart })} title={smart ? 'Gründlich: besseres Modell, teurer' : 'Schnell: günstig'}>{smart ? 'Gründlich' : 'Schnell'}</button>
           </span>
         )}
         {history.length > 0 && <button type="button" className="link-btn" style={{ fontSize: compact ? 13 : 14 }} onClick={() => confirm('Gespräch löschen? Übernommene Einträge bleiben.') && onSave([])}>{compact ? 'Neu' : 'Neu beginnen'}</button>}
-      </div>
-      {history.length === 0 && intro && <span className={compact ? 'tiny' : 'sub'}>{intro}</span>}
+      </div>}
+      {!bare && history.length === 0 && intro && <span className={compact ? 'tiny' : 'sub'}>{intro}</span>}
       {cut > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} onClick={() => setShowAll(!showAll)}>{showAll ? 'Nur die letzte Antwort zeigen' : `Ganzen Chat anzeigen (${history.length} Nachrichten)`}</button>}
       {visible.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -212,7 +235,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
           <button type="submit" className="mini-send" disabled={busy || (!text.trim() && !mic.on) || !hasKey} aria-label="Senden"><Icon name="send" size={18} color="currentColor" width={2} /></button>
         </div>
       </form>}
-      {chipRow}
+      {!bare && chipRow}
       {!hasKey && <span className="tiny">Für den KI-Planer braucht es einen API-Schlüssel (Einstellungen).</span>}
     </section>
   );

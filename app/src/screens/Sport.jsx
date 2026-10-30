@@ -205,7 +205,7 @@ function SportsPage({ s }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/koerper" label="Körperliche Gesundheit" />
+          <Back href="#/bereich/koerper" label="Gesundheit" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Sport-Events</h1>
           </div>

@@ -8,7 +8,7 @@ export const PILLARS = [
 
 // id, Säule, Name, Ziel in Tagen, Symbol, Unterbereiche, Personen-Kategorie
 const AREAS = [
-  ['koerper', 'persoenlich', 'Körperliche Gesundheit', 3, 'heart', ['Sport', 'Ernährung', 'Schlaf', 'Vorsorge']],
+  ['koerper', 'persoenlich', 'Gesundheit', 3, 'heart', ['Sport', 'Ernährung', 'Schlaf', 'Vorsorge']],
   ['mental', 'persoenlich', 'Lernen & Wissen', 7, 'bulb', ['Geschichte', 'Physik', 'Geopolitik', 'Wirtschaft']],
   ['zuhause', 'persoenlich', 'Zuhause', 14, 'home', ['Ordnung und Haushalt', 'Einrichtung und Design', 'Kleidung']],
   ['freizeit', 'persoenlich', 'Freizeit und Erlebnisse', 14, 'plane', ['Reisen', 'Kultur', 'Hobbys']],
