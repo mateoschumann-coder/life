@@ -27,7 +27,7 @@ function EditList({ open, title, items, onRemove, onAdd, addPh, onReset, onClose
     </Sheet>
   );
 }
-function CountrySheet({ open, onClose }) {
+function CountrySheet({ open, onClose, onAdded }) {
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState(null);
@@ -57,7 +57,7 @@ function CountrySheet({ open, onClose }) {
               </button>
             ); })}
           </div>
-          <button type="button" className="btn" disabled={!sel.length} onClick={() => { addCountry(res.region, res.flag, res.list.filter((x) => sel.includes(x.url))); toast(`${res.region} hinzugefügt`); close(); }}>{sel.length} Zeitungen übernehmen</button>
+          <button type="button" className="btn" disabled={!sel.length} onClick={() => { addCountry(res.region, res.flag, res.list.filter((x) => sel.includes(x.url))); toast(`${res.region} hinzugefügt`); onAdded?.(res.region); close(); }}>{sel.length} Zeitungen übernehmen</button>
         </>
       )}
     </Sheet>
@@ -69,8 +69,9 @@ function Outlets({ s }) {
   const [rub, setRubState] = useState(() => remember('life-app-news-rubrik', 'start'));
   const setRub = (v) => { setRubState(v); save('life-app-news-rubrik', v); };
   const cur = rubs.some((r) => r.id === rub) ? rub : 'start';
-  const [closed, setClosedState] = useState(() => { try { return JSON.parse(localStorage.getItem('life-app-news-closed') || '[]'); } catch { return []; } });
-  const toggle = (r) => { const n = closed.includes(r) ? closed.filter((x) => x !== r) : [...closed, r]; setClosedState(n); save('life-app-news-closed', JSON.stringify(n)); };
+  const [country, setCountryState] = useState(() => remember('life-app-news-country', ''));
+  const setCountry = (v) => { setCountryState(v); save('life-app-news-country', v); };
+  const g = countries.find((c) => c.region === country) || countries[0];
   const [editRub, setEditRub] = useState(false);
   const [editC, setEditC] = useState(false);
   const [addC, setAddC] = useState(false);
@@ -89,38 +90,37 @@ function Outlets({ s }) {
           {cur !== 'start' && <Info>Direkt zur Rubrik – bei 🔎 sucht Google News die Rubrik auf dieser Seite (letzte Woche).</Info>}
         </div>
       </div>
-      {countries.map((g) => {
-        const isClosed = closed.includes(g.region);
-        return (
-          <section key={g.region} className="group">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px' }}>
-              <button type="button" className="label" style={{ border: 0, background: 'none', padding: 0, flex: 1, textAlign: 'left', cursor: 'pointer', font: 'inherit' }} onClick={() => toggle(g.region)} aria-expanded={!isClosed}>{isClosed ? '▸' : '▾'} {g.flag} {g.region} · {g.list.length}</button>
-              {editC && <button type="button" className="link-btn" style={{ fontSize: 13, color: 'var(--danger)' }} onClick={() => askDel(`${g.region} entfernen?`) && removeCountry(g.region)}>Land entfernen</button>}
+      <div className="box-tabs">
+        {countries.map((c) => <button key={c.region} type="button" className={g?.region === c.region ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCountry(c.region)}>{c.flag} {c.region}</button>)}
+      </div>
+      {g ? (
+        <section className="group">
+          {editC && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 4px' }}>
+              <button type="button" className="link-btn" style={{ fontSize: 13, color: 'var(--danger)' }} onClick={() => askDel(`${g.region} entfernen?`) && removeCountry(g.region)}>{g.region} entfernen</button>
             </div>
-            {!isClosed && (
-              <div className="news-grid">
-                {g.list.map((x) => {
-                  const l = outletLink(x, cur);
-                  return editC ? (
-                    <button key={x.url} type="button" className="news-tile" style={{ border: 0, font: 'inherit', color: 'inherit', textAlign: 'left' }} onClick={() => askDel(`${x.name} entfernen?`) && removePaper(g.region, x.url)}>
-                      <b>{x.name} ✕</b><span className="tiny">{host(x.url)}</span>
-                    </button>
-                  ) : (
-                    <a key={x.url} href={l.url} target="_blank" rel="noreferrer" className="news-tile">
-                      <b>{x.name}</b>
-                      <span className="tiny">{l.direct ? (cur === 'start' ? host(x.url) : label) : `🔎 ${label}`}</span>
-                    </a>
-                  );
-                })}
-                {editC && <button type="button" className="news-tile" style={{ border: '1px dashed var(--chev)', font: 'inherit', color: 'var(--accent)' }} onClick={() => setPaper({ region: g.region, name: '', url: '' })}><b>+ Zeitung</b></button>}
-              </div>
-            )}
-          </section>
-        );
-      })}
+          )}
+          <div className="news-grid">
+            {g.list.map((x) => {
+              const l = outletLink(x, cur);
+              return editC ? (
+                <button key={x.url} type="button" className="news-tile" style={{ border: 0, font: 'inherit', color: 'inherit', textAlign: 'left' }} onClick={() => askDel(`${x.name} entfernen?`) && removePaper(g.region, x.url)}>
+                  <b>{x.name} ✕</b><span className="tiny">{host(x.url)}</span>
+                </button>
+              ) : (
+                <a key={x.url} href={l.url} target="_blank" rel="noreferrer" className="news-tile">
+                  <b>{x.name}</b>
+                  <span className="tiny">{l.direct ? (cur === 'start' ? host(x.url) : label) : `🔎 ${label}`}</span>
+                </a>
+              );
+            })}
+            {editC && <button type="button" className="news-tile" style={{ border: '1px dashed var(--chev)', font: 'inherit', color: 'var(--accent)' }} onClick={() => setPaper({ region: g.region, name: '', url: '' })}><b>+ Zeitung</b></button>}
+          </div>
+        </section>
+      ) : <p className="muted" style={{ padding: '0 4px' }}>Noch keine Länder – mit „+ Land“ hinzufügen.</p>}
       {editC && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => confirm('Länder und Zeitungen auf den Standard zurücksetzen?') && resetCountries()}>Länder auf Standard zurücksetzen</button>}
       <EditList open={editRub} title="Rubriken" items={rubs.map((r) => ({ id: r.id, label: r.label, fixed: r.id === 'start' }))} onRemove={removeRubrik} onAdd={addRubrik} addPh="Neue Rubrik, z.B. Lateinamerika, Klima" onReset={resetRubriken} onClose={() => setEditRub(false)} />
-      <CountrySheet open={addC} onClose={() => setAddC(false)} />
+      <CountrySheet open={addC} onClose={() => setAddC(false)} onAdded={setCountry} />
       <Sheet open={!!paper} title={paper ? `Zeitung in ${paper.region}` : ''} onClose={() => setPaper(null)}>
         {paper && (
           <>
