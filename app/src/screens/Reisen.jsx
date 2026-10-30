@@ -330,7 +330,7 @@ function Inspiration({ s }) {
   const ai = (t) => { setMode('ki'); const x = t.trim(); if (!x) return; setQ(''); if (ask.current) ask.current(x); else { pend.current = x; setTimeout(() => { if (pend.current && ask.current) { ask.current(pend.current); pend.current = ''; } }, 350); } };
   return (
     <>
-      <SearchCard title="Wohin könnte ich?" q={q} setQ={setQ} placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD" mode={mode}
+      <SearchCard title="Wohin könnte ich?" q={q} setQ={setQ} placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD" kiPlaceholder="Wunsch oder Rückfrage an die Reiseführer-KI …" mode={mode}
         quick={<QuickChips chips={SOURCE_AREAS.reiseziele?.chips || INSPO_CHIPS} q={q} setQ={setQ} />}
         onLinks={() => setMode('links')} onAi={ai} aiLabel="✨ KI" aiCost="~1 ct"
         hint="🔗 Links: Skyscanner „Überall“, Google Flights, Pinterest, Reddit & Co. – kostenlos. ✨ KI: schlägt passende Ziele vor; ankreuzen = als Ideen speichern. Rückfragen unten im Chat.">
@@ -340,6 +340,7 @@ function Inspiration({ s }) {
         title="Reiseführer-KI"
         compact
         sendRef={ask}
+        noInput
         history={chatOf(s, 'reiseziele')}
         prefKey="reiseziele"
         onSave={(h) => saveChatOf('reiseziele', h)}

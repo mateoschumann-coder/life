@@ -8,7 +8,7 @@ import MicBtn from './MicBtn';
 import QuickSheet from './QuickSheet';
 import { Info } from './ui';
 
-export default function SearchCard({ title, q, setQ, placeholder, quick, filters, mode, onLinks, onAi, aiLabel = '✨ KI', aiCost, linksLabel = '🔗 Links', busy, hint, children, emptyOk = true }) {
+export default function SearchCard({ title, q, setQ, placeholder, quick, filters, mode, onLinks, onAi, aiLabel = '✨ KI', aiCost, linksLabel = '🔗 Links', kiPlaceholder, busy, hint, children, emptyOk = true }) {
   const hasKey = !!getAi().apiKey;
   const canAi = hasKey && !busy && (emptyOk || q.trim());
   const doLinks = (t = q) => onLinks?.(t);
@@ -18,13 +18,13 @@ export default function SearchCard({ title, q, setQ, placeholder, quick, filters
       {title && <span style={{ fontWeight: 700, fontSize: 16 }}>{title}</span>}
       <form className="search-row1" onSubmit={(e) => { e.preventDefault(); if (mode === 'ki' && hasKey) doAi(); else doLinks(); }}>
         <MicBtn value={q} onChange={setQ} onDone={(t) => (mode === 'ki' && hasKey ? doAi(t) : doLinks(t))} />
-        <input className="input" type="search" enterKeyHint="search" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} aria-label="Wonach suchen" />
+        <input className="input" type="search" enterKeyHint="search" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={mode === 'ki' && kiPlaceholder ? kiPlaceholder : placeholder} aria-label="Wonach suchen" />
         {quick}
       </form>
       {filters}
       <div className="search-acts">
-        <button type="button" className={mode === 'links' ? 'btn small' : 'btn small tint'} onClick={() => doLinks()}>{linksLabel} <span className="search-cost">gratis</span></button>
-        <button type="button" className={mode === 'ki' ? 'btn small' : 'btn small tint'} disabled={!canAi} onClick={() => doAi()}>{busy ? '…' : aiLabel}{aiCost && !busy && <span className="search-cost">{aiCost}</span>}</button>
+        <button type="button" className={mode === 'links' ? 'btn small' : 'btn small tint'} onClick={() => doLinks()}>{linksLabel}</button>
+        <button type="button" className={mode === 'ki' ? 'btn small' : 'btn small tint'} disabled={!canAi} onClick={() => doAi()}>{busy ? '…' : aiLabel}</button>
         {hint && <Info>{hint}</Info>}
       </div>
       {!hasKey && <a href="#/einstellungen" className="link-btn" style={{ fontSize: 13 }}>Für die KI: Schlüssel hinterlegen</a>}

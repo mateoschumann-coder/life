@@ -41,7 +41,7 @@ function ViewItem({ g, x, done, onAction }) {
   );
 }
 
-export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null, compact = false, extra = null, maxChips = 4, sendRef = null }) {
+export default function PlanChat({ title = 'Mit KI planen', intro, history = [], onSave, onAsk, groups, onApply, chips = [], webChips = [], placeholder = 'Sag oder schreib, was du brauchst …', prefKey = 'allgemein', lang = 'de-DE', autoSend = null, hideToggles = false, autoWeb = null, compact = false, extra = null, maxChips = 4, sendRef = null, noInput = false }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -202,7 +202,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
       {mic.error && <span className="sub" style={{ color: 'var(--danger)' }}>{mic.error}</span>}
       {extra}
       {/* v1.32 (Mateo): überall gleich – Textfeld, darunter links 🎙 sprechen, rechts ➤ senden */}
-      <form className="ai-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
+      {!noInput && <form className="ai-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
         <textarea className="input plan-input" rows={2} value={text} ref={(el) => { if (el) { el.style.height = '64px'; el.style.height = Math.min(160, Math.max(64, el.scrollHeight)) + 'px'; } }} onChange={(e) => setText(e.target.value)} placeholder={mic.on ? '🎙 Ich höre zu …' : placeholder} aria-label="Nachricht an die KI" />
         <div className="ai-input-row">
           <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören beenden' : 'Sprechen'} disabled={busy}>
@@ -211,7 +211,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
           <span className="tiny" style={{ flex: 1 }}>{mic.on ? 'Ich höre zu – ➤ sendet' : 'Sprechen oder schreiben'}</span>
           <button type="submit" className="mini-send" disabled={busy || (!text.trim() && !mic.on) || !hasKey} aria-label="Senden"><Icon name="send" size={18} color="currentColor" width={2} /></button>
         </div>
-      </form>
+      </form>}
       {chipRow}
       {!hasKey && <span className="tiny">Für den KI-Planer braucht es einen API-Schlüssel (Einstellungen).</span>}
     </section>
