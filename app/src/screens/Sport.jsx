@@ -132,8 +132,6 @@ function SportsPage({ s }) {
   const regions = sportRegions(s);
   const [regPick, setRegPick] = useState(() => [sportRegions(s)[0]].filter(Boolean));
   const [regOpen, setRegOpen] = useState(false);
-  const [paste, setPaste] = useState('');
-  const [pBusy, setPBusy] = useState(false);
   const periods = sportPeriods(s);
   const [period, setPeriod] = useState(() => sportPeriods(s)[1] || sportPeriods(s)[0] || '');
   const [editPer, setEditPer] = useState(false);
@@ -160,21 +158,6 @@ function SportsPage({ s }) {
   const missing = SPORT_PRESETS.filter((p) => !s.sports.some((x) => x.name === p.name));
   const toggle = (id) => setPick(pick.includes(id) ? pick.filter((x) => x !== id) : [...pick, id]);
 
-  // Gefundenes Rennen aus Link/Text übernehmen (v0.67): KI ohne Internet füllt das Formular vor, Mateo prüft
-  const takeOver = async () => {
-    const text = paste.trim();
-    const url = (text.match(/https?:\/\/\S+/) || [''])[0];
-    const sportId = pick[0] || s.sports[0]?.id || '';
-    if (!getAi().apiKey) { setF({ name: '', date: '', place: '', url, sportId }); setAdding(true); setTab('meine'); return; }
-    setPBusy(true);
-    try {
-      const r = await parseSportText(s, text);
-      const sp = s.sports.find((x) => x.name.toLowerCase() === String(r.sportart || '').toLowerCase());
-      setF({ name: r.name || '', date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : '', place: r.ort || '', dist: r.distanz || '', url: url || '', sportId: sp?.id || sportId });
-      setAdding(true); setPaste(''); setTab('meine');
-      toast(r.name ? 'Bitte kurz prüfen und „Notieren“ tippen' : 'Konnte von der Seite nichts lesen – bitte Name selbst eintragen (Link ist übernommen)');
-    } catch (e) { toast(e.message); } finally { setPBusy(false); }
-  };
   const [fBusy, setFBusy] = useState(false);
   const [addN, setAddN] = useState(0);
   // KI füllt die übrigen Felder aus dem, was schon eingetragen ist (Name/Link/Ort) – eigene Angaben bleiben
@@ -276,17 +259,6 @@ function SportsPage({ s }) {
           <ModeToggle mode={smode} onChange={setSmode} />
           <div style={{ display: 'flex', gap: 8 }}><MicBtn value={q} onChange={setQ} /><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" /></div>
           {smode === 'links' && <SourceLinks embedded s={s} area="rennen" instant query={[q || 'carreras running', periodWords(period)].filter(Boolean).join(' ')} city={regPick.filter((r) => regions.includes(r)).join(', ')} siteQuery={q} />}
-          {smode === 'links' && (
-            <div className="take-box">
-              <span style={{ fontWeight: 650, fontSize: 14 }}>Etwas gefunden? Hier übernehmen</span>
-              <textarea className="input" style={{ minHeight: 64 }} value={paste} onChange={(ev) => setPaste(ev.target.value)} placeholder="Link oder Text vom Rennen einfügen (Name, Datum, Ort …)" aria-label="Link oder Text einfügen" />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || pBusy} onClick={takeOver}>{pBusy ? 'Ich lese die Seite …' : '✨ Übernehmen'}</button>
-                <button type="button" className="btn small sec" style={{ background: 'var(--card-2)' }} onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); setTab('meine'); }}>Selbst eintragen</button>
-              </div>
-              <Info>Bei einem Link öffnet die KI die Seite und liest Name, Datum, Ort und Distanz (ca. 0,1 Cent). Du prüfst und speicherst.</Info>
-            </div>
-          )}
           {smode === 'ki' && <>
           <div className="search-row">
             <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>

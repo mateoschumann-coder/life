@@ -194,32 +194,6 @@ const HEALTH_GROUPS = [{
   meta: (x) => [x.art === 'routine' ? `alle ${x.alle_monate || 6} Monate` : 'Termin', x.datum && fmtShort(x.datum), x.uhrzeit].filter(Boolean).join(' · '),
 }];
 
-// v1.20: „Mit der KI eintragen“ – unten in den Reitern Termine und Wiederkehrend
-function KiEntry({ s, type }) {
-  return (
-    <PlanChat
-      compact
-      title="Mit der KI eintragen"
-      intro={type === 'routine' ? 'z.B. „Physio jeden Donnerstag 18 Uhr bei Kinesio Palermo, ab nächster Woche“.' : 'z.B. „Zahnarzt bei Dr. López nächsten Dienstag 10 Uhr“ – ich trage ihn ein.'}
-      placeholder="Erzähl von deinem Termin …"
-      history={chatOf(s, type === 'routine' ? 'vorsorge-routine' : 'vorsorge')}
-      onSave={(h) => saveChatOf(type === 'routine' ? 'vorsorge-routine' : 'vorsorge', h)}
-      onAsk={(hist, o) => healthChat(s, hist, o)}
-      prefKey="vorsorge"
-      hideToggles
-      groups={HEALTH_GROUPS}
-      onApply={(sel) => {
-        for (const x of sel.termine || []) {
-          const placeId = x.ort_id && findBookItem(s, 'vorsorge', x.ort_id) ? x.ort_id : '';
-          const art = x.art === 'routine' || type === 'routine' ? 'routine' : 'termin';
-          addHealthItem({ title: x.titel, type: art, date: /^\d{4}-\d{2}-\d{2}$/.test(x.datum || '') ? x.datum : null, everyMonths: art === 'routine' ? x.alle_monate || 6 : null, time: /^\d{1,2}:\d{2}$/.test(x.uhrzeit || '') ? x.uhrzeit.padStart(5, '0') : '', notes: [x.uhrzeit && !/^\d{1,2}:\d{2}$/.test(x.uhrzeit) && `🕒 ${x.uhrzeit}`, x.notiz].filter(Boolean).join(' · '), placeId });
-        }
-      }}
-      chips={[]}
-    />
-  );
-}
-
 // v1.20: Arzt / Praxis finden – im Reiter Orte → Finden, mit Links (kostenlos) oder KI
 function DoctorFinder({ s, onTermin }) {
   const [what, setWhat] = useState('');
@@ -365,7 +339,6 @@ export default function Vorsorge() {
               </div>
             </section>
           )}
-          <KiEntry key={view} s={s} type={isR ? 'routine' : 'termin'} />
         </>)}
       </main>
       <ItemSheet s={s} open={!!sheet} item={sheet} onClose={() => setSheet(null)} />

@@ -219,41 +219,6 @@ function EventSheet({ init, city, onClose }) {
     </Sheet>
   );
 }
-function EventTakeOver({ s, city, onOpen }) {
-  const [open, setOpen] = useState(false);
-  const [paste, setPaste] = useState('');
-  const [busy, setBusy] = useState(false);
-  const take = async () => {
-    setBusy(true);
-    try {
-      const r = await parseEventText(s, paste.trim(), city);
-      const url = (paste.match(/https?:\/\/\S+/) || [''])[0];
-      if (!r?.name) toast('Nichts erkannt – Text der Seite kopieren und einfügen');
-      onOpen({ name: r?.name || '', date: /^\d{4}-\d{2}-\d{2}$/.test(r?.datum || '') ? r.datum : '', time: r?.uhrzeit || '', place: r?.ort || '', price: r?.preis || '', note: r?.notiz || '', url });
-      setPaste('');
-    } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es den KI-Schlüssel' : e.message); }
-    setBusy(false);
-  };
-  if (!open) return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-      <span className="tiny" style={{ flex: '1 1 auto' }}>Etwas gefunden?</span>
-      <button type="button" className="chip soft small-chip" onClick={() => setOpen(true)}>📥 Übernehmen</button>
-      <button type="button" className="chip soft small-chip" onClick={() => onOpen({ ...EV_EMPTY })}>✍️ Selbst</button>
-    </div>
-  );
-  return (
-    <div className="card" style={{ gap: 8, background: 'var(--card-2)', boxShadow: 'none' }}>
-      <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 650, fontSize: 14, flex: 1 }}>Etwas gefunden? Als Event eintragen</span><button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => setOpen(false)}>Zuklappen</button></div>
-      <textarea className="input" style={{ minHeight: 64 }} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Link oder Text vom Event einfügen (Instagram-Text, Passline-Link …)" aria-label="Link oder Text einfügen" />
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" className="btn small" style={{ flex: 1 }} disabled={!paste.trim() || busy || !getAi().apiKey} onClick={take}>{busy ? 'Ich lese …' : '✨ Übernehmen'}</button>
-        <button type="button" className="btn small tint" onClick={() => onOpen({ ...EV_EMPTY })}>Selbst eintragen</button>
-      </div>
-      <Info>Bei einem Link öffnet die KI die Seite und liest Name, Datum, Uhrzeit, Ort und Preis (ca. 0,1 Cent). Instagram-Links kann sie nicht öffnen – dort den Text kopieren. Du prüfst und speicherst.</Info>
-    </div>
-  );
-}
-
 // ---------- Events ----------
 function Events({ s, city, view = 'find' }) {
   const t = today();
@@ -350,7 +315,7 @@ function Events({ s, city, view = 'find' }) {
           <SearchChips quick s={s} kind="events" defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
           {smode === 'ki' && <button type="submit" className="btn small" style={{ flexShrink: 0 }} disabled={!q.trim() || !!busy || !hasKey} aria-label="Events suchen">{busy ? '…' : '🔍'}</button>}
         </form>
-        {smode === 'links' ? <><SourceLinks embedded s={s} area="events" city={city} query={q} /><EventTakeOver s={s} city={city} onOpen={setEvForm} /></> : (
+        {smode === 'links' ? <SourceLinks embedded s={s} area="events" city={city} query={q} /> : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Prefs s={s} />
             <Info>Die KI sucht selbst im Internet (Passline, Eventbrite, Instagram & Co.) und zeigt dir konkrete Events passend zu deinen Vorlieben – ca. 3–5 Cent pro Suche.</Info>

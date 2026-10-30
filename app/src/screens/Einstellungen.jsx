@@ -8,6 +8,7 @@ import { seed } from '../lib/seed';
 import { Back, Chevron, Field, Segmented, TabBar, toast, Info } from '../components/ui';
 import { ACCENTS, DARKS, MODES, setTheme, themeOf } from '../lib/theme';
 import { autoCopyOn, setAutoCopy } from '../lib/fieldtools';
+import { setTdKey, tdKey, testTdKey } from '../lib/markets';
 import { getAi, MODELS, monthUsage, saveAi, testKey } from '../lib/ai';
 
 // Datei teilen (iPhone: „In Dateien sichern“, AirDrop …) oder herunterladen
@@ -208,7 +209,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.33 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.34 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>
@@ -249,6 +250,7 @@ function Appearance() {
     </section>
     <FabSetting />
       <LinkCopy />
+      <MarketKey />
     </>
   );
 }
@@ -279,6 +281,36 @@ function LinkCopy() {
         <span>Geöffnete Links automatisch kopieren</span>
       </label>
       <span className="tiny">In Link-Feldern erscheint 📋 zum Einfügen. Ist die Zwischenablage leer, wird der zuletzt aus der App geöffnete Link eingesetzt.</span>
+    </section>
+  );
+}
+
+// v1.34 (Mateo): Twelve-Data-Schlüssel für eigene Kurs-Charts in Finanzen (nur auf diesem Gerät)
+function MarketKey() {
+  const [has, setHas] = useState(() => !!tdKey());
+  const [k, setK] = useState('');
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try { await testTdKey(k); setTdKey(k); setHas(true); setK(''); toast('Gespeichert – Finanzen zeigt jetzt eigene Charts'); }
+    catch (e) { toast(e.message); }
+    setBusy(false);
+  };
+  return (
+    <section className="card" style={{ gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><h2 className="h2" style={{ flex: 1 }}>Börsenkurse</h2><Info>Kostenloser Schlüssel von twelvedata.com (bis 800 Abrufe am Tag, 8 pro Minute). Damit zeigt Finanzen → Märkte eigene Charts mit Veränderung für den gewählten Zeitraum. Indizes (NASDAQ, S&P 500, DAX …) gibt es kostenlos nur über ETFs, die den Index abbilden. Der Schlüssel bleibt nur auf diesem iPhone.</Info></div>
+      {has ? (
+        <>
+          <span className="sub">✓ Twelve-Data-Schlüssel ist gespeichert.</span>
+          <button type="button" className="btn danger small" onClick={() => { setTdKey(''); setHas(false); toast('Entfernt – Finanzen zeigt wieder TradingView'); }}>Schlüssel entfernen</button>
+        </>
+      ) : (
+        <>
+          <span className="sub" style={{ lineHeight: 1.5 }}>Ohne Schlüssel zeigt Finanzen die TradingView-Kästchen. Mit kostenlosem Schlüssel von <a href="https://twelvedata.com/pricing" target="_blank" rel="noreferrer">twelvedata.com</a> gibt es eigene, ruhige Charts.</span>
+          <input className="input" type="password" autoComplete="off" autoCapitalize="off" spellCheck={false} value={k} onChange={(e) => setK(e.target.value)} placeholder="Twelve-Data-Schlüssel einfügen" aria-label="Twelve-Data-Schlüssel" />
+          <button type="button" className="btn" onClick={save} disabled={!k.trim() || busy}>{busy ? 'Prüfe …' : 'Prüfen und speichern'}</button>
+        </>
+      )}
     </section>
   );
 }

@@ -205,13 +205,6 @@ export default function PlaceBook({ s, book, hint, city = null }) {
           </div>
         ))}
       </div>
-      {/* v1.31 (Mateo): unten mit der KI eintragen – erzählen → Formular vorausgefüllt zum Prüfen */}
-      <section className="card" style={{ gap: 8 }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>Mit der KI eintragen</span>
-        <AiFill title="Ort im Verzeichnis" values={{}} onResult={(r) => { const c = cats.find((x) => x.label === r.cat); const { cat: _c, ...rest } = r; setSheet({ cat: c?.id || (cat === 'alle' ? cats[0]?.id : cat), ...rest }); }}
-          fields={{ name: 'Name', cat: { d: 'Kategorie', enum: cats.map((x) => x.label) }, sub: 'Genauer, z.B. Zahnarzt, Hausarzt', area: 'Viertel', address: 'Adresse', phone: 'Telefon', url: 'Link', note: 'Notiz', status: { d: 'war = war schon, will = will hin', enum: ['war', 'will'] } }}
-          placeholder="z.B. „Zahnärztin Dr. García in Palermo, Santa Fe 3200, war schon, sehr gut“" />
-      </section>
       <ItemSheet s={s} book={book} cats={cats} item={sheet} city={city} onClose={() => setSheet(null)} />
     </>
   );
