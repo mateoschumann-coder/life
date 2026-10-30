@@ -5,7 +5,7 @@ import { takeFlag } from '../lib/flags';
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { addDays, fmtShort, parseKey, startOfWeek, today } from '../lib/dates';
-import { addEvent, addPlace, addPlaceCat, addTask, archiveEvent, archivePlace, restoreEvent, restorePlace, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updatePlace } from '../lib/actions';
+import { addEvent, addPlace, addPlaceCat, addTask, archiveEvent, archivePlace, restoreEvent, restorePlace, deleteEvent, deletePlace, PLACE_CATS, PLACE_SUBCATS, placeCatsOf, removePlaceCat, setEventStage, updateEvent, updatePlace } from '../lib/actions';
 import {
   allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText, routeUrl, eventDest, findHours,
 } from '../lib/outings';
@@ -183,6 +183,7 @@ function Prefs({ s }) {
 
 
 // v1.11: Event selbst eintragen bzw. aus Link/Text übernehmen (Formular zum Prüfen)
+const editInit = (e) => ({ id: e.id, name: e.name || '', date: e.date || '', time: e.time || '', place: e.place || '', price: e.price || '', url: e.url || '', note: e.note || '', stage: e.stage === 'entdeckt' ? 'interessiert' : e.stage || 'interessiert' });
 const EV_EMPTY = { name: '', date: '', time: '', place: '', price: '', url: '', note: '', stage: 'interessiert' };
 function EventSheet({ init, city, onClose }) {
   const [f, setF] = useState(EV_EMPTY);
@@ -191,14 +192,21 @@ function EventSheet({ init, city, onClose }) {
   const k = init ? JSON.stringify(init) : null;
   if (k !== key) { setKey(k); if (init) setF({ ...EV_EMPTY, ...init }); }
   const set = (p) => setF((x) => ({ ...x, ...p }));
+  const editId = init?.id;
   const save = (next) => {
+    if (editId) {
+      updateEvent(editId, { name: f.name, date: f.date, time: f.time, place: f.place, price: f.price, url: f.url, note: f.note, stage: f.stage });
+      toast('Gespeichert');
+      onClose(true);
+      return;
+    }
     addEvent({ ...f, city: city === HOME_CITY ? '' : city });
     if (f.date) addTask({ title: `${f.stage === 'zugesagt' ? '' : 'Vielleicht: '}${f.name}`, areaId: 'erlebnisse', due: f.date, time: f.time || null, url: f.url || null });
     toast(f.date ? 'Eingetragen – auch am Tag in deiner Liste' : 'Eingetragen');
     if (next === true) { setF({ ...EV_EMPTY, stage: f.stage }); setN((x) => x + 1); } else onClose(true);
   };
   return (
-    <Sheet open={!!init} title="Event eintragen" onClose={() => onClose(false)}>
+    <Sheet open={!!init} title={editId ? 'Event bearbeiten' : 'Event eintragen'} onClose={() => onClose(false)}>
       <AiFill key={`${key}-${n}`} title="Event (Konzert, Party, Ausstellung … mit Ticket)" values={{ name: f.name, date: f.date, time: f.time, place: f.place, price: f.price, url: f.url, note: f.note }} onResult={(r) => set(r)}
         fields={{ name: 'Name des Events', date: 'Datum YYYY-MM-DD', time: 'Beginn HH:MM', place: 'Ort/Location', price: 'Preis mit Währung', url: 'Link', note: 'Kurze Notiz', stage: { d: 'interessiert oder zugesagt (Mateo geht sicher hin)', enum: ['interessiert', 'zugesagt'] } }}
         aiHint={`Stadt: ${city}.`} placeholder="z.B. „Samstag Jazz im Thelonious, 22 Uhr, 12.000 Pesos“ oder Passline-Link" hint="Bei einem Link liest die KI die Seite (Instagram nicht – dort Text kopieren)." />
@@ -212,11 +220,12 @@ function EventSheet({ init, city, onClose }) {
       <Field label="Preis"><input className="input" value={f.price} onChange={(e) => set({ price: e.target.value })} placeholder="z.B. 15.000 ARS" /></Field>
       <Field label="Link"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Tickets / Instagram …" /></Field>
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} /></Field>
-      <div className="chips">{[['interessiert', '⭐ Interessiert'], ['zugesagt', '✓ Bin dabei']].map(([v, l]) => <button key={v} type="button" className={f.stage === v ? 'chip on' : 'chip soft'} onClick={() => set({ stage: v })}>{l}</button>)}</div>
+      <div className="chips">{[['interessiert', '⭐ Interessiert'], ['zugesagt', '✓ Bin dabei'], ...(editId ? [['besucht', '✓ War da']] : [])].map(([v, l]) => <button key={v} type="button" className={f.stage === v ? 'chip on' : 'chip soft'} onClick={() => set({ stage: v })}>{l}</button>)}</div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="btn" style={{ flex: 1 }} disabled={!f.name.trim()} onClick={save}>Speichern</button>
-        <button type="button" className="btn tint" disabled={!f.name.trim()} onClick={() => save(true)}>+ Nächstes</button>
+        {!editId && <button type="button" className="btn tint" disabled={!f.name.trim()} onClick={() => save(true)}>+ Nächstes</button>}
       </div>
+      {editId && <button type="button" className="btn danger" onClick={() => { archiveEvent(editId); toast('Rausgenommen – oben in der Kiste zurückholbar'); onClose(true); }}>Rausnehmen</button>}
     </Sheet>
   );
 }
@@ -410,14 +419,17 @@ function Events({ s, city, view = 'find' }) {
               <div key={e.id} className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, padding: '10px 12px 10px 16px' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                   <DateBadge date={e.date} />
-                  <div className="row-main" style={{ gap: 2 }}>
-                    {e.url ? <a className="row-title plain" href={e.url} target="_blank" rel="noreferrer">{e.name}</a> : <span className="row-title plain">{e.name}</span>}
-                    <span className="row-meta">{[e.time, e.place].filter(Boolean).join(' · ') || (e.date ? '' : 'Ohne Datum')}</span>
-                  </div>
+                  <button type="button" className="row-main" style={{ gap: 2, border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0 }} onClick={() => setEvForm(editInit(e))} aria-label={`${e.name} bearbeiten`}>
+                    <span className="row-title plain">{e.name}</span>
+                    <span className="row-meta">{[e.time, e.place, e.price].filter(Boolean).join(' · ') || (e.date ? '' : 'Ohne Datum')}</span>
+                    {e.note && <span className="row-meta" style={{ whiteSpace: 'pre-wrap' }}>📝 {e.note}</span>}
+                  </button>
                   <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 56 }}>
                   <a className="pill on" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>Route</a>
+                  {e.url && <a className="pill" href={e.url} target="_blank" rel="noreferrer">Link ↗</a>}
+                  <button type="button" className="pill" onClick={() => setEvForm(editInit(e))}>✎ Bearbeiten</button>
                   {e.stage !== 'zugesagt' ? <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>
                     : <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'interessiert'); toast('Zurück zu „Interessiert“'); }}>Doch nur interessiert</button>}
                 </div>
@@ -435,10 +447,10 @@ function Events({ s, city, view = 'find' }) {
               {past.map((e) => (
                 <div key={e.id} className="row" style={{ minHeight: 60 }}>
                   <DateBadge date={e.date} />
-                  <div className="row-main">
+                  <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0 }} onClick={() => setEvForm(editInit(e))} aria-label={`${e.name} bearbeiten`}>
                     <span className="row-title plain">{e.name}</span>
                     <span className="row-meta">{e.stage === 'besucht' ? '✓ Warst du da' : 'Warst du da?'}</span>
-                  </div>
+                  </button>
                   {e.stage !== 'besucht' && <button type="button" className="pill on" onClick={() => { setEventStage(e.id, 'besucht'); toast('Schön! Als besucht gespeichert'); }}>Ja</button>}
                   <button type="button" className="pill" onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}>{e.stage === 'besucht' ? '✕' : 'Nein'}</button>
                 </div>

@@ -190,10 +190,10 @@ function SportsPage({ s }) {
   };
   const Row = ({ e, children }) => (
     <div className="row" style={{ minHeight: 60 }}>
-      <span className="row-main">
+      <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0 }} aria-label={`${e.name} bearbeiten`} onClick={() => { setF({ id: e.id, name: e.name || '', date: e.date || '', place: e.place || '', url: e.url || '', dist: e.dist || distOf(e) || '', sportId: e.sportId || '', status: e.status === 'angemeldet' ? 'angemeldet' : e.status === 'dabei' ? 'dabei' : 'interessiert', result: e.result || '' }); setAdding(true); }}>
         <span className="row-title strong">{e.name}</span>
         <span className="row-meta">{[when(e.date, t), e.place, distOf(e), e.result && `Ergebnis: ${e.result}`].filter(Boolean).join(' · ')}</span>
-      </span>
+      </button>
       {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
       {children}
       <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveSportEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
@@ -288,13 +288,13 @@ function SportsPage({ s }) {
         {tab === 'meine' && <>
         {/* v0.98 (Mateo): „+ Event notieren“ hier unten statt oben rechts, mit KI-Ausfüllen */}
         {<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button type="button" className="btn tint small" onClick={() => { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId || pick[0] || s.sports[0]?.id || '' }); }}>+ Event notieren</button><span style={{ marginLeft: 'auto' }} /><RemovedButton items={(s.removedSportEvents || []).filter((e) => !pick.length || pick.includes(e.sportId))} storeKey="removedSportEvents" onRestore={restoreSportEvent} meta={(e) => [e.date && fmtShort(e.date), e.place, s.sports.find((x) => x.id === e.sportId)?.name].filter(Boolean).join(' · ')} /></div>}
-        <Sheet open={adding} title="Neues Sport-Event" onClose={() => setAdding(false)}>
+        <Sheet open={adding} title={f.id ? 'Sport-Event bearbeiten' : 'Neues Sport-Event'} onClose={() => setAdding(false)}>
           <AiFill key={`${adding}-${addN}`} title="Sport-Event / Rennen" values={{ name: f.name, date: f.date, place: f.place, dist: f.dist, url: f.url }}
             onResult={(r) => { const sp = s.sports.find((x) => x.name.toLowerCase() === String(r.sportart || '').toLowerCase()); const { sportart, ...rest } = r; setF((x) => ({ ...x, ...rest, ...(sp ? { sportId: sp.id } : {}) })); }}
             fields={{ name: 'Name des Rennens', date: 'Datum YYYY-MM-DD', place: 'Ort', dist: 'Distanz, z.B. 21 km', url: 'Link zur Anmeldung', sportart: { d: 'Sportart', enum: s.sports.map((x) => x.name) }, status: { d: 'interessiert oder angemeldet', enum: ['interessiert', 'angemeldet'] } }}
             placeholder="z.B. „Halbmarathon Rosario im April, bin angemeldet“ oder Link zur Anmeldung" />
           <QuickSheet label="⚡ Schnell" title="Schnell hinzufügen" style={{ alignSelf: 'flex-start' }}>{(close) => <SportPresets s={s} onPick={(p) => { setF((x) => ({ ...x, name: p.name, dist: p.dist || x.dist || '' })); close(); }} />}</QuickSheet>
-          <form style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onSubmit={(ev) => { ev.preventDefault(); const next = ev.nativeEvent?.submitter?.dataset?.next === '1'; if (addSportEvent({ ...f, status: f.status || 'interessiert' })) toast(f.status === 'angemeldet' ? 'Unter „Ich nehme teil“ notiert' : 'Notiert'); else toast('Gibt es schon'); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId, status: f.status }); if (next) setAddN((x) => x + 1); else setAdding(false); }}>
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onSubmit={(ev) => { ev.preventDefault(); const next = ev.nativeEvent?.submitter?.dataset?.next === '1'; if (f.id) { const { id, ...rest } = f; updateSportEvent(id, { ...rest, name: rest.name.trim() }); toast('Gespeichert'); setAdding(false); return; } if (addSportEvent({ ...f, status: f.status || 'interessiert' })) toast(f.status === 'angemeldet' ? 'Unter „Ich nehme teil“ notiert' : 'Notiert'); else toast('Gibt es schon'); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId, status: f.status }); if (next) setAddN((x) => x + 1); else setAdding(false); }}>
             <div className="field"><span>Sportart</span><div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}{!s.sports.length && <span className="tiny">Erst oben über ✎ eine Sportart hinzufügen.</span>}</div></div>
             <label className="field"><span>Was?</span><input className="input" value={f.name} onChange={(ev) => setF({ ...f, name: ev.target.value })} placeholder="Name oder Link, z.B. 21K de Buenos Aires" /></label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -303,14 +303,16 @@ function SportsPage({ s }) {
             </div>
             <label className="field"><span>Wo?</span><input className="input" value={f.place} onChange={(ev) => setF({ ...f, place: ev.target.value })} placeholder="Ort, z.B. Palermo" /></label>
             <label className="field"><span>Link zur Anmeldung</span><input className="input" value={f.url} onChange={(ev) => setF({ ...f, url: ev.target.value })} placeholder="https://…" inputMode="url" /></label>
+            {f.status === 'dabei' && <label className="field"><span>Ergebnis</span><input className="input" value={f.result || ''} onChange={(ev) => setF({ ...f, result: ev.target.value })} placeholder="z.B. 1:42:10" /></label>}
             <div className="seg full" role="group" aria-label="Status">
               <button type="button" className={f.status !== 'angemeldet' ? 'on' : ''} onClick={() => setF({ ...f, status: 'interessiert' })}>⭐ Gemerkt</button>
               <button type="button" className={f.status === 'angemeldet' ? 'on' : ''} onClick={() => setF({ ...f, status: 'angemeldet' })}>✅ Ich nehme teil</button>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="submit" className="btn" style={{ flex: 1 }} disabled={!f.name.trim() || !f.sportId}>Speichern</button>
-              <button type="submit" data-next="1" className="btn tint" disabled={!f.name.trim() || !f.sportId}>+ Nächstes</button>
+              {!f.id && <button type="submit" data-next="1" className="btn tint" disabled={!f.name.trim() || !f.sportId}>+ Nächstes</button>}
             </div>
+            {f.id && <button type="button" className="btn danger" onClick={() => { archiveSportEvent(f.id); toast('Rausgenommen – oben in der Kiste zurückholbar'); setAdding(false); }}>Rausnehmen</button>}
           </form>
         </Sheet>
         <section className="group">

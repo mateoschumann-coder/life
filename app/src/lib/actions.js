@@ -247,6 +247,23 @@ export function addEvent({ name, date = '', place = '', address = '', travel = f
   });
   return id;
 }
+// v1.43 (Mateo): Events bearbeiten – passende Aufgabe am Tag zieht mit (Name, Datum, Uhrzeit, Link)
+export function updateEvent(id, patch) {
+  store.update((s) => {
+    const e = s.events.find((x) => x.id === id);
+    if (!e) return;
+    const old = { name: e.name, date: e.date };
+    Object.assign(e, patch, patch.name !== undefined ? { name: String(patch.name).trim() || e.name } : {});
+    for (const t of s.tasks || []) {
+      if (t.done || t.areaId !== 'erlebnisse' || !old.date || t.due !== old.date) continue;
+      if (t.title !== old.name && t.title !== `Vielleicht: ${old.name}`) continue;
+      t.title = `${e.stage === 'zugesagt' ? '' : 'Vielleicht: '}${e.name}`;
+      t.due = e.date || null;
+      t.time = e.time || null;
+      t.url = e.url || null;
+    }
+  });
+}
 export function setEventStage(id, stage) {
   store.update((s) => {
     const e = s.events.find((x) => x.id === id);
