@@ -1,6 +1,6 @@
 // Erfassen (v0.31): schnell festhalten und direkt in die Struktur der App einsortieren –
 // von Hand (Ziel wählen) oder per KI („✨ KI sortiert ein“, nutzt dieselben Aktionen wie der Assistent)
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, store } from '../lib/store';
 import { addInbox, addPlace, addResource, addTask, PLACE_CATS, removeInbox, savePerson, updatePlace } from '../lib/actions';
 import { addShopping, addSport, addSportEvent, SPORT_EVENT_STATUS } from '../lib/health';
@@ -43,14 +43,17 @@ const LABEL = { ...Object.fromEntries(TARGETS.map((x) => [x.id, x.label])), link
 async function aiSort(s, text) {
   const system = `${buildSystem(s)}
 
-AUFGABE JETZT: Mateo hat schnell etwas festgehalten. Sortiere es in die passende Struktur der App ein – mit 1 bis 3 Aktionen über "aenderungen_vorschlagen" (z.B. sport_event_anlegen, hobby_eintrag, skill_ziel, bewerbung_eintragen, einkauf_hinzufuegen, material_anlegen, reise_anlegen, ort_anlegen, erinnerung_anlegen, fixkosten_anlegen, quelle_anlegen, person_anlegen, aufgabe_anlegen). Nimm bestehende Namen (Hobby, Skill, Sportart, Jobsuche) genau so, wie sie in den Daten stehen. Keine Rückfragen.`;
-  const r = await searchWithTool({ system, user: text, tool: TOOL, maxUses: 0, maxTokens: 1200, label: 'Erfassen: KI sortiert' });
+AUFGABE JETZT: Mateo hat schnell etwas festgehalten (oft ein kopierter Link oder Text). Sortiere es in die passende Struktur der App ein – mit 1 bis 3 Aktionen über "aenderungen_vorschlagen" (z.B. sport_event_anlegen, hobby_eintrag, skill_ziel, bewerbung_eintragen, einkauf_hinzufuegen, material_anlegen, reise_anlegen, ort_anlegen, erinnerung_anlegen, fixkosten_anlegen, quelle_anlegen, person_anlegen, aufgabe_anlegen). Nimm bestehende Namen (Hobby, Skill, Sportart, Jobsuche) genau so, wie sie in den Daten stehen. Keine Rückfragen.
+Ist ein Link dabei: öffne die Seite (web_fetch) und übernimm die Details (Name, Datum, Uhrzeit, Ort/Adresse, Preis) und den Link selbst. Zuordnung: Konzert/Party/Ausstellung mit Ticket → event_anlegen · Restaurant/Bar/Café/Laden → ort_anlegen · Rezept → rezept_anlegen · Stellenanzeige → bewerbung_eintragen · Lauf/Rennen → sport_event_anlegen · Buch/Artikel/Video/Podcast → material_anlegen · Reiseziel/Unterkunft → reise_anlegen · private Einladung → einladung_eintragen · sonst aufgabe_anlegen mit Link.`;
+  const hasLink = /https?:\/\//.test(text);
+  const r = await searchWithTool({ system, user: text, tool: TOOL, maxUses: 0, maxTokens: hasLink ? 2500 : 1200, label: 'Erfassen: KI sortiert', fetch: hasLink, fetchMax: 2 });
   return (r.aktionen || []).slice(0, 3);
 }
 
 export default function Erfassen() {
   const s = useStore();
-  const [text, setText] = useState('');
+  // v1.29: vom Blitz „📋 Kopiertes eintragen“ vorbefüllt (und gleich einsortiert)
+  const [text, setText] = useState(() => { try { const v = sessionStorage.getItem('life-erfassen-text') || ''; sessionStorage.removeItem('life-erfassen-text'); return v; } catch { return ''; } });
   const [type, setType] = useState(() => { try { const v = sessionStorage.getItem('life-erfassen-type'); sessionStorage.removeItem('life-erfassen-type'); return v || 'aufgabe'; } catch { return 'aufgabe'; } });
   const [sorting, setSorting] = useState(null);
   const [ai, setAi] = useState(null); // { inboxId, text, actions, picked }
@@ -69,6 +72,12 @@ export default function Erfassen() {
       setBusy(false);
     }
   };
+  useEffect(() => {
+    let auto = false;
+    try { auto = sessionStorage.getItem('life-erfassen-auto') === '1'; sessionStorage.removeItem('life-erfassen-auto'); } catch {}
+    if (auto && text.trim() && hasKey) runAi(text.trim());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const paste = async () => { try { const v = await navigator.clipboard.readText(); if (v) setText((x) => (x.trim() ? `${x.trim()}\n${v}` : v)); else toast('Zwischenablage leer'); } catch { toast('Lang ins Feld drücken → Einfügen'); } };
   const takeAi = () => {
     const labels = applyActions(ai.actions.filter((_, i) => ai.picked[i]));
     if (labels.length) {
@@ -85,11 +94,16 @@ export default function Erfassen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Back href="#/heute" label="Heute" />
           <h1 className="h1">Erfassen</h1>
+          {busy === 'neu' && <span className="sub">✨ Ich lese und sortiere ein …</span>}
         </div>
         <section className="card">
           <label htmlFor="capture" className="label">Was willst du festhalten?</label>
           <textarea id="capture" className="input" style={{ fontSize: 18, minHeight: 110 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Halbmarathon in Rosario im April merken · Hotel California für Gitarre · Bei Kaszek beworben" />
-          <Info>Tipp: Mikrofon auf der Tastatur antippen, um zu diktieren.</Info>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button type="button" className="btn small tint" onClick={paste}>📋 Einfügen</button>
+            <span style={{ flex: 1 }} />
+            <Info>Link oder Text einfügen – bei Links liest die KI die Seite und trägt Event, Ort, Rezept, Stelle, Rennen … mit allen Details ein. Diktieren: Mikrofon auf der Tastatur.</Info>
+          </div>
         </section>
         {hasKey && (
           <button type="button" className="btn" disabled={!text.trim() || !!busy} onClick={() => runAi(text.trim())}>{busy === 'neu' ? 'Ich sortiere ein …' : '✨ KI sortiert ein'}</button>

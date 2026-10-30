@@ -5,6 +5,8 @@ import { personMentions, waLink, WHEN_IN_MONTH } from '../lib/logic';
 import { addPersonDate, addTask, deletePerson, deleteTask, logContact, removePersonDate, savePerson, toggleTask } from '../lib/actions';
 import { DateRangeField } from '../components/DateRange';
 import { Back, Check, Field, Icon, TabBar, toast } from '../components/ui';
+import AiFill from '../components/AiFill';
+import { parsePersonText } from '../lib/personai';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 import { go } from '../lib/router';
 
@@ -40,10 +42,32 @@ export default function Person({ id, metAt }) {
     const ce = Number(form.contactEvery) || 0;
     const data = { ...form, contactEvery: ce > 0 ? ce : null, natural: ce === -1, followUp: form.followUp || null };
     if (ce > 0 && !(existing && existing.contactEvery)) data.rhythmSince = today();
-    savePerson(existing ? { ...data, id } : data);
+    const { pending, ...clean } = data;
+    const pid = savePerson(existing ? { ...clean, id } : clean);
+    if (pending) applyExtras(pid, pending);
     toast('Gespeichert');
     const area = s.areas.find((a) => a.peopleCategory === data.category);
     go(area && !existing ? `/bereich/${area.id}` : '/menschen');
+  };
+  // v1.29 (Mateo): Profil per Sprache/Text ausfüllen – Felder, Notizen, Vorhaben, Termine, Kontakt
+  const aiFill = async (text) => {
+    const r = await parsePersonText(s, existing || form, text);
+    if (!r) throw new Error('Die KI hat nichts erkannt');
+    const patch = {};
+    if (r.name && !form.name.trim()) patch.name = r.name;
+    if (r.kategorie) patch.category = r.kategorie;
+    if (r.telefon) patch.phone = r.telefon;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(r.geburtstag || '')) patch.birthday = r.geburtstag;
+    if (r.rhythmus_tage) { patch.contactEvery = r.rhythmus_tage; patch.natural = r.rhythmus_tage === -1; }
+    if (r.notizen?.length) patch.notes = [form.notes, ...r.notizen.map((n) => `• ${n}`)].filter(Boolean).join('\n');
+    const extras = { vorhaben: r.vorhaben || [], termine: r.termine || [], kontakt: !!r.kontakt_heute };
+    const next = { ...form, ...patch };
+    setForm(next);
+    if (existing) {
+      const ce = Number(next.contactEvery) || 0;
+      savePerson({ ...next, id, contactEvery: ce > 0 ? ce : null, natural: ce === -1, ...(ce > 0 && !existing.contactEvery ? { rhythmSince: today() } : {}) });
+      applyExtras(id, extras);
+    } else setForm({ ...next, pending: extras });
   };
   const current = existing || form;
   const wa = waLink(form);
@@ -55,8 +79,6 @@ export default function Person({ id, metAt }) {
         <Back href="#/menschen" label="Menschen" />
         <h1 className="h1">{existing ? existing.name : 'Neue Person'}</h1>
 
-        {existing && <PersonPlans s={s} p={existing} />}
-
         {existing && (
           <div className="btn-row">
             <button type="button" className="btn" onClick={() => { logContact(id); toast('Kontakt notiert'); }}>Kontakt heute notieren</button>
@@ -65,6 +87,7 @@ export default function Person({ id, metAt }) {
         )}
 
         <section className="card">
+          <AiFill onFill={aiFill} placeholder={existing ? `Erzähl etwas über ${existing.name.split(' ')[0]} – z.B. „Hat am 3. Mai Geburtstag, mag Fußball, ist im November in Italien, ich will ihn wegen Asado anrufen“` : 'z.B. „Lucía, Freundin aus dem Sprachkurs, Geburtstag 12. März, Nummer +54 9 11 …, alle 2 Monate melden“'} hint="Felder, Notizen, Vorhaben und Termine werden eingetragen." />
           <Field label="Name"><input className="input" value={form.name} onChange={set('name')} placeholder="Vorname Nachname" /></Field>
           <div className="field">
             <span>Gehört zu</span>
@@ -104,10 +127,10 @@ export default function Person({ id, metAt }) {
 
         {existing && (
           <>
-            <section className="card">
-              <h2 className="label">Letzte Kontakte</h2>
+            <PersonPlans s={s} p={existing} />
+            <Fold title="🕓 Letzte Kontakte" count={(current.contacts || []).length}>
               {contacts.length === 0 ? <span className="sub">Noch keiner notiert.</span> : <span className="sub">{contacts.map((d) => (d === today() ? 'heute' : fmtShort(d))).join(' · ')}</span>}
-            </section>
+            </Fold>
             <button type="button" className="btn danger" onClick={() => { if (confirm(`${existing.name} löschen?`)) { deletePerson(id); go('/menschen'); } }}>Person löschen</button>
           </>
         )}
@@ -135,8 +158,7 @@ function PersonPlans({ s, p }) {
   const range = (d) => (d.date ? (d.to ? `${fmtShort(d.date)} – ${fmtShort(d.to)}` : fmtShort(d.date)) : 'ohne Datum');
   return (
     <>
-      <section className="card" style={{ gap: 10 }}>
-        <h2 className="label" style={{ padding: 0 }}>📌 Mit {first} vorhaben</h2>
+      <Fold title={`📌 Mit ${first} vorhaben`} count={tasks.length + reminders.length}>
         <form style={{ display: 'flex', gap: 8 }} onSubmit={(e) => { e.preventDefault(); if (txt.trim()) { addTask({ title: txt, personId: p.id, due: due || null }); setTxt(''); setDue(''); toast(due ? 'Eingetragen – auch auf Heute' : 'Eingetragen'); } }}>
           <input className="input" style={{ flex: 1, minWidth: 0 }} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder={`z.B. ${first} wegen Asado anrufen`} aria-label="Vorhaben" />
           <button type="submit" className="btn small" disabled={!txt.trim()} aria-label="Hinzufügen">+</button>
@@ -168,9 +190,8 @@ function PersonPlans({ s, p }) {
             ))}
           </div>
         )}
-      </section>
-      <section className="card" style={{ gap: 10 }}>
-        <h2 className="label" style={{ padding: 0 }}>📅 Termine & Infos</h2>
+      </Fold>
+      <Fold title="📅 Termine & Infos" count={coming.length}>
         <input className="input" value={dTxt} onChange={(e) => setDTxt(e.target.value)} placeholder={`z.B. ${first} reist nach Italien, Prüfung, Umzug …`} aria-label="Termin oder Info" />
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}><DateRangeField from={dr.from} to={dr.to} onChange={(v) => setDr({ from: v.from || '', to: v.to || '' })} placeholder="Datum oder Zeitraum (optional)" title="Wann?" /></div>
@@ -188,8 +209,33 @@ function PersonPlans({ s, p }) {
           </div>
         )}
         {past.length > 0 && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setShowPast(!showPast)}>{showPast ? 'Vergangene ausblenden' : `Vergangen (${past.length})`}</button>}
-        {showPast && <div className="list">{past.reverse().map((d) => <div key={d.id} className="row compact"><span className="row-main"><span className="row-title plain" style={{ color: 'var(--muted)' }}>{d.text}</span><span className="row-meta">{range(d)}</span></span><button type="button" className="x-btn" onClick={() => removePersonDate(p.id, d.id)} aria-label="Löschen"><Icon name="x" size={12} color="var(--chev)" /></button></div>)}</div>}
-      </section>
+        {showPast && <div className="list">{[...past].reverse().map((d) => <div key={d.id} className="row compact"><span className="row-main"><span className="row-title plain" style={{ color: 'var(--muted)' }}>{d.text}</span><span className="row-meta">{range(d)}</span></span><button type="button" className="x-btn" onClick={() => removePersonDate(p.id, d.id)} aria-label="Löschen"><Icon name="x" size={12} color="var(--chev)" /></button></div>)}</div>}
+      </Fold>
     </>
   );
+}
+
+// v1.29: einklappbarer Abschnitt im Profil (zu Beginn zu – nur das Profil ist offen)
+function Fold({ title, count, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="card" style={{ gap: 10 }}>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', width: '100%' }}>
+        <h2 className="label" style={{ padding: 0, flex: 1 }}>{title}</h2>
+        {count > 0 && <span className="pill" style={{ fontSize: 12, minHeight: 22, padding: '0 8px' }}>{count}</span>}
+        <span style={{ color: 'var(--chev)', fontSize: 13 }}>{open ? '▾' : '▸'}</span>
+      </button>
+      {open && children}
+    </section>
+  );
+}
+
+// Vorhaben/Termine/Kontakt aus der KI-Erkennung eintragen
+function applyExtras(pid, x) {
+  const ok = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : null);
+  (x.vorhaben || []).forEach((v) => v.titel && addTask({ title: v.titel, personId: pid, due: ok(v.datum) }));
+  (x.termine || []).forEach((v) => v.text && addPersonDate(pid, { text: v.text, date: ok(v.datum) || '', to: ok(v.bis) || '' }));
+  if (x.kontakt) logContact(pid);
+  const n = (x.vorhaben || []).length + (x.termine || []).length;
+  if (n) setTimeout(() => toast(`${n} ${n === 1 ? 'Eintrag' : 'Einträge'} bei Vorhaben/Termine ergänzt`), 1400);
 }

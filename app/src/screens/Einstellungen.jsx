@@ -1,3 +1,4 @@
+import { fabOn, setFab } from '../lib/fab';
 import { useRef, useState } from 'react';
 import { store, useStore } from '../lib/store';
 import { today } from '../lib/dates';
@@ -207,7 +208,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.28 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.29 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>
@@ -246,8 +247,24 @@ function Appearance() {
       </div>
       <span className="tiny">„Schlicht“ macht auch die Bereichs-Symbole grau. Die Wahl gilt nur auf diesem iPhone.</span>
     </section>
-    <LinkCopy />
+    <FabSetting />
+      <LinkCopy />
     </>
+  );
+}
+
+// v1.29 (Mateo): schwebenden Assistenten an-/ausschalten (nur auf diesem Gerät)
+function FabSetting() {
+  const [on, setOn] = useState(fabOn);
+  return (
+    <section className="card" style={{ gap: 8 }}>
+      <h2 className="h2">Schwebender Assistent</h2>
+      <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <input type="checkbox" checked={on} onChange={(e) => { setFab(e.target.checked); setOn(e.target.checked); }} />
+        <span>✨-Knopf unten rechts auf allen Seiten zeigen</span>
+      </label>
+      <span className="tiny">Ausgeschaltet bleibt der Assistent über „Was möchtest du tun?“ (Blitz) und die KI-Felder in den Bereichen erreichbar.</span>
+    </section>
   );
 }
 

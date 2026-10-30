@@ -1,4 +1,5 @@
 import { takeFlag } from '../lib/flags';
+import { go, markFromHeute } from '../lib/router';
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, diffDays, dueText, fmtLong, parseKey, relDays, startOfWeek, targetText, today } from '../lib/dates';
@@ -131,6 +132,23 @@ export default function Heute() {
 
   // v1.27 (Mateo): Aufgaben (auch überfällige) direkt löschen; Aufgaben zu einer Person zeigen den Namen
   const personTag = (x) => { const p = x.personId && s.people.find((q) => q.id === x.personId); return p ? `👤 ${p.name}` : ''; };
+  // v1.29 (Mateo): Antippen führt zum verknüpften Eintrag (Person, Event, Projekt, Bereich …)
+  const setLS = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+  const setSS = (k, v) => { try { sessionStorage.setItem(k, v); } catch {} };
+  const jump = (href, prep) => () => { prep?.(); markFromHeute(href); go(href.replace(/^#/, '')); };
+  const toEvents = jump('#/ausgehen', () => { setLS('life-app-ausgehen-tab', 'events'); setLS('life-app-events-view', 'mine'); });
+  const taskOpen = (x) => {
+    if (x.personId && s.people.some((p) => p.id === x.personId)) return jump(`#/person/${x.personId}`);
+    if (x.projectId && s.projects.some((p) => p.id === x.projectId)) return jump(`#/projekt/${x.projectId}`);
+    const name = x.title.replace(/^Vielleicht:\s*/, '').trim().toLowerCase();
+    if (s.events.some((e) => e.name.trim().toLowerCase() === name)) return toEvents;
+    const g = (s.gatherings || []).find((q) => q.name.trim().toLowerCase() === name);
+    if (g) return jump(`#/treffen/${g.id}`);
+    const sp = (s.sportEvents || []).find((q) => (q.name || '').trim().toLowerCase() === name);
+    if (sp) return jump('#/sport', () => setLS('life-app-sport-tab', 'meine'));
+    if (x.areaId && areaOf(s, x.areaId)) return jump(`#/bereich/${x.areaId}`);
+    return null;
+  };
   const delTask = (x) => { if (confirm(`„${x.title}“ löschen?`)) { deleteTask(x.id); toast('Gelöscht'); } };
   // ---------- Einträge für den gewählten Tag ----------
   const dayItems = (key) => {
@@ -141,28 +159,28 @@ export default function Heute() {
         const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
         const areaId = proj ? proj.areaId : x.areaId;
         list.push({
-          key: 't' + x.id, done: x.done, onCheck: () => toggleTask(x.id), title: x.title, time: x.time, url: x.url, onDelete: () => delTask(x),
-          color: pillarColor(areaId), meta: personTag(x) || (proj ? proj.name : areaOf(s, areaId)?.name || 'Aufgabe'),
+          key: 't' + x.id, done: x.done, onCheck: () => toggleTask(x.id), title: x.title, time: x.time, url: x.url, onDelete: () => delTask(x), open: taskOpen(x),
+          color: pillarColor(areaId), meta: personTag(x) || (proj ? proj.name : s.events.some((e) => e.name.trim().toLowerCase() === x.title.replace(/^Vielleicht:\s*/, '').trim().toLowerCase()) ? 'Event · Ausgehen' : areaOf(s, areaId)?.name || 'Aufgabe'),
         });
       });
     s.events
       .filter((e) => e.date === key && e.stage !== 'entdeckt')
-      .forEach((e) => list.push({ key: 'e' + e.id, event: true, title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
+      .forEach((e) => list.push({ key: 'e' + e.id, event: true, open: toEvents, title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.reminders || [])
       .filter((r) => r.next === key)
-      .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
+      .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), open: jump('#/zuhause/erinnerungen'), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
     (s.gatherings || [])
       .filter((g) => g.date === key && !g.idea)
-      .forEach((g) => list.push({ key: 'g' + g.id, event: true, title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
+      .forEach((g) => list.push({ key: 'g' + g.id, event: true, open: jump(`#/treffen/${g.id}`), title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
     (s.invites || [])
       .filter((x) => x.date === key && x.status !== 'abgesagt')
-      .forEach((x) => list.push({ key: 'i' + x.id, event: true, title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
+      .forEach((x) => list.push({ key: 'i' + x.id, event: true, open: jump('#/saeule/sozial', () => setLS('life-app-sozial-tab', 'andere')), title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date === key)
-      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
+      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
     s.people
       .filter((p) => p.birthday && p.birthday.slice(5) === key.slice(5))
-      .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
+      .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), open: jump(`#/person/${p.id}`), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
     return list;
   };
 
@@ -173,14 +191,14 @@ export default function Heute() {
       .filter((x) => !x.idea && !x.done && x.due && x.due < t)
       .forEach((x) => {
         const proj = x.projectId ? s.projects.find((p) => p.id === x.projectId) : null;
-        extra.push({ key: 't' + x.id, done: false, onCheck: () => toggleTask(x.id), onDelete: () => delTask(x), title: x.title, color: pillarColor(proj ? proj.areaId : x.areaId), meta: `überfällig · ${dueText(x.due, t)}${personTag(x) ? ` · ${personTag(x)}` : ''}`, overdue: true });
+        extra.push({ key: 't' + x.id, done: false, onCheck: () => toggleTask(x.id), onDelete: () => delTask(x), open: taskOpen(x), title: x.title, color: pillarColor(proj ? proj.areaId : x.areaId), meta: `überfällig · ${dueText(x.due, t)}${personTag(x) ? ` · ${personTag(x)}` : ''}`, overdue: true });
       });
     (s.reminders || [])
       .filter((r) => r.next < t)
-      .forEach((r) => extra.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), title: r.title, color: '#2FA36B', meta: `Erinnerung · überfällig seit ${fmtShortDays(r.next, t)}`, overdue: true }));
+      .forEach((r) => extra.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), open: jump('#/zuhause/erinnerungen'), title: r.title, color: '#2FA36B', meta: `Erinnerung · überfällig seit ${fmtShortDays(r.next, t)}`, overdue: true }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date < t)
-      .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
+      .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
     s.habits
       .filter((h) => h.count > 0)
       .forEach((h) => {
@@ -194,7 +212,7 @@ export default function Heute() {
       seen.add(p.id);
       const last = lastContact(p);
       extra.push({
-        key: 'p' + p.id, done: false, onCheck: () => logContact(p.id), title: `${p.name} schreiben`, color: '#E8775A',
+        key: 'p' + p.id, done: false, onCheck: () => logContact(p.id), open: jump(`#/person/${p.id}`), title: `${p.name} schreiben`, color: '#E8775A',
         meta: p.followUp && p.followUp <= t ? 'Nachfassen fällig' : last ? `Letzter Kontakt ${relDays(diffDays(last, t))}` : 'Noch kein Kontakt notiert',
         wa: waLink(p),
       });
@@ -214,9 +232,9 @@ export default function Heute() {
   const Row = (i) => (
     <div key={i.key} className="row">
       {i.onCheck ? <Check on={i.done} color={i.color} onClick={i.onCheck} label={(i.done ? 'Offen: ' : 'Erledigt: ') + i.title} /> : <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center' }}><Icon name="today" size={18} color={i.color} /></span>}
-      <div className="row-main">
+      <div className="row-main" onClick={i.open || undefined} role={i.open ? 'link' : undefined} style={i.open ? { cursor: 'pointer' } : undefined} aria-label={i.open ? `${i.title} öffnen` : undefined}>
         <span className={i.done ? 'row-title done' : 'row-title'}>{i.title}</span>
-        <span className="row-meta" style={{ color: i.overdue ? 'var(--danger)' : undefined }}><Dot small color={i.color} />{i.meta}</span>
+        <span className="row-meta" style={{ color: i.overdue ? 'var(--danger)' : undefined }}><Dot small color={i.color} />{i.meta}{i.open && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>›</span>}</span>
       </div>
       {i.wa && !i.done && <a className="pill" href={i.wa} target="_blank" rel="noreferrer">WhatsApp</a>}
       {i.url && !i.done && <a className="pill" href={i.url} target="_blank" rel="noreferrer" aria-label={`Link zu ${i.title} öffnen`}><Icon name="link" size={14} /></a>}

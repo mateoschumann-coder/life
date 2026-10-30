@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useRoute } from './lib/router';
 import { Toaster } from './components/ui';
 import Heute from './screens/Heute';
@@ -30,10 +31,14 @@ import Hobbys from './screens/Hobbys';
 import Reisen from './screens/Reisen';
 import Treffen from './screens/Treffen';
 import FloatingAssistant from './components/FloatingAssistant';
+import { useFabOn } from './lib/fab';
 import QuickTask from './components/QuickTask';
 
 export default function App() {
   const [page, a, b] = useRoute();
+  const fab = useFabOn();
+  // ohne schwebenden Knopf: „Erzählen“-Aufrufe öffnen den Chat
+  useEffect(() => { if (fab) return; const f = () => { location.hash = '/assistent'; }; window.addEventListener('life-listen', f); return () => window.removeEventListener('life-listen', f); }, [fab]);
   let screen;
   switch (page) {
     case '':
@@ -71,7 +76,7 @@ export default function App() {
   return (
     <div className="app">
       {screen}
-      {page !== 'assistent' && !(page === 'reisen' && a) && <FloatingAssistant />}
+      {fab && page !== 'assistent' && !(page === 'reisen' && a) && <FloatingAssistant />}
       <QuickTask />
       <Toaster />
     </div>

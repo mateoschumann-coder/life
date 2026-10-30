@@ -74,6 +74,18 @@ const swap = (s, g, oldKey, newKey) => store.update((d) => {
   d.profile = { ...d.profile, losSel: { ...(d.profile?.losSel || {}), [g.id]: sel }, order: { ...(d.profile?.order || {}), [`los-${g.id}`]: ord } };
 });
 
+// Zwischenablage lesen → Erfassen mit „KI sortiert ein“ (bei Links liest die KI die Seite)
+export async function pasteAndSort() {
+  let txt = '';
+  try { txt = (await navigator.clipboard.readText()) || ''; } catch {}
+  try {
+    if (!txt.trim()) { const l = JSON.parse(localStorage.getItem('life-app-lastlinks') || '[]'); txt = (Array.isArray(l) ? l[0]?.url || l[0] : '') || ''; }
+  } catch {}
+  try { sessionStorage.setItem('life-erfassen-text', txt.trim()); sessionStorage.setItem('life-erfassen-auto', txt.trim() ? '1' : ''); } catch {}
+  if (!txt.trim()) toast('Zwischenablage leer – füg den Link ins Feld ein');
+  go('/erfassen');
+}
+
 export default function Aktionen() {
   const s = useStore();
   const editing = useEditing();
@@ -82,7 +94,14 @@ export default function Aktionen() {
     <>
       <main className="screen" style={{ gap: 14 }}>
         <div className="top"><h1 className="h1 sm">Was möchtest du tun?</h1><TopActions /></div>
-        {!editing && <button type="button" className="link-btn" style={{ alignSelf: 'flex-end', fontSize: 14, marginTop: -8 }} onClick={startEditing}>✎ Anpassen</button>}
+        {/* v1.29 (Mateo): Kopierten Link/Text mit einem Tipp eintragen – KI erkennt, was es ist */}
+        {!editing && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn" style={{ flex: 1 }} onClick={pasteAndSort}>📋 Kopiertes eintragen</button>
+            <button type="button" className="btn tint" style={{ flex: 1 }} onClick={() => go('/erfassen')}>🎙 Erzählen</button>
+          </div>
+        )}
+        {!editing && <button type="button" className="link-btn" style={{ alignSelf: 'flex-end', fontSize: 14, marginTop: -4 }} onClick={startEditing}>✎ Anpassen</button>}
         {ACTIONS.map((g) => (
           <section key={g.id} className="group act-group">
             <h2 className="label" style={{ padding: '0 4px' }}>{g.title}</h2>
