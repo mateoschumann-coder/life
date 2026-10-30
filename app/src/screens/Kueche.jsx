@@ -2,6 +2,7 @@ import MicBtn from '../components/MicBtn';
 import { askDel } from '../lib/undo';
 import Swipe from '../components/Swipe';
 import { useEffect, useRef, useState } from 'react';
+import { takeFlag } from '../lib/flags';
 import { useStore } from '../lib/store';
 import {
   addRecipe, addShopping, clearBought, clearShopping, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe, cuisinesOf, setCuisines, removeCatalogItem,
@@ -12,7 +13,9 @@ import { getAi } from '../lib/ai';
 import PlaceBook from '../components/PlaceBook';
 import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
-import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
+import SourceLinks, { useSearchMode } from '../components/SourceLinks';
+import SearchCard, { QuickChips } from '../components/SearchCard';
+import { SOURCE_AREAS } from '../lib/sources';
 import { listen } from '../components/Coach';
 import { Back, Check, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
 
@@ -566,17 +569,29 @@ function FridgePicker({ s, onAsk, disabled }) {
 // Neue Rezepte (v0.65): entweder kostenlose Links zu Rezeptseiten oder der KI-Küchen-Chat
 function RecipeFinder({ s }) {
   const [mode, setMode] = useSearchMode('rezepte', 'ki');
+  const [q, setQ] = useState(() => takeFlag('life-search-q') || '');
+  const ask = useRef(null);
+  const pend = useRef('');
+  const ai = (t) => { setMode('ki'); const x = t.trim(); if (!x) return; if (ask.current) { ask.current(x); setQ(''); } else { pend.current = x; setQ(''); } };
   return (
     <>
-      <ModeToggle mode={mode} onChange={setMode} />
-      {mode === 'links' ? <SourceLinks s={s} area="rezepte" instant /> : <KitchenChat s={s} />}
+      <SearchCard q={q} setQ={setQ} placeholder="z.B. Airfryer Hähnchen, schnelles Abendessen" mode={mode}
+        quick={<QuickChips chips={SOURCE_AREAS.rezepte.chips} q={q} setQ={setQ} />}
+        onLinks={() => setMode('links')} onAi={ai} aiLabel="✨ KI" aiCost="<1 ct"
+        hint="🔗 Links: Chefkoch, Paulina Cocina, BBC Good Food & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: der Küchen-Chat schlägt Rezepte vor (auch aus dem Kühlschrank) – Rückfragen unten im Chat.">
+        {mode === 'links' && <SourceLinks embedded s={s} area="rezepte" query={q} />}
+      </SearchCard>
+      {mode === 'ki' && <KitchenChat s={s} askRef={ask} pending={pend} />}
     </>
   );
 }
-function KitchenChat({ s }) {
+function KitchenChat({ s, askRef, pending }) {
   const [mode, setMode] = useState('neu');
   const [saving, setSaving] = useState(null); // { r, done }
   const sendRef = useRef(null);
+  if (askRef) askRef.current = (t) => sendRef.current?.(t);
+  useEffect(() => { if (askRef) return () => { askRef.current = null; }; return undefined; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const t = pending?.current; if (t) { pending.current = ''; setTimeout(() => sendRef.current?.(t), 300); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const m = MODES[mode];
   const save = (cat) => {
     const r = saving.r;

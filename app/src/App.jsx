@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useRoute } from './lib/router';
 import { Toaster } from './components/ui';
 import Heute from './screens/Heute';
@@ -33,10 +33,14 @@ import Treffen from './screens/Treffen';
 import FloatingAssistant from './components/FloatingAssistant';
 import { useFabOn } from './lib/fab';
 import QuickTask from './components/QuickTask';
+import GlobalSearch from './components/GlobalSearch';
 
 export default function App() {
   const [page, a, b] = useRoute();
   const fab = useFabOn();
+  // v1.35: Sprung auf dieselbe Seite (z.B. aus der Suche) → Seite neu aufbauen, damit Reiter/Filter greifen
+  const [nonce, setNonce] = useState(0);
+  useEffect(() => { const h = () => setNonce((n) => n + 1); window.addEventListener('life-remount', h); return () => window.removeEventListener('life-remount', h); }, []);
 
   let screen;
   switch (page) {
@@ -74,9 +78,10 @@ export default function App() {
   }
   return (
     <div className="app">
-      {screen}
+      <Fragment key={nonce}>{screen}</Fragment>
       {page !== 'assistent' && <FloatingAssistant hideFab={!fab || (page === 'reisen' && !!a)} />}
       <QuickTask />
+      <GlobalSearch />
       <Toaster />
     </div>
   );

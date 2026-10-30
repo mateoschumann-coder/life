@@ -82,7 +82,7 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .screen { animation: none; } }
 
 /* Kopfzeile im iOS-Stil */
-.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; min-height: 52px; }
+.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px 12px; min-height: 52px; flex-wrap: wrap-reverse; }
 .h1 { font-size: 34px; font-weight: 700; letter-spacing: 0.005em; margin: 0; line-height: 1.12; }
 .h1.sm { font-size: 30px; }
 .h2 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: 0; }
@@ -180,7 +180,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 /* Bottom Sheet */
 .sheet-bg { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.32); display: flex; align-items: flex-end; justify-content: center; animation: fade 0.18s ease-out; }
 .sheet {
-  background: var(--bg); width: 100%; max-width: 600px; border-radius: 14px 14px 0 0;
+  background: var(--bg); position: relative; width: 100%; max-width: 600px; border-radius: 14px 14px 0 0;
   padding: 8px 16px calc(24px + env(safe-area-inset-bottom)); max-height: 92dvh; overflow-y: auto;
   display: flex; flex-direction: column; gap: 16px; animation: up 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
@@ -729,7 +729,8 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .date-badge { min-height: 52px; }
 .removed-btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; border: 0; background: var(--card-2); color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; padding: 6px 9px; border-radius: 999px; cursor: pointer; }
 .back-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; }
-.top-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.top-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+.top-actions .icon-btn { width: 38px; height: 38px; }
 .add-task-btn { border: 0; background: var(--accent-bg); color: var(--accent); font: inherit; font-size: 14px; font-weight: 650; padding: 8px 12px; border-radius: 999px; white-space: nowrap; cursor: pointer; }
 .back-row .back { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .back-row .back svg { flex-shrink: 0; }
@@ -790,3 +791,13 @@ select.input.rhythm-sel { height: auto; padding: 2px 8px; }
 .filter-pair > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .filter-pair > div > .tiny { padding-left: 4px; }
 .filter-pair .chip { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: block; line-height: 36px; }
+
+/* v1.35: einheitliche Suchkarte */
+.search-row1 { display: flex; gap: 8px; align-items: center; }
+.search-acts { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; }
+.search-acts:not(:has(.info-wrap, .info-btn)) { grid-template-columns: 1fr 1fr; }
+.gs-row { width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.search-acts .btn { min-height: 42px; white-space: nowrap; padding-left: 8px; padding-right: 8px; }
+.search-cost { font-weight: 500; opacity: .75; font-size: 12px; margin-left: 5px; }
+.filter-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; padding: 7px 12px; border-radius: 12px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text); font: inherit; text-align: left; }
+.filter-btn b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }

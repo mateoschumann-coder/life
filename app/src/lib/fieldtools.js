@@ -193,9 +193,12 @@ export function installFieldTools() {
   document.addEventListener('input', (e) => {
     if (e.isTrusted && undo && undo.el === e.target) undo = null; // eigene Eingabe → kein Rückgängig mehr
     if (e.isTrusted && cleared && cleared.el === e.target && e.target.value) cleared = null;
-    if (e.target === cur) place();
+    if (e.target === cur) { place(); requestAnimationFrame(() => cur && place()); }
   }, true);
   window.addEventListener('resize', place);
+  // v1.35: nach Fenster-Animationen neu setzen (sonst sitzt ✕ in Fenstern an der falschen Stelle)
+  document.addEventListener('animationend', () => cur && place(), true);
+  document.addEventListener('transitionend', () => cur && place(), true);
   window.visualViewport?.addEventListener('resize', place);
   // Fokus im Feld lassen (sonst schließt sich die Tastatur und onBlur speichert zu früh)
   pasteBtn.addEventListener('click', async () => {

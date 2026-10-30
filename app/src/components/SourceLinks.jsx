@@ -67,12 +67,13 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
         {query === undefined && <div style={{ display: 'flex', gap: 8 }}><MicBtn value={q} onChange={setQ} /><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') make(); }} placeholder={cfg.placeholder} aria-label={`Suchbegriff für ${cfg.title}`} />{cfg.chips && <QuickSheet label="⚡" title="Schnell suchen">{(close) => <div className="chips">{cfg.chips.map((c) => <button key={c} type="button" className={q === c ? 'chip on' : 'chip soft'} onClick={() => { setQ(c); close(); }}>{c}</button>)}</div>}</QuickSheet>}</div>}
       </>}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button type="button" className="btn small" style={{ flex: 1 }} onClick={make} disabled={!q.trim() || busy}>{busy ? 'Ich baue die Suchen …' : fresh ? '↻ Neu erstellen' : '🔗 Links erstellen'}</button>
+        {embedded ? <span className="tiny" style={{ flex: 1 }}>{q.trim() ? <>Seiten mit „{q.trim()}“{cfg.perCity && city ? ` · ${city}` : ''} {getAi().apiKey && <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={make} disabled={busy}>{busy ? '· passe an …' : fresh ? '· ✓ angepasst' : '· ✨ pro Seite anpassen'}</button>}</> : 'Seiten öffnen (ohne Suchbegriff = Startseite)'}</span>
+          : <button type="button" className="btn small" style={{ flex: 1 }} onClick={make} disabled={!q.trim() || busy}>{busy ? 'Ich baue die Suchen …' : fresh ? '↻ Neu erstellen' : '🔗 Links erstellen'}</button>}
         {edit ? <button type="button" className="pill on" style={{ fontSize: 13 }} onClick={() => setEdit(false)}>Fertig</button> : <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => setEdit(true)} aria-label="Seiten bearbeiten"><Icon name="edit" size={13} /></button>}
       </div>
       {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
       {fresh && res.t?.gedanke && <span className="tiny" style={{ color: 'var(--text)' }}>🎯 {res.t.gedanke}</span>}
-      {(fresh || edit || instant) && (
+      {(fresh || edit || instant || embedded) && (
         <div className="link-chips" style={{ marginTop: 0, alignItems: 'center' }}>
           {list.map((x) => x.id === 'instagram' && !edit && !x.tpl ? (() => { const h = instaTags(fresh ? res.q : q, city, fresh ? res.t : null)[0]; return h ? <span key={x.id} className="src-chip"><a className="link-chip" href={instaUrl(h)} target="_blank" rel="noreferrer" title={`#${h}`}>Instagram ↗</a></span> : null; })() : (
             <span key={x.id} className="src-chip">
@@ -114,7 +115,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
           <Info>🔧 = direkte Suche einrichten (sonst Google, nur auf dieser Seite).{cfg.perCity && city ? ` Neue Seiten gelten für ${city}.` : ''}{hidden ? ' ' : ''}{hidden ? <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => restoreSources(area)}>Entfernte Standard-Seiten zurückholen ({hidden})</button> : null}</Info>
         </>
       )}
-      {!edit && <Info>{instant && !fresh ? 'Antippen öffnet die Seite mit deinem Suchbegriff. „Links erstellen“ übersetzt ihn vorher passend pro Seite (ca. 0,03 Cent).' : fresh ? 'Blaue Knöpfe öffnen die Suche direkt auf der Seite bzw. in der App. Grau (· G) = Google, nur auf dieser Seite.' : `Schreib frei, was du suchst. Die KI macht daraus pro Seite den passenden Suchbegriff${cfg.perCity && city ? ` für ${city}` : ''} (ohne Internet, ca. 0,03 Cent).`}</Info>}
+      {!edit && !embedded && <Info>{instant && !fresh ? 'Antippen öffnet die Seite mit deinem Suchbegriff. „Links erstellen“ übersetzt ihn vorher passend pro Seite (ca. 0,03 Cent).' : fresh ? 'Blaue Knöpfe öffnen die Suche direkt auf der Seite bzw. in der App. Grau (· G) = Google, nur auf dieser Seite.' : `Schreib frei, was du suchst. Die KI macht daraus pro Seite den passenden Suchbegriff${cfg.perCity && city ? ` für ${city}` : ''} (ohne Internet, ca. 0,03 Cent).`}</Info>}
     </Wrap>
   );
 }

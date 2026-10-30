@@ -5,7 +5,8 @@ import { askDel } from '../lib/undo';
 import { takeFlag } from '../lib/flags';
 import { useEffect, useRef, useState } from 'react';
 import { store, useStore } from '../lib/store';
-import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
+import SourceLinks, { useSearchMode } from '../components/SourceLinks';
+import SearchCard from '../components/SearchCard';
 import { addDays, diffDays, fmtShort, today } from '../lib/dates';
 import { addProject, addTask } from '../lib/actions';
 import {
@@ -135,11 +136,12 @@ function SportsPage({ s }) {
   const periods = sportPeriods(s);
   const [period, setPeriod] = useState(() => sportPeriods(s)[1] || sportPeriods(s)[0] || '');
   const [editPer, setEditPer] = useState(false);
+  const [perOpen, setPerOpen] = useState(false);
   const [newPer, setNewPer] = useState('');
   const [newReg, setNewReg] = useState('');
   const [editSports, setEditSports] = useState(false);
   const [newSport, setNewSport] = useState('');
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(() => takeFlag('life-search-q') || '');
   const [smode, setSmode] = useSearchMode('rennen');
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -170,11 +172,11 @@ function SportsPage({ s }) {
       toast(r.name || r.datum ? 'Ausgefüllt – bitte kurz prüfen' : 'Nichts gefunden – bitte selbst ergänzen');
     } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel.' : e.message); } finally { setFBusy(false); }
   };
-  const search = async (web) => {
+  const search = async (web, query = q) => {
     setBusy(web ? 'web' : 'ki');
     setErr(null);
     try {
-      setRes(await searchSportEvents(s, pick, q.trim(), { web, regions: regPick.filter((r) => regions.includes(r)), period: periods.includes(period) ? period : '' }));
+      setRes(await searchSportEvents(s, pick, String(query || '').trim(), { web, regions: regPick.filter((r) => regions.includes(r)), period: periods.includes(period) ? period : '' }));
     } catch (e) {
       setErr(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message);
     } finally {
@@ -234,38 +236,35 @@ function SportsPage({ s }) {
         <Segmented full options={[{ id: 'meine', label: `Meine Events${going.length + liked.length ? ` · ${going.length + liked.length}` : ''}` }, { id: 'finden', label: 'Events finden' }, { id: 'rechner', label: 'Rechner' }]} value={tab} onChange={setTab} label="Ansicht" />
 
 
-        {tab === 'finden' && <section className="card checkin" style={{ gap: 10 }}>
-          <button type="button" className="city-bar" onClick={() => setRegOpen(true)} aria-label="Regionen wählen">
-            <span style={{ fontSize: 18 }}>📍</span>
-            <span className="row-main"><span className="row-meta">Wo?</span><span className="row-title strong">{regPick.filter((r) => regions.includes(r)).join(', ') || 'Überall'}</span></span>
-            <span className="pill" style={{ fontSize: 13 }}>Wechseln ▾</span>
-          </button>
-          <RegionSheet s={s} open={regOpen} onClose={() => setRegOpen(false)} regions={regions} pick={regPick} setPick={setRegPick} />
-          <span className="tiny" style={{ marginBottom: -4 }}>Wann?</span>
-          <div className="chips">
-            {periods.map((x) => (
-              <button key={x} type="button" className={editPer ? 'chip editing' : period === x ? 'chip on' : 'chip'} onClick={() => (editPer ? setSportPeriods(periods.filter((y) => y !== x)) : setPeriod(period === x ? '' : x))}>
-                🗓 {x}{editPer && <Icon name="x" size={11} />}
-              </button>
-            ))}
-            <button type="button" className={editPer ? 'chip on' : 'chip'} onClick={() => setEditPer(!editPer)} aria-label="Zeiträume bearbeiten">{editPer ? 'Fertig' : <Icon name="edit" size={14} />}</button>
-          </div>
-          {editPer && (
-            <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); const x = newPer.trim(); if (x && !periods.includes(x)) { setSportPeriods([...periods, x]); setPeriod(x); } setNewPer(''); }}>
-              <input className="input" value={newPer} onChange={(ev) => setNewPer(ev.target.value)} placeholder="z.B. Frühling 2027, bis Juni, Herbst" aria-label="Neuer Zeitraum" />
-              <button type="submit" className="btn small" disabled={!newPer.trim()}>+</button>
-            </form>
-          )}
-          <ModeToggle mode={smode} onChange={setSmode} />
-          <div style={{ display: 'flex', gap: 8 }}><MicBtn value={q} onChange={setQ} /><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(ev) => setQ(ev.target.value)} placeholder="z.B. „Maratón de Buenos Aires“ oder „Halbmarathon bis März“" aria-label="Wonach suchen" /></div>
-          {smode === 'links' && <SourceLinks embedded s={s} area="rennen" instant query={[q || 'carreras running', periodWords(period)].filter(Boolean).join(' ')} city={regPick.filter((r) => regions.includes(r)).join(', ')} siteQuery={q} />}
-          {smode === 'ki' && <>
-          <div className="search-row">
-            <button type="button" className="btn tint small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(false)}>{busy === 'ki' ? '…' : 'Ohne Internet'}</button>
-            <button type="button" className="btn small" style={{ flex: 1 }} disabled={!!busy || !getAi().apiKey || !s.sports.length} onClick={() => search(true)}>{busy === 'web' ? '…' : '🔍 Mit Internet'}</button>
-          </div>
-          <Info>Ohne Internet: bekannte, regelmäßige Events aus dem KI-Wissen (günstig). Mit Internet: aktuelle Termine mit Link – ein Renn-Name wird gezielt gesucht (ca. 3–5 Cent).</Info>
+        {tab === 'finden' && <SearchCard q={q} setQ={setQ} placeholder="z.B. Maratón de Buenos Aires, Halbmarathon" mode={smode} busy={!!busy}
+          filters={<>
+            <div className="filter-pair">
+              <button type="button" className="filter-btn" onClick={() => setRegOpen(true)} aria-label="Regionen wählen"><span className="tiny">Wo?</span><b>📍 {regPick.filter((r) => regions.includes(r)).join(', ') || 'Überall'} ▾</b></button>
+              <button type="button" className="filter-btn" onClick={() => setPerOpen(true)} aria-label="Zeitraum wählen"><span className="tiny">Wann?</span><b>🗓 {period || 'Egal'} ▾</b></button>
+            </div>
+            <RegionSheet s={s} open={regOpen} onClose={() => setRegOpen(false)} regions={regions} pick={regPick} setPick={setRegPick} />
+            <Sheet open={perOpen} title="Wann?" onClose={() => { setPerOpen(false); setEditPer(false); }}>
+              <div className="chips">
+                {periods.map((x) => (
+                  <button key={x} type="button" className={editPer ? 'chip editing' : period === x ? 'chip on' : 'chip soft'} onClick={() => (editPer ? setSportPeriods(periods.filter((y) => y !== x)) : (setPeriod(period === x ? '' : x), setPerOpen(false)))}>
+                    🗓 {x}{editPer && <Icon name="x" size={11} />}
+                  </button>
+                ))}
+                <button type="button" className={editPer ? 'chip on' : 'chip soft'} onClick={() => setEditPer(!editPer)} aria-label="Zeiträume bearbeiten">{editPer ? 'Fertig' : <Icon name="edit" size={14} />}</button>
+              </div>
+              {editPer && (
+                <form className="block-add" onSubmit={(ev) => { ev.preventDefault(); const x = newPer.trim(); if (x && !periods.includes(x)) { setSportPeriods([...periods, x]); setPeriod(x); } setNewPer(''); }}>
+                  <input className="input" value={newPer} onChange={(ev) => setNewPer(ev.target.value)} placeholder="z.B. Frühling 2027, bis Juni, Herbst" aria-label="Neuer Zeitraum" />
+                  <button type="submit" className="btn small" disabled={!newPer.trim()}>+</button>
+                </form>
+              )}
+            </Sheet>
           </>}
+          onLinks={() => setSmode('links')}
+          onAi={(t) => { setSmode('ki'); if (s.sports.length) search(true, t); else toast('Erst oben eine Sportart hinzufügen'); }}
+          aiLabel="✨ KI" aiCost="~4 ct"
+          hint="🔗 Links: Rennkalender (Ahotu, Club de Corredores …) mit Ort und Zeitraum – kostenlos. ✨ KI: sucht aktuelle Termine mit Link im Internet; ein Renn-Name wird gezielt gesucht (ca. 3–5 Cent).">
+          {smode === 'links' && <SourceLinks embedded s={s} area="rennen" instant query={[q || 'carreras running', periodWords(period)].filter(Boolean).join(' ')} city={regPick.filter((r) => regions.includes(r)).join(', ')} siteQuery={q} />}
           {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Termine …' : 'Ich überlege …'}</span></div>}
           {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
           {smode === 'ki' && !busy && res?.hint && <span className="sub">{res.hint}</span>}
@@ -284,7 +283,7 @@ function SportsPage({ s }) {
               })()}
             </div>
           ))}
-        </section>}
+        </SearchCard>}
 
         {tab === 'meine' && <>
         {/* v0.98 (Mateo): „+ Event notieren“ hier unten statt oben rechts, mit KI-Ausfüllen */}

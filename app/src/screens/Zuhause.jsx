@@ -1,4 +1,5 @@
 import QuickSheet from '../components/QuickSheet';
+import { SOURCE_AREAS } from '../lib/sources';
 import MicBtn from '../components/MicBtn';
 import AiFill from '../components/AiFill';
 import { askDel } from '../lib/undo';
@@ -11,7 +12,8 @@ import {
 import { waLink } from '../lib/logic';
 import { cityOf } from '../lib/outings';
 import PlaceBook from '../components/PlaceBook';
-import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
+import SourceLinks, { useSearchMode } from '../components/SourceLinks';
+import SearchCard, { QuickChips } from '../components/SearchCard';
 import { CityChips } from './Ausgehen';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
@@ -198,24 +200,21 @@ function FindItems({ s, listKey }) {
   const [sugg, setSugg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useSearchMode('zuhause-' + listKey, 'links');
-  const run = async () => {
+  const run = async (t = q) => {
+    setMode('ki');
     setBusy(true);
-    try { setSugg(await suggestItems(s, listKey, cat, q.trim())); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
+    try { setSugg(await suggestItems(s, listKey, cat, String(t || '').trim())); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel (Einstellungen).' : e.message); } finally { setBusy(false); }
   };
   return (
     <>
-      <ModeToggle mode={mode} onChange={setMode} />
-      {mode === 'links' && <SourceLinks s={s} area={listKey} instant />}
-      {mode === 'ki' && <section className="card checkin" style={{ gap: 10 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 16 }}><span className="spark"><Icon name="sparkle" size={14} color="currentColor" /></span>Ideen von der KI</span>
-        <div className="field"><span>Was suchst du? (optional)</span><div style={{ display: 'flex', gap: 8 }}><MicBtn value={q} onChange={setQ} /><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. gemütliche Leselampe'} aria-label="Was suchst du?" /></div></div>
-        <span className="label" style={{ padding: 0 }}>Für welchen Bereich?</span>
-        <div className="chips">{l.cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCat(c)}>{c}</button>)}</div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button type="button" className="btn small" disabled={busy || !getAi().apiKey} onClick={run}>{busy ? 'Ich überlege …' : '✨ KI-Ideen'}</button>
-          <Info>Die KI schlägt 4–6 passende Sachen vor (ohne Internet, unter 1 Cent). „Merken“ setzt sie auf deine Liste „Will ich haben“.</Info>
-        </div>
-      </section>}
+      <SearchCard q={q} setQ={setQ} placeholder={listKey === 'kleidung' ? 'z.B. Laufjacke für Regen' : 'z.B. gemütliche Leselampe'} mode={mode} busy={busy}
+        quick={<QuickChips chips={SOURCE_AREAS[listKey]?.chips} q={q} setQ={setQ} />}
+        filters={<div className="filter-pair"><QuickSheet className="filter-btn" label={<><span className="tiny">Bereich</span><b>🏷 {cat} ▾</b></>} title="Für welchen Bereich?">{(close) => <div className="chips">{l.cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} onClick={() => { setCat(c); close(); }}>{c}</button>)}</div>}</QuickSheet></div>}
+        onLinks={() => setMode('links')} onAi={run} aiLabel="✨ KI" aiCost="<1 ct"
+        hint="🔗 Links: Mercado Libre, Google Shopping & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: schlägt 4–6 passende Sachen vor (ohne Internet, unter 1 Cent). „Merken“ setzt sie auf deine Liste „Will ich haben“.">
+        {mode === 'links' && <SourceLinks embedded s={s} area={listKey} query={q} />}
+        {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich überlege …</span></div>}
+      </SearchCard>
       {mode === 'ki' && sugg && (
         <section className="card" style={{ gap: 8 }}>
           {!sugg.length && <span className="sub">Keine Ideen – anders formulieren?</span>}

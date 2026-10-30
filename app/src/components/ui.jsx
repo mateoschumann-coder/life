@@ -154,6 +154,7 @@ export function TopActions() {
   return (
     <div className="top-actions">
       <button type="button" className="add-task-btn" onClick={() => window.dispatchEvent(new Event('life-quick-task'))}>＋ Aufgabe</button>
+      <button type="button" className="icon-btn" aria-label="Suchen" onClick={() => window.dispatchEvent(new Event('life-search'))}><Icon name="search" size={19} width={1.9} /></button>
       {!onSettings && <a href="#/einstellungen" className="icon-btn" aria-label="Einstellungen"><Icon name="gear" size={20} width={1.8} /></a>}
     </div>
   );

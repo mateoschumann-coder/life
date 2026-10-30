@@ -13,7 +13,9 @@ import { DateRangeField } from '../components/DateRange';
 import PlaceBook, { ItemSheet as PlaceSheet } from '../components/PlaceBook';
 import { addBookItem, bookAreas, bookCats, bookMaps, bookOf, doctorLinks, findBookItem, searchDoctors } from '../lib/placebook';
 import { hoodHere } from '../lib/outings';
-import { ModeToggle, useSearchMode } from '../components/SourceLinks';
+import { useSearchMode } from '../components/SourceLinks';
+import SearchCard, { QuickChips } from '../components/SearchCard';
+import QuickSheet from '../components/QuickSheet';
 import AiFill from '../components/AiFill';
 
 const TYPES = [
@@ -204,9 +206,11 @@ function DoctorFinder({ s, onTermin }) {
   const [mode, setMode] = useSearchMode('aerzte', 'links');
   const areas = bookAreas(s, 'vorsorge');
   const QUICK = ['Zahnarzt', 'Hausarzt', 'Hautarzt', 'Augenarzt', 'Physiotherapie', 'Sportmedizin', 'Blutabnahme'];
-  const run = async () => {
+  const run = async (t = what) => {
+    setMode('ki');
+    if (!String(t || '').trim()) { toast('Erst eingeben, was du suchst (z.B. Zahnarzt)'); return; }
     setBusy(true);
-    try { setRes(await searchDoctors(s, { what, area })); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel.' : e.message); } finally { setBusy(false); }
+    try { setRes(await searchDoctors(s, { what: String(t).trim(), area })); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es einen API-Schlüssel.' : e.message); } finally { setBusy(false); }
   };
   const save = (h, i) => {
     const cat = /zahn|haut|augen|haus|arzt|orthop|hno|kardio|médic|medic|doctor/i.test(what) ? 'arzt' : /physio|osteo|massage|kines/i.test(what) ? 'therapie' : /labor|blut|röntgen|mrt|ultra/i.test(what) ? 'labor' : 'arzt';
@@ -216,25 +220,25 @@ function DoctorFinder({ s, onTermin }) {
   };
   return (
     <>
-      <section className="card" style={{ gap: 10 }}>
-        <ModeToggle mode={mode} onChange={setMode} />
-        <div className="field"><span>Was suchst du?</span><div style={{ display: 'flex', gap: 8 }}><MicBtn value={what} onChange={setWhat} /><input className="input" style={{ flex: 1, minWidth: 0 }} value={what} onChange={(e) => setWhat(e.target.value)} placeholder="z.B. Zahnarzt, Physiotherapie" aria-label="Was suchst du?" /></div></div>
-        <div className="chips" style={{ marginTop: -4 }}>{QUICK.map((q) => <button key={q} type="button" className={what === q ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setWhat(q)}>{q}</button>)}</div>
-        <label className="field"><span>Wo ungefähr?</span><input className="input" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Viertel, z.B. Palermo" /></label>
-        <div className="chips" style={{ marginTop: -4 }}>
-          <button type="button" className="chip soft small-chip" onClick={async () => { try { setArea(await hoodHere()); } catch (e) { toast(e.message); } }}>📍 Mein Standort</button>
-          {areas.filter((a) => a !== area).slice(0, 6).map((a) => <button key={a} type="button" className="chip soft small-chip" onClick={() => setArea(a)}>{a}</button>)}
-        </div>
+      <SearchCard q={what} setQ={setWhat} placeholder="z.B. Zahnarzt, Physiotherapie" mode={mode} busy={busy} emptyOk={false}
+        quick={<QuickChips chips={QUICK} q={what} setQ={setWhat} />}
+        filters={<div className="filter-pair"><QuickSheet className="filter-btn" label={<><span className="tiny">Wo ungefähr?</span><b>📍 {area || 'Überall'} ▾</b></>} title="Wo ungefähr?">{(close) => (
+          <>
+            <form className="block-add" onSubmit={(e) => { e.preventDefault(); close(); }}><input className="input" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Viertel, z.B. Palermo" aria-label="Viertel" /><button type="submit" className="btn small">OK</button></form>
+            <div className="chips">
+              <button type="button" className="chip soft" onClick={async () => { try { setArea(await hoodHere()); close(); } catch (e) { toast(e.message); } }}>📍 Mein Standort</button>
+              {area && <button type="button" className="chip soft" onClick={() => { setArea(''); close(); }}>Überall</button>}
+              {areas.filter((a) => a !== area).slice(0, 8).map((a) => <button key={a} type="button" className="chip soft" onClick={() => { setArea(a); close(); }}>{a}</button>)}
+            </div>
+          </>
+        )}</QuickSheet></div>}
+        onLinks={() => setMode('links')} onAi={run} aiLabel="✨ KI" aiCost="~1 ct"
+        hint="🔗 Links: Doctoralia, Google Maps, Turno online – kostenlos. ✨ KI: eine Internet-Suche (ca. 1 Cent); Treffer als Ort speichern oder gleich einen Termin anlegen.">
         {mode === 'links' && (what.trim()
           ? <div className="chips">{doctorLinks(what.trim(), area.trim(), s.profile?.city).map((l) => <a key={l.url} className="pill link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}</div>
-          : <span className="tiny">Oben eingeben, was du suchst – dann erscheinen die Links.</span>)}
-        {mode === 'ki' && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button type="button" className="btn small" disabled={busy || !getAi().apiKey || !what.trim()} onClick={run}>{busy ? 'Ich suche …' : '✨ Passende Praxen suchen'}</button>
-            <Info>Eine Internet-Suche, ca. 1 Cent. Treffer kannst du als Ort speichern oder gleich einen Termin anlegen.</Info>
-          </div>
-        )}
-      </section>
+          : <span className="tiny">Eingeben, was du suchst – dann erscheinen die Links.</span>)}
+        {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche …</span></div>}
+      </SearchCard>
       {mode === 'ki' && res && (
         <section className="card" style={{ gap: 8 }}>
           {!res.treffer?.length && <span className="sub">{res.hinweis || 'Nichts gefunden – probier die Links.'}</span>}

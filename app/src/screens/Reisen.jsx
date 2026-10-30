@@ -20,7 +20,9 @@ import MapView from '../components/MapView';
 import { DateRangeField, rangeText } from '../components/DateRange';
 import { Back, Chevron, Field, Icon, Sheet, TabBar, toast, Info } from '../components/ui';
 import { Missing } from './Saeule';
-import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
+import SourceLinks, { useSearchMode } from '../components/SourceLinks';
+import SearchCard, { QuickChips } from '../components/SearchCard';
+import { SOURCE_AREAS } from '../lib/sources';
 import { Segmented } from '../components/ui';
 import { tripCountry, tripRegion, tripText } from '../lib/geo';
 
@@ -322,13 +324,22 @@ function CostCard({ s, tr, onSearch }) {
 function Inspiration({ s }) {
   const [pending, setPending] = useState(null);
   const [mode, setMode] = useSearchMode('reiseziele', 'ki');
+  const [q, setQ] = useState('');
+  const ask = useRef(null);
+  const pend = useRef('');
+  const ai = (t) => { setMode('ki'); const x = t.trim(); if (!x) return; setQ(''); if (ask.current) ask.current(x); else { pend.current = x; setTimeout(() => { if (pend.current && ask.current) { ask.current(pend.current); pend.current = ''; } }, 350); } };
   return (
     <>
-      <h2 className="label" style={{ padding: '0 4px', marginBottom: -6 }}>Wohin könnte ich?</h2>
-      <ModeToggle mode={mode} onChange={setMode} />
-      {mode === 'links' && <SourceLinks s={s} area="reiseziele" instant />}
+      <SearchCard title="Wohin könnte ich?" q={q} setQ={setQ} placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD" mode={mode}
+        quick={<QuickChips chips={SOURCE_AREAS.reiseziele?.chips || INSPO_CHIPS} q={q} setQ={setQ} />}
+        onLinks={() => setMode('links')} onAi={ai} aiLabel="✨ KI" aiCost="~1 ct"
+        hint="🔗 Links: Skyscanner „Überall“, Google Flights, Pinterest, Reddit & Co. – kostenlos. ✨ KI: schlägt passende Ziele vor; ankreuzen = als Ideen speichern. Rückfragen unten im Chat.">
+        {mode === 'links' && <SourceLinks embedded s={s} area="reiseziele" query={q} />}
+      </SearchCard>
       {mode === 'ki' && <PlanChat
         title="Reiseführer-KI"
+        compact
+        sendRef={ask}
         history={chatOf(s, 'reiseziele')}
         prefKey="reiseziele"
         onSave={(h) => saveChatOf('reiseziele', h)}
@@ -336,7 +347,7 @@ function Inspiration({ s }) {
         groups={GUIDE_GROUPS}
         onApply={(sel) => setPending(sel)}
         chips={INSPO_CHIPS}
-        placeholder="z.B. 5 Tage im Dezember, Natur, max. 300 USD"
+        placeholder="Rückfrage oder neuer Wunsch …"
       />}
       <TargetSheet s={s} sel={pending} onClose={() => setPending(null)} />
     </>

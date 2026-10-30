@@ -10,7 +10,8 @@ import {
   allCities, citiesOf, cityOf, countryOf, hoodsOf, locateCountry, mapsUrl, cityHere, PLACE_PRICES, PLACE_TAGS, ALL_TAGS, cityPos, discoverPlaces, parsePlaces, eventCity, eventLinks, lastEventLinks, EVENT_CHIPS, EVENT_PREF_PRESETS, findPlace, geocode, HOME_CITY, lastEventSearch, lastPlaceSearch, locate, locateCity, PLACE_CHIPS, placeCity, saveEventSearch, savePlaceSearch, searchEvents, parseEventText, routeUrl, eventDest, findHours,
 } from '../lib/outings';
 import LinkList from '../components/LinkList';
-import SourceLinks, { ModeToggle, useSearchMode } from '../components/SourceLinks';
+import SourceLinks, { useSearchMode } from '../components/SourceLinks';
+import SearchCard from '../components/SearchCard';
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
 import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info, TopActions } from '../components/ui';
@@ -222,7 +223,7 @@ function EventSheet({ init, city, onClose }) {
 // ---------- Events ----------
 function Events({ s, city, view = 'find' }) {
   const t = today();
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(() => takeFlag('life-search-q') || '');
   const [search, setSearch] = useState(lastEventSearch);
   const [links, setLinks] = useState(lastEventLinks);
   const mode = 'web';
@@ -307,26 +308,19 @@ function Events({ s, city, view = 'find' }) {
     <>
       <EventSheet init={evForm} city={city} onClose={() => setEvForm(null)} />
       {view === 'find' && <>
-      <section className="card" style={{ gap: 8, padding: 12 }}>
-        <ModeToggle mode={smode} onChange={setSmode} />
-        <form onSubmit={(e) => { e.preventDefault(); if (smode === 'ki') run(q); }} style={{ display: 'flex', gap: 8 }}>
-          <MicBtn value={q} onChange={setQ} onDone={(t) => { if (smode === 'ki' && hasKey) run(t); }} />
-          <input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Was ist los in ${city}?`} aria-label="Wonach suchen" />
-          <SearchChips quick s={s} kind="events" defaults={EVENT_CHIPS} disabled={smode === 'ki' && (!!busy || !hasKey)} onPick={(c) => (smode === 'ki' ? run(c) : setQ(c))} />
-          {smode === 'ki' && <button type="submit" className="btn small" style={{ flexShrink: 0 }} disabled={!q.trim() || !!busy || !hasKey} aria-label="Events suchen">{busy ? '…' : '🔍'}</button>}
-        </form>
-        {smode === 'links' ? <SourceLinks embedded s={s} area="events" city={city} query={q} /> : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <Prefs s={s} />
-            <Info>Die KI sucht selbst im Internet (Passline, Eventbrite, Instagram & Co.) und zeigt dir konkrete Events passend zu deinen Vorlieben – ca. 3–5 Cent pro Suche.</Info>
-            {!hasKey && <a href="#/einstellungen" className="link-btn">API-Schlüssel hinterlegen</a>}
-          </div>
-        )}
+      <SearchCard q={q} setQ={setQ} placeholder={`Was ist los in ${city}?`} mode={smode} busy={!!busy}
+        quick={<SearchChips quick s={s} kind="events" defaults={EVENT_CHIPS} disabled={false} onPick={(c) => setQ(c)} />}
+        filters={smode === 'ki' ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}><Prefs s={s} /></div> : null}
+        onLinks={() => setSmode('links')}
+        onAi={(t) => { setSmode('ki'); run(t.trim() || 'Events in den nächsten Tagen passend zu meinen Vorlieben'); }}
+        aiLabel="✨ KI" aiCost="~4 ct"
+        hint="🔗 Links: öffnet Passline, Eventbrite, Instagram & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: sucht selbst im Internet und zeigt konkrete Events passend zu deinen Vorlieben (ca. 3–5 Cent). Leeres Feld = passend zu deinen Vorlieben.">
+        {smode === 'links' && <SourceLinks embedded s={s} area="events" city={city} query={q} />}
         {busy && (
           <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche auf Passline, Eventbrite, Meetup & Co. … (ca. 20–30 Sek.)' : 'Ich überlege gezielte Suchen … (ca. 5 Sek.)'}</span></div>
         )}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
-      </section>
+      </SearchCard>
 
       {!busy && mode === 'links' && links && (
         <section className="card" style={{ gap: 10 }}>
@@ -681,8 +675,8 @@ function Orte({ s, city, view = 'mine' }) {
   const [fsheet, setFsheet] = useState(null); // 'viertel' | 'art' | 'sterne' | 'mehr'
   const [newHood, setNewHood] = useState('');
   const [sheet, setSheet] = useState(() => (takeFlag('life-open-new-place') ? 'neu' : null)); // null | 'neu' | place
-  const [q, setQ] = useState('');
-  const [mq, setMq] = useState(''); // v0.95: Suche in meinen Orten
+  const [q, setQ] = useState(() => takeFlag('life-search-q') || '');
+  const [mq, setMq] = useState(() => takeFlag('life-place-q') || ''); // v0.95: Suche in meinen Orten
   const [search, setSearch] = useState(lastPlaceSearch);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -792,16 +786,12 @@ function Orte({ s, city, view = 'mine' }) {
       ))}
 
       </>)}
-      {view === 'find' && <section className="card" style={{ gap: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: 17 }}>Neue Orte in {city} entdecken</span>
-        <Info>„Merken“ legt den Ort unter „Meine Orte“ als „Will hin“ ab – dort findest du ihn wieder.</Info>
-        <ModeToggle mode={pmode} onChange={setPmode} />
-        <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (pmode === 'ki') run(q); }}>
-          <MicBtn value={q} onChange={setQ} onDone={(t) => { if (pmode === 'ki' && hasKey) run(t); }} />
-          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="z.B. Specialty Coffee in Palermo" aria-label="Orte suchen" />
-          <SearchChips quick s={s} kind="places" defaults={PLACE_CHIPS} disabled={pmode === 'ki' && (busy || !hasKey)} onPick={(c) => (pmode === 'ki' ? run(c) : setQ(c))} />
-          {pmode === 'ki' && <button type="submit" className="btn small" disabled={!q.trim() || busy || !hasKey} aria-label="Suchen"><Icon name="search" size={16} color="currentColor" /></button>}
-        </form>
+      {view === 'find' && <SearchCard q={q} setQ={setQ} placeholder={`z.B. Specialty Coffee · ${city}`} mode={pmode} busy={!!busy}
+        quick={<SearchChips quick s={s} kind="places" defaults={PLACE_CHIPS} disabled={false} onPick={(c) => setQ(c)} />}
+        onLinks={() => setPmode('links')}
+        onAi={(t) => { setPmode('ki'); run(t.trim() || 'Besondere Orte passend zu meinen Vorlieben'); }}
+        aiLabel="✨ KI" aiCost="~2 ct"
+        hint="🔗 Links: Google Maps, Tripadvisor, Time Out & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: sucht Empfehlungen im Internet (ca. 2 Cent). „Merken“ legt den Ort unter „Meine Orte“ als „Will hin“ ab.">
         {pmode === 'links' && <SourceLinks embedded s={s} area="orte" city={city} query={q} />}
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Empfehlungen … (ca. 20 Sek.)</span></div>}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
@@ -819,7 +809,7 @@ function Orte({ s, city, view = 'mine' }) {
             <button type="button" className="pill on" onClick={() => keep(r)}>Merken</button>
           </div>
         ))}
-      </section>}
+      </SearchCard>}
       <Sheet open={!!fsheet} title={{ viertel: 'Stadtviertel', art: 'Art', sterne: 'Sterne', mehr: 'Weitere Filter' }[fsheet] || ''} onClose={() => setFsheet(null)}>
         {fsheet === 'viertel' && (
           <>

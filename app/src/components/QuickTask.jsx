@@ -15,7 +15,7 @@ export default function QuickTask() {
   const [time, setTime] = useState('');
   const ref = useRef(null);
   useEffect(() => {
-    const h = () => { setTitle(''); setDue(today()); setTime(''); setOpen(true); setN((x) => x + 1); setTimeout(() => ref.current?.focus(), 250); };
+    const h = (e) => { setTitle(e?.detail?.title || ''); setDue(today()); setTime(''); setOpen(true); setN((x) => x + 1); setTimeout(() => ref.current?.focus(), 250); };
     const hc = () => setOpen(false);
     window.addEventListener('life-quick-task', h);
     window.addEventListener('hashchange', hc);
