@@ -98,13 +98,16 @@ export default function Aktionen() {
         {!editing && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" className="btn" style={{ flex: 1 }} onClick={pasteAndSort}>📋 Kopiertes eintragen</button>
-            <button type="button" className="btn tint" style={{ flex: 1 }} onClick={() => go('/erfassen')}>🎙 Erzählen</button>
+            <button type="button" className="btn tint" style={{ flex: 1 }} onClick={() => { try { sessionStorage.setItem('life-erfassen-mic', '1'); } catch {} go('/erfassen'); }}>🎙 Erzählen</button>
           </div>
         )}
-        {!editing && <button type="button" className="link-btn" style={{ alignSelf: 'flex-end', fontSize: 14, marginTop: -4 }} onClick={startEditing}>✎ Anpassen</button>}
-        {ACTIONS.map((g) => (
+        {ACTIONS.map((g, gi) => (
           <section key={g.id} className="group act-group">
-            <h2 className="label" style={{ padding: '0 4px' }}>{g.title}</h2>
+            {/* v1.38 (Mateo): „✎ Anpassen“ in der Überschrift-Zeile statt eigener Zeile (keine Lücke mehr) */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+              <h2 className="label" style={{ padding: 0, flex: 1 }}>{g.title}</h2>
+              {gi === 0 && !editing && <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={startEditing}>✎ Anpassen</button>}
+            </div>
             <SortGrid
               s={s}
               orderKey={`los-${g.id}`}

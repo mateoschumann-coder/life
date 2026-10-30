@@ -17,7 +17,9 @@ import { buildSystem, getAi, TOOL } from '../lib/ai';
 import { locate, searchWithTool } from '../lib/outings';
 import { today } from '../lib/dates';
 import { DateRangeField } from '../components/DateRange';
-import { AreaSelect, Back, Field, Sheet, SubSelect, TabBar, toast, Info } from '../components/ui';
+import { canDictate, useDictation } from '../lib/dictate';
+import { takeFlag } from '../lib/flags';
+import { AreaSelect, Back, Field, Icon, Sheet, SubSelect, TabBar, toast, Info } from '../components/ui';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
 export const TARGETS = [
@@ -59,6 +61,9 @@ export default function Erfassen() {
   const [ai, setAi] = useState(null); // { inboxId, text, actions, picked }
   const [busy, setBusy] = useState(false);
   const hasKey = !!getAi().apiKey;
+  // v1.38 (Mateo): „🎙 Erzählen“ im Blitz → Mikro startet hier sofort; tippen geht trotzdem
+  const mic = useDictation(text, setText);
+  useEffect(() => { if (takeFlag('life-erfassen-mic') && canDictate) setTimeout(() => mic.start(), 50); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runAi = async (t, inboxId = null) => {
     setBusy(inboxId || 'neu');
@@ -99,14 +104,16 @@ export default function Erfassen() {
         <section className="card">
           <label htmlFor="capture" className="label">Was willst du festhalten?</label>
           <textarea id="capture" className="input" style={{ fontSize: 18, minHeight: 110 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. Halbmarathon in Rosario im April merken · Hotel California für Gitarre · Bei Kaszek beworben" />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="ai-input-row">
+            {canDictate && <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Fertig gesprochen' : 'Sprechen'}><Icon name={mic.on ? 'stop' : 'mic'} size={18} /></button>}
+            <span className="tiny" style={{ flex: 1 }}>{mic.on ? '🎙 Ich höre zu – nochmal antippen = fertig' : 'Sprechen, schreiben oder einfügen'}</span>
             <button type="button" className="btn small tint" onClick={paste}>📋 Einfügen</button>
-            <span style={{ flex: 1 }} />
-            <Info>Link oder Text einfügen – bei Links liest die KI die Seite und trägt Event, Ort, Rezept, Stelle, Rennen … mit allen Details ein. Diktieren: Mikrofon auf der Tastatur.</Info>
+            <Info>Link oder Text einfügen – bei Links liest die KI die Seite und trägt Event, Ort, Rezept, Stelle, Rennen … mit allen Details ein.</Info>
           </div>
+          {mic.error && <span className="sub" style={{ color: 'var(--danger)' }}>{mic.error}</span>}
         </section>
         {hasKey && (
-          <button type="button" className="btn" disabled={!text.trim() || !!busy} onClick={() => runAi(text.trim())}>{busy === 'neu' ? 'Ich sortiere ein …' : '✨ KI sortiert ein'}</button>
+          <button type="button" className="btn" disabled={!text.trim() || !!busy} onClick={() => { if (mic.on) mic.stop(); runAi(text.trim()); }}>{busy === 'neu' ? 'Ich sortiere ein …' : '✨ KI sortiert ein'}</button>
         )}
         <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <h2 className="label">{hasKey ? 'Oder selbst wählen, wohin es gehört' : 'Wohin gehört es?'}</h2>

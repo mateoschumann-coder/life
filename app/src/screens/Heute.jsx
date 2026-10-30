@@ -8,13 +8,13 @@ import { addDays, diffDays, dueText, fmtLong, parseKey, relDays, startOfWeek, ta
 import {
   allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink,
 } from '../lib/logic';
-import { addTask, logContact, toggleCheckin, toggleTask, deleteTask } from '../lib/actions';
+import { addTask, logContact, toggleCheckin, toggleTask, deleteTask, archiveEvent, archiveGathering, archiveInvite } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast, TopActions } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
 import Overview from '../components/Overview';
-import { doneHealthItem } from '../lib/health';
-import { doneReminder, EVERY } from '../lib/home';
+import { doneHealthItem, deleteHealthItem } from '../lib/health';
+import { doneReminder, deleteReminder, EVERY } from '../lib/home';
 const fmtShortDays = (d, t) => { const n = diffDays(d, t); return `${n} ${n === 1 ? 'Tag' : 'Tagen'}`; };
 
 const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -152,6 +152,8 @@ export default function Heute() {
     return null;
   };
   const delTask = (x) => { if (askDel(`„${x.title}“ löschen?`)) deleteTask(x.id); };
+  // v1.38 (Mateo): auch Events, Veranstaltungen, Einladungen, Erinnerungen und Termine per ✕/Wischen entfernen (Rückgängig über den Hinweis; Events/Veranstaltungen/Einladungen landen in der Archiv-Kiste)
+  const del = (label, fn) => () => { if (askDel(`„${label}“ entfernen`)) fn(); };
   // ---------- Einträge für den gewählten Tag ----------
   const dayItems = (key) => {
     const list = [];
@@ -167,19 +169,19 @@ export default function Heute() {
       });
     s.events
       .filter((e) => e.date === key && e.stage !== 'entdeckt')
-      .forEach((e) => list.push({ key: 'e' + e.id, event: true, open: toEvents, title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
+      .forEach((e) => list.push({ key: 'e' + e.id, event: true, open: toEvents, onDelete: del(e.name, () => archiveEvent(e.id)), title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.reminders || [])
       .filter((r) => r.next === key)
-      .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), open: jump('#/zuhause/erinnerungen'), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
+      .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), onDelete: del(r.title, () => deleteReminder(r.id)), open: jump('#/zuhause/erinnerungen'), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
     (s.gatherings || [])
       .filter((g) => g.date === key && !g.idea)
-      .forEach((g) => list.push({ key: 'g' + g.id, event: true, open: jump(`#/treffen/${g.id}`), title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
+      .forEach((g) => list.push({ key: 'g' + g.id, event: true, onDelete: del(g.name, () => archiveGathering(g.id)), open: jump(`#/treffen/${g.id}`), title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
     (s.invites || [])
       .filter((x) => x.date === key && x.status !== 'abgesagt')
-      .forEach((x) => list.push({ key: 'i' + x.id, event: true, open: jump('#/saeule/sozial', () => setLS('life-app-sozial-tab', 'andere')), title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
+      .forEach((x) => list.push({ key: 'i' + x.id, event: true, onDelete: del(x.name, () => archiveInvite(x.id)), open: jump('#/saeule/sozial', () => setLS('life-app-sozial-tab', 'andere')), title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date === key)
-      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
+      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => deleteHealthItem(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
     s.people
       .filter((p) => p.birthday && p.birthday.slice(5) === key.slice(5))
       .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), open: jump(`#/person/${p.id}`), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
@@ -197,10 +199,10 @@ export default function Heute() {
       });
     (s.reminders || [])
       .filter((r) => r.next < t)
-      .forEach((r) => extra.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), open: jump('#/zuhause/erinnerungen'), title: r.title, color: '#2FA36B', meta: `Erinnerung · überfällig seit ${fmtShortDays(r.next, t)}`, overdue: true }));
+      .forEach((r) => extra.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), onDelete: del(r.title, () => deleteReminder(r.id)), open: jump('#/zuhause/erinnerungen'), title: r.title, color: '#2FA36B', meta: `Erinnerung · überfällig seit ${fmtShortDays(r.next, t)}`, overdue: true }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date < t)
-      .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
+      .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => deleteHealthItem(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
     s.habits
       .filter((h) => h.count > 0)
       .forEach((h) => {

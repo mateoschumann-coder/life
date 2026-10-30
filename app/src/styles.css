@@ -754,7 +754,7 @@ input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; dis
 .toast.toast-act { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; }
 .toast.toast-act button { border: 0; background: rgba(255,255,255,0.18); color: inherit; font: inherit; font-weight: 650; padding: 7px 12px; border-radius: 12px; white-space: nowrap; }
 /* v1.30: Wischen in Listen */
-.swipe { position: relative; margin-left: -16px; }
+.swipe { position: relative; margin-left: -16px; touch-action: pan-y; }
 .swipe-in { padding-left: 16px; background: var(--card); position: relative; }
 .swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-weight: 650; color: #fff; font-size: 14px; }
 .swipe-bg.r { background: #2FA36B; }
@@ -804,3 +804,5 @@ select.input.rhythm-sel { height: auto; padding: 2px 8px; }
 /* v1.37: kleine KI-Schalter (Ohne/Mit Internet · Schnell/Gründlich) */
 .ki-toggles { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 6px; }
 .seg.seg-xs button { flex: 1 1 0; font-size: 12px; min-height: 26px; padding: 0 3px; text-overflow: clip; }
+
+.fridge-pair.with-mic { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; }

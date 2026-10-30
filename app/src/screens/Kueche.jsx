@@ -3,6 +3,7 @@ import { askDel } from '../lib/undo';
 import Swipe from '../components/Swipe';
 import { useEffect, useRef, useState } from 'react';
 import { takeFlag } from '../lib/flags';
+import { canDictate, useDictation } from '../lib/dictate';
 import { store, useStore } from '../lib/store';
 import {
   addRecipe, addShopping, clearBought, clearShopping, deleteRecipe, importRecipe, kitchenChat, stripQty, removeShopping, setRecipeCats, shopCats, shopStructure, shopEdit, shopCatalog, addCatalogItem, shopCatOf, setShoppingCat, shoppingSuggestions, toggleShopping, updateRecipe, cuisinesOf, setCuisines, removeCatalogItem,
@@ -494,13 +495,16 @@ function FridgePicker({ s, onAsk, disabled }) {
   const [newCuis, setNewCuis] = useState('');
   const [sheet, setSheet] = useState(null); // 'zutaten' | 'kueche'
   const [edit, setEdit] = useState(false);
+  // v1.38 (Mateo): neben den zwei Auswahl-Knöpfen ein 🎙 – erzählen, was noch da ist oder worauf man Lust hat; zählt zusammen mit der Auswahl
+  const [note, setNote] = useState('');
+  const mic = useDictation(note, setNote);
   const cur = cats.find((c) => c.id === catId) || cats[0];
   const items = cur ? shopCatalog(s, cur.id) : [];
   const allCuis = cuisinesOf(s);
   const clean = (n) => String(n).replace(/\s*\([^)]*\)/g, '').replace(/\?$/, '').trim();
   const tog = (n) => setSel(sel.includes(n) ? sel.filter((x) => x !== n) : [...sel, n]);
   const inCat = (c) => shopCatalog(s, c.id).filter((x) => sel.includes(clean(x.name))).length;
-  const ask = () => onAsk(`Ich habe da: ${sel.join(', ')}.${cuis.length ? ` Küche: ${cuis.join(' oder ')}.` : ' Küche: egal.'} Was kann ich daraus kochen?`);
+  const ask = () => { if (mic.on) mic.stop(); onAsk([sel.length && `Ich habe da: ${sel.join(', ')}.`, note.trim() && `Dazu: ${note.trim()}`, cuis.length ? `Küche: ${cuis.join(' oder ')}.` : 'Küche: egal.', 'Was kann ich daraus kochen?'].filter(Boolean).join(' ')); setNote(''); };
   const short = (list, none) => (list.length ? (list.length <= 2 ? list.join(', ') : `${list.slice(0, 2).join(', ')} +${list.length - 2}`) : none);
   const addIng = (e) => {
     e.preventDefault();
@@ -522,7 +526,7 @@ function FridgePicker({ s, onAsk, disabled }) {
   const editBtn = <button type="button" className={edit ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎ Bearbeiten'}</button>;
   return (
     <section className="card" style={{ gap: 8, padding: '10px 12px' }}>
-      <div className="fridge-pair">
+      <div className="fridge-pair with-mic">
         <button type="button" className="fridge-btn" onClick={() => setSheet('zutaten')}>
           <span className="tiny">🥕 Was hast du da?</span>
           <span className="fridge-val">{short(sel, 'Antippen')}</span>
@@ -531,15 +535,17 @@ function FridgePicker({ s, onAsk, disabled }) {
           <span className="tiny">🍽 Welche Küche?</span>
           <span className="fridge-val">{short(cuis, 'Alle')}</span>
         </button>
+        {canDictate && <button type="button" className={mic.on ? 'mic on' : 'mic'} style={{ width: 48, height: 48, alignSelf: 'center' }} onClick={mic.toggle} aria-label={mic.on ? 'Fertig gesprochen' : 'Erzählen, was du hast'}><Icon name={mic.on ? 'stop' : 'mic'} size={18} /></button>}
       </div>
+      {(mic.on || note.trim()) && <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}><span className="tiny" style={{ flex: 1, color: 'var(--text)' }}>🎙 {note.trim() ? `„${note.trim()}“` : 'Ich höre zu …'}</span>{note.trim() && !mic.on && <button type="button" className="x-btn" onClick={() => setNote('')} aria-label="Gesagtes löschen"><Icon name="x" size={12} color="var(--chev)" /></button>}</div>}
       {(sel.length > 0 || cuis.length > 0) && (
         <div className="chips">
           {sel.map((n) => <button key={n} type="button" className="chip soft small-chip" onClick={() => tog(n)} aria-label={`${n} entfernen`}>{n} ✕</button>)}
           {cuis.map((n) => <button key={'k' + n} type="button" className="chip soft small-chip" onClick={() => setCuis(cuis.filter((x) => x !== n))} aria-label={`${n} entfernen`}>🍽 {n} ✕</button>)}
         </div>
       )}
-      <button type="button" className="btn small" disabled={disabled || !sel.length} onClick={ask}>✨ Rezept erstellen</button>
-      {!sel.length && <span className="tiny">Erst Zutaten wählen – tippen musst du nichts.</span>}
+      <button type="button" className="btn small" disabled={disabled || (!sel.length && !note.trim())} onClick={ask}>✨ Rezept erstellen</button>
+      {!sel.length && !note.trim() && <span className="tiny">Zutaten antippen oder 🎙 erzählen, was du da hast – oder beides.</span>}
       <Sheet open={sheet === 'zutaten'} title={`Was hast du da?${sel.length ? ` · ${sel.length}` : ''}`} onClose={close}>
         <div className="box-tabs">
           {cats.map((c) => { const n = inCat(c); return <button key={c.id} type="button" className={cur?.id === c.id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCatId(c.id)}>{c.emoji} {c.label}{n ? ` · ${n}` : ''}</button>; })}
@@ -629,8 +635,8 @@ function KitchenChat({ s, mode = 'neu', askRef, pending }) {
       <PlanChat
         key={mode}
         compact
-        noInput={!!askRef}
-        bare={!!askRef}
+        noInput={!!askRef || mode === 'kuehlschrank'}
+        bare={!!askRef || mode === 'kuehlschrank'}
         sendRef={sendRef}
         title={mode === 'diktieren' ? 'Rezept diktieren' : mode === 'kuehlschrank' ? 'KI-Koch' : 'Küchen-Chat'}
         intro={m.intro}
