@@ -382,7 +382,7 @@ export async function parseGatheringText(s, text) {
   const tpls = Object.entries(templatesOf(s)).map(([k, o]) => `${k} (${o.kind || 'zuhause'}: ${o.label})`).join(', ');
   const r = await searchWithTool({
     system: `Mateo organisiert selbst eine Veranstaltung und beschreibt sie kurz. Lies Name, Datum, Uhrzeit, Art (zu Hause bei ihm oder woanders), Gästezahl und Ort heraus und wähle die passendste Vorlage. Vorlagen: ${tpls}. Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()} (${fmtLong(today())}). Antworte mit "veranstaltung_lesen".`,
-    user: text, tool: GATHER_FILL, maxUses: 0, maxTokens: 800, label: 'Veranstaltung ausfüllen',
+    user: text, tool: GATHER_FILL, maxUses: 0, maxTokens: 800, label: 'Treffen ausfüllen',
   });
   const all = templatesOf(s);
   if (r && r.vorlage && !all[r.vorlage]) r.vorlage = '';

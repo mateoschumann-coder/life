@@ -382,7 +382,6 @@ function RegionSheet({ open, onClose, regions, pick, setPick }) {
       <button type="button" className="btn sec" style={{ background: 'var(--card-2)' }} disabled={busy} onClick={here}>{busy ? 'Suche deinen Standort …' : '📍 Mein Standort'}</button>
       <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Stadt, Land oder Region suchen/eingeben" aria-label="Region suchen" />
       {q.trim() && !exact && <button type="button" className="btn" onClick={() => add(q.trim())}>+ „{q.trim()}“ hinzufügen</button>}
-      <span className="tiny">Antippen = auswählen (mehrere möglich).</span>
       <div className="list">
         {match.map((r) => (
           <div key={r} className="row" style={{ minHeight: 48, gap: 6 }}>

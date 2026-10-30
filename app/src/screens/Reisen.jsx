@@ -598,8 +598,7 @@ function Route({ s, tr }) {
         />
         {autoLine(rueck, 'Rückreise')}
         {openSt && stops.some((x) => x.id === openSt) && <StopSheet s={s} tr={tr} v={null} i={stops.findIndex((x) => x.id === openSt)} onClose={() => setOpenSt(null)} />}
-        {(hin || rueck) && <Info>An- und Rückreise kommen aus dem Startort (✎ oben) und passen sich an, wenn sich die erste oder letzte Station ändert.</Info>}
-        {!stops.length && tripKind(tr) !== 'ort' && <Info>Tipp: Unter „Varianten“ ganze Routen oder einzelne Orte hierher übernehmen.</Info>}
+        {((hin || rueck) || (!stops.length && tripKind(tr) !== 'ort')) && <Info>{[(hin || rueck) && 'An- und Rückreise kommen aus dem Startort (✎ oben) und passen sich an, wenn sich die erste oder letzte Station ändert.', !stops.length && tripKind(tr) !== 'ort' && 'Tipp: Unter „Varianten“ ganze Routen oder einzelne Orte hierher übernehmen.'].filter(Boolean).join(' ')}</Info>}
       </section>
       {other.length > 0 && (
         <section className="group">
@@ -1510,7 +1509,7 @@ function PackHelper({ s, tr }) {
       {sugg && left.length === 0 && <span className="tiny">Nichts mehr – du hast an alles gedacht.</span>}
       {left.length > 0 && (
         <>
-          <span className="tiny">Antippen = auf die Packliste</span>
+          <Info>Antippen = auf die Packliste</Info>
           <div className="chips">{left.map((x) => <button key={x.text} type="button" className="chip" onClick={() => addCheck(tr.id, 'packen', x.text, x.kategorie || 'Sonstiges')} title={x.warum}>+ {x.text}{x.warum ? <span className="tiny"> · {x.warum}</span> : null}</button>)}</div>
         </>
       )}

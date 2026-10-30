@@ -6,7 +6,7 @@ import { DIRECT } from './Bereich';
 import SortGrid, { SortDone } from '../components/SortGrid';
 
 const SOZIAL = [
-  { id: 'events', name: 'Veranstal\u00ADtungen', icon: 'sparkle', href: '#/saeule/sozial' },
+  { id: 'events', name: 'Treffen', icon: 'sparkle', href: '#/saeule/sozial' },
   { id: 'ausgehen', name: 'Ausgehen', icon: 'calendar', href: '#/ausgehen' },
   { id: 'menschen', name: 'Menschen', icon: 'users', href: '#/menschen' },
 ];

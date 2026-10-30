@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, store } from '../lib/store';
 import { go } from '../lib/router';
 import { fmtShort } from '../lib/dates';
-import { Sheet } from './ui';
+import { Info, Sheet } from './ui';
 import MicBtn from './MicBtn';
 
 const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -19,7 +19,7 @@ function groups(s) {
   add('people', '👤 Menschen', (s.people || []).map((p) => ({ title: p.name, extra: [p.notes, p.phone], sub: meta(p.category && { familie: 'Familie', freunde: 'Freunde', neu: 'Neue Kontakte', beruflich: 'Beruflich' }[p.category]), open: () => go(`/person/${p.id}`) })));
   add('tasks', '✅ Aufgaben', (s.tasks || []).filter((t) => !t.done).map((t) => ({ title: t.title, extra: [t.notes], sub: meta(t.due ? short(t.due) : 'ohne Datum', t.time), open: () => (t.personId ? go(`/person/${t.personId}`) : t.projectId ? go(`/projekt/${t.projectId}`) : (ls('life-app-heute-view', 'todos'), go('/heute'))) })));
   add('events', '🎶 Events (Ausgehen)', (s.events || []).map((e) => ({ title: e.name, extra: [e.place, e.note, e.city], sub: meta(short(e.date), e.place), open: () => { ls('life-app-ausgehen-tab', 'events'); ls('life-app-events-view', 'mine'); ls('life-app-events-stage', e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'); go('/ausgehen'); } })));
-  add('gatherings', '🎉 Veranstaltungen', (s.gatherings || []).map((g) => ({ title: g.name, extra: [g.place, g.motto, g.address], sub: meta(g.idea ? 'Idee' : '', short(g.date), g.place), open: () => go(`/treffen/${g.id}`) })));
+  add('gatherings', '🎉 Treffen', (s.gatherings || []).map((g) => ({ title: g.name, extra: [g.place, g.motto, g.address], sub: meta(g.idea ? 'Idee' : '', short(g.date), g.place), open: () => go(`/treffen/${g.id}`) })));
   add('invites', '💌 Einladungen', (s.invites || []).map((v) => ({ title: v.name, extra: [v.host, v.place, v.note], sub: meta(v.host && `von ${v.host}`, short(v.date)), open: () => { ls('life-app-sozial-tab', 'andere'); go('/treffen'); } })));
   add('places', '📍 Orte (Ausgehen)', (s.places || []).map((p) => ({ title: p.name, extra: [p.address, p.note, p.hood, p.subcat, p.city, ...(p.tags || [])], sub: meta(p.subcat || p.category, p.hood, p.city), open: () => { ls('life-app-ausgehen-tab', 'orte'); ls('life-app-places-view', 'mine'); ss('life-place-q', p.name); if (p.city) store.update((d) => { d.profile = { ...(d.profile || {}), city: p.city }; }); go('/ausgehen'); } })));
   const books = { vorsorge: ['🩺 Praxen & Gesundheits-Orte', () => { ss('life-vorsorge-view', 'orte'); ls('life-vorsorge-orte', 'meine'); go('/vorsorge'); }], kueche: ['🛒 Geschäfte (Küche)', () => { ls('life-app-kueche-tab', 'orte'); go('/kueche'); }], einrichtung: ['🛋 Geschäfte (Einrichtung)', () => { ls('life-app-zuhause-einrichtung', 'orte'); go('/zuhause/einrichtung'); }], kleidung: ['👕 Geschäfte (Kleidung)', () => { ls('life-app-zuhause-kleidung', 'orte'); go('/zuhause/kleidung'); }] };
@@ -83,8 +83,8 @@ export default function GlobalSearch() {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <MicBtn value={q} onChange={setQ} />
         <input ref={ref} className="input" type="search" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, Ort, Rezept, Aufgabe …" aria-label="In Life suchen" />
+        <Info>Sucht in allem, was du gespeichert hast: Menschen, Aufgaben, Events, Orte, Rezepte, Termine, Reisen, Stellen … – kostenlos, ohne KI.</Info>
       </div>
-      {!words.length && <span className="tiny" style={{ padding: '0 4px' }}>Sucht in allem, was du gespeichert hast: Menschen, Aufgaben, Events, Orte, Rezepte, Termine, Reisen, Stellen … – kostenlos, ohne KI.</span>}
       {words.length > 0 && <span className="tiny" style={{ padding: '0 4px' }}>{total ? `${total} Treffer` : 'Nichts gefunden.'}</span>}
       {res.map((g) => {
         const list = more[g.key] ? g.hits : g.hits.slice(0, 5);

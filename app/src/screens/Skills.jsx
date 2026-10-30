@@ -102,7 +102,7 @@ function TypesSheet({ sk, open, onClose }) {
   const all = [...Object.keys(MAT_TYPES), ...(sk.customTypes || []).map((x) => x.id)];
   return (
     <Sheet open={open} title="Was willst du speichern?" onClose={onClose}>
-      <span className="tiny">Antippen = an/aus. Reihenfolge = wie du sie antippst.</span>
+<div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6 }}><Info>Antippen = an/aus. Reihenfolge = wie du sie antippst.</Info></div>
       <div className="chips">{all.map((t) => { const i = matTypeInfo(sk, t); const on = cur.includes(t); return <button key={t} type="button" className={on ? 'chip on' : 'chip soft'} onClick={() => setMatTypes(sk.id, on ? cur.filter((x) => x !== t) : [...cur, t])}>{i.emoji} {i.label}</button>; })}</div>
       <form className="block-add" onSubmit={(e) => { e.preventDefault(); if (addCustomType(sk.id, txt)) setTxt(''); }}>
         <input className="input" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Eigene Art, z.B. Noten, Akkorde, Projekte" aria-label="Eigene Art" />

@@ -136,7 +136,7 @@ function ItemSheet({ s, open, onClose, item }) {
             <input className="input" inputMode="numeric" style={{ width: 70 }} value={f.everyN} onChange={(e) => setF({ ...f, everyN: e.target.value.replace(/\D/g, '') })} placeholder={f.unit === 'w' ? '1' : '6'} aria-label="Alle wie viele" />
             <Segmented options={[{ id: 'w', label: 'Wochen' }, { id: 'm', label: 'Monate' }]} value={f.unit} onChange={(v) => setF({ ...f, unit: v })} label="Einheit" />
           </div>
-          <span className="tiny">Nach „Erledigt“ rückt der Termin automatisch weiter – Uhrzeit und Ort bleiben.</span>
+          <Info>Nach „Erledigt“ rückt der Termin automatisch weiter – Uhrzeit und Ort bleiben.</Info>
         </div>
       )}
       {!injury && (

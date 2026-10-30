@@ -340,7 +340,7 @@ export function applyActions(actions) {
 }
 
 // v1.26 (Mateo): Eintrag umziehen, z.B. Event ↔ Einladung ↔ eigene Veranstaltung ↔ Sport-Event (alter wird rausgenommen, zurückholbar)
-const MOVE_LABEL = { event: 'Ausgehen (Events)', einladung: 'Einladungen (Von anderen)', veranstaltung: 'Eigene Veranstaltungen', sport_event: 'Sport-Events' };
+const MOVE_LABEL = { event: 'Ausgehen (Events)', einladung: 'Einladungen (Von anderen)', veranstaltung: 'Eigene Treffen', sport_event: 'Sport-Events' };
 const MOVE_LIST = { event: (s) => s.events || [], einladung: (s) => s.invites || [], veranstaltung: (s) => s.gatherings || [], sport_event: (s) => s.sportEvents || [] };
 function moveSource(s, a) {
   const lists = a.von && MOVE_LIST[a.von] ? [a.von] : Object.keys(MOVE_LIST).filter((k) => k !== a.nach);

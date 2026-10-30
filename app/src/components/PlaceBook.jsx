@@ -55,7 +55,6 @@ export function ItemSheet({ s, book, cats, item, onClose, onSaved, city = null }
         fields={{ name: 'Name', area: 'Viertel', address: 'Adresse', phone: 'Telefon', url: 'Link', note: 'Notiz', status: { d: 'war = war schon, will = will hin', enum: ['war', 'will'] } }}
         placeholder="z.B. „Zahnarzt Dr. García in Palermo, war schon, sehr gut“" />}
       <Field label="Name"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="z.B. Coto, Dr. García" /></Field>
-      {!f.name.trim() && isNew && <span className="tiny" style={{ marginTop: -4 }}>Name eingeben – dann kann die KI Adresse & Telefon suchen.</span>}
       <Field label="Wo ungefähr?"><input className="input" value={f.area} onChange={(e) => setF({ ...f, area: e.target.value })} placeholder="Viertel oder Straße, z.B. Palermo" /></Field>
       <div className="chips" style={{ marginTop: -4 }}>
         <button type="button" className="chip soft small-chip" disabled={locating} onClick={async () => { setLocating(true); try { const h = await hoodHere(); setF((x) => ({ ...x, area: h })); } catch (e) { toast(e.message); } finally { setLocating(false); } }}>{locating ? '📍 …' : '📍 Mein Standort'}</button>

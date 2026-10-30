@@ -178,7 +178,7 @@ function StructureSheet({ s, open, onClose }) {
   const emojiInput = (value, onSave) => <input className="input" defaultValue={value} key={value} onBlur={(e) => e.target.value.trim() !== value && onSave(e.target.value.trim())} aria-label="Symbol" data-noclear="" style={{ width: 38, flex: 'none', textAlign: 'center', padding: '6px 2px', minHeight: 38, fontSize: 17 }} />;
   return (
     <Sheet open={open} title="Kategorien bearbeiten" onClose={onClose}>
-      <span className="tiny">Namen antippen zum Ändern. ↑↓ verschiebt, ✕ löscht. Artikel auf deiner Liste bleiben erhalten (landen sonst unter „Sonstiges“).</span>
+<div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6 }}><Info>Namen antippen zum Ändern. ↑↓ verschiebt, ✕ löscht. Artikel auf deiner Liste bleiben erhalten (landen sonst unter „Sonstiges“).</Info></div>
       {st.groups.map((g, gi) => (
         <section key={g.id} className="card" style={{ gap: 8, padding: 12 }}>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -545,7 +545,6 @@ function FridgePicker({ s, onAsk, disabled }) {
         </div>
       )}
       <button type="button" className="btn small" disabled={disabled || (!sel.length && !note.trim())} onClick={ask}>✨ Rezept erstellen</button>
-      {!sel.length && !note.trim() && <span className="tiny">Zutaten antippen oder 🎙 erzählen, was du da hast – oder beides.</span>}
       <Sheet open={sheet === 'zutaten'} title={`Was hast du da?${sel.length ? ` · ${sel.length}` : ''}`} onClose={close}>
         <div className="box-tabs">
           {cats.map((c) => { const n = inCat(c); return <button key={c.id} type="button" className={cur?.id === c.id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setCatId(c.id)}>{c.emoji} {c.label}{n ? ` · ${n}` : ''}</button>; })}
@@ -615,6 +614,23 @@ function RecipeFinder({ s }) {
     </>
   );
 }
+// v1.39 (Mateo): „Rezept diktieren“ im Stil der KI-Boxen – Textfeld, links 🎙, rechts „✨ Aufschreiben“
+function DictateCard({ onAsk, disabled }) {
+  const [t, setT] = useState('');
+  const mic = useDictation(t, setT);
+  const go = () => { if (mic.on) mic.stop(); if (!t.trim()) return; onAsk(t.trim()); setT(''); };
+  return (
+    <section className="card" style={{ gap: 8, padding: '10px 12px' }}>
+      <textarea className="input" style={{ minHeight: 96 }} rows={3} value={t} onChange={(e) => setT(e.target.value)} placeholder={mic.on ? '🎙 Ich höre zu …' : 'Erzähl dein Rezept: Zutaten, Mengen, Schritte – ich schreibe es sauber auf.'} aria-label="Rezept erzählen" />
+      <div className="ai-input-row">
+        {canDictate && <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Fertig gesprochen' : 'Rezept einsprechen'}><Icon name={mic.on ? 'stop' : 'mic'} size={18} /></button>}
+        <span className="tiny" style={{ flex: 1 }}>{mic.on ? 'Ich höre zu – nochmal antippen = fertig' : 'Sprechen oder schreiben'}</span>
+        <button type="button" className="btn small" disabled={disabled || !t.trim()} onClick={go}>✨ Aufschreiben</button>
+      </div>
+    </section>
+  );
+}
+
 function KitchenChat({ s, mode = 'neu', askRef, pending }) {
   const [saving, setSaving] = useState(null); // { r, done }
   const sendRef = useRef(null);
@@ -631,12 +647,13 @@ function KitchenChat({ s, mode = 'neu', askRef, pending }) {
   };
   return (
     <>
+      {mode === 'diktieren' && <DictateCard disabled={!getAi().apiKey} onAsk={(t) => sendRef.current?.(t)} />}
       {mode === 'kuehlschrank' && <FridgePicker s={s} disabled={!getAi().apiKey} onAsk={(t) => sendRef.current?.(t)} />}
       <PlanChat
         key={mode}
         compact
-        noInput={!!askRef || mode === 'kuehlschrank'}
-        bare={!!askRef || mode === 'kuehlschrank'}
+        noInput={!!askRef || mode !== 'neu'}
+        bare={!!askRef || mode !== 'neu'}
         sendRef={sendRef}
         title={mode === 'diktieren' ? 'Rezept diktieren' : mode === 'kuehlschrank' ? 'KI-Koch' : 'Küchen-Chat'}
         intro={m.intro}

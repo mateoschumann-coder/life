@@ -325,7 +325,6 @@ function AddAsset({ open, list, onClose }) {
   const toggle = (sy, l) => setTickers(has(sy) ? list.filter((x) => x.sym !== sy) : [...list, { sym: sy, label: l }]);
   return (
     <Sheet open={open} title="Werte hinzufügen" onClose={onClose}>
-      <span className="tiny">Antippen = hinzufügen, nochmal = entfernen.</span>
       {CATALOG.map((c) => (
         <section key={c.g} className="group" style={{ gap: 6 }}>
           <h2 className="label" style={{ padding: '0 2px' }}>{c.g}</h2>
@@ -354,7 +353,8 @@ function Markets({ s }) {
   return (
     <section className="group">
       <div className="sec-h">
-        <h2 className="h2" style={{ fontSize: 19 }}>Märkte</h2>
+        <h2 className="h2" style={{ fontSize: 19, flex: 1 }}>Märkte</h2>
+        <Info>{tdKey() ? 'Kurse von Twelve Data (Tagesschluss bzw. leicht verzögert). Indizes werden über einen ETF gezeigt, der den Index abbildet – die Veränderung ist praktisch gleich. Zeitraum unter dem Chart wählen.' : <>Kurse von TradingView. Schönere eigene Charts: kostenlosen Twelve-Data-Schlüssel in den <a href="#/einstellungen">Einstellungen</a> eintragen.</>}</Info>
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className="chip soft small-chip" onClick={() => setAdd(true)}>＋ Wert</button>
           <button type="button" className={edit ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : '✎'}</button>
@@ -375,8 +375,6 @@ function Markets({ s }) {
       )}
       {!edit && list.map((t) => <Ticker key={t.sym} t={t} />)}
       {!list.length && <div className="empty">Noch keine Werte – tipp auf „＋ Wert“.</div>}
-      {tdKey() ? <span className="tiny" style={{ padding: '0 4px' }}>Kurse von Twelve Data (Tagesschluss bzw. leicht verzögert). Indizes werden über einen ETF gezeigt, der den Index abbildet – die Veränderung ist praktisch gleich.</span>
-        : <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '0 4px' }}><span className="tiny" style={{ flex: 1 }}>Kurse von TradingView. Schönere eigene Charts: kostenlosen Twelve-Data-Schlüssel in den <a href="#/einstellungen">Einstellungen</a> eintragen.</span></div>}
       <AddAsset open={add} list={list} onClose={() => setAdd(false)} />
     </section>
   );

@@ -896,7 +896,7 @@ export default function Ausgehen() {
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {fromHeute() && <Back href="#/heute" label="Heute" actions={false} />}
-          <span className="eyebrow">{soon.length ? `Diese Woche: ${soon.map((e) => `${e.name} (${fmtShort(e.date)})`).join(', ')}` : 'Events und Lieblingsorte'}</span>
+          <span className="eyebrow">Events und Lieblingsorte</span>
           <div className="top" style={{ padding: 0 }}><h1 className="h1">Ausgehen</h1><TopActions /></div>
         </div>
         <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />

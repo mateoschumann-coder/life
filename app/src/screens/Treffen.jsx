@@ -269,7 +269,7 @@ export function EventsList({ s }) {
         <Segmented full options={[{ id: 'eigene', label: 'Eigene' }, { id: 'andere', label: `Von anderen${(s.invites || []).filter((x) => !x.done).length ? ` · ${(s.invites || []).filter((x) => !x.done).length}` : ''}` }]} value={tab} onChange={setTab} label="Art der Events" />
         {tab === 'andere' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>{isIdea ? '+ Idee' : '+ Veranstaltung'}</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
+          {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>{isIdea ? '+ Idee' : '+ Treffen'}</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
           <span style={{ flex: 1 }} />
           {tab === 'eigene' ? <RemovedButton items={(s.removedGatherings || []).filter((g) => !!g.idea === isIdea)} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} /> : <RemovedButton items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />}
         </div>
@@ -280,7 +280,7 @@ export function EventsList({ s }) {
           <button type="button" className={isIdea ? 'on' : ''} onClick={() => setView('idee')}>💡 Ideen{ideas.length ? ` · ${ideas.length}` : ''}</button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>{isIdea ? '+ Idee' : '+ Veranstaltung'}</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
+          {tab === 'eigene' ? <button type="button" className="btn small" onClick={() => { setF({ ...EMPTY, type: stdTpl('zuhause', s) }); setOpen(true); }}>{isIdea ? '+ Idee' : '+ Treffen'}</button> : <button type="button" className="btn small" onClick={() => setInvSheet('neu')}>+ Einladung</button>}
           <span style={{ flex: 1 }} />
           {tab === 'eigene' ? <RemovedButton items={(s.removedGatherings || []).filter((g) => !!g.idea === isIdea)} storeKey="removedGatherings" onRestore={restoreGathering} meta={(g) => [g.date && fmtShort(g.date), g.place].filter(Boolean).join(' · ')} /> : <RemovedButton items={s.removedInvites || []} storeKey="removedInvites" onRestore={restoreInvite} meta={(x) => [x.host && `von ${x.host}`, x.date && fmtShort(x.date)].filter(Boolean).join(' · ')} />}
         </div>
@@ -301,7 +301,7 @@ export function EventsList({ s }) {
         )}
         {!isIdea && <>
         <div className="list">
-          {upcoming.length === 0 && <div className="empty">Organisier deine eigene Veranstaltung – Asado, Spieleabend, Lauftreff … mit Einladung, Gästeliste, Einkaufsliste und To-dos.</div>}
+          {upcoming.length === 0 && <div className="empty">Organisier deine eigenes Treffen – Asado, Spieleabend, Lauftreff … mit Einladung, Gästeliste, Einkaufsliste und To-dos.</div>}
           {upcoming.map((g) => <Row key={g.id} g={g} />)}
         </div>
         {past.length > 0 && (
@@ -319,7 +319,7 @@ export function EventsList({ s }) {
         </>}
         </>)}
       </main>
-      <Sheet open={open} title={isIdea ? 'Neue Idee' : 'Neue Veranstaltung'} onClose={() => setOpen(false)}>
+      <Sheet open={open} title={isIdea ? 'Neue Idee' : 'Neues Treffen'} onClose={() => setOpen(false)}>
         <AiFill key={String(open)} values={{ name: f.name, date: f.date, time: f.time, place: f.place }} placeholder="z.B. „Asado bei mir nächsten Samstag ab 13 Uhr, so 10 Leute“" onFill={async (txt) => {
           const r = await parseGatheringText(store.get(), txt);
           if (!r?.name) throw new Error('Nichts erkannt – erzähl etwas mehr');
@@ -606,11 +606,10 @@ function Detail({ s, g }) {
         )}
         {cur === 'einladung' && (
           <section className="card" style={{ gap: 10 }}>
-            <Info>Allgemeine Einladung an alle – ohne Namen. Wann, Wo und der Google-Maps-Link kommen automatisch aus dem Überblick dazu.</Info>
+            <Info>Allgemeine Einladung an alle – ohne Namen. Wann, Wo und der Google-Maps-Link kommen automatisch aus dem Überblick dazu. „Teilen“ öffnet die iPhone-Auswahl – dort WhatsApp und dann eine Gruppe oder Person wählen. Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln einladen.</Info>
             <textarea className="input" style={{ minHeight: 120 }} defaultValue={g.invite} key={g.id + 'i' + (g.invite || '').length} placeholder="z.B. Hey! Am Samstag gibt’s Asado bei mir 🔥 Bring gute Laune mit. Bist du dabei? – oder unten im KI-Planer „Einladung schreiben“." onBlur={(e) => e.target.value !== g.invite && updateGathering(g.id, { invite: e.target.value })} aria-label="Einladungstext" />
             {inviteDetails(g) ? <div className="take-box" style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{inviteDetails(g)}</div> : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => setTab('ueberblick')}>Datum, Uhrzeit, Ort und Adresse im Überblick eintragen ›</button>}
             <button type="button" className="btn" onClick={share}>Einladung teilen (WhatsApp …)</button>
-            <Info>„Teilen“ öffnet die iPhone-Auswahl – dort WhatsApp und dann eine Gruppe oder Person wählen. Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln einladen.</Info>
             <WaGroups s={s} text={inviteText(g)} />
           </section>
         )}
@@ -630,7 +629,7 @@ function Detail({ s, g }) {
         />
         <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { done: !g.done }); toast(g.done ? 'Wieder offen' : 'Abgehakt'); if (!g.done) go('/saeule/sozial'); }}>{g.done ? 'Wieder öffnen' : 'Event abhaken (hat stattgefunden)'}</button>
         {!g.idea && !g.done && <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { idea: true }); toast('Wieder eine Idee – steht unter „Ideen“'); }}>💡 Doch nur eine Idee</button>}
-        <button type="button" className="btn danger" onClick={() => { archiveGathering(g.id); toast('Rausgenommen – unten in Sozial zurückholbar'); go('/saeule/sozial'); }}>Event rausnehmen</button>
+        <button type="button" className="btn danger" onClick={() => { archiveGathering(g.id); toast('Rausgenommen – unten in Sozial zurückholbar'); go('/saeule/sozial'); }}>Treffen rausnehmen</button>
       </main>
       <TabBar active="bereiche" />
     </>

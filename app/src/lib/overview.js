@@ -220,7 +220,7 @@ export function structure(s) {
   G('menschen', 'Melde dich mal', peopleOverdue(s, t).map((x) => I(x.person.name, `#/person/${x.person.id}`)));
 
   // Events
-  G('events', 'Eigene Veranstaltungen', (s.gatherings || []).filter((g) => !g.done && !g.idea && (!g.date || g.date >= t)).map((g) => I(g.name, `#/treffen/${g.id}`, g.date ? short(g.date, t) : '')));
+  G('events', 'Eigene Treffen', (s.gatherings || []).filter((g) => !g.done && !g.idea && (!g.date || g.date >= t)).map((g) => I(g.name, `#/treffen/${g.id}`, g.date ? short(g.date, t) : '')));
   G('events', 'Einladungen', (s.invites || []).filter((x) => !x.done && x.status !== 'abgesagt' && (!x.date || x.date >= t)).map((x) => I(x.name, '#/saeule/sozial', x.date ? short(x.date, t) : '')));
   G('events', 'Ausgehen', s.events.filter((e) => e.date && e.date >= t && e.date <= soon && (e.stage === 'zugesagt' || e.stage === 'interessiert')).map((e) => I(e.name, '#/ausgehen', short(e.date, t))));
 

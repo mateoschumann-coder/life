@@ -209,7 +209,7 @@ export default function Einstellungen() {
           <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
         </section>
 
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.38 · Stand {BUILD_ID} · Web-App</span>
+        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.39 · Stand {BUILD_ID} · Web-App</span>
       </main>
       <TabBar />
     </>
@@ -223,7 +223,7 @@ function Appearance() {
   return (
     <>
     <section className="card" style={{ gap: 12 }}>
-      <h2 className="h2">Aussehen</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><h2 className="h2" style={{ flex: 1 }}>Aussehen</h2><Info>„Schlicht“ macht auch die Bereichs-Symbole grau. Die Wahl gilt nur auf diesem iPhone.</Info></div>
       <Segmented full options={MODES} value={t.mode} onChange={(v) => set({ mode: v })} label="Hell oder dunkel" />
       <span className="label" style={{ padding: 0 }}>Dunkler Modus</span>
       <div className="list">
@@ -246,7 +246,6 @@ function Appearance() {
           </button>
         ))}
       </div>
-      <span className="tiny">„Schlicht“ macht auch die Bereichs-Symbole grau. Die Wahl gilt nur auf diesem iPhone.</span>
     </section>
     <FabSetting />
       <LinkCopy />
@@ -260,12 +259,11 @@ function FabSetting() {
   const [on, setOn] = useState(fabOn);
   return (
     <section className="card" style={{ gap: 8 }}>
-      <h2 className="h2">Schwebender Assistent</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><h2 className="h2" style={{ flex: 1 }}>Schwebender Assistent</h2><Info>Ausgeschaltet erreichst du ihn, indem du den Blitz in der Mitte lange drückst (halten, sprechen, loslassen = senden), oder über die KI-Knöpfe in den Formularen.</Info></div>
       <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <input type="checkbox" checked={on} onChange={(e) => { setFab(e.target.checked); setOn(e.target.checked); }} />
         <span>✨-Knopf unten rechts auf allen Seiten zeigen</span>
       </label>
-      <span className="tiny">Ausgeschaltet erreichst du ihn, indem du den Blitz in der Mitte lange drückst (halten, sprechen, loslassen = senden), oder über die KI-Knöpfe in den Formularen.</span>
     </section>
   );
 }
@@ -275,12 +273,11 @@ function LinkCopy() {
   const [on, setOn] = useState(autoCopyOn);
   return (
     <section className="card" style={{ gap: 8 }}>
-      <h2 className="h2">Links</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><h2 className="h2" style={{ flex: 1 }}>Links</h2><Info>In Link-Feldern erscheint 📋 zum Einfügen. Ist die Zwischenablage leer, wird der zuletzt aus der App geöffnete Link eingesetzt.</Info></div>
       <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <input type="checkbox" checked={on} onChange={(e) => { setAutoCopy(e.target.checked); setOn(e.target.checked); }} />
         <span>Geöffnete Links automatisch kopieren</span>
       </label>
-      <span className="tiny">In Link-Feldern erscheint 📋 zum Einfügen. Ist die Zwischenablage leer, wird der zuletzt aus der App geöffnete Link eingesetzt.</span>
     </section>
   );
 }
