@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addHomeItem, addReminder, deleteReminder, doneReminder, EVERY, LISTS, listOf, REMINDER_PRESETS, removeHomeItem, setHomeCats, suggestItems, updateHomeItem, updateReminder, sellListing, SELL_LINKS,
+  addHomeItem, addReminder, deleteReminder, doneReminder, EVERY, LISTS, listOf, REMINDER_PRESETS, removeHomeItem, setHomeCats, suggestItems, updateHomeItem, updateReminder, sellListing, SELL_LINKS, speakToList,
 } from '../lib/home';
 import { waLink } from '../lib/logic';
 import { cityOf } from '../lib/outings';
@@ -54,10 +54,27 @@ function CatList({ s, listKey }) {
   const defCat = l.cats.includes('Allgemein') ? 'Allgemein' : l.cats[0];
   const countIn = (c) => l.items.filter((x) => !x.done && x.cat === c && (!def.kinds || (x.kind || 'brauche') === kind)).length;
 
+  const [busy, setBusy] = useState(false);
+  const [ideas, setIdeas] = useState(null);
   const add = (e) => {
     e.preventDefault();
-    addHomeItem(listKey, { text, cat: cat || defCat, kind });
+    String(text).split(/,|\n|;/).map((x) => x.trim()).filter(Boolean).forEach((x) => addHomeItem(listKey, { text: x[0].toUpperCase() + x.slice(1), cat: cat || defCat, kind }));
     setText('');
+  };
+  // v1.50 (Mateo): einsprechen → KI trägt ein (mit Kategorie) bzw. macht Vorschläge zum Antippen
+  const speak = async (said) => {
+    const tx = String(said || '').trim();
+    if (!tx) return;
+    if (!getAi().apiKey) { add({ preventDefault() {} }); return; }
+    setBusy(true);
+    try {
+      const r = await speakToList(s, listKey, tx, { kind, cat });
+      r.items.forEach((x) => addHomeItem(listKey, x));
+      setIdeas(r.ideas.length ? r.ideas : null);
+      setText('');
+      toast(r.items.length ? `${r.items.length} eingetragen${r.ideas.length ? ' · Vorschläge unten' : ''}` : r.ideas.length ? 'Vorschläge – antippen zum Merken' : 'Nichts erkannt – nochmal anders sagen?');
+    } catch (e2) { toast(e2.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es den KI-Schlüssel' : e2.message); }
+    setBusy(false);
   };
   return (
     <>
@@ -78,10 +95,25 @@ function CatList({ s, listKey }) {
         </form>
       )}
 
-      <form className="block-add" onSubmit={add}>
-        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={`${def.kinds && kind === 'weggeben' ? 'z.B. Alte Laufschuhe' : def.placeholder}${cat ? '' : ` (${defCat})`}`} aria-label="Neuer Eintrag" />
+      <form className="block-add" onSubmit={add} style={{ alignItems: 'center' }}>
+        <MicBtn value={text} onChange={setText} onDone={speak} />
+        <input className="input" style={{ flex: 1, minWidth: 0 }} value={text} onChange={(e) => setText(e.target.value)} placeholder={busy ? 'Ich sortiere ein …' : `${def.kinds && kind === 'weggeben' ? 'z.B. Alte Laufschuhe' : def.placeholder}${cat ? '' : ` (${defCat})`}`} aria-label="Neuer Eintrag" />
+        {getAi().apiKey && text.trim().split(/\s+/).length >= 3 && <button type="button" className="btn small tint" disabled={busy} onClick={() => speak(text)} aria-label="Mit KI einsortieren">✨</button>}
         <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
       </form>
+      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich sortiere ein …</span></div>}
+      {ideas && (
+        <section className="card" style={{ gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 650, flex: 1 }}>✨ Vorschläge</span><button type="button" className="x-btn" onClick={() => setIdeas(null)} aria-label="Vorschläge schließen"><Icon name="x" size={12} color="var(--chev)" /></button></div>
+          {ideas.map((v) => (
+            <div key={v.id} className="option" style={{ alignItems: 'center' }}>
+              <span className="row-main"><span style={{ fontSize: 15, fontWeight: 600 }}>{v.text}</span><span className="tiny">{[v.cat, v.why].filter(Boolean).join(' · ')}</span></span>
+              <button type="button" className="pill on" onClick={() => { addHomeItem(listKey, { text: v.text, cat: v.cat, kind }); const rest = ideas.filter((x) => x.id !== v.id); setIdeas(rest.length ? rest : null); }}>Merken</button>
+            </div>
+          ))}
+        </section>
+      )}
+      <Info>🎙 Einsprechen, z.B. „Bad putzen, Müll rausbringen und die Lampe reparieren“ – die KI trägt alles mit passender Kategorie ein. {def.kinds ? 'Fragst du nach Ideen („Mein Balkon soll gemütlicher werden“), kommen Vorschläge zum Antippen.' : ''}</Info>
 
       {open.length === 0 && <div className="notice">{cat ? `In „${cat}“ ist nichts offen.` : 'Alles erledigt – oder noch nichts eingetragen.'}</div>}
       {cats.map((c) => (
@@ -212,7 +244,7 @@ function FindItems({ s, listKey }) {
         filters={<div className="filter-pair"><QuickSheet className="filter-btn" label={<><span className="tiny">Bereich</span><b>🏷 {cat} ▾</b></>} title="Für welchen Bereich?">{(close) => <div className="chips">{l.cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} onClick={() => { setCat(c); close(); }}>{c}</button>)}</div>}</QuickSheet></div>}
         onLinks={() => setMode('links')} onAi={run} aiLabel="✨ KI" aiCost="<1 ct"
         hint="🔗 Links: Mercado Libre, Google Shopping & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: schlägt 4–6 passende Sachen vor (ohne Internet, unter 1 Cent). „Merken“ setzt sie auf deine Liste „Will ich haben“.">
-        {mode === 'links' && <SourceLinks embedded s={s} area={listKey} query={q} />}
+        {mode === 'links' && <SourceLinks embedded autoTailor s={s} area={listKey} query={q} />}
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich überlege …</span></div>}
       </SearchCard>
       {mode === 'ki' && sugg && (
@@ -307,10 +339,13 @@ function Reminders({ s }) {
       <div className="sec-h" style={{ padding: '0 4px' }}>
         <span className="sub">Erscheinen am Tag automatisch auf „Heute“.</span>
         <span style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn small" onClick={() => setSheet({})}>+ Neu</button>
-          {presets.length > 0 && <QuickSheet title="Schnell: Erinnerung">{(close) => <div className="chips">{presets.map((p) => <button key={p.title} type="button" className="chip soft" onClick={() => { close(); setTimeout(() => setSheet(p), 200); }}>+ {p.title}</button>)}</div>}</QuickSheet>}
+          <button type="button" className="btn small" style={{ whiteSpace: 'nowrap' }} onClick={() => setSheet({})}>+ Neu</button>
+          {presets.length > 0 && <QuickSheet label="⚡" title="Schnell: Erinnerung">{(close) => <div className="chips">{presets.map((p) => <button key={p.title} type="button" className="chip soft" onClick={() => { close(); setTimeout(() => setSheet(p), 200); }}>+ {p.title}</button>)}</div>}</QuickSheet>}
         </span>
       </div>
+      <AiFill title="Wiederkehrende Erinnerung" values={{}} onResult={(r) => setSheet({ title: '', every: 'monat', next: today(), note: '', ...r })}
+        fields={{ title: 'Was (kurz)', every: { d: 'Wie oft', enum: Object.keys(EVERY) }, next: 'Nächstes Mal YYYY-MM-DD', note: 'Notiz (Betrag, Konto, Link)' }}
+        placeholder="z.B. „Jeden Monat am 5. Miete zahlen, 450.000 Pesos“" />
       <div className="list">
         {list.length === 0 && <div className="empty">Noch keine Erinnerungen.</div>}
         {list.map((r) => {

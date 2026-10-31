@@ -220,11 +220,15 @@ export const removeItem = (gId, list, id) => store.update((s) => {
 
 // ---------- Einladung (v0.91): allgemeiner Text + automatisch Wann/Wo/Adresse mit Google-Maps-Link ----------
 const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-export const mapsLink = (g) => { const q = [g.place && !/^bei mir$/i.test(g.place) ? g.place : '', g.address].filter(Boolean).join(', '); return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : ''; };
+const one = (x) => String(x || '').replace(/\s+/g, ' ').trim();
+// v1.50: Adresse hat Vorrang (Ortsname wie „bei mir“ verwirrt Google Maps), kurzer Link, Zeilenumbrüche aus kopierten Adressen entfernt
+export const mapsLink = (g) => { const a = one(g.address); const p = one(g.place); const q = a ? (p && !/^bei mir$/i.test(p) && !a.toLowerCase().includes(p.toLowerCase()) && g.kind === 'auswaerts' ? `${p}, ${a}` : a) : (p && !/^bei mir$/i.test(p) ? p : ''); return q ? `https://maps.google.com/?q=${encodeURIComponent(q).replace(/%20/g, '+').replace(/%2C/g, ',')}` : ''; };
 export function inviteDetails(g) {
   const d = g.date ? new Date(`${g.date}T12:00:00`) : null;
   const when = d ? `${WD[d.getDay()]}, ${d.getDate()}.${d.getMonth() + 1}.${g.time ? `, ${g.time} Uhr` : ''}` : g.time ? `${g.time} Uhr` : '';
-  return [when && `📅 Wann: ${when}`, (g.place || g.address) && `📍 Wo: ${[g.place, g.address].filter(Boolean).join(' – ')}`, mapsLink(g) && `🗺 ${mapsLink(g)}`].filter(Boolean).join('\n');
+  const p = one(g.place); const a = one(g.address);
+  const where = [p && !(a && a.toLowerCase().includes(p.toLowerCase())) ? p : '', a].filter(Boolean).join(' – ');
+  return [when && `📅 Wann: ${when}`, where && `📍 Wo: ${where}`, mapsLink(g) && `🗺 ${mapsLink(g)}`].filter(Boolean).join('\n');
 }
 export function inviteText(g) {
   const body = String(g.invite || '').trim() || `Hey! Ich lade euch ein: ${g.name}${g.motto ? ` (${g.motto})` : ''}. Bist du dabei?`;
@@ -406,4 +410,17 @@ export async function parseGatheringText(s, text) {
   const all = templatesOf(s);
   if (r && r.vorlage && !all[r.vorlage]) r.vorlage = '';
   return r;
+}
+
+// v1.50 (Mateo): Einladung per Sprache überarbeiten („lockerer, mit Emojis, sag dass jeder Fleisch mitbringt“)
+export async function rewriteInvite(g, wish) {
+  const r = await searchWithTool({
+    system: `Du schreibst Mateos Einladungstext für sein Treffen „${g.name}“${g.motto ? ` (Motto: ${g.motto})` : ''}${g.date ? `, am ${g.date}${g.time ? ` um ${g.time}` : ''}` : ''}${g.place ? `, Ort: ${g.place}` : ''}. Der Text geht per WhatsApp an alle (ohne Namen). Wann, Wo und der Google-Maps-Link werden automatisch unten angehängt – also NICHT Datum, Uhrzeit, Adresse oder Link in den Text schreiben. Kurz (2–5 Sätze), freundlich, gern mit 1–3 passenden Emojis, in der Sprache, die Mateo wünscht (sonst Deutsch). Setze seinen Wunsch genau um und behalte sonst den bisherigen Text bei.`,
+    user: `Bisheriger Text: ${String(g.invite || '').trim() || '(noch keiner)'}\n\nMateos Wunsch: ${wish || 'Schreib eine schöne Einladung.'}`,
+    tool: { name: 'einladung', description: 'Neuer Einladungstext', input_schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+    maxUses: 0, maxTokens: 700, label: 'Einladung überarbeiten',
+  });
+  const t = String(r?.text || '').trim();
+  if (!t) throw new Error('Kein Text gekommen – nochmal versuchen');
+  return t;
 }

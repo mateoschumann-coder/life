@@ -1,7 +1,7 @@
 // Karte „Meine Seiten“: Suchbegriff eintippen → Seite antippen → öffnet direkt mit der Suche (kostenlos, keine KI)
 import QuickSheet from './QuickSheet';
 import MicBtn from './MicBtn';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { addSource, forgetSearch, instaTags, instaUrl, isFixed, isNative, learnSearch, removeSource, restoreSources, SOURCE_AREAS, sourcesOf, sourceTerm, sourceUrl, tailorQueries } from '../lib/sources';
 import { getAi } from '../lib/ai';
 import { store } from '../lib/store';
@@ -26,7 +26,7 @@ export function ModeToggle({ mode, onChange }) {
 
 // embedded = ohne eigene Karte, Suchbegriff kommt von außen (query)
 // Ablauf (v0.66): Satz eintippen → „Links erstellen“ → KI macht pro Seite einen passenden Begriff → Knöpfe öffnen die Suche der Seite
-export default function SourceLinks({ s, area, city = '', defaultQuery = '', embedded = false, query, instant = false, siteQuery = null }) {
+export default function SourceLinks({ s, area, city = '', defaultQuery = '', embedded = false, query, instant = false, siteQuery = null, autoTailor = false }) {
   const cfg = SOURCE_AREAS[area];
   const [own, setQ] = useState(defaultQuery);
   const q = query !== undefined ? query : own;
@@ -52,6 +52,12 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
     setBusy(true);
     try { setRes({ q: text, city, t: await tailorQueries(s, area, text, city, list) }); } catch (e) { setErr(e.message === 'KEIN_SCHLUESSEL' ? null : e.message); setRes({ q: text, city, t: null }); } finally { setBusy(false); }
   };
+  // v1.50 (Mateo): Suchbegriff automatisch pro Seite anpassen (z.B. Spanisch für argentinische Shops), kurz nach dem Tippen
+  useEffect(() => {
+    if (!autoTailor || !getAi().apiKey || !q.trim() || fresh) return undefined;
+    const tm = setTimeout(() => { make(); }, 1100);
+    return () => clearTimeout(tm);
+  }, [q, autoTailor]); // eslint-disable-line react-hooks/exhaustive-deps
   const add = (e) => {
     e.preventDefault();
     addSource(area, name, link, city);
@@ -67,7 +73,7 @@ export default function SourceLinks({ s, area, city = '', defaultQuery = '', emb
         {query === undefined && <div style={{ display: 'flex', gap: 8 }}><MicBtn value={q} onChange={setQ} /><input className="input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') make(); }} placeholder={cfg.placeholder} aria-label={`Suchbegriff für ${cfg.title}`} />{cfg.chips && <QuickSheet label="⚡" title="Schnell suchen">{(close) => <div className="chips">{cfg.chips.map((c) => <button key={c} type="button" className={q === c ? 'chip on' : 'chip soft'} onClick={() => { setQ(c); close(); }}>{c}</button>)}</div>}</QuickSheet>}</div>}
       </>}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {embedded ? <span className="tiny" style={{ flex: 1 }}>{q.trim() ? <>Seiten mit „{q.trim()}“{cfg.perCity && city ? ` · ${city}` : ''} {getAi().apiKey && <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={make} disabled={busy}>{busy ? '· passe an …' : fresh ? '· ✓ angepasst' : '· ✨ pro Seite anpassen'}</button>}</> : 'Seiten öffnen (ohne Suchbegriff = Startseite)'}</span>
+        {embedded ? <span className="tiny" style={{ flex: 1 }}>{q.trim() ? <>Seiten mit „{q.trim()}“{cfg.perCity && city ? ` · ${city}` : ''} {getAi().apiKey && <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={make} disabled={busy}>{busy ? '· passe an …' : fresh ? `· ✓ angepasst${res.t?.terms && Object.values(res.t.terms)[0] ? `: „${Object.values(res.t.terms)[0]}“` : ''}` : '· ✨ pro Seite anpassen'}</button>}</> : 'Seiten öffnen (ohne Suchbegriff = Startseite)'}</span>
           : <button type="button" className="btn small" style={{ flex: 1 }} onClick={make} disabled={!q.trim() || busy}>{busy ? 'Ich baue die Suchen …' : fresh ? '↻ Neu erstellen' : '🔗 Links erstellen'}</button>}
         {edit ? <button type="button" className="pill on" style={{ fontSize: 13 }} onClick={() => setEdit(false)}>Fertig</button> : <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => setEdit(true)} aria-label="Seiten bearbeiten"><Icon name="edit" size={13} /></button>}
       </div>

@@ -18,7 +18,8 @@ import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } fr
 import { Missing } from './Saeule';
 import { RemovedButton } from '../components/RemovedList';
 import AiFill from '../components/AiFill';
-import { parseGatheringText, fillGathering } from '../lib/gather';
+import { parseGatheringText, fillGathering, rewriteInvite, mapsLink } from '../lib/gather';
+import MicBtn from '../components/MicBtn';
 import { archiveGathering, archiveInvite, restoreGathering, restoreInvite } from '../lib/actions';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
 
@@ -507,6 +508,42 @@ function GuestPicker({ s, g, open, onClose }) {
   );
 }
 
+// v1.50 (Mateo): Vorschau der angehängten Angaben – langer Maps-Link als kurzer Knopf, nichts ragt über den Rand
+function InvitePreview({ g }) {
+  const url = mapsLink(g);
+  const lines = inviteDetails(g).split('\n').filter((l) => !l.startsWith('🗺'));
+  return (
+    <div className="take-box" style={{ fontSize: 14, gap: 4, overflowWrap: 'anywhere', minWidth: 0 }}>
+      <span className="tiny">Wird automatisch angehängt:</span>
+      {lines.map((l) => <span key={l}>{l}</span>)}
+      {url && <a className="link-chip" style={{ alignSelf: 'flex-start' }} href={url} target="_blank" rel="noreferrer">🗺 Google-Maps-Link prüfen ↗</a>}
+    </div>
+  );
+}
+// v1.50 (Mateo): Einladung per Sprache schreiben/überarbeiten – Feld oben, links 🎙, rechts ausführen
+function InviteAI({ g }) {
+  const [wish, setWish] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [prev, setPrev] = useState(null);
+  if (!hasKey()) return null;
+  const run = async (w = wish) => {
+    setBusy(true);
+    try { const before = g.invite || ''; const text = await rewriteInvite(g, String(w || '').trim()); updateGathering(g.id, { invite: text }); setPrev(before); setWish(''); toast('Einladung überarbeitet'); } catch (e) { toast(e.message); }
+    setBusy(false);
+  };
+  return (
+    <div className="ai-input" style={{ background: 'var(--card-2)', borderRadius: 14, padding: 10 }}>
+      <span style={{ fontWeight: 650, fontSize: 14 }}>✨ Mit der KI {g.invite ? 'überarbeiten' : 'schreiben'}</span>
+      <textarea className="input" style={{ minHeight: 56 }} value={wish} onChange={(e) => setWish(e.target.value)} placeholder={g.invite ? 'z.B. lockerer, mit Emojis, auf Spanisch, sag dass jeder etwas zum Grillen mitbringt' : 'z.B. Asado bei mir, entspannt, jeder bringt ein Getränk mit'} aria-label="Wunsch für die Einladung" />
+      <div className="ai-input-row">
+        <MicBtn value={wish} onChange={setWish} onDone={(t) => run(t)} />
+        <span style={{ flex: 1 }}>{prev !== null && <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => { updateGathering(g.id, { invite: prev }); setPrev(null); }}>↶ Vorherigen Text</button>}</span>
+        <button type="button" className="btn small" disabled={busy} onClick={() => run()}>{busy ? 'Ich schreibe …' : g.invite ? '✨ Überarbeiten' : '✨ Schreiben'}</button>
+      </div>
+    </div>
+  );
+}
+
 function Detail({ s, g }) {
   const home = g.kind !== 'auswaerts';
   const [tab, setTab] = useState('ueberblick');
@@ -556,7 +593,8 @@ function Detail({ s, g }) {
             <input className="input" type="time" value={g.time || ''} onChange={(e) => updateGathering(g.id, { time: e.target.value })} aria-label="Uhrzeit" style={{ maxWidth: 120 }} />
           </div>
           {field('place', home ? 'Wo? (z.B. bei mir)' : 'Wo? (Name des Ortes)')}
-          {field('address', 'Adresse (für den Google-Maps-Link in der Einladung)')}
+          <textarea className="input" rows={2} style={{ minHeight: 0, resize: 'none', overflowWrap: 'anywhere' }} defaultValue={g.address} key={g.id + 'address' + (g.address || '')} placeholder="Adresse (kommt mit Google-Maps-Link in die Einladung)" aria-label="Adresse" onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ' ').trim(); if (v !== (g.address || '')) updateGathering(g.id, { address: v }); }} />
+          {mapsLink(g) && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} href={mapsLink(g)} target="_blank" rel="noreferrer">🗺 In Google Maps prüfen ↗</a>}
           <div style={{ display: 'flex', gap: 8 }}>
             {field('expected', 'Ca. Gäste', { inputMode: 'numeric', style: { maxWidth: 110 } })}
             {field('motto', 'Motto / Art, z.B. Asado')}
@@ -619,7 +657,8 @@ function Detail({ s, g }) {
           <section className="card" style={{ gap: 10 }}>
             <Info>Allgemeine Einladung an alle – ohne Namen. Wann, Wo und der Google-Maps-Link kommen automatisch aus dem Überblick dazu. „Teilen“ öffnet die iPhone-Auswahl – dort WhatsApp und dann eine Gruppe oder Person wählen. Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln einladen.</Info>
             <textarea className="input" style={{ minHeight: 120 }} defaultValue={g.invite} key={g.id + 'i' + (g.invite || '').length} placeholder="z.B. Hey! Am Samstag gibt’s Asado bei mir 🔥 Bring gute Laune mit. Bist du dabei? – oder unten im KI-Planer „Einladung schreiben“." onBlur={(e) => e.target.value !== g.invite && updateGathering(g.id, { invite: e.target.value })} aria-label="Einladungstext" />
-            {inviteDetails(g) ? <div className="take-box" style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{inviteDetails(g)}</div> : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => setTab('ueberblick')}>Datum, Uhrzeit, Ort und Adresse im Überblick eintragen ›</button>}
+            <InviteAI g={g} />
+            {inviteDetails(g) ? <InvitePreview g={g} /> : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => setTab('ueberblick')}>Datum, Uhrzeit, Ort und Adresse im Überblick eintragen ›</button>}
             <button type="button" className="btn" onClick={share}>Einladung teilen (WhatsApp …)</button>
             <WaGroups s={s} text={inviteText(g)} />
           </section>

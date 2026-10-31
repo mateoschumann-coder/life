@@ -173,3 +173,29 @@ export function shopLinks(key, q) {
   if (key === 'kleidung') return [...base, { label: 'Dafiti ↗', url: `https://www.dafiti.com.ar/catalog/?q=${e(t)}` }, { label: 'Zara ↗', url: `https://www.zara.com/ar/es/search?searchTerm=${e(t)}` }, { label: 'Pinterest (Ideen) ↗', url: `https://www.pinterest.com/search/pins/?q=${e(t + ' outfit')}` }];
   return [...base, { label: 'Sodimac ↗', url: `https://www.sodimac.com.ar/sodimac-ar/search?Ntt=${e(t)}` }, { label: 'Easy ↗', url: `https://www.easy.com.ar/${e(t)}?_q=${e(t)}&map=ft` }, { label: 'Pinterest (Ideen) ↗', url: `https://www.pinterest.com/search/pins/?q=${e(t + ' deco')}` }];
 }
+
+// v1.50 (Mateo): Liste einsprechen – die KI zerlegt das Gesagte in Einträge mit Kategorie
+// und macht bei Bedarf Vorschläge („Ich brauche was für den Balkon“ → Ideen zum Antippen).
+const SPEAK_TOOL = {
+  name: 'liste_einsprechen',
+  description: 'Einträge und Vorschläge aus Mateos Gesprochenem',
+  input_schema: {
+    type: 'object',
+    properties: {
+      eintraege: { type: 'array', description: 'Was Mateo ausdrücklich auf die Liste setzen will', items: { type: 'object', properties: { text: { type: 'string', description: 'kurz, 1–5 Wörter, erster Buchstabe groß' }, kategorie: { type: 'string' }, art: { type: 'string', enum: ['brauche', 'weggeben'] } }, required: ['text'] } },
+      vorschlaege: { type: 'array', description: 'Nur wenn Mateo nach Ideen fragt oder etwas Ungefähres beschreibt: 3–6 konkrete Vorschläge', items: { type: 'object', properties: { text: { type: 'string' }, kategorie: { type: 'string' }, warum: { type: 'string', description: 'max. 8 Wörter' } }, required: ['text'] } },
+    },
+  },
+};
+export async function speakToList(s, key, text, { kind = 'brauche', cat = '' } = {}) {
+  const l = listOf(s, key);
+  const def = LISTS[key];
+  const system = `Mateo spricht etwas für seine Liste „${def.title}“ (Bereich Zuhause) ein. Kategorien: ${l.cats.join(', ')}.${def.kinds ? ` Arten: brauche (will ich haben) oder weggeben. Aktuell gewählt: ${kind}.` : ''}${cat ? ` Gewählte Kategorie: ${cat}.` : ''}
+Regeln: Zerlege, was er ausdrücklich nennt, in einzelne kurze Einträge (ohne Füllwörter, Deutsch, erster Buchstabe groß) und ordne jeden der passendsten Kategorie zu (nur aus der Liste). Fragt er nach Ideen oder beschreibt er etwas Ungefähres („mein Balkon soll gemütlicher werden“, „was brauche ich für den Winter?“), mach 3–6 konkrete Vorschläge statt Einträge. Schon auf der Liste: ${l.items.filter((x) => !x.done).map((x) => x.text).slice(0, 40).join(', ') || 'nichts'} – nicht doppelt.`;
+  const r = await searchWithTool({ system, user: text, tool: SPEAK_TOOL, maxUses: 0, maxTokens: 900, label: 'Zuhause einsprechen' });
+  const fixCat = (c) => l.cats.find((x) => norm(x) === norm(c)) || cat || (l.cats.includes('Allgemein') ? 'Allgemein' : l.cats[0]);
+  return {
+    items: (r?.eintraege || []).filter((x) => x?.text).map((x) => ({ text: String(x.text).trim(), cat: fixCat(x.kategorie), kind: def.kinds ? (x.art === 'weggeben' ? 'weggeben' : x.art === 'brauche' ? 'brauche' : kind) : 'brauche' })),
+    ideas: (r?.vorschlaege || []).filter((x) => x?.text).map((x) => ({ id: uid(), text: String(x.text).trim(), cat: fixCat(x.kategorie), why: x.warum || '' })),
+  };
+}
