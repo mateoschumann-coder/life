@@ -377,17 +377,30 @@ const moveBetween = (from, to, id, patch) => store.update((s) => {
   s[from] = list.filter((y) => y.id !== id);
   s[to] = [...(s[to] || []), x];
 });
-export const archiveEvent = (id) => moveBetween('events', 'removedEvents', id, { removedAt: today() });
+export const archiveEvent = (id, extra = {}) => moveBetween('events', 'removedEvents', id, { removedAt: today(), ...extra });
 export const restoreEvent = (id) => moveBetween('removedEvents', 'events', id, { removedAt: null });
 export const archivePlace = (id) => moveBetween('places', 'removedPlaces', id, { removedAt: today() });
 export const restorePlace = (id) => moveBetween('removedPlaces', 'places', id, { removedAt: null });
 export const archiveSportEvent = (id) => moveBetween('sportEvents', 'removedSportEvents', id, { removedAt: today() });
 export const restoreSportEvent = (id) => moveBetween('removedSportEvents', 'sportEvents', id, { removedAt: null });
 export const purgeRemoved = (key, id) => store.update((s) => { s[key] = (s[key] || []).filter((x) => x.id !== id); });
-export const archiveGathering = (id) => moveBetween('gatherings', 'removedGatherings', id, { removedAt: today() });
+export const archiveGathering = (id, extra = {}) => moveBetween('gatherings', 'removedGatherings', id, { removedAt: today(), ...extra });
 export const restoreGathering = (id) => moveBetween('removedGatherings', 'gatherings', id, { removedAt: null });
-export const archiveInvite = (id) => moveBetween('invites', 'removedInvites', id, { removedAt: today() });
+export const archiveInvite = (id, extra = {}) => moveBetween('invites', 'removedInvites', id, { removedAt: today(), ...extra });
 export const restoreInvite = (id) => moveBetween('removedInvites', 'invites', id, { removedAt: null });
 // v1.44 (Mateo): gelöschte Aufgaben landen in der Archiv-Kiste auf Heute (zurückholbar, höchstens 150)
 export const archiveTask = (id) => { moveBetween('tasks', 'removedTasks', id, { removedAt: today() }); store.update((s) => { if ((s.removedTasks || []).length > 150) s.removedTasks = s.removedTasks.slice(-150); }); };
 export const restoreTask = (id) => moveBetween('removedTasks', 'tasks', id, { removedAt: null });
+// v1.48 (Mateo): alles, was auf Heute entfernt wird, liegt in der Heute-Kiste (auch Erinnerungen und Vorsorge-Termine)
+export const archiveReminder = (id) => moveBetween('reminders', 'removedReminders', id, { removedAt: today(), fromToday: true });
+export const archiveHealth = (id) => moveBetween('healthItems', 'removedHealth', id, { removedAt: today(), fromToday: true });
+const TODAY_BINS = [
+  ['removedTasks', 'tasks', 'Aufgabe', (x) => x.title, () => true],
+  ['removedEvents', 'events', 'Event', (x) => x.name, (x) => x.fromToday],
+  ['removedGatherings', 'gatherings', 'Treffen', (x) => x.name, (x) => x.fromToday],
+  ['removedInvites', 'invites', 'Einladung', (x) => x.name, (x) => x.fromToday],
+  ['removedReminders', 'reminders', 'Erinnerung', (x) => x.title, () => true],
+  ['removedHealth', 'healthItems', 'Termin', (x) => x.title, () => true],
+];
+export const todayBin = (s) => TODAY_BINS.flatMap(([bin, , label, nameOf, keep]) => (s[bin] || []).filter(keep).map((x) => ({ ...x, name: nameOf(x), _store: bin, _label: label }))).sort((a, b) => ((a.removedAt || '') < (b.removedAt || '') ? 1 : -1));
+export const restoreFromToday = (id, x) => { const b = TODAY_BINS.find(([bin]) => bin === x?._store); if (b) moveBetween(b[0], b[1], id, { removedAt: null, fromToday: undefined }); };

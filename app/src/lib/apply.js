@@ -326,17 +326,56 @@ export function applyAction(s, raw) {
 }
 
 // Führt die ausgewählten Aktionen aus und gibt die gespeicherten Beschreibungen zurück
+export let lastTarget = null;
 export function applyActions(actions) {
   lastProjectId = null;
+  lastTarget = null;
   const labels = [];
   actions.forEach((a) => {
     const s = store.get();
     const info = describe(s, a);
     if (!info.ok) return;
-    applyAction(s, a);
+    const r = applyAction(s, a);
     labels.push(info.label);
+    if (!lastTarget) lastTarget = targetFor(normalize(store.get(), a), r, store.get());
   });
   return labels;
+}
+
+// v1.48 (Mateo): nach dem Übernehmen dorthin springen, wo der neue Eintrag steht – mit passendem Reiter
+const setLS = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+const setSS = (k, v) => { try { sessionStorage.setItem(k, v); } catch {} };
+const idOf = (r) => (typeof r === 'string' ? r : null);
+function targetFor(a, r, s) {
+  const id = idOf(r);
+  switch (a.typ) {
+    case 'projekt_anlegen': case 'bausteine_hinzufuegen': return null; // eigener Sprung (lastProjectId)
+    case 'aufgabe_anlegen':
+      if (a.person_id && s.people.some((p) => p.id === a.person_id)) return { href: `/person/${a.person_id}` };
+      return { href: '/heute', prep: () => setLS('life-app-heute-view', 'todos') };
+    case 'person_anlegen': return id ? { href: `/person/${id}` } : { href: '/menschen' };
+    case 'person_aendern': case 'kontakt_notieren': case 'person_termin': return a.person_id ? { href: `/person/${a.person_id}` } : null;
+    case 'event_anlegen': return { href: '/ausgehen', prep: () => { setLS('life-app-ausgehen-tab', 'events'); setLS('life-app-events-view', 'mine'); setLS('life-app-events-stage', a.event_status === 'zugesagt' ? 'zugesagt' : 'interessiert'); setLS('life-app-events-when', 'alle'); } };
+    case 'ort_anlegen': return { href: '/ausgehen', prep: () => { setLS('life-app-ausgehen-tab', 'orte'); setLS('life-app-places-view', 'mine'); } };
+    case 'treffen_anlegen': return id ? { href: `/treffen/${id}` } : { href: '/treffen', prep: () => setLS('life-app-sozial-tab', 'eigene') };
+    case 'einladung_eintragen': return { href: '/treffen', prep: () => setLS('life-app-sozial-tab', 'andere') };
+    case 'sport_event_anlegen': case 'training_eintragen': return { href: '/sport', prep: () => setLS('life-app-sport-tab', 'meine') };
+    case 'reise_anlegen': return id ? { href: `/reisen/${id}` } : { href: '/reisen' };
+    case 'erinnerung_anlegen': return { href: '/zuhause/erinnerungen' };
+    case 'zuhause_eintrag': return { href: `/zuhause/${a.liste === 'einrichtung' || a.liste === 'kleidung' ? a.liste : 'haushalt'}` };
+    case 'einkauf_hinzufuegen': return { href: '/kueche', prep: () => setLS('life-app-kueche-tab', 'einkauf') };
+    case 'rezept_anlegen': return { href: '/kueche', prep: () => { setLS('life-app-kueche-tab', 'rezepte'); setLS('life-app-rezepte-sub', 'meine'); } };
+    case 'vorsorge_anlegen': return { href: '/vorsorge', prep: () => setSS('life-vorsorge-view', a.alle_monate ? 'routine' : 'termine') };
+    case 'material_anlegen': return { href: '/wissen' };
+    case 'hobby_eintrag': return { href: '/hobbys' };
+    case 'skill_ziel': return { href: '/skills' };
+    case 'bewerbung_eintragen': return { href: '/karriere' };
+    case 'fixkosten_anlegen': return { href: '/finanzen' };
+    case 'quelle_anlegen': case 'thema_anlegen': return { href: '/news' };
+    case 'merken': return { href: '/gedaechtnis' };
+    case 'eintrag_verschieben': return a.nach === 'event' ? { href: '/ausgehen', prep: () => { setLS('life-app-ausgehen-tab', 'events'); setLS('life-app-events-view', 'mine'); } } : a.nach === 'sport_event' ? { href: '/sport', prep: () => setLS('life-app-sport-tab', 'meine') } : a.nach === 'veranstaltung' && id ? { href: `/treffen/${id}` } : { href: '/treffen', prep: () => setLS('life-app-sozial-tab', a.nach === 'einladung' ? 'andere' : 'eigene') };
+    default: return null;
+  }
 }
 
 // v1.26 (Mateo): Eintrag umziehen, z.B. Event ↔ Einladung ↔ eigene Veranstaltung ↔ Sport-Event (alter wird rausgenommen, zurückholbar)

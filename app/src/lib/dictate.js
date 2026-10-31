@@ -26,10 +26,13 @@ export function useDictation(text, setText, lang = 'de-DE') {
       let said = '';
       for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript;
       if (st.rec !== rec) return;
+      st.retries = 0;
       setText(st.base + said);
     };
     rec.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        // v1.48: abgelehnter automatischer Neustart (nach einer Pause) → noch zweimal kurz versuchen statt auszugehen
+        if (st.want && st.auto && (st.retries = (st.retries || 0) + 1) <= 2) return;
         st.want = false;
         setError('Mikrofon nicht erlaubt – nutze das Mikrofon der Tastatur');
       }
@@ -37,7 +40,8 @@ export function useDictation(text, setText, lang = 'de-DE') {
     rec.onend = () => {
       if (st.rec !== rec) return;
       if (st.want && Date.now() < st.until) {
-        setTimeout(() => st.want && st.rec === rec && begin(), 150);
+        st.auto = true;
+        setTimeout(() => st.want && st.rec === rec && begin(), st.retries ? 450 : 150);
         return;
       }
       st.want = false;
@@ -59,7 +63,9 @@ export function useDictation(text, setText, lang = 'de-DE') {
       return;
     }
     ref.current.want = true;
-    ref.current.until = Date.now() + 5 * 60 * 1000;
+    ref.current.auto = false;
+    ref.current.retries = 0;
+    ref.current.until = Date.now() + 10 * 60 * 1000;
     begin();
   };
   // Stopp: Erkennung sofort abhängen, damit verspätete Ergebnisse den (inzwischen gesendeten/geleerten) Text nicht wieder füllen

@@ -183,6 +183,7 @@ function Prefs({ s }) {
 
 
 // v1.11: Event selbst eintragen bzw. aus Link/Text übernehmen (Formular zum Prüfen)
+const shortNote = (n) => { const t = String(n || '').trim().split('\n')[0]; return t && t.length <= 28 && t.split(/\s+/).length <= 3 ? t : ''; };
 const editInit = (e) => ({ id: e.id, name: e.name || '', date: e.date || '', time: e.time || '', place: e.place || '', price: e.price || '', url: e.url || '', note: e.note || '', stage: e.stage === 'entdeckt' ? 'interessiert' : e.stage || 'interessiert' });
 const EV_EMPTY = { name: '', date: '', time: '', place: '', price: '', url: '', note: '', stage: 'interessiert' };
 function EventSheet({ init, city, onClose }) {
@@ -421,8 +422,8 @@ function Events({ s, city, view = 'find' }) {
                   <DateBadge date={e.date} />
                   <button type="button" className="row-main" style={{ gap: 2, border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0 }} onClick={() => setEvForm(editInit(e))} aria-label={`${e.name} bearbeiten`}>
                     <span className="row-title plain">{e.name}</span>
-                    <span className="row-meta">{[e.time, e.place, e.price].filter(Boolean).join(' · ') || (e.date ? '' : 'Ohne Datum')}</span>
-                    {e.note && <span className="row-meta" style={{ whiteSpace: 'pre-wrap' }}>📝 {e.note}</span>}
+                    {/* v1.48 (Mateo): nur Uhrzeit · Ort und höchstens ein paar Stichworte (z.B. „Kostümparty“) */}
+                    <span className="row-meta">{[e.time && `${e.time} Uhr`, e.place, shortNote(e.note)].filter(Boolean).join(' · ') || (e.date ? '' : 'Ohne Datum')}</span>
                   </button>
                   <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
                 </div>
@@ -431,7 +432,7 @@ function Events({ s, city, view = 'find' }) {
                   {e.url && <a className="pill" href={e.url} target="_blank" rel="noreferrer">Link ↗</a>}
                   <button type="button" className="pill" onClick={() => setEvForm(editInit(e))}>✎ Bearbeiten</button>
                   {e.stage !== 'zugesagt' ? <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>
-                    : <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'interessiert'); toast('Zurück zu „Interessiert“'); }}>Doch nur interessiert</button>}
+                    : <button type="button" className="pill" style={{ minWidth: 40 }} onClick={() => { setEventStage(e.id, 'interessiert'); toast('Zurück zu „Interessiert“'); }} aria-label="Doch nur interessiert" title="Doch nur interessiert">↩</button>}
                 </div>
               </div>
             ))}

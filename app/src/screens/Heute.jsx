@@ -9,7 +9,7 @@ import { addDays, diffDays, dueText, fmtLong, fmtShort, parseKey, relDays, start
 import {
   allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink,
 } from '../lib/logic';
-import { addTask, logContact, toggleCheckin, toggleTask, deleteTask, archiveTask, restoreTask, archiveEvent, archiveGathering, archiveInvite } from '../lib/actions';
+import { addTask, logContact, toggleCheckin, toggleTask, deleteTask, archiveTask, restoreTask, archiveReminder, archiveHealth, todayBin, restoreFromToday, archiveEvent, archiveGathering, archiveInvite } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast, TopActions } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
@@ -122,6 +122,14 @@ export default function Heute() {
   const t = today();
   const [day, setDay] = useState(t);
   const [weekStart, setWeekStart] = useState(startOfWeek(t));
+  const [calMode, setCalS] = useState(() => { try { return localStorage.getItem('life-app-heute-cal') || 'woche'; } catch { return 'woche'; } });
+  const setCal = (v) => { setCalS(v); try { localStorage.setItem('life-app-heute-cal', v); } catch {} if (v === 'monat') setMonthAnchor(day.slice(0, 8) + '01'); else setWeekStart(startOfWeek(day)); };
+  const [monthAnchor, setMonthAnchor] = useState(() => t.slice(0, 8) + '01');
+  const monthWeeks = (() => { const out = []; let w = startOfWeek(monthAnchor); const m = monthAnchor.slice(0, 7); while (w.slice(0, 7) <= m || addDays(w, 6).slice(0, 7) === m) { if (addDays(w, 6).slice(0, 7) < m) { w = addDays(w, 7); continue; } out.push(w); w = addDays(w, 7); if (w.slice(0, 7) > m) break; } return out; })();
+  const shift = (dir) => {
+    if (calMode === 'monat') { const d = parseKey(monthAnchor); const n = new Date(d.getFullYear(), d.getMonth() + dir, 1); setMonthAnchor(`${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`); }
+    else setWeekStart(addDays(weekStart, 7 * dir));
+  };
   const [range, setRange] = useState('woche');
   const [newTask, setNewTask] = useState('');
   // v1.15 (Mateo): To-dos und Überblick als zwei Reiter statt untereinander
@@ -170,19 +178,19 @@ export default function Heute() {
       });
     s.events
       .filter((e) => e.date === key && e.stage !== 'entdeckt')
-      .forEach((e) => list.push({ key: 'e' + e.id, event: true, open: toEvents, onDelete: del(e.name, () => archiveEvent(e.id)), title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
+      .forEach((e) => list.push({ key: 'e' + e.id, event: true, open: toEvents, onDelete: del(e.name, () => archiveEvent(e.id, { fromToday: true })), title: e.name, meta: [e.place, e.stage === 'zugesagt' ? 'zugesagt' : 'interessiert'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.reminders || [])
       .filter((r) => r.next === key)
-      .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), onDelete: del(r.title, () => deleteReminder(r.id)), open: jump('#/zuhause/erinnerungen'), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
+      .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), onDelete: del(r.title, () => archiveReminder(r.id)), open: jump('#/zuhause/erinnerungen'), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
     (s.gatherings || [])
       .filter((g) => g.date === key && !g.idea)
-      .forEach((g) => list.push({ key: 'g' + g.id, event: true, onDelete: del(g.name, () => archiveGathering(g.id)), open: jump(`#/treffen/${g.id}`), title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
+      .forEach((g) => list.push({ key: 'g' + g.id, event: true, onDelete: del(g.name, () => archiveGathering(g.id, { fromToday: true })), open: jump(`#/treffen/${g.id}`), title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
     (s.invites || [])
       .filter((x) => x.date === key && x.status !== 'abgesagt')
-      .forEach((x) => list.push({ key: 'i' + x.id, event: true, onDelete: del(x.name, () => archiveInvite(x.id)), open: jump('#/saeule/sozial', () => setLS('life-app-sozial-tab', 'andere')), title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
+      .forEach((x) => list.push({ key: 'i' + x.id, event: true, onDelete: del(x.name, () => archiveInvite(x.id, { fromToday: true })), open: jump('#/saeule/sozial', () => setLS('life-app-sozial-tab', 'andere')), title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date === key)
-      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => deleteHealthItem(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
+      .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => archiveHealth(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
     s.people
       .filter((p) => p.birthday && p.birthday.slice(5) === key.slice(5))
       .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), open: jump(`#/person/${p.id}`), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
@@ -200,10 +208,10 @@ export default function Heute() {
       });
     (s.reminders || [])
       .filter((r) => r.next < t)
-      .forEach((r) => extra.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), onDelete: del(r.title, () => deleteReminder(r.id)), open: jump('#/zuhause/erinnerungen'), title: r.title, color: '#2FA36B', meta: `Erinnerung · überfällig seit ${fmtShortDays(r.next, t)}`, overdue: true }));
+      .forEach((r) => extra.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), onDelete: del(r.title, () => archiveReminder(r.id)), open: jump('#/zuhause/erinnerungen'), title: r.title, color: '#2FA36B', meta: `Erinnerung · überfällig seit ${fmtShortDays(r.next, t)}`, overdue: true }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date < t)
-      .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => deleteHealthItem(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
+      .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => archiveHealth(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
     s.habits
       .filter((h) => h.count > 0)
       .forEach((h) => {
@@ -255,8 +263,8 @@ export default function Heute() {
       <main className="screen">
         <div className="top">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
-            <span className="eyebrow" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmtLong(t)}</span>
-            <h1 className="h1 sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 26 }}>{greeting(s.profile?.name)}</h1>
+            {/* v1.48 (Mateo): keine Begrüßung mehr, nur das Datum */}
+            <h1 className="h1 sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 26 }}>{new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: 'numeric', month: 'short' }).format(parseKey(t))}</h1>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <TopActions />
@@ -268,30 +276,34 @@ export default function Heute() {
         {view === 'ueberblick' && <Overview s={s} />}
 
         {view === 'todos' && <>
-        {/* Wochenleiste */}
+        {/* Wochenleiste – v1.48 (Mateo): umschaltbar Woche / Monat */}
         <section className="card" style={{ gap: 10, padding: '12px 12px 14px' }}>
           <div className="sec-h" style={{ padding: '0 4px' }}>
-            <span style={{ fontWeight: 600, fontSize: 15 }}>{monthFmt.format(parseKey(addDays(weekStart, 3)))}</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Vorherige Woche"><Icon name="chevLeft" size={15} /></button>
-              {(weekStart !== startOfWeek(t) || !isToday) && <button type="button" className="chip" style={{ minHeight: 30, padding: '0 10px', background: 'var(--accent-bg)', color: 'var(--accent)', fontSize: 13 }} onClick={() => { setWeekStart(startOfWeek(t)); setDay(t); }}>Heute</button>}
-              <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Nächste Woche"><Icon name="chev" size={15} /></button>
+            <span style={{ fontWeight: 600, fontSize: 15 }}>{monthFmt.format(parseKey(calMode === 'monat' ? monthAnchor : addDays(weekStart, 3)))}</span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button type="button" className="chip soft" style={{ minHeight: 30, padding: '0 10px', fontSize: 13 }} onClick={() => setCal(calMode === 'monat' ? 'woche' : 'monat')} aria-label={calMode === 'monat' ? 'Nur die Woche zeigen' : 'Ganzen Monat zeigen'}>{calMode === 'monat' ? 'Woche' : 'Monat'}</button>
+              <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => shift(-1)} aria-label={calMode === 'monat' ? 'Vorheriger Monat' : 'Vorherige Woche'}><Icon name="chevLeft" size={15} /></button>
+              {((calMode === 'monat' ? monthAnchor.slice(0, 7) !== t.slice(0, 7) : weekStart !== startOfWeek(t)) || !isToday) && <button type="button" className="chip" style={{ minHeight: 30, padding: '0 10px', background: 'var(--accent-bg)', color: 'var(--accent)', fontSize: 13 }} onClick={() => { setWeekStart(startOfWeek(t)); setMonthAnchor(t.slice(0, 8) + '01'); setDay(t); }}>Heute</button>}
+              <button type="button" className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => shift(1)} aria-label={calMode === 'monat' ? 'Nächster Monat' : 'Nächste Woche'}><Icon name="chev" size={15} /></button>
             </div>
           </div>
-          <div className="week-strip" role="group" aria-label="Tag wählen">
-            {WD.map((w, i) => {
-              const k = addDays(weekStart, i);
-              const n = dayItems(k).filter((x) => !x.done).length;
-              const sel = k === day;
-              return (
-                <button key={k} type="button" className={sel ? 'wday on' : 'wday'} onClick={() => setDay(k)} aria-pressed={sel} aria-label={`${dayFmt.format(parseKey(k))}${n ? `, ${n} Einträge` : ''}`}>
-                  <span className="wd">{w}</span>
-                  <span className={k === t && !sel ? 'wn today' : 'wn'}>{parseKey(k).getDate()}</span>
-                  <span className="wdot" style={{ opacity: n ? 1 : 0 }} />
-                </button>
-              );
-            })}
-          </div>
+          {(calMode === 'monat' ? monthWeeks : [weekStart]).map((ws) => (
+            <div key={ws} className="week-strip" role="group" aria-label="Tag wählen">
+              {WD.map((w, i) => {
+                const k = addDays(ws, i);
+                const n = dayItems(k).filter((x) => !x.done).length;
+                const sel = k === day;
+                const out = calMode === 'monat' && k.slice(0, 7) !== monthAnchor.slice(0, 7);
+                return (
+                  <button key={k} type="button" className={sel ? 'wday on' : 'wday'} style={out ? { opacity: 0.35 } : undefined} onClick={() => setDay(k)} aria-pressed={sel} aria-label={`${dayFmt.format(parseKey(k))}${n ? `, ${n} Einträge` : ''}`}>
+                    {(calMode !== 'monat' || ws === monthWeeks[0]) && <span className="wd">{w}</span>}
+                    <span className={k === t && !sel ? 'wn today' : 'wn'}>{parseKey(k).getDate()}</span>
+                    <span className="wdot" style={{ opacity: n ? 1 : 0 }} />
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </section>
 
         {/* Tagesliste */}
@@ -299,7 +311,7 @@ export default function Heute() {
           <div className="sec-h">
             <h2 className="h2">{dayLabel}</h2>
             {checkable.length > 0 && <span className="sub">{doneCount}/{checkable.length} erledigt</span>}
-            <span style={{ marginLeft: checkable.length ? 8 : 'auto' }}><RemovedButton always label="Gelöschte Aufgaben" items={[...(s.removedTasks || [])].reverse().map((x) => ({ ...x, name: x.title }))} storeKey="removedTasks" onRestore={restoreTask} meta={(x) => [x.due && `war für ${fmtShort(x.due)}`, x.removedAt && `gelöscht ${fmtShort(x.removedAt)}`].filter(Boolean).join(' · ')} /></span>
+            <span style={{ marginLeft: checkable.length ? 8 : 'auto' }}><RemovedButton always label="Entfernt" items={todayBin(s)} storeKey="removedTasks" onRestore={restoreFromToday} meta={(x) => [x._label, (x.due || x.date || x.next) && `für ${fmtShort(x.due || x.date || x.next)}`, x.removedAt && `entfernt ${fmtShort(x.removedAt)}`].filter(Boolean).join(' · ')} /></span>
           </div>
           {checkable.length > 0 && <div className="progress" style={{ margin: '0 4px' }}><div style={{ width: `${(doneCount / checkable.length) * 100}%` }} /></div>}
           <div className="list">

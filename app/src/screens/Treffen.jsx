@@ -325,7 +325,8 @@ export function EventsList({ s }) {
           const r = await parseGatheringText(store.get(), txt);
           if (!r?.name) throw new Error('Nichts erkannt – erzähl etwas mehr');
           const names = (Array.isArray(r.gaeste_namen) ? r.gaeste_namen : []).filter(Boolean);
-          setF((x) => ({ ...x, name: r.name || x.name, date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : x.date, time: /^\d{1,2}:\d{2}$/.test(r.uhrzeit || '') ? r.uhrzeit.padStart(5, '0') : x.time, kind: r.art || x.kind, type: r.vorlage || x.type, expected: String(r.gaeste || '').replace(/[^\d–-]/g, '') || (names.length ? String(names.length) : '') || x.expected, place: r.ort || x.place, address: r.adresse || x.address, guests: [x.guests, ...names].filter(Boolean).join(', '), motto: r.motto || x.motto, diet: r.einschraenkungen || x.diet, budget: r.budget || x.budget }));
+          const C = (t) => (t ? t.charAt(0).toLocaleUpperCase('de-DE') + t.slice(1) : t);
+          setF((x) => ({ ...x, name: C(r.name) || x.name, date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : x.date, time: /^\d{1,2}:\d{2}$/.test(r.uhrzeit || '') ? r.uhrzeit.padStart(5, '0') : x.time, kind: r.art || x.kind, type: r.vorlage || x.type, expected: String(r.gaeste || '').replace(/[^\d–-]/g, '') || (names.length ? String(names.length) : '') || x.expected, place: C(r.ort) || x.place, address: r.adresse || x.address, guests: [x.guests, ...names.map(C)].filter(Boolean).join(', '), motto: C(r.motto) || x.motto, diet: C(r.einschraenkungen) || x.diet, budget: r.budget || x.budget }));
         }} />
         <div className="seg-mini">
           {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => f.kind !== k && setF({ ...f, kind: k, type: tplForKind(f.type || 'leer', k, f.tplByKind || {}), tplByKind: { ...(f.tplByKind || {}), [f.kind]: f.type || 'leer' } })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}

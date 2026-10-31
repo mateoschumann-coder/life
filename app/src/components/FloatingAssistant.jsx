@@ -169,10 +169,12 @@ export default function FloatingAssistant({ hideFab = false }) {
     const sd = () => { stopListening(); setTimeout(() => { if (getDraft().trim()) { setSentAt(itemsRef.current.length); send(); } }, 250); };
     // v1.44: Bereichs-KI leitet eine Frage weiter, die nicht zu ihrem Bereich gehört
     const ask = (e) => { const q = String(e.detail?.text || '').trim(); if (!q) return; stopListening(); setOpen(true); setSentAt(itemsRef.current.length); send(q); };
+    const closeIt = () => { stopListening(); setOpen(false); setSentAt(null); };
+    window.addEventListener('life-close-assistant', closeIt);
     window.addEventListener('life-ask', ask);
     window.addEventListener('life-voice-start', st);
     window.addEventListener('life-voice-send', sd);
-    return () => { window.removeEventListener('life-voice-arm', arm); window.removeEventListener('life-voice-cancel', cancel); window.removeEventListener('life-ask', ask); window.removeEventListener('life-voice-start', st); window.removeEventListener('life-voice-send', sd); };
+    return () => { window.removeEventListener('life-close-assistant', closeIt); window.removeEventListener('life-voice-arm', arm); window.removeEventListener('life-voice-cancel', cancel); window.removeEventListener('life-ask', ask); window.removeEventListener('life-voice-start', st); window.removeEventListener('life-voice-send', sd); };
   }, []);
 
   const close = () => {

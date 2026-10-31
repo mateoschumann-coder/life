@@ -2,7 +2,7 @@
 // teilen sich dasselbe Gespräch, Sprache und Vorlesen.
 import { useSyncExternalStore } from 'react';
 import { askClaude, getAi, loadChat, saveAi, saveChat } from './ai';
-import { applyActions, describe, lastProjectId } from './apply';
+import { applyActions, describe, lastProjectId, lastTarget } from './apply';
 import { go } from './router';
 import { store } from './store';
 
@@ -105,6 +105,10 @@ export function decide(itemId, apply, { auto = false } = {}) {
   set({ items });
   // Neues Projekt gleich öffnen, damit man es sieht
   if (madeProject && lastProjectId) setTimeout(() => go(`/projekt/${lastProjectId}`), auto ? 600 : 300);
+  else if (count && lastTarget) {
+    const t = lastTarget;
+    setTimeout(() => { window.dispatchEvent(new Event('life-close-assistant')); t.prep?.(); const same = location.hash.replace(/^#/, '') === t.href; go(t.href); if (same) window.dispatchEvent(new Event('life-remount')); }, auto ? 600 : 300);
+  }
   return count;
 }
 export const canUndo = (itemId) => snapshots.has(itemId);

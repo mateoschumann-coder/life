@@ -21,13 +21,13 @@ function Rows({ items, storeKey, onRestore, meta }) {
   return (
     <div className="list">
       {items.map((x) => (
-        <div key={x.id} className="row compact">
+        <div key={(x._store || '') + x.id} className="row compact">
           <span className="row-main">
             <span className="row-title plain" style={{ color: 'var(--muted)' }}>{x.name}</span>
             {meta && meta(x) && <span className="row-meta">{meta(x)}</span>}
           </span>
-          <button type="button" className="pill" onClick={() => { onRestore(x.id); toast('Wieder in der Liste'); }}>↩ Zurück</button>
-          <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => askDel(`„${x.name}“ endgültig löschen?`) && purgeRemoved(storeKey, x.id)} aria-label={`${x.name} endgültig löschen`}>Löschen</button>
+          <button type="button" className="pill" onClick={() => { onRestore(x.id, x); toast('Wieder in der Liste'); }}>↩ Zurück</button>
+          <button type="button" className="pill" style={{ color: 'var(--danger)' }} onClick={() => askDel(`„${x.name}“ endgültig löschen?`) && purgeRemoved(x._store || storeKey, x.id)} aria-label={`${x.name} endgültig löschen`}>Löschen</button>
         </div>
       ))}
     </div>

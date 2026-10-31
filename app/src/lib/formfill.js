@@ -3,6 +3,8 @@
 import { searchWithTool } from './outings';
 import { fmtLong, today } from './dates';
 
+// v1.48 (Mateo): erster Buchstabe groß – außer bei Links, Mail, Uhrzeit/Datum und festen Auswahlwerten
+const cap = (v, k, o) => (o.enum || /url|link|mail|email|web|telefon|phone|date|datum|time|uhrzeit/i.test(k) || /^(https?:|www\.)/i.test(v) ? v : v.charAt(0).toLocaleUpperCase('de-DE') + v.slice(1));
 export async function fillForm({ title, fields, values = {}, text, hint = '' }) {
   const props = {};
   for (const [k, v] of Object.entries(fields)) {
@@ -23,7 +25,7 @@ export async function fillForm({ title, fields, values = {}, text, hint = '' }) 
     if (!fields[k] || v == null || !String(v).trim()) continue;
     const o = typeof fields[k] === 'string' ? {} : fields[k];
     if (o.enum && !o.enum.includes(v)) continue;
-    out[k] = String(v).trim();
+    out[k] = cap(String(v).trim(), k, o);
   }
   return out;
 }

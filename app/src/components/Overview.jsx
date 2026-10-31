@@ -91,8 +91,7 @@ function SecRow({ x, groups, hint }) {
 export default function Overview({ s }) {
   const [v, setV] = useState(loadOverview);
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem('life-app-ov-open') !== '0'; } catch { return true; } });
-  const toggle = () => { const n = !open; setOpen(n); try { localStorage.setItem('life-app-ov-open', n ? '1' : '0'); } catch {} };
+  const open = true; // v1.48 (Mateo): Überblick nicht mehr einklappbar
   const [sel, setSelState] = useState(loadSecs);
   const setSel = (x) => { setSelState(x); try { if (x) localStorage.setItem(SEC_KEY, JSON.stringify(x)); else localStorage.removeItem(SEC_KEY); } catch {} };
   const [err, setErr] = useState(null);
@@ -125,10 +124,9 @@ export default function Overview({ s }) {
   return (
     <section className="card checkin" style={{ gap: 8 }}>
       <div className="sec-h" style={{ padding: 0, gap: 6 }}>
-        <button type="button" onClick={toggle} aria-expanded={open} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 0, padding: 0, color: 'inherit', font: 'inherit', flex: 1, textAlign: 'left', cursor: 'pointer', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
           <span className="spark"><Icon name="sparkle" size={16} color="currentColor" /></span> <span style={{ fontWeight: 700, fontSize: 17 }}>Dein Überblick</span>
-          <span className="tiny">{open ? '▴' : '▾'}</span>
-        </button>
+        </div>
         {open && avail.length > 1 && <SecPicker avail={avail} sel={sel} onChange={setSel} />}
         {open && hasKey && <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} onClick={run} disabled={busy} aria-label="Zusammenfassung aktualisieren"><Icon name="refresh" size={15} /></button>}
       </div>

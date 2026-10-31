@@ -104,7 +104,7 @@ export default function Einstellungen() {
         {/* v1.47 (Mateo): Wichtiges oben, Rest einklappbar */}
         <section className="card" style={{ gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="row-main"><span style={{ fontWeight: 700 }}>Life · Version 1.48</span><span className="tiny">Stand {BUILD_ID}</span></span>
+            <span className="row-main"><span style={{ fontWeight: 700 }}>Life · Version 1.49</span><span className="tiny">Stand {BUILD_ID}</span></span>
             <button type="button" className="btn tint small" onClick={forceUpdate}>Neueste Version laden</button>
           </div>
         </section>

@@ -48,10 +48,11 @@ export default function AiFill({ placeholder = 'Erzähl kurz oder füg Link/Text
   );
   return (
     <div className="card" style={{ gap: 8, background: 'var(--card-2)', boxShadow: 'none', padding: 12 }}>
-      <textarea className="input" style={{ minHeight: 70 }} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder={mic.on ? '🎙 Ich höre zu … erzähl einfach' : placeholder} autoFocus={!mic.on} />
+      <textarea className="input" style={{ minHeight: 70 }} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder={mic.on ? '🎙 Ich höre zu, auch bei Pausen … ⏹ = fertig, dann fülle ich aus' : placeholder} autoFocus={!mic.on} />
       {/* v1.32: gleiche Anordnung wie alle KI-Boxen – links 🎙, rechts ausführen */}
       <div className="ai-input-row">
-        {canDictate && <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={mic.toggle} aria-label={mic.on ? 'Zuhören stoppen' : 'Einsprechen'}><Icon name={mic.on ? 'stop' : 'mic'} size={18} /></button>}
+        {/* v1.48 (Mateo): das Mikro hört auch über Pausen weiter zu, bis du Stopp tippst – Stopp füllt dann gleich aus */}
+        {canDictate && <button type="button" className={mic.on ? 'mic on' : 'mic'} onClick={() => { if (mic.on) { mic.stop(); if (txtRef.current.trim()) setTimeout(run, 120); } else mic.start(); }} aria-label={mic.on ? 'Stopp und ausfüllen' : 'Einsprechen'}><Icon name={mic.on ? 'stop' : 'mic'} size={18} /></button>}
         <button type="button" className="link-btn" style={{ fontSize: 14, flex: 1, textAlign: 'left' }} onClick={() => { mic.stop(); setOpen(false); }}>Abbrechen</button>
         <button type="button" className="btn small" disabled={(!txt.trim() && !ctx && !mic.on) || busy} onClick={run}>{busy ? 'Ich fülle aus …' : txt.trim() || mic.on ? '✨ Ausfüllen' : '✨ Rest ausfüllen'}</button>
       </div>
