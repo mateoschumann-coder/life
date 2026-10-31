@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { getAi } from '../lib/ai';
-import { getDraft, needsRetry, resend, send, setDraft, setMode, setSpeak, speechAvailable, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
+import { getDraft, newSession, needsRetry, resend, send, setDraft, setMode, setSpeak, speechAvailable, startListening, stopListening, stopSpeaking, unlockSpeech, useChat } from '../lib/chat';
 import { Icon, toast } from './ui';
 import Proposal from './Proposal';
 
@@ -35,7 +35,7 @@ export default function FloatingAssistant({ hideFab = false }) {
     const b = el.getBoundingClientRect();
     let dy = 0;
     if (b.top < 12) dy = 12 - b.top;
-    else if (b.top > window.innerHeight - 90) dy = window.innerHeight - 90 - b.top;
+    else if (panelOff.y > 0) dy = -panelOff.y;
     if (dy) setPanelOff((o) => ({ ...o, y: o.y + dy }));
   });
   const FAB = 54;
@@ -88,7 +88,7 @@ export default function FloatingAssistant({ hideFab = false }) {
     const H = window.innerHeight;
     const dx = clamp(e.clientX - d.sx, 4 - d.box.left, Math.max(4 - d.box.left, W - 4 - d.box.right));
     const dy = clamp(e.clientY - d.sy, 12 - d.box.top, H - 90 - d.box.top);
-    setPanelOff({ x: d.ox + dx, y: d.oy + dy });
+    setPanelOff({ x: d.ox + dx, y: Math.min(0, d.oy + dy) }); // v1.46: nicht nach unten wegziehbar – Mikro und Senden bleiben sichtbar
   };
   const onHeadUp = () => {
     drag.current = null;
@@ -106,6 +106,7 @@ export default function FloatingAssistant({ hideFab = false }) {
   // Wenn die Spracherkennung von selbst stoppt (Pause), bleibt der Text als Entwurf stehen
   useEffect(() => {
     if (!open) stopListening();
+    else newSession(); // v1.46: jedes Öffnen = frisches Gespräch
     setPanelOff({ x: 0, y: 0 }); // beim Öffnen/Schließen wieder an den Ausgangsplatz
   }, [open]);
 

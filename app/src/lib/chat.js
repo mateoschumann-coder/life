@@ -8,6 +8,12 @@ import { store } from './store';
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 let state = { items: loadChat(), busy: false, listening: false, draft: '', mode: 'assistent' }; // v0.95: Coach entfernt – nur noch der Assistent
+// v1.46 (Mateo): kein Dauer-Chat – jedes Öffnen (bzw. nach 10 Min Pause, nach Neustart der App) beginnt ein frisches Gespräch.
+// Der Assistent kennt trotzdem die App, deine Daten und das Gedächtnis („Was Life über dich weiß“), aber keine alten Gespräche.
+let sessionStart = state.items.length;
+let lastAt = 0;
+const FRESH_AFTER = 10 * 60 * 1000;
+export function newSession() { sessionStart = state.items.length; lastAt = Date.now(); }
 const listeners = new Set();
 const snapshots = new Map(); // Stand vor einer Änderung → „Rückgängig“ (nur in dieser Sitzung)
 const set = (patch) => {
@@ -38,7 +44,12 @@ export async function send(text) {
   const content = (text ?? state.draft).trim();
   if (!content || state.busy) return;
   const base = state.items.map((it) => (it.status === 'open' ? { ...it, status: 'skipped' } : it));
-  const withUser = [...base, { id: newId(), role: 'user', text: content, mode: state.mode }];
+  if (Date.now() - lastAt > FRESH_AFTER) sessionStart = base.length;
+  lastAt = Date.now();
+  // alte Gespräche nicht endlos aufheben (nur Anzeige „Früherer Verlauf“)
+  let kept = base;
+  if (kept.length > 60) { const cut = kept.length - 60; kept = kept.slice(cut); sessionStart = Math.max(0, sessionStart - cut); }
+  const withUser = [...kept, { id: newId(), role: 'user', text: content, mode: state.mode }];
   if (state.listening || rec) stopListening();
   set({ items: withUser, draft: '' });
   await run(withUser);
@@ -46,7 +57,7 @@ export async function send(text) {
 async function run(withUser) {
   set({ busy: true });
   try {
-    const r = await askClaude(store.get(), withUser, withUser.at(-1)?.mode || state.mode);
+    const r = await askClaude(store.get(), withUser.slice(Math.min(sessionStart, withUser.length - 1)), withUser.at(-1)?.mode || state.mode);
     let reply = {
       id: newId(), role: 'assistant', text: r.text, toolUseId: r.toolUseId, actions: r.actions,
       selected: r.actions.map(() => true), status: r.toolUseId ? 'open' : null, failed: r.failed || undefined,
