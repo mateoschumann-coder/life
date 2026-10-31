@@ -98,22 +98,37 @@ export function Chevron() {
 }
 
 // v1.30 (Mateo): Blitz antippen = „Was möchtest du tun?“, lange drücken = sofort mit der KI sprechen (loslassen = senden)
+// v1.48: kurzer Ton, sobald das Mikro wirklich zuhört
+let beepCtx = null;
+function unlockBeep() {
+  try { beepCtx = beepCtx || new (window.AudioContext || window.webkitAudioContext)(); if (beepCtx.state === 'suspended') beepCtx.resume(); } catch {}
+}
+export function beep() {
+  try {
+    if (!beepCtx) return;
+    const o = beepCtx.createOscillator(); const g = beepCtx.createGain();
+    o.frequency.value = 880; o.type = 'sine';
+    g.gain.setValueAtTime(0.0001, beepCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.25, beepCtx.currentTime + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, beepCtx.currentTime + 0.16);
+    o.connect(g); g.connect(beepCtx.destination); o.start(); o.stop(beepCtx.currentTime + 0.18);
+  } catch {}
+}
+if (typeof window !== 'undefined') window.addEventListener('life-mic-on', beep);
 function BoltButton({ on }) {
   const st = useRef({});
   const [talking, setTalking] = useState(false);
-  // v1.47 (Mateo): Mikro startet SOFORT beim Antippen (iPhone erlaubt Spracherkennung nur direkt beim Tipp, nicht nach einer Wartezeit).
-  // Kurz tippen = Mikro wieder aus + „Was möchtest du tun?“; gedrückt halten = Fenster zeigt das Gesagte, loslassen = senden.
+  // v1.48 (Mateo): kurz tippen = sofort „Was möchtest du tun?“ (Mikro bleibt aus); gedrückt halten = Mikro geht an,
+  // ein kurzer Ton zeigt, dass es zuhört; loslassen = senden.
   const down = (e) => {
     if (e.type === 'mousedown' && st.current.touch) return;
     clearTimeout(st.current.t);
-    st.current = { long: false, touch: e.type === 'touchstart', t: setTimeout(() => { st.current.long = true; setTalking(true); navigator.vibrate?.(20); window.dispatchEvent(new Event('life-voice-start')); }, 350) };
-    window.dispatchEvent(new Event('life-voice-arm'));
+    unlockBeep(); // Ton im Tipp freischalten (iPhone spielt sonst keinen Ton ab)
+    st.current = { long: false, touch: e.type === 'touchstart', t: setTimeout(() => { st.current.long = true; setTalking(true); navigator.vibrate?.(20); window.dispatchEvent(new Event('life-voice-start')); }, 400) };
   };
   const up = (e) => {
     if (e.type === 'mouseup' && st.current.touch) return;
     clearTimeout(st.current.t);
-    if (st.current.long) { e.preventDefault(); setTalking(false); window.dispatchEvent(new Event('life-voice-send')); st.current.skip = true; }
-    else window.dispatchEvent(new Event('life-voice-cancel'));
+    if (st.current.long) { e.preventDefault(); setTalking(false); window.dispatchEvent(new Event('life-voice-send')); st.current.skip = true; return; }
+    if (st.current.touch && e.type === 'touchend') { e.preventDefault(); st.current.skip = true; clearFrom(); location.hash = '/los'; } // sofort, ohne auf den Klick zu warten
   };
   const click = () => { if (st.current.skip) { st.current.skip = false; return; } clearFrom(); location.hash = '/los'; };
   return (

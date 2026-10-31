@@ -167,6 +167,7 @@ function begin({ continuous, onError }) {
     else if (e.error !== 'aborted' && e.error !== 'no-speech') onError?.('Spracheingabe fehlgeschlagen – bitte noch einmal versuchen');
   };
   const me = rec;
+  rec.onstart = () => { if (me === gestureRec || gestureRec === null) window.dispatchEvent(new Event('life-mic-on')); }; // v1.48: Ton, sobald das Mikro wirklich zuhört
   rec.onend = () => {
     if (me !== rec) return;
     if (want && Date.now() < want.until) {
