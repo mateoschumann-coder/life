@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { canDictate, useDictation } from '../lib/dictate';
 import { Icon, toast } from './ui';
 
-export default function MicBtn({ value, onChange, onDone, lang, size = 40 }) {
+export default function MicBtn({ value, onChange, onDone, lang, size = 40, keep = false }) {
   const mic = useDictation(value || '', onChange, lang);
   const was = useRef(false);
   const val = useRef(value); val.current = value;
@@ -15,7 +15,7 @@ export default function MicBtn({ value, onChange, onDone, lang, size = 40 }) {
   useEffect(() => { if (mic.error) toast(mic.error); }, [mic.error]);
   if (!canDictate) return null;
   return (
-    <button type="button" className={mic.on ? 'mic on' : 'mic'} style={{ width: size, height: size, flexShrink: 0 }} onClick={() => { if (!mic.on) onChange(''); mic.toggle(); }} aria-label={mic.on ? 'Fertig gesprochen' : 'Suche einsprechen'} aria-pressed={mic.on}>
+    <button type="button" className={mic.on ? 'mic on' : 'mic'} style={{ width: size, height: size, flexShrink: 0 }} onClick={() => { if (!mic.on && !keep) onChange(''); mic.toggle(); }} aria-label={mic.on ? 'Fertig gesprochen' : 'Suche einsprechen'} aria-pressed={mic.on}>
       <Icon name={mic.on ? 'stop' : 'mic'} size={17} color="currentColor" />
     </button>
   );

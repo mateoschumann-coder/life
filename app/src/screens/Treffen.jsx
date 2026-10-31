@@ -18,7 +18,8 @@ import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } fr
 import { Missing } from './Saeule';
 import { RemovedButton } from '../components/RemovedList';
 import AiFill from '../components/AiFill';
-import { parseGatheringText, fillGathering, rewriteInvite, mapsLink } from '../lib/gather';
+import { parseGatheringText, fillGathering, rewriteInvite, mapsLink, meetPlacesOf, saveMeetPlace, removeMeetPlace } from '../lib/gather';
+import { addressHere, cityOf, placeCity } from '../lib/outings';
 import MicBtn from '../components/MicBtn';
 import { archiveGathering, archiveInvite, restoreGathering, restoreInvite } from '../lib/actions';
 import { PEOPLE_CATEGORIES } from '../lib/seed';
@@ -520,27 +521,94 @@ function InvitePreview({ g }) {
     </div>
   );
 }
-// v1.50 (Mateo): Einladung per Sprache schreiben/überarbeiten – Feld oben, links 🎙, rechts ausführen
-function InviteAI({ g }) {
-  const [wish, setWish] = useState('');
+// v1.51 (Mateo): EIN Textfeld für die Einladung – links 🎙 hineinsprechen, rechts „✨ Mit KI überarbeiten“
+function InviteEditor({ g }) {
+  const [txt, setTxt] = useState(g.invite || '');
   const [busy, setBusy] = useState(false);
   const [prev, setPrev] = useState(null);
-  if (!hasKey()) return null;
-  const run = async (w = wish) => {
+  const [loaded, setLoaded] = useState(g.id);
+  if (loaded !== g.id) { setLoaded(g.id); setTxt(g.invite || ''); setPrev(null); }
+  const save = (v) => { if (v !== (g.invite || '')) updateGathering(g.id, { invite: v }); };
+  const polish = async () => {
     setBusy(true);
-    try { const before = g.invite || ''; const text = await rewriteInvite(g, String(w || '').trim()); updateGathering(g.id, { invite: text }); setPrev(before); setWish(''); toast('Einladung überarbeitet'); } catch (e) { toast(e.message); }
+    try { const before = txt; const out = await rewriteInvite({ ...g, invite: txt }); setTxt(out); save(out); setPrev(before); toast('Überarbeitet – passt es?'); } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es den KI-Schlüssel (Einstellungen)' : e.message); }
     setBusy(false);
   };
   return (
-    <div className="ai-input" style={{ background: 'var(--card-2)', borderRadius: 14, padding: 10 }}>
-      <span style={{ fontWeight: 650, fontSize: 14 }}>✨ Mit der KI {g.invite ? 'überarbeiten' : 'schreiben'}</span>
-      <textarea className="input" style={{ minHeight: 56 }} value={wish} onChange={(e) => setWish(e.target.value)} placeholder={g.invite ? 'z.B. lockerer, mit Emojis, auf Spanisch, sag dass jeder etwas zum Grillen mitbringt' : 'z.B. Asado bei mir, entspannt, jeder bringt ein Getränk mit'} aria-label="Wunsch für die Einladung" />
+    <div className="ai-input">
+      <textarea className="input" style={{ minHeight: 120 }} value={txt} onChange={(e) => setTxt(e.target.value)} onBlur={(e) => save(e.target.value)} placeholder="Einladung schreiben oder links 🎙 einsprechen, z.B. „Asado bei mir, jeder bringt ein Getränk, locker mit Emojis“" aria-label="Einladungstext" />
       <div className="ai-input-row">
-        <MicBtn value={wish} onChange={setWish} onDone={(t) => run(t)} />
-        <span style={{ flex: 1 }}>{prev !== null && <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => { updateGathering(g.id, { invite: prev }); setPrev(null); }}>↶ Vorherigen Text</button>}</span>
-        <button type="button" className="btn small" disabled={busy} onClick={() => run()}>{busy ? 'Ich schreibe …' : g.invite ? '✨ Überarbeiten' : '✨ Schreiben'}</button>
+        <MicBtn keep value={txt} onChange={setTxt} onDone={(v) => save(v)} />
+        <span style={{ flex: 1 }}>{prev !== null && <button type="button" className="link-btn" style={{ fontSize: 13 }} onClick={() => { setTxt(prev); save(prev); setPrev(null); }}>↶ Vorher</button>}</span>
+        {hasKey() && <button type="button" className="btn small tint" disabled={busy || !txt.trim()} onClick={polish}>{busy ? 'Ich schreibe …' : '✨ Mit KI überarbeiten'}</button>}
       </div>
     </div>
+  );
+}
+
+// v1.51 (Mateo): Ort fürs Treffen wählen – Mein Standort, gespeicherte Treffpunkte, bei „Woanders“ auch deine Orte aus Ausgehen
+function PlacePick({ s, g, open, onClose }) {
+  const home = g.kind !== 'auswaerts';
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('');
+  const [nName, setNName] = useState('');
+  const [nAddr, setNAddr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const mine = meetPlacesOf(s);
+  const city = cityOf(s);
+  const set = (place, address) => { updateGathering(g.id, { place, address: String(address || '').replace(/\s+/g, ' ').trim() }); toast(`Ort: ${place}`); onClose(); };
+  const here = async () => {
+    setBusy(true);
+    try { const a = await addressHere(); setNAddr(a); if (!nName) setNName(home ? 'Bei mir' : ''); toast('Standort gefunden – Name geben und speichern oder direkt übernehmen'); } catch (e) { toast(e.message); }
+    setBusy(false);
+  };
+  const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const pool = (s.places || []).filter((p) => placeCity(p) === city || q.trim());
+  const cats = [...new Set(pool.map((p) => p.category).filter(Boolean))];
+  const list = pool.filter((p) => (!cat || p.category === cat) && (!q.trim() || norm([p.name, p.address, p.hood, p.subcat, p.category].join(' ')).includes(norm(q.trim())))).sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || a.name.localeCompare(b.name)).slice(0, 40);
+  return (
+    <Sheet open={open} title="Ort wählen" onClose={onClose}>
+      <button type="button" className="btn tint" onClick={here} disabled={busy}>{busy ? 'Suche Standort …' : '📍 Mein Standort'}</button>
+      <span className="label">Gespeicherte Treffpunkte</span>
+      <div className="list">
+        {!mine.length && <div className="empty">Noch keine – unten z.B. „Bei mir“ mit deiner Adresse speichern.</div>}
+        {mine.map((m) => (
+          <div key={m.id} className="row compact">
+            <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0, color: 'inherit', font: 'inherit' }} onClick={() => set(m.name, m.address)}>
+              <span className="row-title plain">{m.name}</span>{m.address && <span className="row-meta">{m.address}</span>}
+            </button>
+            <button type="button" className="x-btn" onClick={() => removeMeetPlace(m.id)} aria-label={`${m.name} entfernen`}><Icon name="x" size={12} color="var(--chev)" /></button>
+          </div>
+        ))}
+      </div>
+      <div className="take-box" style={{ gap: 6 }}>
+        <span style={{ fontWeight: 650, fontSize: 14 }}>＋ Treffpunkt speichern</span>
+        <input className="input" value={nName} onChange={(e) => setNName(e.target.value)} placeholder="Name, z.B. Bei mir, Bei Oma" aria-label="Name des Treffpunkts" />
+        <textarea className="input" rows={2} style={{ minHeight: 0, resize: 'none' }} value={nAddr} onChange={(e) => setNAddr(e.target.value)} placeholder="Adresse" aria-label="Adresse des Treffpunkts" />
+        <div className="chips">
+          <button type="button" className="btn small" disabled={!nName.trim()} onClick={() => { saveMeetPlace(nName, nAddr); set(nName.trim(), nAddr); setNName(''); setNAddr(''); }}>Speichern & übernehmen</button>
+          {nAddr.trim() && <button type="button" className="btn small tint" onClick={() => set(nName.trim() || nAddr.split(',')[0], nAddr)}>Nur übernehmen</button>}
+        </div>
+      </div>
+      {!home && (
+        <>
+          <span className="label">Aus deinen Orten · {city}</span>
+          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Restaurant, Café, Bar suchen …" aria-label="Orte durchsuchen" />
+          {cats.length > 1 && <div className="chips-scroll">
+            <button type="button" className={!cat ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCat('')}>Alle</button>
+            {cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => setCat(cat === c ? '' : c)}>{c}</button>)}
+          </div>}
+          <div className="list">
+            {!list.length && <div className="empty">{pool.length ? 'Nichts gefunden.' : `Noch keine Orte in ${city} gespeichert (Ausgehen → Orte).`}</div>}
+            {list.map((p) => (
+              <button key={p.id} type="button" className="row compact" style={{ width: '100%', border: 0, textAlign: 'left', font: 'inherit', color: 'inherit', background: 'none' }} onClick={() => set(p.name, [p.address, placeCity(p)].filter(Boolean).join(', '))}>
+                <span className="row-main"><span className="row-title plain">{p.fav ? '♥ ' : ''}{p.name}</span><span className="row-meta">{[p.subcat || p.category, p.hood].filter(Boolean).join(' · ')}</span></span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </Sheet>
   );
 }
 
@@ -549,6 +617,7 @@ function Detail({ s, g }) {
   const [tab, setTab] = useState('ueberblick');
   const [guest, setGuestText] = useState('');
   const [pickGuests, setPickGuests] = useState(false);
+  const [pickPlace, setPickPlace] = useState(false);
   const counts = Object.fromEntries(Object.keys(GUEST_STATUS).map((k) => [k, g.guests.filter((x) => x.status === k).length]));
   const phoneOf = (x) => s.people.find((p) => p.id === x.personId)?.phone?.replace(/[^\d+]/g, '').replace(/^\+/, '');
   const share = async () => {
@@ -592,7 +661,10 @@ function Detail({ s, g }) {
             <div style={{ flex: 1, minWidth: 0 }}><DateRangeField single from={g.date} to="" onChange={(v) => updateGathering(g.id, { date: v.from })} placeholder="Datum offen" title="Datum" /></div>
             <input className="input" type="time" value={g.time || ''} onChange={(e) => updateGathering(g.id, { time: e.target.value })} aria-label="Uhrzeit" style={{ maxWidth: 120 }} />
           </div>
-          {field('place', home ? 'Wo? (z.B. bei mir)' : 'Wo? (Name des Ortes)')}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>{field('place', home ? 'Wo? (z.B. bei mir)' : 'Wo? (Name des Ortes)')}</div>
+            <button type="button" className="btn small tint" style={{ whiteSpace: 'nowrap' }} onClick={() => setPickPlace(true)}>📍 Wählen</button>
+          </div>
           <textarea className="input" rows={2} style={{ minHeight: 0, resize: 'none', overflowWrap: 'anywhere' }} defaultValue={g.address} key={g.id + 'address' + (g.address || '')} placeholder="Adresse (kommt mit Google-Maps-Link in die Einladung)" aria-label="Adresse" onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ' ').trim(); if (v !== (g.address || '')) updateGathering(g.id, { address: v }); }} />
           {mapsLink(g) && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} href={mapsLink(g)} target="_blank" rel="noreferrer">🗺 In Google Maps prüfen ↗</a>}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -646,6 +718,7 @@ function Detail({ s, g }) {
           </>
         )}
         <GuestPicker s={s} g={g} open={pickGuests} onClose={() => setPickGuests(false)} />
+        <PlacePick s={s} g={g} open={pickPlace} onClose={() => setPickPlace(false)} />
         {cur === 'orte' && <Venues g={g} />}
         {cur === 'mitbringen' && (
           <>
@@ -656,14 +729,13 @@ function Detail({ s, g }) {
         {cur === 'einladung' && (
           <section className="card" style={{ gap: 10 }}>
             <Info>Allgemeine Einladung an alle – ohne Namen. Wann, Wo und der Google-Maps-Link kommen automatisch aus dem Überblick dazu. „Teilen“ öffnet die iPhone-Auswahl – dort WhatsApp und dann eine Gruppe oder Person wählen. Gäste mit Telefonnummer kannst du unter „Gäste“ auch einzeln einladen.</Info>
-            <textarea className="input" style={{ minHeight: 120 }} defaultValue={g.invite} key={g.id + 'i' + (g.invite || '').length} placeholder="z.B. Hey! Am Samstag gibt’s Asado bei mir 🔥 Bring gute Laune mit. Bist du dabei? – oder unten im KI-Planer „Einladung schreiben“." onBlur={(e) => e.target.value !== g.invite && updateGathering(g.id, { invite: e.target.value })} aria-label="Einladungstext" />
-            <InviteAI g={g} />
+            <InviteEditor g={g} />
             {inviteDetails(g) ? <InvitePreview g={g} /> : <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => setTab('ueberblick')}>Datum, Uhrzeit, Ort und Adresse im Überblick eintragen ›</button>}
             <button type="button" className="btn" onClick={share}>Einladung teilen (WhatsApp …)</button>
             <WaGroups s={s} text={inviteText(g)} />
           </section>
         )}
-        <PlanChat
+        {cur !== 'einladung' && <PlanChat
           title="KI-Planer"
           compact
           placeholder="Was brauchst du?"
@@ -675,8 +747,8 @@ function Detail({ s, g }) {
           webChips={home ? [] : ['Passenden Ort finden']}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyGatherProposal(g.id, sel)}
-          chips={home ? ['Was kochen?', 'Getränke & Mengen', 'Einladung schreiben', 'Was mitbringen?'] : ['Passenden Ort finden', 'Einladung schreiben', 'Wie reservieren?']}
-        />
+          chips={home ? ['Was kochen?', 'Getränke & Mengen', 'Was mitbringen?'] : ['Passenden Ort finden', 'Wie reservieren?']}
+        />}
         <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { done: !g.done }); toast(g.done ? 'Wieder offen' : 'Abgehakt'); if (!g.done) go('/saeule/sozial'); }}>{g.done ? 'Wieder öffnen' : 'Event abhaken (hat stattgefunden)'}</button>
         {!g.idea && !g.done && <button type="button" className="btn sec" onClick={() => { updateGathering(g.id, { idea: true }); toast('Wieder eine Idee – steht unter „Ideen“'); }}>💡 Doch nur eine Idee</button>}
         <button type="button" className="btn danger" onClick={() => { archiveGathering(g.id); toast('Rausgenommen – unten in Sozial zurückholbar'); go('/saeule/sozial'); }}>Treffen rausnehmen</button>

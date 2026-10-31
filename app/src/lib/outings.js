@@ -494,3 +494,22 @@ export async function parseEventText(s, text, city = '') {
 // v1.12: Weg zu einem Event/Ort (Google Maps Routenplaner mit Ziel = Ort + Stadt)
 export const eventDest = (e) => [e.place || e.name, e.address && !String(e.place || '').includes(e.address) ? e.address : ''].filter(Boolean).join(', ');
 export const routeUrl = (place, city = HOME_CITY) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([place, city && !String(place).toLowerCase().includes(String(city).toLowerCase()) ? city : ''].filter(Boolean).join(', '))}`;
+
+// v1.51: Aktueller Standort → Straße + Hausnummer, Viertel, Stadt (für Treffen-Ort „Mein Standort“)
+export function addressHere() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('Standort nicht verfügbar'));
+    navigator.geolocation.getCurrentPosition(async (p) => {
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&accept-language=es&lat=${p.coords.latitude}&lon=${p.coords.longitude}`).then((x) => x.json());
+        const a = r?.address || {};
+        const street = [a.road, a.house_number].filter(Boolean).join(' ');
+        const hood = a.suburb || a.neighbourhood || a.quarter || '';
+        const city = a.city || a.town || a.village || a.state || '';
+        const address = [street, hood, city].filter(Boolean).join(', ');
+        if (!address) return reject(new Error('Adresse nicht erkannt'));
+        resolve(address);
+      } catch { reject(new Error('Adresse nicht erkannt')); }
+    }, () => reject(new Error('Standort nicht freigegeben')), { timeout: 10000, maximumAge: 60000 });
+  });
+}

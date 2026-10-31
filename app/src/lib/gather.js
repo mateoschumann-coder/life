@@ -415,7 +415,7 @@ export async function parseGatheringText(s, text) {
 // v1.50 (Mateo): Einladung per Sprache überarbeiten („lockerer, mit Emojis, sag dass jeder Fleisch mitbringt“)
 export async function rewriteInvite(g, wish) {
   const r = await searchWithTool({
-    system: `Du schreibst Mateos Einladungstext für sein Treffen „${g.name}“${g.motto ? ` (Motto: ${g.motto})` : ''}${g.date ? `, am ${g.date}${g.time ? ` um ${g.time}` : ''}` : ''}${g.place ? `, Ort: ${g.place}` : ''}. Der Text geht per WhatsApp an alle (ohne Namen). Wann, Wo und der Google-Maps-Link werden automatisch unten angehängt – also NICHT Datum, Uhrzeit, Adresse oder Link in den Text schreiben. Kurz (2–5 Sätze), freundlich, gern mit 1–3 passenden Emojis, in der Sprache, die Mateo wünscht (sonst Deutsch). Setze seinen Wunsch genau um und behalte sonst den bisherigen Text bei.`,
+    system: `Du schreibst Mateos Einladungstext für sein Treffen „${g.name}“${g.motto ? ` (Motto: ${g.motto})` : ''}${g.date ? `, am ${g.date}${g.time ? ` um ${g.time}` : ''}` : ''}${g.place ? `, Ort: ${g.place}` : ''}. Der Text geht per WhatsApp an alle (ohne Namen). Wann, Wo und der Google-Maps-Link werden automatisch unten angehängt – also NICHT Datum, Uhrzeit, Adresse oder Link in den Text schreiben. Kurz (2–5 Sätze), freundlich, gern mit 1–3 passenden Emojis, in der Sprache, die Mateo wünscht (sonst Deutsch). Der bisherige Text kann Stichpunkte, Diktiertes oder Anweisungen an dich enthalten (z.B. „mach es lockerer“, „auf Spanisch“) – setze Anweisungen um, lass sie im Ergebnis weg und behalte alle inhaltlichen Angaben.`,
     user: `Bisheriger Text: ${String(g.invite || '').trim() || '(noch keiner)'}\n\nMateos Wunsch: ${wish || 'Schreib eine schöne Einladung.'}`,
     tool: { name: 'einladung', description: 'Neuer Einladungstext', input_schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
     maxUses: 0, maxTokens: 700, label: 'Einladung überarbeiten',
@@ -424,3 +424,15 @@ export async function rewriteInvite(g, wish) {
   if (!t) throw new Error('Kein Text gekommen – nochmal versuchen');
   return t;
 }
+
+// v1.51 (Mateo): eigene gespeicherte Treffpunkte (z.B. „Bei mir“, „Bei Oma“) für den Treffen-Ort
+export const meetPlacesOf = (s) => s.profile?.meetPlaces || [];
+export function saveMeetPlace(name, address) {
+  const n = String(name || '').trim();
+  if (!n) return;
+  store.update((s) => {
+    const list = (s.profile?.meetPlaces || []).filter((x) => x.name.toLowerCase() !== n.toLowerCase());
+    s.profile = { ...s.profile, meetPlaces: [...list, { id: uid(), name: n, address: String(address || '').replace(/\s+/g, ' ').trim() }] };
+  });
+}
+export const removeMeetPlace = (id) => store.update((s) => { s.profile = { ...s.profile, meetPlaces: (s.profile?.meetPlaces || []).filter((x) => x.id !== id) }; });
