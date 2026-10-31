@@ -158,15 +158,21 @@ export default function FloatingAssistant({ hideFab = false }) {
 
   // v1.30: Blitz lange drücken → zuhören, loslassen → senden
   const itemsRef = useRef(items); itemsRef.current = items;
+  const armed = useRef(false);
   useEffect(() => {
-    const st = () => { if (getAi().speak) unlockSpeech(); setDraft(''); setOpen(true); setSentAt(itemsRef.current.length); if (!startListening({ continuous: true, onError: toast })) toast('Spracheingabe nicht verfügbar – tippe im Fenster'); };
+    // v1.47: „arm“ kommt direkt beim Antippen des Blitzes → Mikro startet im Tipp selbst (sonst verweigert das iPhone)
+    const arm = () => { setDraft(''); armed.current = startListening({ continuous: true, onError: toast }); };
+    const cancel = () => { if (armed.current) { stopListening(); setDraft(''); } armed.current = false; };
+    const st = () => { setOpen(true); setSentAt(itemsRef.current.length); if (!armed.current && !startListening({ continuous: true, onError: toast })) toast('Spracheingabe nicht verfügbar – tippe im Fenster'); armed.current = false; };
+    window.addEventListener('life-voice-arm', arm);
+    window.addEventListener('life-voice-cancel', cancel);
     const sd = () => { stopListening(); setTimeout(() => { if (getDraft().trim()) { setSentAt(itemsRef.current.length); send(); } }, 250); };
     // v1.44: Bereichs-KI leitet eine Frage weiter, die nicht zu ihrem Bereich gehört
     const ask = (e) => { const q = String(e.detail?.text || '').trim(); if (!q) return; stopListening(); setOpen(true); setSentAt(itemsRef.current.length); send(q); };
     window.addEventListener('life-ask', ask);
     window.addEventListener('life-voice-start', st);
     window.addEventListener('life-voice-send', sd);
-    return () => { window.removeEventListener('life-ask', ask); window.removeEventListener('life-voice-start', st); window.removeEventListener('life-voice-send', sd); };
+    return () => { window.removeEventListener('life-voice-arm', arm); window.removeEventListener('life-voice-cancel', cancel); window.removeEventListener('life-ask', ask); window.removeEventListener('life-voice-start', st); window.removeEventListener('life-voice-send', sd); };
   }, []);
 
   const close = () => {

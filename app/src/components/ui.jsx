@@ -101,13 +101,19 @@ export function Chevron() {
 function BoltButton({ on }) {
   const st = useRef({});
   const [talking, setTalking] = useState(false);
-  const down = () => {
+  // v1.47 (Mateo): Mikro startet SOFORT beim Antippen (iPhone erlaubt Spracherkennung nur direkt beim Tipp, nicht nach einer Wartezeit).
+  // Kurz tippen = Mikro wieder aus + „Was möchtest du tun?“; gedrückt halten = Fenster zeigt das Gesagte, loslassen = senden.
+  const down = (e) => {
+    if (e.type === 'mousedown' && st.current.touch) return;
     clearTimeout(st.current.t);
-    st.current = { long: false, t: setTimeout(() => { st.current.long = true; setTalking(true); navigator.vibrate?.(20); window.dispatchEvent(new Event('life-voice-start')); }, 450) };
+    st.current = { long: false, touch: e.type === 'touchstart', t: setTimeout(() => { st.current.long = true; setTalking(true); navigator.vibrate?.(20); window.dispatchEvent(new Event('life-voice-start')); }, 350) };
+    window.dispatchEvent(new Event('life-voice-arm'));
   };
   const up = (e) => {
+    if (e.type === 'mouseup' && st.current.touch) return;
     clearTimeout(st.current.t);
     if (st.current.long) { e.preventDefault(); setTalking(false); window.dispatchEvent(new Event('life-voice-send')); st.current.skip = true; }
+    else window.dispatchEvent(new Event('life-voice-cancel'));
   };
   const click = () => { if (st.current.skip) { st.current.skip = false; return; } clearFrom(); location.hash = '/los'; };
   return (

@@ -94,25 +94,24 @@ export default function Einstellungen() {
     reader.readAsText(f);
   };
 
+  const costText = `ca. ${usage.cost < 0.01 ? 'unter 0,01' : usage.cost.toFixed(2).replace('.', ',')} $ diesen Monat`;
   return (
     <>
       <main className="screen">
         <Back href="#/heute" label="Heute" />
         <h1 className="h1">Einstellungen</h1>
 
-        <section className="card">
-          <Field label="Dein Name (für die Begrüßung)">
-            <input className="input" value={s.profile?.name || ''} onChange={(e) => store.update((d) => { d.profile = { ...d.profile, name: e.target.value }; })} />
-          </Field>
+        {/* v1.47 (Mateo): Wichtiges oben, Rest einklappbar */}
+        <section className="card" style={{ gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="row-main"><span style={{ fontWeight: 700 }}>Life · Version 1.47</span><span className="tiny">Stand {BUILD_ID}</span></span>
+            <button type="button" className="btn tint small" onClick={forceUpdate}>Neueste Version laden</button>
+          </div>
         </section>
 
-        <Appearance />
-
-        <section className="card">
-          <h2 className="h2">KI-Assistent</h2>
+        <Group id="ki" title="KI-Assistent" sub={ai.apiKey ? `Schlüssel …${ai.apiKey.slice(-4)} · ${MODELS.find((m) => m.id === ai.model)?.label || ''}` : 'Noch kein Schlüssel'} defaultOpen>
           {ai.apiKey ? (
             <>
-              <span className="sub">Schlüssel hinterlegt (…{ai.apiKey.slice(-4)}). Er liegt nur auf diesem iPhone.</span>
               <div className="field">
                 <span>Modell</span>
                 <Segmented full options={MODELS.map((m) => ({ id: m.id, label: m.label }))} value={ai.model} onChange={(v) => setAi(saveAi({ model: v }))} label="Modell" />
@@ -125,49 +124,23 @@ export default function Einstellungen() {
                   <Info>Die KI setzt Änderungen sofort um; mit „Rückgängig“ machst du sie wieder weg</Info>
                 </span>
               </label>
-              <span className="sub">Diesen Monat: {usage.requests} Anfragen · {usage.searches || 0} Internet-Suchen · ca. {usage.cost < 0.01 ? 'unter 0,01' : usage.cost.toFixed(2).replace('.', ',')} $</span>
-              {usage.by && Object.keys(usage.by).length > 0 && (
-                <div className="list" style={{ boxShadow: 'none', background: 'var(--fill)' }}>
-                  {Object.entries(usage.by).sort((a, b) => b[1].cost - a[1].cost).map(([k, v]) => (
-                    <div key={k} className="row" style={{ minHeight: 40 }}>
-                      <span className="row-main"><span className="row-title plain" style={{ fontSize: 14.5 }}>{k}</span><span className="row-meta">{v.n}× · {v.searches} Suchen · Ø {((v.cost / v.n) * 100).toFixed(1).replace('.', ',')} Cent</span></span>
-                      <span className="tiny" style={{ fontWeight: 600 }}>{(v.cost * 100).toFixed(1).replace('.', ',')} ct</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <Info>Internet-Suchen kosten je 1 Cent plus den gefundenen Text. Gesucht wird nur noch bei Events, Orten, Rezepten, Reisezielen und wenn du „Im Internet suchen“ bzw. die Lupe antippst. Aufschlüsselung ab Version 0.28.</Info>
-              <button type="button" className="btn danger small" onClick={() => confirm('Schlüssel von diesem iPhone entfernen?') && setAi(saveAi({ apiKey: '' }))}>Schlüssel entfernen</button>
+              <FabSetting />
             </>
           ) : (
             <>
-              <span className="sub" style={{ lineHeight: 1.5 }}>Füge hier deinen API-Schlüssel von console.anthropic.com ein. Er wird nur auf diesem iPhone gespeichert, nicht in Sicherungen und nicht im Code.</span>
+              <span className="sub" style={{ lineHeight: 1.5 }}>Füge hier deinen API-Schlüssel von console.anthropic.com ein. Er wird nur auf diesem iPhone gespeichert, nicht im Code.</span>
               <input className="input" type="password" autoComplete="off" autoCapitalize="off" spellCheck={false} value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder="sk-ant-…" aria-label="API-Schlüssel" />
               <button type="button" className="btn" onClick={saveKey} disabled={!keyInput.trim() || testing}>{testing ? 'Prüfe …' : 'Prüfen und speichern'}</button>
             </>
           )}
-        </section>
+          <a href="#/gedaechtnis" className="row" style={{ padding: '8px 0', minHeight: 0 }}>
+            <span className="row-main"><span className="row-title">Was Life über dich weiß</span><span className="row-meta">{(s.memory || []).length} Einträge · Gedächtnis des Assistenten</span></span>
+            <Chevron />
+          </a>
+        </Group>
 
-        <section className="list">
-          <a href="#/gedaechtnis" className="row">
-            <span className="row-main"><span className="row-title">Was Life über dich weiß</span><span className="row-meta">{(s.memory || []).length} Einträge · Grundlage für den Coach</span></span>
-            <Chevron />
-          </a>
-          <a href="#/vorlagen" className="row">
-            <span className="row-main"><span className="row-title">Projekt-Vorlagen</span><span className="row-meta">{s.templates.length} Vorlagen</span></span>
-            <Chevron />
-          </a>
-          <a href="#/wuensche" className="row">
-            <span className="row-main"><span className="row-title">App-Wünsche</span><span className="row-meta">{s.wishes.filter((w) => !w.done).length} offen · Änderungen für Claude sammeln</span></span>
-            <Chevron />
-          </a>
-        </section>
-
-        <section className="card">
-          <h2 className="h2">Sicherung</h2>
-          <span className="sub" style={{ lineHeight: 1.5 }}>
-            Deine Daten liegen im Moment nur auf diesem Gerät ({counts}). Bis die Cloud-Synchronisation kommt: bitte ab und zu eine Sicherung in „Dateien“ oder iCloud Drive speichern.
-          </span>
+        <Group id="backup" title="Sicherung" sub={counts} defaultOpen>
+          <span className="sub" style={{ lineHeight: 1.5 }}>Deine Daten liegen nur auf diesem Gerät. Bis die Cloud kommt: ab und zu eine Sicherung in „Dateien“ oder iCloud Drive speichern.</span>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
             <input type="checkbox" checked={full} onChange={(e) => setFull(e.target.checked)} data-noclear />
             <span>Komplett – auch Einstellungen und API-Schlüssel</span>
@@ -178,24 +151,54 @@ export default function Einstellungen() {
             <button type="button" className="btn tint" onClick={() => fileRef.current?.click()}>Sicherung laden</button>
           </div>
           <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={importJson} />
-        </section>
+        </Group>
 
-        <section className="card">
-          <h2 className="h2">Apple-Kalender</h2>
-          <span className="sub" style={{ lineHeight: 1.5 }}>
-            Erstellt eine Kalender-Datei mit Geburtstagen (jährlich, mit Erinnerung), Aufgaben mit Datum und zugesagten Events. Auf dem iPhone öffnen → „Alle hinzufügen“.
-          </span>
-          <button type="button" className="btn tint" onClick={exportIcs}>Kalender-Datei erstellen</button>
-        </section>
+        <Group id="look" title="Aussehen & Name" sub="Hell/Dunkel, Farbe, Begrüßung">
+          <Field label="Dein Name (für die Begrüßung)">
+            <input className="input" value={s.profile?.name || ''} onChange={(e) => store.update((d) => { d.profile = { ...d.profile, name: e.target.value }; })} />
+          </Field>
+          <Appearance />
+        </Group>
 
-        <section className="card">
-          <h2 className="h2">Ausprobieren</h2>
-          <span className="sub">Fügt Beispiel-Rhythmen, ein Projekt, Personen und ein Event hinzu (mit „Beispiel“ markiert).</span>
-          <button type="button" className="btn tint" onClick={() => { loadDemo(); toast('Beispieldaten hinzugefügt'); }}>Beispieldaten hinzufügen</button>
-        </section>
+        <Group id="costs" title="KI-Kosten" sub={ai.apiKey ? `${usage.requests} Anfragen · ${costText}` : 'Erst mit Schlüssel'}>
+          <span className="sub">Diesen Monat: {usage.requests} Anfragen · {usage.searches || 0} Internet-Suchen · {costText}</span>
+          {usage.by && Object.keys(usage.by).length > 0 && (
+            <div className="list" style={{ boxShadow: 'none', background: 'var(--fill)' }}>
+              {Object.entries(usage.by).sort((a, b) => b[1].cost - a[1].cost).map(([k, v]) => (
+                <div key={k} className="row" style={{ minHeight: 40 }}>
+                  <span className="row-main"><span className="row-title plain" style={{ fontSize: 14.5 }}>{k}</span><span className="row-meta">{v.n}× · {v.searches} Suchen · Ø {((v.cost / v.n) * 100).toFixed(1).replace('.', ',')} Cent</span></span>
+                  <span className="tiny" style={{ fontWeight: 600 }}>{(v.cost * 100).toFixed(1).replace('.', ',')} ct</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <Info>Internet-Suchen kosten je 1 Cent plus den gefundenen Text. Gesucht wird nur, wenn du eine KI-Suche startest oder „Mit Internet“ eingeschaltet ist.</Info>
+        </Group>
 
-        <section className="card">
-          <h2 className="h2">Neu anfangen</h2>
+        <Group id="more" title="Weitere Einstellungen" sub="Links, Börsenkurse, Kalender, Vorlagen, Wünsche">
+          <LinkCopy />
+          <MarketKey />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <span style={{ fontWeight: 600 }}>Apple-Kalender</span>
+            <span className="sub" style={{ lineHeight: 1.5 }}>Kalender-Datei mit Geburtstagen, Aufgaben mit Datum und zugesagten Events. Auf dem iPhone öffnen → „Alle hinzufügen“.</span>
+            <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={exportIcs}>Kalender-Datei erstellen</button>
+          </div>
+          <div className="list" style={{ boxShadow: 'none', background: 'var(--fill)' }}>
+            <a href="#/vorlagen" className="row">
+              <span className="row-main"><span className="row-title">Projekt-Vorlagen</span><span className="row-meta">{s.templates.length} Vorlagen</span></span>
+              <Chevron />
+            </a>
+            <a href="#/wuensche" className="row">
+              <span className="row-main"><span className="row-title">App-Wünsche</span><span className="row-meta">{s.wishes.filter((w) => !w.done).length} offen · Änderungen für Claude sammeln</span></span>
+              <Chevron />
+            </a>
+          </div>
+          {ai.apiKey && <button type="button" className="btn danger small" style={{ alignSelf: 'flex-start' }} onClick={() => confirm('KI-Schlüssel von diesem iPhone entfernen?') && setAi(saveAi({ apiKey: '' }))}>KI-Schlüssel entfernen</button>}
+        </Group>
+
+        <Group id="danger" title="Daten zurücksetzen" sub="Beispieldaten · Alles löschen">
+          <span className="sub">Beispieldaten fügt Beispiel-Rhythmen, ein Projekt, Personen und ein Event hinzu (mit „Beispiel“ markiert).</span>
+          <button type="button" className="btn tint small" style={{ alignSelf: 'flex-start' }} onClick={() => { loadDemo(); toast('Beispieldaten hinzugefügt'); }}>Beispieldaten hinzufügen</button>
           <span className="sub">Löscht alle Einträge auf diesem Gerät. Die Grundordnung bleibt.</span>
           <button
             type="button"
@@ -211,18 +214,29 @@ export default function Einstellungen() {
           >
             Alle Daten löschen
           </button>
-        </section>
-
-        <section className="card">
-          <h2 className="h2">App aktualisieren</h2>
-          <span className="sub">Falls neue Funktionen nicht auftauchen: lädt die neueste Version vom Server. Deine Daten bleiben erhalten.</span>
-          <button type="button" className="btn tint" onClick={forceUpdate}>Neueste Version laden</button>
-        </section>
-
-        <span className="tiny" style={{ textAlign: 'center' }}>Life · Version 1.46 · Stand {BUILD_ID} · Web-App</span>
+        </Group>
       </main>
       <TabBar />
     </>
+  );
+}
+
+// v1.47: einklappbare Gruppe; offen/zu wird pro Gruppe auf diesem Gerät gemerkt
+function Group({ id, title, sub, defaultOpen = false, children }) {
+  const key = 'life-app-settings-open';
+  const [open, setOpenS] = useState(() => { try { const m = JSON.parse(localStorage.getItem(key) || '{}'); return id in m ? !!m[id] : defaultOpen; } catch { return defaultOpen; } });
+  const toggle = () => { const v = !open; setOpenS(v); try { const m = JSON.parse(localStorage.getItem(key) || '{}'); m[id] = v; localStorage.setItem(key, JSON.stringify(m)); } catch {} };
+  return (
+    <section className="card" style={{ gap: 12 }}>
+      <button type="button" onClick={toggle} aria-expanded={open} style={{ display: 'flex', alignItems: 'center', gap: 10, border: 0, background: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', width: '100%' }}>
+        <span className="row-main" style={{ gap: 2 }}>
+          <span className="h2" style={{ fontSize: 18 }}>{title}</span>
+          {sub && !open && <span className="tiny">{sub}</span>}
+        </span>
+        <span style={{ color: 'var(--muted)', fontSize: 15 }}>{open ? '▴' : '▾'}</span>
+      </button>
+      {open && children}
+    </section>
   );
 }
 
@@ -231,9 +245,8 @@ function Appearance() {
   const [t, setT] = useState(themeOf);
   const set = (patch) => { setTheme(patch); setT(themeOf()); };
   return (
-    <>
-    <section className="card" style={{ gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><h2 className="h2" style={{ flex: 1 }}>Aussehen</h2><Info>„Schlicht“ macht auch die Bereichs-Symbole grau. Die Wahl gilt nur auf diesem iPhone.</Info></div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ fontWeight: 600, flex: 1 }}>Hell oder dunkel</span><Info>„Schlicht“ macht auch die Bereichs-Symbole grau. Die Wahl gilt nur auf diesem iPhone.</Info></div>
       <Segmented full options={MODES} value={t.mode} onChange={(v) => set({ mode: v })} label="Hell oder dunkel" />
       <span className="label" style={{ padding: 0 }}>Dunkler Modus</span>
       <div className="list">
@@ -256,11 +269,7 @@ function Appearance() {
           </button>
         ))}
       </div>
-    </section>
-    <FabSetting />
-      <LinkCopy />
-      <MarketKey />
-    </>
+    </div>
   );
 }
 
@@ -268,13 +277,13 @@ function Appearance() {
 function FabSetting() {
   const [on, setOn] = useState(fabOn);
   return (
-    <section className="card" style={{ gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><h2 className="h2" style={{ flex: 1 }}>Schwebender Assistent</h2><Info>Ausgeschaltet erreichst du ihn, indem du den Blitz in der Mitte lange drückst (halten, sprechen, loslassen = senden), oder über die KI-Knöpfe in den Formularen.</Info></div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ fontWeight: 600, flex: 1 }}>Schwebender Assistent</span><Info>Ausgeschaltet erreichst du ihn, indem du den Blitz in der Mitte lange drückst (halten, sprechen, loslassen = senden), oder über die KI-Knöpfe in den Formularen.</Info></div>
       <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <input type="checkbox" checked={on} onChange={(e) => { setFab(e.target.checked); setOn(e.target.checked); }} />
         <span>✨-Knopf unten rechts auf allen Seiten zeigen</span>
       </label>
-    </section>
+    </div>
   );
 }
 
@@ -282,13 +291,13 @@ function FabSetting() {
 function LinkCopy() {
   const [on, setOn] = useState(autoCopyOn);
   return (
-    <section className="card" style={{ gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><h2 className="h2" style={{ flex: 1 }}>Links</h2><Info>In Link-Feldern erscheint 📋 zum Einfügen. Ist die Zwischenablage leer, wird der zuletzt aus der App geöffnete Link eingesetzt.</Info></div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ fontWeight: 600, flex: 1 }}>Links</span><Info>In Link-Feldern erscheint 📋 zum Einfügen. Ist die Zwischenablage leer, wird der zuletzt aus der App geöffnete Link eingesetzt.</Info></div>
       <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <input type="checkbox" checked={on} onChange={(e) => { setAutoCopy(e.target.checked); setOn(e.target.checked); }} />
         <span>Geöffnete Links automatisch kopieren</span>
       </label>
-    </section>
+    </div>
   );
 }
 
@@ -304,8 +313,8 @@ function MarketKey() {
     setBusy(false);
   };
   return (
-    <section className="card" style={{ gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><h2 className="h2" style={{ flex: 1 }}>Börsenkurse</h2><Info>Kostenloser Schlüssel von twelvedata.com (bis 800 Abrufe am Tag, 8 pro Minute). Damit zeigt Finanzen → Märkte eigene Charts mit Veränderung für den gewählten Zeitraum. Indizes (NASDAQ, S&P 500, DAX …) gibt es kostenlos nur über ETFs, die den Index abbilden. Der Schlüssel bleibt nur auf diesem iPhone.</Info></div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ fontWeight: 600, flex: 1 }}>Börsenkurse</span><Info>Kostenloser Schlüssel von twelvedata.com (bis 800 Abrufe am Tag, 8 pro Minute). Damit zeigt Finanzen → Märkte eigene Charts mit Veränderung für den gewählten Zeitraum. Indizes (NASDAQ, S&P 500, DAX …) gibt es kostenlos nur über ETFs, die den Index abbilden. Der Schlüssel bleibt nur auf diesem iPhone.</Info></div>
       {has ? (
         <>
           <span className="sub">✓ Twelve-Data-Schlüssel ist gespeichert.</span>
@@ -318,6 +327,6 @@ function MarketKey() {
           <button type="button" className="btn" onClick={save} disabled={!k.trim() || busy}>{busy ? 'Prüfe …' : 'Prüfen und speichern'}</button>
         </>
       )}
-    </section>
+    </div>
   );
 }
