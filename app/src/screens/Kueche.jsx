@@ -78,7 +78,7 @@ function RecipeSheet({ s, recipe, onClose }) {
           </div>
           <button type="button" className="btn" onClick={() => { const n = addShopping((r.ingredients || []).map((x) => (noQty ? stripQty(x) || x : x))); toast(n ? `${n} Zutaten auf der Einkaufsliste` : 'Steht schon alles auf der Liste'); }}><Icon name="cart" size={16} color="currentColor" /> Zutaten zum Einkauf</button>
           <label className="web-toggle"><input type="checkbox" checked={noQty} onChange={(e) => setNoQty(e.target.checked)} /><span>Ohne Mengen übernehmen <span className="tiny">(z.B. „Mehl“ statt „200 g Mehl“)</span></span></label>
-          {r.steps && <div className="field"><span>Zubereitung</span><p className="recipe-steps">{r.steps}</p></div>}
+          {r.steps && <div className="field"><span>Zubereitung</span><p className="recipe-steps" style={{ whiteSpace: 'pre-wrap' }}>{Array.isArray(r.steps) ? r.steps.join('\n') : r.steps}</p></div>}
           {r.url && <a className="link-btn" href={r.url} target="_blank" rel="noreferrer">Original öffnen</a>}
           {r.temp ? (
             <button type="button" className="btn" onClick={() => { addRecipe(r); toast('Rezept gespeichert'); onClose(); }}>In meine Rezepte speichern</button>

@@ -75,7 +75,7 @@ function JobRow({ j, s, showSearch = false }) {
 // v0.73: Allgemeine Dokumente (für alle Bewerbungen) – habe ich / fehlt
 function Docs({ s }) {
   const [text, setText] = useState('');
-  const [open, setOpenRaw] = useState(() => { try { return localStorage.getItem('life-app-docs-open') !== '0'; } catch { return true; } });
+  const [open, setOpenRaw] = useState(() => { try { return localStorage.getItem('life-app-docs-open') === '1'; } catch { return false; } });
   const setOpen = (v) => { setOpenRaw(v); try { localStorage.setItem('life-app-docs-open', v ? '1' : '0'); } catch {} };
   const done = s.careerDocs.filter((d) => d.done).length;
   return (
@@ -119,7 +119,7 @@ function Overview({ s }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/bereich/karriere" label="Karriere und Chancen" />
+          <Back href="#/bereich/karriere" label="Karriere" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Jobsuche</h1>
             <button type="button" className="btn small" onClick={() => setOpen(true)}>+ Suche</button>

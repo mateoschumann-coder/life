@@ -35,6 +35,7 @@ import { useFabOn } from './lib/fab';
 import QuickTask from './components/QuickTask';
 import GlobalSearch from './components/GlobalSearch';
 import StorageGuard, { SaveErrorBar } from './components/StorageGuard';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useStorageStatus } from './lib/store';
 
 export default function App() {
@@ -82,7 +83,7 @@ export default function App() {
   return (
     <div className="app">
       <SaveErrorBar />
-      <StorageGuard><Fragment key={nonce}>{screen}</Fragment></StorageGuard>
+      <StorageGuard><ErrorBoundary resetKey={`${page}/${a || ''}/${b || ''}/${nonce}`}><Fragment key={nonce}>{screen}</Fragment></ErrorBoundary></StorageGuard>
       {page !== 'assistent' && !rescue && <FloatingAssistant hideFab={!fab || (page === 'reisen' && !!a)} />}
       <QuickTask />
       <GlobalSearch />
