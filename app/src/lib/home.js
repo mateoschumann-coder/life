@@ -80,7 +80,7 @@ export function doneReminder(id) {
   store.update((s) => {
     const r = s.reminders.find((x) => x.id === id);
     if (!r) return;
-    r.log = [...(r.log || []), today()].slice(-24);
+    r.log = [...(r.log || []), today()]; // v1.52: kompletter Verlauf bleibt erhalten
     let n = advance(r.next, r.every);
     while (n <= today()) n = advance(n, r.every); // falls lange überfällig
     r.next = n;

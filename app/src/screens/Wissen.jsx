@@ -250,7 +250,7 @@ function CategoryPage({ s, cat }) {
   const topics = topicsOf(s);
   const [topic, setTopic] = useState(null);
   const [status, setStatus] = useState('will');
-  const [sheet, setSheet] = useState(() => (takeFlag('life-open-new-material') ? { subId: topic, kind: cat.kind } : null));
+  const [sheet, setSheet] = useState(() => { const id = takeFlag('life-open-material'); const m = id && s.library.find((x) => x.id === id); if (m) return m; return takeFlag('life-open-new-material') ? { subId: topic, kind: cat.kind } : null; });
   const [edit, setEdit] = useState(false);
   const [topicText, setTopicText] = useState('');
   const mine = s.library.filter((m) => m.kind === cat.kind);

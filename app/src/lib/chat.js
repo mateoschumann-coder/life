@@ -1,7 +1,7 @@
 // Gemeinsamer Zustand des Assistenten: Der große Chat und der schwebende Knopf
 // teilen sich dasselbe Gespräch, Sprache und Vorlesen.
 import { useSyncExternalStore } from 'react';
-import { askClaude, getAi, loadChat, saveAi, saveChat } from './ai';
+import { askClaude, CHAT_KEEP, getAi, loadChat, saveAi, saveChat } from './ai';
 import { applyActions, describe, lastProjectId, lastTarget } from './apply';
 import { go } from './router';
 import { store } from './store';
@@ -48,7 +48,7 @@ export async function send(text) {
   lastAt = Date.now();
   // alte Gespräche nicht endlos aufheben (nur Anzeige „Früherer Verlauf“)
   let kept = base;
-  if (kept.length > 60) { const cut = kept.length - 60; kept = kept.slice(cut); sessionStart = Math.max(0, sessionStart - cut); }
+  if (kept.length > CHAT_KEEP) { const cut = kept.length - CHAT_KEEP; kept = kept.slice(cut); sessionStart = Math.max(0, sessionStart - cut); }
   const withUser = [...kept, { id: newId(), role: 'user', text: content, mode: state.mode }];
   if (state.listening || rec) stopListening();
   set({ items: withUser, draft: '' });

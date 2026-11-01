@@ -389,7 +389,8 @@ export const restoreGathering = (id) => moveBetween('removedGatherings', 'gather
 export const archiveInvite = (id, extra = {}) => moveBetween('invites', 'removedInvites', id, { removedAt: today(), ...extra });
 export const restoreInvite = (id) => moveBetween('removedInvites', 'invites', id, { removedAt: null });
 // v1.44 (Mateo): gelöschte Aufgaben landen in der Archiv-Kiste auf Heute (zurückholbar, höchstens 150)
-export const archiveTask = (id) => { moveBetween('tasks', 'removedTasks', id, { removedAt: today() }); store.update((s) => { if ((s.removedTasks || []).length > 150) s.removedTasks = s.removedTasks.slice(-150); }); };
+// v1.52: Archiv wird nicht mehr gekürzt – endgültig löschen nur, wenn du es selbst in der Kiste tust
+export const archiveTask = (id) => moveBetween('tasks', 'removedTasks', id, { removedAt: today() });
 export const restoreTask = (id) => moveBetween('removedTasks', 'tasks', id, { removedAt: null });
 // v1.48 (Mateo): alles, was auf Heute entfernt wird, liegt in der Heute-Kiste (auch Erinnerungen und Vorsorge-Termine)
 export const archiveReminder = (id) => moveBetween('reminders', 'removedReminders', id, { removedAt: today(), fromToday: true });

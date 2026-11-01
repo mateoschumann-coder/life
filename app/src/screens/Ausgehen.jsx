@@ -241,6 +241,8 @@ function Events({ s, city, view = 'find' }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [evForm, setEvForm] = useState(null);
+  // v1.52: Sprung aus der Suche öffnet das Event direkt
+  useEffect(() => { const id = takeFlag('life-open-event'); const e = id && (s.events || []).find((x) => x.id === id); if (e) setEvForm(editInit(e)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const hasKey = !!getAi().apiKey;
 
   // web = konkrete Events per Websuche (ca. 3–5 Cent); sonst Such-Links (unter 0,5 Cent)

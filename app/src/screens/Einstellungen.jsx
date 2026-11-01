@@ -1,6 +1,7 @@
 import { fabOn, setFab } from '../lib/fab';
 import { useRef, useState } from 'react';
-import { store, useStore } from '../lib/store';
+import { store, storage, useStore } from '../lib/store';
+import { deviceData, makeBackup, parseBackup, summarize, writeDevice } from '../lib/backup';
 import { today } from '../lib/dates';
 import { buildIcs } from '../lib/ics';
 import { loadDemo } from '../lib/demo';
@@ -11,26 +12,8 @@ import { autoCopyOn, setAutoCopy } from '../lib/fieldtools';
 import { setTdKey, tdKey, testTdKey } from '../lib/markets';
 import { getAi, MODELS, monthUsage, saveAi, testKey } from '../lib/ai';
 
-// Datei teilen (iPhone: „In Dateien sichern“, AirDrop …) oder herunterladen
-async function shareFile(name, content, type) {
-  const file = new File([content], name, { type });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: name });
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-    }
-  }
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
+export { shareFile } from '../lib/share';
+import { shareFile } from '../lib/share';
 
 const BUILD_ID = document.querySelector('script[src*="main.js"]')?.getAttribute('src')?.match(/v=([^&]+)/)?.[1] || 'dev';
 async function forceUpdate() {
@@ -69,8 +52,7 @@ export default function Einstellungen() {
 
   // v1.41: „Komplett“ nimmt auch die Geräte-Einstellungen mit (API-Schlüssel, Aussehen, gemerkte Reiter …) – für den Umzug beim neuen App-Symbol
   const [full, setFull] = useState(false);
-  const deviceData = () => { const d = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('life-') && k !== 'life-app-v1' && !k.startsWith('life-td-')) d[k] = localStorage.getItem(k); } } catch {} return d; };
-  const exportJson = () => shareFile(full ? `life-komplett-${today()}.json` : `life-backup-${today()}.json`, JSON.stringify(full ? { ...s, _device: deviceData() } : s, null, 2), 'application/json');
+  const exportJson = () => shareFile(full ? `life-komplett-${today()}.json` : `life-backup-${today()}.json`, makeBackup(s, { device: full ? deviceData(localStorage) : null }), 'application/json');
   const exportIcs = () => shareFile('life-kalender.ics', buildIcs(s), 'text/calendar');
   const importJson = (e) => {
     const f = e.target.files?.[0];
@@ -78,16 +60,15 @@ export default function Einstellungen() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(reader.result);
-        if (!data.areas || !data.pillars) throw new Error('Keine Life-Sicherung');
-        if (confirm(data._device ? 'Komplette Sicherung laden? Daten und Einstellungen (inkl. Schlüssel) auf diesem Gerät werden ersetzt.' : 'Sicherung laden? Die aktuellen Daten auf diesem Gerät werden ersetzt.')) {
-          const { _device: dev, ...rest } = data;
-          store.replace(rest);
-          if (dev) { try { Object.entries(dev).forEach(([k, v]) => { if (k.startsWith('life-') && k !== 'life-app-v1' && typeof v === 'string') localStorage.setItem(k, v); }); } catch {} toast('Sicherung geladen – Einstellungen werden übernommen …'); setTimeout(() => location.reload(), 900); }
+        const { state, device, meta } = parseBackup(reader.result);
+        const info = `${summarize(state)}${meta?.at ? `\nStand: ${new Date(meta.at).toLocaleString('de-DE')}` : ''}`;
+        if (confirm(`${device ? 'Komplette Sicherung laden? Daten und Einstellungen (inkl. Schlüssel) auf diesem Gerät werden ersetzt.' : 'Sicherung laden? Die aktuellen Daten auf diesem Gerät werden ersetzt.'}\n\n${info}`)) {
+          storage.restore(state);
+          if (device) { writeDevice(localStorage, device); toast('Sicherung geladen – Einstellungen werden übernommen …'); setTimeout(() => location.reload(), 900); }
           else toast('Sicherung geladen');
         }
-      } catch {
-        alert('Diese Datei ist keine gültige Sicherung.');
+      } catch (err) {
+        alert(err.message || 'Diese Datei ist keine gültige Sicherung.');
       }
       e.target.value = '';
     };
@@ -104,7 +85,7 @@ export default function Einstellungen() {
         {/* v1.47 (Mateo): Wichtiges oben, Rest einklappbar */}
         <section className="card" style={{ gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="row-main"><span style={{ fontWeight: 700 }}>Life · Version 1.51</span><span className="tiny">Stand {BUILD_ID}</span></span>
+            <span className="row-main"><span style={{ fontWeight: 700 }}>Life · Version 1.52</span><span className="tiny">Stand {BUILD_ID}</span></span>
             <button type="button" className="btn tint small" onClick={forceUpdate}>Neueste Version laden</button>
           </div>
         </section>

@@ -1,17 +1,22 @@
 {
   "name": "life-app",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.52.0",
   "type": "module",
   "scripts": {
     "dev": "node build.mjs --serve",
-    "build": "node build.mjs --out .."
+    "build": "node build.mjs --out ..",
+    "test": "node test/run.mjs"
   },
   "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "0.28.2"
+  },
+  "description": "Life – persönliche App für Alltag, Menschen und Weiterentwicklung (Web-App fürs iPhone)",
+  "engines": {
+    "node": ">=20"
   }
 }

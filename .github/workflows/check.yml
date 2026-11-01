@@ -1,0 +1,20 @@
+# Prüft jede Änderung automatisch: Tests (Speichern, Sicherung, Suche) und ob sich die App bauen lässt.
+name: Prüfen
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: node build.mjs

@@ -125,13 +125,56 @@ function migrate(s) {
   return s;
 }
 
-function load() {
+// ---------- Laden und Speichern (v1.52: abgesichert) ----------
+// Grundsatz: Echte Daten werden NIE durch leere Anfangsdaten überschrieben.
+// - Lässt sich der gespeicherte Stand nicht lesen (kaputt) oder nicht umstellen (Migrationsfehler),
+//   startet die App im Rettungsmodus: Speichern ist gesperrt, die Rohdaten bleiben unangetastet
+//   und werden zusätzlich unter RESCUE_KEY gesichert. Die Oberfläche bietet Sicherung laden / Rohdaten herunterladen.
+// - Scheitert das Speichern (z.B. Speicher voll), merkt sich die App den Fehler und zeigt ihn an.
+// - Einmal am Tag wird der zuletzt erfolgreich geladene Stand als automatische Sicherung (AUTO_KEY) behalten.
+export const RESCUE_KEY = 'life-app-v1-rescue';
+export const AUTO_KEY = 'life-app-v1-auto';
+const status = { mode: 'ok', loadError: '', saveError: '', savedAt: 0 };
+const ls = () => (typeof localStorage !== 'undefined' ? localStorage : null);
+
+function keepAutoBackup(raw) {
+  const st = ls();
+  if (!st || !raw) return;
   try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return migrate(JSON.parse(raw));
+    const prev = JSON.parse(st.getItem(AUTO_KEY) || 'null');
+    const day = new Date().toISOString().slice(0, 10);
+    if (prev && prev.day === day) return; // höchstens einmal am Tag
+    if (raw.length > 2_000_000) return; // sehr große Stände nicht doppelt ablegen (Speicher-Grenze)
+    st.setItem(AUTO_KEY, JSON.stringify({ day, raw }));
+  } catch {}
+}
+
+function load() {
+  const st = ls();
+  let raw = null;
+  try { raw = st ? st.getItem(KEY) : null; } catch (e) { raw = null; status.loadError = String(e?.message || e); }
+  if (!raw) return seed(); // wirklich noch nichts gespeichert → neuer Start ist richtig
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.areas)) throw new Error('Unerwartetes Format');
   } catch (e) {
-    console.error('Laden fehlgeschlagen', e);
+    return enterRescue(raw, `Gespeicherte Daten sind beschädigt (${e.message})`);
   }
+  try {
+    const s = migrate(parsed);
+    keepAutoBackup(raw);
+    return s;
+  } catch (e) {
+    console.error('Umstellen fehlgeschlagen', e);
+    return enterRescue(raw, `Daten konnten nicht auf die neue Version umgestellt werden (${e.message})`);
+  }
+}
+
+function enterRescue(raw, why) {
+  status.mode = 'rescue';
+  status.loadError = why;
+  try { if (ls() && !ls().getItem(RESCUE_KEY)) ls().setItem(RESCUE_KEY, raw); } catch {}
   return seed();
 }
 
@@ -141,10 +184,18 @@ let timer = null;
 function flush() {
   clearTimeout(timer);
   timer = null;
+  if (status.mode === 'rescue') return; // Rettungsmodus: nichts überschreiben
+  const st = ls();
+  if (!st) return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(state));
+    st.setItem(KEY, JSON.stringify(state));
+    if (status.saveError) { status.saveError = ''; notifyStatus(); }
+    status.savedAt = Date.now();
   } catch (e) {
     console.error('Speichern fehlgeschlagen', e);
+    const full = /quota|exceeded|full/i.test(String(e?.name) + String(e?.message));
+    status.saveError = full ? 'Der Speicher auf diesem Gerät ist voll.' : `Speichern ist fehlgeschlagen (${e?.message || e}).`;
+    notifyStatus();
   }
 }
 
@@ -157,6 +208,41 @@ if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && timer) flush();
   });
+}
+
+// Zustand des Speichers für die Oberfläche (Rettungsmodus, Speicherfehler)
+const statusListeners = new Set();
+let statusSnap = { ...status };
+function notifyStatus() { statusSnap = { ...status }; statusListeners.forEach((l) => l()); }
+export const storage = {
+  get: () => statusSnap,
+  subscribe(fn) { statusListeners.add(fn); return () => statusListeners.delete(fn); },
+  retry() { flush(); },
+  rescueRaw() { try { return ls()?.getItem(RESCUE_KEY) || ls()?.getItem(KEY) || ''; } catch { return ''; } },
+  autoBackup() { try { return JSON.parse(ls()?.getItem(AUTO_KEY) || 'null'); } catch { return null; } },
+  // Rettungsmodus verlassen, indem ein gültiger Stand (Sicherung) geladen wird
+  restore(data) {
+    const next = migrate(structuredClone(data));
+    status.mode = 'ok';
+    status.loadError = '';
+    state = next;
+    flush();
+    try { ls()?.removeItem(RESCUE_KEY); } catch {}
+    notifyStatus();
+    listeners.forEach((l) => l());
+  },
+  // Bewusst leer neu starten (alte Rohdaten bleiben unter RESCUE_KEY liegen)
+  startFresh() {
+    status.mode = 'ok';
+    status.loadError = '';
+    state = seed();
+    flush();
+    notifyStatus();
+    listeners.forEach((l) => l());
+  },
+};
+export function useStorageStatus() {
+  return useSyncExternalStore(storage.subscribe, storage.get);
 }
 
 export const store = {
@@ -174,7 +260,7 @@ export const store = {
     listeners.forEach((l) => l());
   },
   replace(next) {
-    state = migrate(next);
+    state = migrate(structuredClone(next));
     flush();
     listeners.forEach((l) => l());
   },

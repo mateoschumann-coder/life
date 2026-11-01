@@ -96,7 +96,7 @@ function RecipeSheet({ s, recipe, onClose }) {
 
 function Recipes({ s }) {
   const [cat, setCat] = useState(null);
-  const [sheet, setSheet] = useState(null);
+  const [sheet, setSheet] = useState(() => { const id = takeFlag('life-open-recipe'); return (id && s.recipes.find((r) => r.id === id)) || null; }); // v1.52: Sprung aus der Suche
   const [newOpen, setNewOpen] = useState(false);
   const [editCats, setEditCats] = useState(false);
   const [catText, setCatText] = useState('');

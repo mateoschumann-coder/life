@@ -66,8 +66,11 @@ export function loadChat() {
     return [];
   }
 }
+// Der Assistent beginnt bewusst jedes Mal ein frisches Gespräch (Mateo, v1.46). Aufgehoben werden nur die
+// letzten CHAT_KEEP Nachrichten für „Früherer Verlauf“ – Dauerhaftes gehört ins Gedächtnis (s.memory).
+export const CHAT_KEEP = 60;
 export function saveChat(items) {
-  localStorage.setItem(CHAT_KEY, JSON.stringify(items.slice(-40)));
+  try { localStorage.setItem(CHAT_KEY, JSON.stringify(items.slice(-CHAT_KEEP))); } catch {}
 }
 
 // Das Werkzeug, mit dem die KI Änderungen VORSCHLÄGT (nichts wird ohne Bestätigung gespeichert)

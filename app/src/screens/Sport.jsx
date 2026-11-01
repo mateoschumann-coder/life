@@ -147,6 +147,7 @@ function SportsPage({ s }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [adding, setAdding] = useState(false);
+  useEffect(() => { const id = takeFlag('life-open-sport'); const e = id && (s.sportEvents || []).find((x) => x.id === id); if (e) { setF({ id: e.id, name: e.name || '', date: e.date || '', place: e.place || '', url: e.url || '', dist: e.dist || distOf(e) || '', sportId: e.sportId || '', status: e.status === 'angemeldet' ? 'angemeldet' : e.status === 'dabei' ? 'dabei' : 'interessiert', result: e.result || '' }); setAdding(true); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (takeFlag('life-open-new-sport')) { setAdding(true); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: pick[0] || s.sports[0]?.id || '' }); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [f, setF] = useState({ name: '', date: '', place: '', url: '', sportId: '' });
   const [showPast, setShowPast] = useState(false);

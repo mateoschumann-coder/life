@@ -34,10 +34,13 @@ import FloatingAssistant from './components/FloatingAssistant';
 import { useFabOn } from './lib/fab';
 import QuickTask from './components/QuickTask';
 import GlobalSearch from './components/GlobalSearch';
+import StorageGuard, { SaveErrorBar } from './components/StorageGuard';
+import { useStorageStatus } from './lib/store';
 
 export default function App() {
   const [page, a, b] = useRoute();
   const fab = useFabOn();
+  const rescue = useStorageStatus().mode === 'rescue';
   // v1.35: Sprung auf dieselbe Seite (z.B. aus der Suche) → Seite neu aufbauen, damit Reiter/Filter greifen
   const [nonce, setNonce] = useState(0);
   useEffect(() => { const h = () => setNonce((n) => n + 1); window.addEventListener('life-remount', h); return () => window.removeEventListener('life-remount', h); }, []);
@@ -78,8 +81,9 @@ export default function App() {
   }
   return (
     <div className="app">
-      <Fragment key={nonce}>{screen}</Fragment>
-      {page !== 'assistent' && <FloatingAssistant hideFab={!fab || (page === 'reisen' && !!a)} />}
+      <SaveErrorBar />
+      <StorageGuard><Fragment key={nonce}>{screen}</Fragment></StorageGuard>
+      {page !== 'assistent' && !rescue && <FloatingAssistant hideFab={!fab || (page === 'reisen' && !!a)} />}
       <QuickTask />
       <GlobalSearch />
       <Toaster />
