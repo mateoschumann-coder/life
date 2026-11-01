@@ -813,3 +813,14 @@ select.input.rhythm-sel { height: auto; padding: 2px 8px; }
 /* v1.52: Speicherfehler-Leiste */
 .save-error { position: sticky; top: 0; z-index: 60; display: flex; align-items: center; gap: 8px; padding: calc(env(safe-area-inset-top) + 8px) 14px 10px; background: var(--danger); color: #fff; font-size: 14px; }
 .save-error .pill { background: rgba(255,255,255,.2); color: #fff; border: 0; text-decoration: none; }
+
+/* v1.55 (Apple-Richtlinien): jede tippbare Fläche mindestens 44 × 44 Punkte.
+   Der Knopf sieht gleich aus – nur die unsichtbare Tippfläche (::after) wird um ihn herum vergrößert. */
+:where(.chip, .pill, .mini-chip, .x-btn, .icon-btn, .link-btn, .info-btn, .btn.small, .link-chip, .filter-btn, .wday, .sub-switch button, .seg button, .tabbar a, .tabbar button) { position: relative; }
+:where(.chip, .pill, .mini-chip, .x-btn, .icon-btn, .link-btn, .info-btn, .btn.small, .link-chip, .filter-btn, .wday, .sub-switch button, .seg button)::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
+}
+/* Zusatztexte etwas größer und kräftiger (vorher 12 px, helleres Grau) */
+:root { --muted: #5d6470; }
+.tiny { font-size: 13px; }
+.mini-chip { font-size: 13px; }
