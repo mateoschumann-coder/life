@@ -478,9 +478,9 @@ const kitchenGroups = (onSave) => [
 ];
 
 const MODES = {
-  neu: { label: '🔍 Rezept suchen', intro: 'Worauf hast du Lust? Ich schlage Rezepte vor.', placeholder: 'z.B. Airfryer Hähnchen, proteinreich …', chips: ['Was koche ich heute?', 'Proteinreich nach dem Lauf', 'Schnelles Frühstück', 'Wochenplan + Einkauf'] },
-  kuehlschrank: { label: '🧊 Aus dem Kühlschrank', intro: 'Oben antippen, was da ist, und „Rezept erstellen“ – oder einfach erzählen bzw. schreiben, was du noch hast.', placeholder: 'z.B. „2 Eier, Spinat, etwas Feta …“', chips: [] },
-  diktieren: { label: '🎙 Rezept diktieren', intro: 'Mikro antippen und dein Rezept erzählen – ich schreibe es sauber auf.', placeholder: 'Erzähl dein Rezept …', chips: [] },
+  neu: { label: '🔍 Suchen', intro: 'Worauf hast du Lust? Ich schlage Rezepte vor.', placeholder: 'z.B. Airfryer Hähnchen, proteinreich …', chips: ['Was koche ich heute?', 'Proteinreich nach dem Lauf', 'Schnelles Frühstück', 'Wochenplan + Einkauf'] },
+  kuehlschrank: { label: '🧊 Kühlschrank', intro: 'Oben antippen, was da ist, und „Rezept erstellen“ – oder einfach erzählen bzw. schreiben, was du noch hast.', placeholder: 'z.B. „2 Eier, Spinat, etwas Feta …“', chips: [] },
+  diktieren: { label: '🎙 Diktieren', intro: 'Mikro antippen und dein Rezept erzählen – ich schreibe es sauber auf.', placeholder: 'Erzähl dein Rezept …', chips: [] },
 };
 
 // v0.99/v1.0 (Mateo): „Was hast du da?“ und „Welche Küche?“ nebeneinander, je ein Fenster zum Auswählen.
@@ -596,8 +596,8 @@ function RecipeFinder({ s }) {
   const ai = (t) => { setMode('ki'); const x = t.trim(); if (!x) return; if (ask.current) { ask.current(x); setQ(''); } else { pend.current = x; setQ(''); } };
   return (
     <>
-      <div className="box-tabs">
-        {Object.entries(MODES).map(([id, x]) => <button key={id} type="button" className={kmode === id ? 'chip on small-chip' : 'chip soft small-chip'} style={{ whiteSpace: 'nowrap' }} onClick={() => setKmode(id)}>{x.label}</button>)}
+      <div className="sub-switch">
+        {Object.entries(MODES).map(([id, x]) => <button key={id} type="button" className={kmode === id ? 'on' : ''} onClick={() => setKmode(id)}>{x.label}</button>)}
       </div>
       {kmode === 'neu' ? (
         <>
@@ -679,9 +679,9 @@ function RecipesTab({ s }) {
   const setSub = (v) => { setSubState(v); try { localStorage.setItem('life-app-rezepte-sub', v); } catch {} };
   return (
     <>
-      <div className="seg-mini">
-        <button type="button" className={sub === 'meine' ? 'chip on' : 'chip soft'} onClick={() => setSub('meine')}>📖 Meine Rezepte · {s.recipes.length}</button>
-        <button type="button" className={sub === 'neu' ? 'chip on' : 'chip soft'} onClick={() => setSub('neu')}>✨ Neue Rezepte</button>
+      <div className="sub-switch">
+        <button type="button" className={sub === 'meine' ? 'on' : ''} onClick={() => setSub('meine')}>📖 Meine Rezepte · {s.recipes.length}</button>
+        <button type="button" className={sub === 'neu' ? 'on' : ''} onClick={() => setSub('neu')}>✨ Neue Rezepte</button>
       </div>
       {sub === 'meine' ? <Recipes s={s} /> : <RecipeFinder s={s} />}
     </>

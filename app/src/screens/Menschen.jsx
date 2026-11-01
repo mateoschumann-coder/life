@@ -224,9 +224,9 @@ function KeepTab({ s, t }) {
     .sort((a, b) => (sort === 'az' ? 0 : sort === 'oft' ? rank(a) - rank(b) : rank(b) - rank(a)) || a.name.localeCompare(b.name, 'de'));
   return (
     <>
-      <div className="seg-mini">
-        <button type="button" className={part === 'melden' ? 'chip on' : 'chip soft'} onClick={() => setPart('melden')}>Melde dich mal{due.length ? ` · ${due.length}` : ''}</button>
-        <button type="button" className={part === 'wieoft' ? 'chip on' : 'chip soft'} onClick={() => setPart('wieoft')}>Wie oft melden?</button>
+      <div className="sub-switch">
+        <button type="button" className={part === 'melden' ? 'on' : ''} onClick={() => setPart('melden')}>Melde dich mal{due.length ? ` · ${due.length}` : ''}</button>
+        <button type="button" className={part === 'wieoft' ? 'on' : ''} onClick={() => setPart('wieoft')}>Wie oft melden?</button>
       </div>
       {part === 'melden' ? (
         <>

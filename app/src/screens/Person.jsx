@@ -83,7 +83,7 @@ export default function Person({ id, metAt }) {
 
         {existing && (
           <div className="btn-row">
-            <button type="button" className="btn" onClick={() => { logContact(id); toast('Kontakt notiert'); }}>Kontakt heute notieren</button>
+            <button type="button" className="btn tint" onClick={() => { logContact(id); toast('Kontakt notiert'); }}>Kontakt heute notieren</button>
             {wa ? <a className="btn sec" href={wa} target="_blank" rel="noreferrer">WhatsApp</a> : <button type="button" className="btn sec" disabled>WhatsApp</button>}
           </div>
         )}

@@ -94,7 +94,7 @@ function HobbyDetail({ s, h }) {
                 <span className="row-meta">{[HOBBY_KINDS[x.kind], x.why].filter(Boolean).join(' · ')}</span>
               </button>
               {x.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-              {x.status !== 'geschafft' ? <button type="button" className="pill on" aria-label={`${x.title} geschafft`} onClick={() => { updateHobbyItem(h.id, x.id, { status: 'geschafft' }); toast('Stark!'); }}>✓</button> : <button type="button" className="pill" onClick={() => updateHobbyItem(h.id, x.id, { status: 'offen' })}>Zurück</button>}
+              {x.status !== 'geschafft' ? <button type="button" className="pill" aria-label={`${x.title} geschafft`} onClick={() => { updateHobbyItem(h.id, x.id, { status: 'geschafft' }); toast('Stark!'); }}>✓</button> : <button type="button" className="pill" onClick={() => updateHobbyItem(h.id, x.id, { status: 'offen' })}>Zurück</button>}
               <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeHobbyItem(h.id, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
             </div>
           ))}

@@ -824,3 +824,13 @@ select.input.rhythm-sel { height: auto; padding: 2px 8px; }
 :root { --muted: #5d6470; }
 .tiny { font-size: 13px; }
 .mini-chip { font-size: 13px; }
+
+/* v1.56 Einheitliches Design (Apple-Richtlinien, Mateo):
+   – Umschalter mit 2–3 Möglichkeiten sehen überall gleich aus (wie der iPhone-Umschalter): grauer Rahmen, gewählte Möglichkeit weiß hinterlegt.
+     Oben die große Version (.seg.full), darunter für Unterteilungen die kleinere (.sub-switch) – gleicher Stil, nur kleiner.
+   – Viele Möglichkeiten zum Wischen (Kategorien, Reiter mit Zahlen) bleiben Chips.
+   – Kräftig blau gefüllt ist nur die eine Hauptaktion eines Bildschirms/Fensters (z.B. „+ Event eintragen“, „Speichern“) und das Gewählte;
+     Knöpfe, die sich in jeder Zeile einer Liste wiederholen (Route, Merken, Anmelden …), sind hellblau. */
+.sub-switch { background: var(--fill); border-radius: 9px; padding: 2px; gap: 2px; }
+.sub-switch button { color: var(--text); font-weight: 500; border-radius: 7px; padding: 6px 8px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+.sub-switch button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }

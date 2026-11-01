@@ -280,7 +280,7 @@ function SportsPage({ s }) {
                 const saved = (s.sportEvents || []).find((x) => x.sportId === e.sportId && x.name.trim().toLowerCase() === e.name.trim().toLowerCase());
                 return saved
                   ? <button type="button" className="pill" onClick={() => { removeSportEvent(saved.id); toast('Nicht mehr gemerkt'); }} aria-label={`${e.name} nicht mehr merken`}>Gemerkt ✓</button>
-                  : <button type="button" className="pill on" onClick={() => { addSportEvent({ ...e }); toast('Gemerkt'); }}>Merken</button>;
+                  : <button type="button" className="pill" onClick={() => { addSportEvent({ ...e }); toast('Gemerkt'); }}>Merken</button>;
               })()}
             </div>
           ))}
@@ -324,7 +324,7 @@ function SportsPage({ s }) {
             {going.map((e) => (
               <Row key={e.id} e={e}>
                 <span style={{ flexShrink: 0 }}><SportTag s={s} id={e.sportId} /></span>
-                {e.date && e.date <= t ? <button type="button" className="pill on" onClick={() => done(e)}>Dabei ✓</button> : <button type="button" className="pill" onClick={() => updateSportEvent(e.id, { status: 'interessiert' })} aria-label="Doch nicht angemeldet">↩</button>}
+                {e.date && e.date <= t ? <button type="button" className="pill" onClick={() => done(e)}>Dabei ✓</button> : <button type="button" className="pill" onClick={() => updateSportEvent(e.id, { status: 'interessiert' })} aria-label="Doch nicht angemeldet">↩</button>}
               </Row>
             ))}
           </div>
@@ -336,7 +336,7 @@ function SportsPage({ s }) {
           {likedBySport.map(({ sp, list }) => (
             <div key={sp.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span className="label" style={{ padding: '0 4px', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name={sp.icon || 'heart'} size={14} color={GREEN} />{sp.name} ({list.length})</span>
-              <div className="list">{list.map((e) => <Row key={e.id} e={e}><button type="button" className="pill on" onClick={() => { updateSportEvent(e.id, { status: 'angemeldet' }); toast('Unter „Ich nehme teil“'); }}>Anmelden</button></Row>)}</div>
+              <div className="list">{list.map((e) => <Row key={e.id} e={e}><button type="button" className="pill" onClick={() => { updateSportEvent(e.id, { status: 'angemeldet' }); toast('Unter „Ich nehme teil“'); }}>Anmelden</button></Row>)}</div>
             </div>
           ))}
         </section>

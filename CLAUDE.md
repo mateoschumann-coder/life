@@ -66,6 +66,12 @@ Persönliche App, um Privates, Soziales und Professionelles zu organisieren, eff
 - Pro-Abo statt API? Eigene Apps dürfen das Claude-Abo nicht nutzen (seit Anfang 2026 ausdrücklich verboten) → App braucht API-Schlüssel. **Umgekehrter Weg geplant:** nach der Cloud einen „Custom Connector“ (Remote-MCP-Server auf Supabase) bauen, damit Mateo in der Claude-App (Pro-Abo) direkt mit seinen Life-Daten arbeiten kann; der tägliche Coach bleibt über die API.
 - Schnittstellen: WhatsApp nur Chat öffnen (kein Auslesen möglich); Garmin nur über Apple Health in nativer App (Garmin-Entwicklerprogramm pausiert, Strava-API kostenpflichtig); Kalender/E-Mail später.
 
+## Design-Regeln (seit v1.55/1.56, nach Apple-Richtlinien – bei neuen Bildschirmen einhalten)
+- Jede tippbare Fläche mind. 44 × 44 Punkte (global über `::after` in `styles.css`; neue kleine Knopf-Klassen dort ergänzen).
+- Umschalter mit 2–3 Möglichkeiten: oben `Segmented full` (`.seg.full`), Unterteilung darunter `.sub-switch` (gleicher Stil, kleiner, volle Breite). Viele/zum Wischen (Kategorien, Reiter mit Zahlen): Chips.
+- Kräftig blau gefüllt nur die eine Hauptaktion eines Bildschirms/Fensters und das Gewählte; Knöpfe, die sich in jeder Listenzeile wiederholen (Route, Merken, Anmelden …), sind hellblau (`pill` ohne `on`, `btn tint`).
+- Zusatztexte mind. 13 px (`.tiny`), Grau `--muted`. Nur Web-App-taugliches übernehmen (kein Liquid Glass, keine Vibration).
+
 ## Daten-Sicherheit (seit v1.52, nicht aufweichen)
 - Echte Daten werden **nie** durch Anfangsdaten überschrieben: Lade-/Umstellungsfehler → Rettungsmodus (`lib/store.js`, `components/StorageGuard.jsx`).
 - Speicherfehler sind sichtbar (`SaveErrorBar`). Einmal täglich automatische Kopie in `life-app-v1-auto`.

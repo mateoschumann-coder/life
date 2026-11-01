@@ -360,9 +360,9 @@ function Events({ s, city, view = 'find' }) {
                 <button type="button" className="x-btn" aria-label={`${r.name} ausblenden`} onClick={() => mark(r.id, 'weg')}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
               <div className="nudge-actions" style={{ paddingLeft: 56, marginTop: -2 }}>
-                <button type="button" className="pill on" onClick={() => take(r, 'interessiert')}>Interessiert</button>
+                <button type="button" className="pill" onClick={() => take(r, 'interessiert')}>Interessiert</button>
                 <button type="button" className="pill" onClick={() => take(r, 'zugesagt')}>Bin dabei</button>
-                <a className="pill on" href={routeUrl(eventDest(r), resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>Route</a>
+                <a className="pill" href={routeUrl(eventDest(r), resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>Route</a>
                 {r.url && <a className="pill" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} auf ${r.source || 'der Website'} öffnen`}><Icon name="link" size={14} /></a>}
               </div>
             </article>
@@ -430,7 +430,7 @@ function Events({ s, city, view = 'find' }) {
                   <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 56 }}>
-                  <a className="pill on" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>Route</a>
+                  <a className="pill" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>Route</a>
                   {e.url && <a className="pill" href={e.url} target="_blank" rel="noreferrer">Link ↗</a>}
                   <button type="button" className="pill" onClick={() => setEvForm(editInit(e))}>✎ Bearbeiten</button>
                   {e.stage !== 'zugesagt' ? <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>
@@ -454,7 +454,7 @@ function Events({ s, city, view = 'find' }) {
                     <span className="row-title plain">{e.name}</span>
                     <span className="row-meta">{e.stage === 'besucht' ? '✓ Warst du da' : 'Warst du da?'}</span>
                   </button>
-                  {e.stage !== 'besucht' && <button type="button" className="pill on" onClick={() => { setEventStage(e.id, 'besucht'); toast('Schön! Als besucht gespeichert'); }}>Ja</button>}
+                  {e.stage !== 'besucht' && <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'besucht'); toast('Schön! Als besucht gespeichert'); }}>Ja</button>}
                   <button type="button" className="pill" onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}>{e.stage === 'besucht' ? '✕' : 'Nein'}</button>
                 </div>
               ))}
@@ -786,7 +786,7 @@ function Orte({ s, city, view = 'mine' }) {
                     {p.note && <span style={{ fontSize: 14.5, lineHeight: 1.4 }}>{p.note}</span>}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button type="button" className={p.fav ? 'pill on' : 'pill'} style={p.fav ? { background: '#E8475A', borderColor: '#E8475A' } : undefined} onClick={() => updatePlace(p.id, { fav: !p.fav })} aria-pressed={!!p.fav}>{p.fav ? '♥ Favorit' : '♡ Favorit'}</button>
-                      <a className="pill on" href={routeUrl(p)} target="_blank" rel="noreferrer">Route</a>
+                      <a className="pill" href={routeUrl(p)} target="_blank" rel="noreferrer">Route</a>
                       {p.url && <a className="pill" href={p.url} target="_blank" rel="noreferrer">Link <Icon name="link" size={13} /></a>}
                       {p.status === 'will' && <button type="button" className="pill" onClick={() => { updatePlace(p.id, { status: 'war' }); setSheet(p); }}>War da</button>}
                       <button type="button" className="pill" onClick={() => setSheet(p)}>Bearbeiten</button>
@@ -821,7 +821,7 @@ function Orte({ s, city, view = 'mine' }) {
               {r.hours && <span className="tiny">🕒 {r.hours}</span>}
             </span>
             {r.url && <a className="x-btn" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} öffnen`}><Icon name="link" size={15} color="var(--accent)" /></a>}
-            <button type="button" className="pill on" onClick={() => keep(r)}>Merken</button>
+            <button type="button" className="pill" onClick={() => keep(r)}>Merken</button>
           </div>
         ))}
       </SearchCard>}

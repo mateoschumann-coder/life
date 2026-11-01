@@ -30,7 +30,7 @@ const sub = (key, def) => { try { return localStorage.getItem(`life-app-zuhause-
 const setSub = (key, v) => { try { localStorage.setItem(`life-app-zuhause-${key}`, v); } catch {} };
 function SubSwitch({ k, options, value, onChange }) {
   return (
-    <div className="sub-switch" style={{ alignSelf: 'flex-start' }}>
+    <div className="sub-switch" style={{ flex: 1, minWidth: 0 }}>
       {options.map((o) => <button key={o.id} type="button" className={value === o.id ? 'on' : ''} onClick={() => { setSub(k, o.id); onChange(o.id); }}>{o.label}</button>)}
     </div>
   );
@@ -108,7 +108,7 @@ function CatList({ s, listKey }) {
           {ideas.map((v) => (
             <div key={v.id} className="option" style={{ alignItems: 'center' }}>
               <span className="row-main"><span style={{ fontSize: 15, fontWeight: 600 }}>{v.text}</span><span className="tiny">{[v.cat, v.why].filter(Boolean).join(' · ')}</span></span>
-              <button type="button" className="pill on" onClick={() => { addHomeItem(listKey, { text: v.text, cat: v.cat, kind }); const rest = ideas.filter((x) => x.id !== v.id); setIdeas(rest.length ? rest : null); }}>Merken</button>
+              <button type="button" className="pill" onClick={() => { addHomeItem(listKey, { text: v.text, cat: v.cat, kind }); const rest = ideas.filter((x) => x.id !== v.id); setIdeas(rest.length ? rest : null); }}>Merken</button>
             </div>
           ))}
         </section>
@@ -258,7 +258,7 @@ function FindItems({ s, listKey }) {
                 {v.why && <span className="tiny" style={{ color: 'var(--text)' }}>{v.why}</span>}
               </span>
               {v.url && <a className="x-btn" href={v.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-              <button type="button" className="pill on" onClick={() => { addHomeItem(listKey, { text: v.text, cat, kind: 'brauche', price: v.price, url: v.url, note: v.shop }); setSugg(sugg.filter((x) => x.id !== v.id)); toast('Auf der Liste'); }}>Merken</button>
+              <button type="button" className="pill" onClick={() => { addHomeItem(listKey, { text: v.text, cat, kind: 'brauche', price: v.price, url: v.url, note: v.shop }); setSugg(sugg.filter((x) => x.id !== v.id)); toast('Auf der Liste'); }}>Merken</button>
             </div>
           ))}
         </section>

@@ -84,7 +84,7 @@ function Invites({ s, sheet, setSheet }) {
         <span className={x.done ? 'row-title strong done' : 'row-title strong'}>{x.name}</span>
         <span className="row-meta">{[x.host && `von ${x.host}`, x.date ? `${fmtShort(x.date)}${x.time ? `, ${x.time}` : ''}` : 'Datum offen', x.date && x.date >= t && `in ${diffDays(t, x.date)} Tagen`, x.place, x.bring && `🎁 ${x.bring}`, x.guests && `👥 ${x.guests}`].filter(Boolean).join(' · ')}</span>
       </button>
-      {!x.done && x.place && <a className="pill on" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(x.place)}`} target="_blank" rel="noreferrer" aria-label={`Weg zu ${x.name}`}>Route</a>}
+      {!x.done && x.place && <a className="pill" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(x.place)}`} target="_blank" rel="noreferrer" aria-label={`Weg zu ${x.name}`}>Route</a>}
       {!x.done && <button type="button" className="pill" style={{ color: INVITE_COLOR[x.status], whiteSpace: 'nowrap' }} onClick={() => updateInvite(x.id, { status: INV_NEXT[x.status] || 'eingeladen' })} aria-label={`Status ${INVITE_STATUS[x.status]}, antippen zum Ändern`}>{INVITE_STATUS[x.status]}</button>}
     </div>
   );
@@ -296,7 +296,7 @@ export function EventsList({ s }) {
                   <span className="row-title strong">{occasionOf(g.type)?.emoji || '💡'} {g.name}</span>
                   <span className="row-meta">{[g.date && fmtShort(g.date), g.expected && `ca. ${g.expected} Gäste`, g.todos?.length && `${g.todos.length} To-dos`].filter(Boolean).join(' · ') || 'Idee'}</span>
                 </a>
-                <button type="button" className="pill on" onClick={() => { updateGathering(g.id, { idea: false }); toast('Wird stattfinden – steht jetzt unter „Geplant“'); }}>Planen →</button>
+                <button type="button" className="pill" onClick={() => { updateGathering(g.id, { idea: false }); toast('Wird stattfinden – steht jetzt unter „Geplant“'); }}>Planen →</button>
                 <button type="button" className="x-btn" aria-label={`${g.name} rausnehmen`} onClick={() => { archiveGathering(g.id); toast('Rausgenommen – oben über die Kiste zurückholbar'); }}><Icon name="x" size={14} /></button>
               </div>
             ))}

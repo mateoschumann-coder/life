@@ -782,7 +782,7 @@ function SuggList({ items, onTake, onClose }) {
             <span style={{ fontWeight: 600, fontSize: 15 }}>{x.name}{x.naechte ? <span className="tiny"> · {x.naechte} N.</span> : null}</span>
             <span className="tiny">{[x.typ, x.was].filter(Boolean).join(' · ')}</span>
           </span>
-          <button type="button" className="pill on" onClick={() => onTake(x)}>+ Sammeln</button>
+          <button type="button" className="pill" onClick={() => onTake(x)}>+ Sammeln</button>
         </div>
       ))}
     </section>
