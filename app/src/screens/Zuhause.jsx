@@ -3,7 +3,7 @@ import { SOURCE_AREAS } from '../lib/sources';
 import MicBtn from '../components/MicBtn';
 import AiFill from '../components/AiFill';
 import { askDel } from '../lib/undo';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
@@ -244,7 +244,7 @@ function FindItems({ s, listKey }) {
         filters={<div className="filter-pair"><QuickSheet className="filter-btn" label={<><span className="tiny">Bereich</span><b>🏷 {cat} ▾</b></>} title="Für welchen Bereich?">{(close) => <div className="chips">{l.cats.map((c) => <button key={c} type="button" className={cat === c ? 'chip on' : 'chip soft'} onClick={() => { setCat(c); close(); }}>{c}</button>)}</div>}</QuickSheet></div>}
         onLinks={() => setMode('links')} onAi={run} aiLabel="✨ KI" aiCost="<1 ct"
         hint="🔗 Links: Mercado Libre, Google Shopping & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: schlägt 4–6 passende Sachen vor (ohne Internet, unter 1 Cent). „Merken“ setzt sie auf deine Liste „Will ich haben“.">
-        {mode === 'links' && <SourceLinks embedded autoTailor s={s} area={listKey} query={q} />}
+        {<SourceLinks embedded autoTailor s={s} area={listKey} query={q} />}
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich überlege …</span></div>}
       </SearchCard>
       {mode === 'ki' && sugg && (
@@ -310,7 +310,7 @@ function ReminderSheet({ item, onClose }) {
         <>
           {!item?.id && <AiFill title="Wiederkehrende Erinnerung" values={{ title: f.title, note: f.note }} onResult={(r) => setF((x) => ({ ...x, ...r }))}
             fields={{ title: 'Was (kurz)', every: { d: 'Wie oft', enum: Object.keys(EVERY) }, next: 'Nächstes Mal YYYY-MM-DD', note: 'Notiz (Betrag, Konto, Link)' }}
-            placeholder="z.B. „Jeden Monat am 5. Miete zahlen, 450.000 Pesos“" />}
+            placeholder="z.B. „Jeden Monat am 5. Miete zahlen, 450.000 Pesos“" autoSave={() => !!f.title.trim() && (save(), true)} />}
           <Field label="Was?"><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="z.B. Miete bezahlen" /></Field>
           <div className="field"><span>Wie oft?</span><div className="chips">{Object.entries(EVERY).map(([k, v]) => <button key={k} type="button" className={f.every === k ? 'chip on' : 'chip'} onClick={() => setF({ ...f, every: k })}>{v}</button>)}</div></div>
           <Field label="Nächstes Mal"><input className="input" type="date" value={f.next} onChange={(e) => setF({ ...f, next: e.target.value })} /></Field>
@@ -323,6 +323,7 @@ function ReminderSheet({ item, onClose }) {
   );
 }
 function Reminders({ s }) {
+  const pendingRem = useRef(null);
   const t = today();
   const [sheet, setSheet] = useState(null);
   const list = [...(s.reminders || [])].sort((a, b) => (a.next < b.next ? -1 : 1));
@@ -343,7 +344,8 @@ function Reminders({ s }) {
           {presets.length > 0 && <QuickSheet label="⚡" title="Schnell: Erinnerung">{(close) => <div className="chips">{presets.map((p) => <button key={p.title} type="button" className="chip soft" onClick={() => { close(); setTimeout(() => setSheet(p), 200); }}>+ {p.title}</button>)}</div>}</QuickSheet>}
         </span>
       </div>
-      <AiFill title="Wiederkehrende Erinnerung" values={{}} onResult={(r) => setSheet({ title: '', every: 'monat', next: today(), note: '', ...r })}
+      <AiFill title="Wiederkehrende Erinnerung" values={{}} onResult={(r) => { pendingRem.current = { title: '', every: 'monat', next: today(), note: '', ...r }; }}
+        autoSave={() => { const x = pendingRem.current; pendingRem.current = null; if (!x) return false; if (String(x.title).trim()) { addReminder(x); return true; } setSheet(x); return false; }}
         fields={{ title: 'Was (kurz)', every: { d: 'Wie oft', enum: Object.keys(EVERY) }, next: 'Nächstes Mal YYYY-MM-DD', note: 'Notiz (Betrag, Konto, Link)' }}
         placeholder="z.B. „Jeden Monat am 5. Miete zahlen, 450.000 Pesos“" />
       <div className="list">

@@ -123,6 +123,8 @@ export default function Heute() {
   const [day, setDay] = useState(t);
   const [weekStart, setWeekStart] = useState(startOfWeek(t));
   const [calMode, setCalS] = useState(() => { try { return localStorage.getItem('life-app-heute-cal') || 'woche'; } catch { return 'woche'; } });
+  // v1.54 (Mateo): Tag im Monat antippen → Kalender klappt auf diese Woche zusammen, die Tagesliste steht sofort darunter.
+  // Gemerkt bleibt der Monat: beim nächsten Öffnen ist wieder die Monatsansicht da.
   const setCal = (v) => { setCalS(v); try { localStorage.setItem('life-app-heute-cal', v); } catch {} if (v === 'monat') setMonthAnchor(day.slice(0, 8) + '01'); else setWeekStart(startOfWeek(day)); };
   const [monthAnchor, setMonthAnchor] = useState(() => t.slice(0, 8) + '01');
   const monthWeeks = (() => { const out = []; let w = startOfWeek(monthAnchor); const m = monthAnchor.slice(0, 7); while (w.slice(0, 7) <= m || addDays(w, 6).slice(0, 7) === m) { if (addDays(w, 6).slice(0, 7) < m) { w = addDays(w, 7); continue; } out.push(w); w = addDays(w, 7); if (w.slice(0, 7) > m) break; } return out; })();
@@ -295,7 +297,7 @@ export default function Heute() {
                 const sel = k === day;
                 const out = calMode === 'monat' && k.slice(0, 7) !== monthAnchor.slice(0, 7);
                 return (
-                  <button key={k} type="button" className={sel ? 'wday on' : 'wday'} style={out ? { opacity: 0.35 } : undefined} onClick={() => setDay(k)} aria-pressed={sel} aria-label={`${dayFmt.format(parseKey(k))}${n ? `, ${n} Einträge` : ''}`}>
+                  <button key={k} type="button" className={sel ? 'wday on' : 'wday'} style={out ? { opacity: 0.35 } : undefined} onClick={() => { setDay(k); if (calMode === 'monat') { setCalS('woche'); setWeekStart(startOfWeek(k)); } }} aria-pressed={sel} aria-label={`${dayFmt.format(parseKey(k))}${n ? `, ${n} Einträge` : ''}`}>
                     {(calMode !== 'monat' || ws === monthWeeks[0]) && <span className="wd">{w}</span>}
                     <span className={k === t && !sel ? 'wn today' : 'wn'}>{parseKey(k).getDate()}</span>
                     <span className="wdot" style={{ opacity: n ? 1 : 0 }} />

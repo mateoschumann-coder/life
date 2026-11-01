@@ -121,7 +121,7 @@ function ItemSheet({ s, open, onClose, item }) {
     <Sheet open={open} title={item?.id ? 'Bearbeiten' : injury ? 'Neue Verletzung' : 'Neuer Termin'} onClose={close}>
       {!injury && <AiFill key={`${loaded}-${n2}`} title="Arzttermin / Vorsorge" values={{ title: f.title, date: f.date, time: f.time, address: f.address, notes: f.notes }} onResult={aiResult}
         fields={{ title: 'Was (z.B. Zahnarzt-Kontrolle)', date: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM', ort: 'Name der Praxis/des Arztes', address: 'Adresse', notes: 'Notiz (mitnehmen, Fragen)', everyN: 'Nur bei regelmäßigen Terminen: alle wie viele', unit: { d: 'w = Wochen, m = Monate', enum: ['w', 'm'] } }}
-        aiHint={`Gespeicherte Praxen: ${(bookOf(s, 'vorsorge').items || []).map((x) => x.name).slice(0, 40).join(', ')}.`} placeholder="z.B. „Zahnarzt Dr. López am 12. um 10:30, Röntgenbild mitnehmen“" />}
+        aiHint={`Gespeicherte Praxen: ${(bookOf(s, 'vorsorge').items || []).map((x) => x.name).slice(0, 40).join(', ')}.`} placeholder="z.B. „Zahnarzt Dr. López am 12. um 10:30, Röntgenbild mitnehmen“" autoSave={item?.id ? null : () => !!(f.title.trim() && f.date) && (save(), true)} />}
       {!injury && <Segmented full options={[{ id: 'termin', label: '📅 Einmalig' }, { id: 'routine', label: '🔁 Wiederkehrend' }]} value={f.type} onChange={(v) => setF({ ...f, type: v })} label="Art" />}
       <Field label={injury ? 'Was ist es?' : 'Was?'}><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={injury ? 'z.B. Knie rechts zwickt beim Laufen' : 'z.B. Zahnarzt-Kontrolle'} /></Field>
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
@@ -234,7 +234,7 @@ function DoctorFinder({ s, onTermin }) {
         )}</QuickSheet></div>}
         onLinks={() => setMode('links')} onAi={run} aiLabel="✨ KI" aiCost="~1 ct"
         hint="🔗 Links: Doctoralia, Google Maps, Turno online – kostenlos. ✨ KI: eine Internet-Suche (ca. 1 Cent); Treffer als Ort speichern oder gleich einen Termin anlegen.">
-        {mode === 'links' && (what.trim()
+        {(what.trim()
           ? <div className="chips">{doctorLinks(what.trim(), area.trim(), s.profile?.city).map((l) => <a key={l.url} className="pill link-chip" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}</div>
           : <span className="tiny">Eingeben, was du suchst – dann erscheinen die Links.</span>)}
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche …</span></div>}

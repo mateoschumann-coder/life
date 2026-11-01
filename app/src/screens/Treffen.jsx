@@ -49,7 +49,7 @@ function InviteSheet({ open, invite, onClose }) {
     <Sheet open={open} title={invite ? 'Einladung' : 'Neue Einladung'} onClose={onClose}>
       <AiFill key={key || 'x'} title="Einladung von Bekannten (privat, nichts bezahlt)" values={{ name: f.name, host: f.host, date: f.date, time: f.time, place: f.place, guests: f.guests, bring: f.bring, note: f.note, url: f.url }} onResult={(r) => set(r)}
         fields={{ name: 'Was (z.B. Geburtstag von Juan)', host: 'Wer lädt ein', date: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM', place: 'Ort/Adresse', status: { d: 'Zusage-Stand', enum: Object.keys(INVITE_STATUS) }, guests: 'Wer ist noch dabei, Namen mit Komma', bring: 'Was Mateo mitbringt', note: 'Notiz', url: 'Link' }}
-        placeholder="z.B. „Juan lädt Samstag 20 Uhr zum Geburtstag ein, bei ihm in Palermo, ich bring Wein“" />
+        placeholder="z.B. „Juan lädt Samstag 20 Uhr zum Geburtstag ein, bei ihm in Palermo, ich bring Wein“" autoSave={invite ? null : () => !!(f.name.trim() && f.date) && (save(), true)} />
       <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Geburtstag von Juan, Hochzeit, Asado" /></Field>
       <Field label="Wer lädt ein?"><input className="input" value={f.host} onChange={(e) => set({ host: e.target.value })} placeholder="z.B. Juan" /></Field>
       <div style={{ display: 'flex', gap: 10 }}>
@@ -323,7 +323,7 @@ export function EventsList({ s }) {
         </>)}
       </main>
       <Sheet open={open} title={isIdea ? 'Neue Idee' : 'Neues Treffen'} onClose={() => setOpen(false)}>
-        <AiFill key={String(open)} values={{ name: f.name, date: f.date, time: f.time, place: f.place }} placeholder="z.B. „Asado bei mir nächsten Samstag ab 13 Uhr, so 10 Leute“" onFill={async (txt) => {
+        <AiFill key={String(open)} values={{ name: f.name, date: f.date, time: f.time, place: f.place }} autoSave={() => !!f.name.trim() && (save(), true)} placeholder="z.B. „Asado bei mir nächsten Samstag ab 13 Uhr, so 10 Leute“" onFill={async (txt) => {
           const r = await parseGatheringText(store.get(), txt);
           if (!r?.name) throw new Error('Nichts erkannt – erzähl etwas mehr');
           const names = (Array.isArray(r.gaeste_namen) ? r.gaeste_namen : []).filter(Boolean);

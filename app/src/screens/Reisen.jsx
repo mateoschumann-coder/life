@@ -334,7 +334,7 @@ function Inspiration({ s }) {
         quick={<QuickChips chips={SOURCE_AREAS.reiseziele?.chips || INSPO_CHIPS} q={q} setQ={setQ} />}
         onLinks={() => setMode('links')} onAi={ai} aiLabel="✨ KI" aiCost="~1 ct"
         hint="🔗 Links: Skyscanner „Überall“, Google Flights, Pinterest, Reddit & Co. – kostenlos. ✨ KI: schlägt passende Ziele vor; ankreuzen = als Ideen speichern. Rückfragen unten im Chat.">
-        {mode === 'links' && <SourceLinks embedded s={s} area="reiseziele" query={q} />}
+        {<SourceLinks embedded s={s} area="reiseziele" query={q} />}
       </SearchCard>
       {mode === 'ki' && <PlanChat
         title="Reiseführer-KI"
@@ -504,7 +504,7 @@ function TripList({ s }) {
       <Sheet open={open} title="Neue Reise" onClose={() => setOpen(false)}>
         <AiFill key={String(open)} title="Reise oder Reise-Idee" values={{ dest: f.dest, from: f.from, to: f.to, budget: f.budget }} onResult={(r) => setF((x) => ({ ...x, ...r }))}
           fields={{ dest: 'Wohin (Stadt, Land oder Region)', status: { d: 'geplant = steht fest, idee = erst mal Idee', enum: ['geplant', 'idee'] }, from: 'Beginn YYYY-MM-DD', to: 'Ende YYYY-MM-DD', budget: 'Budget in USD, nur Zahl' }}
-          placeholder="z.B. „Im Januar zwei Wochen Florianópolis, erst mal Idee“" />
+          placeholder="z.B. „Im Januar zwei Wochen Florianópolis, erst mal Idee“" autoSave={() => !!f.dest.trim() && (save(), true)} />
         <Field label="Wohin?"><input className="input" value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })} placeholder="z.B. Florianópolis" /></Field>
         <div className="seg-mini">
           {[['geplant', 'Steht fest'], ['idee', 'Erst mal Idee']].map(([k, l]) => <button key={k} type="button" className={f.status === k ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, status: k })}>{l}</button>)}

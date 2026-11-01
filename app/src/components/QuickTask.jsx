@@ -32,7 +32,7 @@ export default function QuickTask() {
   return (
     <Sheet open={open} title="Neue Aufgabe" onClose={() => setOpen(false)}>
       <form onSubmit={(e) => { e.preventDefault(); save(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <AiFill key={n} title="Aufgabe" fields={{ title: 'Was zu tun ist, kurz', due: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM' }} values={{ title, time }} onResult={(r) => { if (r.title) setTitle(r.title); if (r.due) setDue(r.due); if (r.time) setTime(r.time); }} placeholder="z.B. „Morgen um 10 Juan wegen Asado anrufen“" />
+        <AiFill key={n} title="Aufgabe" fields={{ title: 'Was zu tun ist, kurz', due: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM' }} values={{ title, time }} onResult={(r) => { if (r.title) setTitle(r.title); if (r.due) setDue(r.due); if (r.time) setTime(r.time); }} placeholder="z.B. „Morgen um 10 Juan wegen Asado anrufen“" autoSave={() => !!title.trim() && (save(), true)} />
         <label className="field"><span>Was?</span><input ref={ref} className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z.B. Mama anrufen, Rechnung zahlen" /></label>
         <div className="field">
           <span>Wann?</span>

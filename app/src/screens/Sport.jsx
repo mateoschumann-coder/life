@@ -265,7 +265,7 @@ function SportsPage({ s }) {
           onAi={(t) => { setSmode('ki'); if (s.sports.length) search(true, t); else toast('Erst oben eine Sportart hinzufügen'); }}
           aiLabel="✨ KI" aiCost="~4 ct"
           hint="🔗 Links: Rennkalender (Ahotu, Club de Corredores …) mit Ort und Zeitraum – kostenlos. ✨ KI: sucht aktuelle Termine mit Link im Internet; ein Renn-Name wird gezielt gesucht (ca. 3–5 Cent).">
-          {smode === 'links' && <SourceLinks embedded s={s} area="rennen" instant query={[q || 'carreras running', periodWords(period)].filter(Boolean).join(' ')} city={regPick.filter((r) => regions.includes(r)).join(', ')} siteQuery={q} />}
+          {<SourceLinks embedded s={s} area="rennen" instant query={[q || 'carreras running', periodWords(period)].filter(Boolean).join(' ')} city={regPick.filter((r) => regions.includes(r)).join(', ')} siteQuery={q} />}
           {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche aktuelle Termine …' : 'Ich überlege …'}</span></div>}
           {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
           {smode === 'ki' && !busy && res?.hint && <span className="sub">{res.hint}</span>}
@@ -293,7 +293,8 @@ function SportsPage({ s }) {
           <AiFill key={`${adding}-${addN}`} title="Sport-Event / Rennen" values={{ name: f.name, date: f.date, place: f.place, dist: f.dist, url: f.url }}
             onResult={(r) => { const sp = s.sports.find((x) => x.name.toLowerCase() === String(r.sportart || '').toLowerCase()); const { sportart, ...rest } = r; setF((x) => ({ ...x, ...rest, ...(sp ? { sportId: sp.id } : {}) })); }}
             fields={{ name: 'Name des Rennens', date: 'Datum YYYY-MM-DD', place: 'Ort', dist: 'Distanz, z.B. 21 km', url: 'Link zur Anmeldung', sportart: { d: 'Sportart', enum: s.sports.map((x) => x.name) }, status: { d: 'interessiert oder angemeldet', enum: ['interessiert', 'angemeldet'] } }}
-            placeholder="z.B. „Halbmarathon Rosario im April, bin angemeldet“ oder Link zur Anmeldung" />
+            placeholder="z.B. „Halbmarathon Rosario im April, bin angemeldet“ oder Link zur Anmeldung"
+            autoSave={f.id ? null : () => { if (!f.name.trim()) return false; addSportEvent({ ...f, status: f.status || 'interessiert' }); setAdding(false); return true; }} />
           <QuickSheet label="⚡ Schnell" title="Schnell hinzufügen" style={{ alignSelf: 'flex-start' }}>{(close) => <SportPresets s={s} onPick={(p) => { setF((x) => ({ ...x, name: p.name, dist: p.dist || x.dist || '' })); close(); }} />}</QuickSheet>
           <form style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onSubmit={(ev) => { ev.preventDefault(); const next = ev.nativeEvent?.submitter?.dataset?.next === '1'; if (f.id) { const { id, ...rest } = f; updateSportEvent(id, { ...rest, name: rest.name.trim() }); toast('Gespeichert'); setAdding(false); return; } if (addSportEvent({ ...f, status: f.status || 'interessiert' })) toast(f.status === 'angemeldet' ? 'Unter „Ich nehme teil“ notiert' : 'Notiert'); else toast('Gibt es schon'); setF({ name: '', date: '', place: '', url: '', dist: '', sportId: f.sportId, status: f.status }); if (next) setAddN((x) => x + 1); else setAdding(false); }}>
             <div className="field"><span>Sportart</span><div className="chips">{s.sports.map((sp) => <button key={sp.id} type="button" className={f.sportId === sp.id ? 'chip on' : 'chip soft'} onClick={() => setF({ ...f, sportId: sp.id })}>{sp.name}</button>)}{!s.sports.length && <span className="tiny">Erst oben über ✎ eine Sportart hinzufügen.</span>}</div></div>

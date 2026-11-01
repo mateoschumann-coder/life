@@ -193,7 +193,7 @@ function MaterialSheet({ s, item, onClose, defaultTopic, cat }) {
       {!m && <AiFill key={`${loaded}-${n}`} title="Buch / Podcast / Video / Artikel / Kurs / Tipp" values={{ title: f.title, author: f.author, url: f.url, note: f.note }}
         onResult={(r) => { const topic = r.thema ? (findTopic(s, r.thema)?.id || ensureTopic(r.thema)) : null; const { thema, ...rest } = r; setF((x) => ({ ...x, ...rest, ...(topic ? { subId: topic } : {}) })); }}
         fields={{ title: 'Titel', author: 'Autor / Quelle', kind: { d: 'Art', enum: Object.keys(KINDS) }, thema: `Thema, möglichst eins von: ${topicsOf(s).map((t) => t.name).join(', ')}`, url: 'Link', about: 'Kurzbeschreibung, 1 Satz', note: 'Notiz – nur was Mateo selbst sagt' }}
-        placeholder="z.B. „Sapiens von Harari, will ich lesen, Thema Geschichte“ oder YouTube-/Artikel-Link" />}
+        placeholder="z.B. „Sapiens von Harari, will ich lesen, Thema Geschichte“ oder YouTube-/Artikel-Link" autoSave={() => !!f.title.trim() && (save(), true)} />}
       <div className="field">
         <span>Titel</span>
         <div className="block-add">

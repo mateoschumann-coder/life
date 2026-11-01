@@ -606,7 +606,7 @@ function RecipeFinder({ s }) {
             toggles={<ChatToggles prefKey="kueche" />}
             onLinks={() => setMode('links')} onAi={ai}
             hint="🔗 Links: Chefkoch, Paulina Cocina, BBC Good Food & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: schlägt Rezepte vor (ohne Internet unter 1 Cent, mit Internet ca. 1–3 Cent). Rückfragen ebenfalls oben ins Feld.">
-            {mode === 'links' && <SourceLinks embedded s={s} area="rezepte" query={q} />}
+            {<SourceLinks embedded s={s} area="rezepte" query={q} />}
           </SearchCard>
           {mode === 'ki' && <KitchenChat key="neu" s={s} mode="neu" askRef={ask} pending={pend} />}
         </>

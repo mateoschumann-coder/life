@@ -313,7 +313,8 @@ function SearchPage({ s, search }) {
             <form className="card" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); const id = addJob({ searchId: search.id, ...manual }); setManual({ title: '', company: '', url: '', description: '', status: 'interessiert' }); setAdding(false); if (id) toast('Im Trichter'); }}>
               <AiFill title="Stelle / Bewerbung" values={{ title: manual.title, company: manual.company, url: manual.url }} onResult={(r) => setManual((x) => ({ ...x, ...r }))}
                 fields={{ title: 'Stellenbezeichnung', company: 'Firma', status: { d: 'Phase', enum: STAGES.map((st) => st.id) }, url: 'Link zur Anzeige', description: 'Anzeigentext bzw. wichtigste Infos' }}
-                placeholder="z.B. „Hab mich heute bei Kaszek als Associate beworben“ oder Link zur Anzeige" />
+                placeholder="z.B. „Hab mich heute bei Kaszek als Associate beworben“ oder Link zur Anzeige"
+                autoSave={() => { if (!manual.title.trim()) return false; const id = addJob({ searchId: search.id, ...manual }); setManual({ title: '', company: '', url: '', description: '', status: 'interessiert' }); setAdding(false); return !!id; }} />
               <input className="input" value={manual.title} onChange={(e) => setManual({ ...manual, title: e.target.value })} placeholder="Stelle, z.B. Investment Analyst" aria-label="Stelle" />
               <input className="input" value={manual.company} onChange={(e) => setManual({ ...manual, company: e.target.value })} placeholder="Firma" aria-label="Firma" />
               <div className="chips">{STAGES.map((st) => <button key={st.id} type="button" className={manual.status === st.id ? 'chip on' : 'chip soft'} onClick={() => setManual({ ...manual, status: st.id })}>{st.short}</button>)}</div>

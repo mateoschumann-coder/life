@@ -210,7 +210,7 @@ function EventSheet({ init, city, onClose }) {
     <Sheet open={!!init} title={editId ? 'Event bearbeiten' : 'Event eintragen'} onClose={() => onClose(false)}>
       <AiFill key={`${key}-${n}`} title="Event (Konzert, Party, Ausstellung … mit Ticket)" values={{ name: f.name, date: f.date, time: f.time, place: f.place, price: f.price, url: f.url, note: f.note }} onResult={(r) => set(r)}
         fields={{ name: 'Name des Events', date: 'Datum YYYY-MM-DD', time: 'Beginn HH:MM', place: 'Ort/Location', price: 'Preis mit Währung', url: 'Link', note: 'Kurze Notiz', stage: { d: 'interessiert oder zugesagt (Mateo geht sicher hin)', enum: ['interessiert', 'zugesagt'] } }}
-        aiHint={`Stadt: ${city}.`} placeholder="z.B. „Samstag Jazz im Thelonious, 22 Uhr, 12.000 Pesos“ oder Passline-Link" hint="Bei einem Link liest die KI die Seite (Instagram nicht – dort Text kopieren)." />
+        aiHint={`Stadt: ${city}.`} placeholder="z.B. „Samstag Jazz im Thelonious, 22 Uhr, 12.000 Pesos“ oder Passline-Link" hint="Bei einem Link liest die KI die Seite (Instagram nicht – dort Text kopieren)." autoSave={editId ? null : () => !!(f.name.trim() && f.date) && (save(), true)} />
       <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Konzert im Niceto" /></Field>
       <div style={{ display: 'flex', gap: 10 }}>
         <Field label="Datum"><input className="input" type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
@@ -327,7 +327,7 @@ function Events({ s, city, view = 'find' }) {
         onAi={(t) => { setSmode('ki'); run(t.trim() || 'Events in den nächsten Tagen passend zu meinen Vorlieben'); }}
         aiLabel="✨ KI" aiCost="~4 ct"
         hint="🔗 Links: öffnet Passline, Eventbrite, Instagram & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: sucht selbst im Internet und zeigt konkrete Events passend zu deinen Vorlieben (ca. 3–5 Cent). Leeres Feld = passend zu deinen Vorlieben.">
-        {smode === 'links' && <SourceLinks embedded s={s} area="events" city={city} query={q} />}
+        {<SourceLinks embedded s={s} area="events" city={city} query={q} />}
         {busy && (
           <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{busy === 'web' ? 'Ich suche auf Passline, Eventbrite, Meetup & Co. … (ca. 20–30 Sek.)' : 'Ich überlege gezielte Suchen … (ca. 5 Sek.)'}</span></div>
         )}
@@ -518,7 +518,7 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
       {/* v1.30: KI von Anfang an – sprechen, schreiben oder Link einfügen */}
       <AiFill key={`${open}-${n}`} title="Ort (Restaurant, Bar, Café …)" values={{ name: f.name, address: f.address, hood: f.hood, hours: f.hours, note: f.note, url: f.url }} onResult={(r) => set({ ...r, ...(r.price ? { price: Math.max(1, Math.min(3, Number(r.price) || 0)) } : {}), ...(r.status ? {} : {}) })}
         fields={{ name: 'Name des Orts', address: 'Straße + Hausnummer', hood: 'Stadtviertel', category: { d: 'Art', enum: placeCatsOf(s) }, subcat: 'Genauer, z.B. Parrilla, Rooftop', hours: 'Öffnungszeiten kurz', price: { d: 'Preisniveau 1 günstig, 2 mittel, 3 teuer', enum: ['1', '2', '3'] }, status: { d: 'will = will hin, war = war schon', enum: ['will', 'war'] }, note: 'Notiz – nur was Mateo selbst sagt', url: 'Link' }}
-        aiHint={`Stadt: ${f.city || city || HOME_CITY}.`} placeholder="z.B. „Don Julio, Parrilla in Palermo, will ich hin“ oder Instagram-/Maps-Link" />
+        aiHint={`Stadt: ${f.city || city || HOME_CITY}.`} placeholder="z.B. „Don Julio, Parrilla in Palermo, will ich hin“ oder Instagram-/Maps-Link" autoSave={place ? null : () => !!f.name.trim() && (save(), true)} />
       <Field label="Name"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Café Crisol" /></Field>
       {allCities(s).length > 1 && (
         <Field label="Stadt">
@@ -552,7 +552,6 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
           </div>
         )}
       </div>
-      <Field label="Öffnungszeiten (optional)"><input className="input" value={f.hours || ''} onChange={(e) => set({ hours: e.target.value })} placeholder="z.B. Di–So 9–19 Uhr, Mo zu" /></Field>
       <div className="field">
         <span>Art</span>
         <div className="chips">
@@ -591,6 +590,7 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
         <div className="chips">{Object.entries(PLACE_PRICES).map(([k, v]) => <button key={k} type="button" className={f.price === Number(k) ? 'chip on' : 'chip soft'} onClick={() => set({ price: f.price === Number(k) ? 0 : Number(k) })}>{v}</button>)}</div>
       </div>
       <Segmented full options={[{ id: 'will', label: 'Will ich hin' }, { id: 'war', label: 'War schon da' }]} value={f.status} onChange={(v) => set({ status: v })} label="Status" />
+      <Field label="Öffnungszeiten (optional)"><input className="input" value={f.hours || ''} onChange={(e) => set({ hours: e.target.value })} placeholder="z.B. Di–So 9–19 Uhr, Mo zu" /></Field>
       {f.status === 'war' && <div className="field"><span>Wie fandest du es?</span><Stars value={f.rating} onChange={(v) => set({ rating: v })} size={26} /></div>}
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} placeholder="z.B. Bester Flat White, gut zum Arbeiten, Terrasse" /></Field>
       <Field label="Link (optional)"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Instagram, Website …" /></Field>
@@ -807,7 +807,7 @@ function Orte({ s, city, view = 'mine' }) {
         onAi={(t) => { setPmode('ki'); run(t.trim() || 'Besondere Orte passend zu meinen Vorlieben'); }}
         aiLabel="✨ KI" aiCost="~2 ct"
         hint="🔗 Links: Google Maps, Tripadvisor, Time Out & Co. mit deinem Suchbegriff – kostenlos. ✨ KI: sucht Empfehlungen im Internet (ca. 2 Cent). „Merken“ legt den Ort unter „Meine Orte“ als „Will hin“ ab.">
-        {pmode === 'links' && <SourceLinks embedded s={s} area="orte" city={city} query={q} />}
+        {<SourceLinks embedded s={s} area="orte" city={city} query={q} />}
         {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Empfehlungen … (ca. 20 Sek.)</span></div>}
         {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
         {pmode === 'ki' && !busy && shown && resCity !== city && shown.results.some((r) => r.status === 'neu') && <span className="label" style={{ padding: 0 }}>Letzte KI-Vorschläge: „{shown.query}“ · {resCity}</span>}

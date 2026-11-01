@@ -3,6 +3,7 @@
 // Zwei Arten: onFill(text) (eigener Leser) oder fields + values + onResult (allgemeiner Formular-Füller).
 import { useEffect, useRef, useState } from 'react';
 import { getAi } from '../lib/ai';
+import { store } from '../lib/store';
 import { fillForm } from '../lib/formfill';
 import { canDictate, useDictation } from '../lib/dictate';
 import { Icon, toast } from './ui';
@@ -11,7 +12,11 @@ const filledText = (values, fields) => Object.entries(values || {})
   .filter(([k, v]) => (!fields || fields[k]) && v != null && typeof v !== 'object' && String(v).trim() && !/^(id|key)$/.test(k))
   .map(([k, v]) => `${k}: ${v}`).join(', ');
 
-export default function AiFill({ placeholder = 'Erzähl kurz oder füg Link/Text ein …', onFill, hint, fields, values, onResult, title = 'Eintrag', aiHint = '', autoOpen = false }) {
+// v1.54 (Mateo): autoSave – wenn nach dem Ausfüllen alles Wichtige drinsteht, speichert das Formular selbst
+// (autoSave() gibt true zurück, wenn gespeichert wurde) und unten erscheint „↶ Rückgängig“. Fehlt etwas Wichtiges,
+// bleibt das Formular offen und man ergänzt von Hand.
+export default function AiFill({ placeholder = 'Erzähl kurz oder füg Link/Text ein …', onFill, hint, fields, values, onResult, title = 'Eintrag', aiHint = '', autoOpen = false, autoSave = null }) {
+  const autoRef = useRef(autoSave); autoRef.current = autoSave;
   const [open, setOpen] = useState(false);
   const [txt, setTxt] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,7 +39,14 @@ export default function AiFill({ placeholder = 'Erzähl kurz oder füg Link/Text
       } else {
         await onFill([said, ctx && `(Schon im Formular: ${ctx})`].filter(Boolean).join('\n'));
       }
-      setTxt(''); setOpen(false); toast('Ausgefüllt – kurz prüfen');
+      setTxt(''); setOpen(false);
+      // kurz warten, bis das Formular die neuen Werte hat, dann ggf. selbst speichern
+      await new Promise((r) => setTimeout(r, 120));
+      const snap = store.get();
+      let saved = false;
+      try { saved = !!(autoRef.current && autoRef.current()); } catch {}
+      if (saved) window.dispatchEvent(new CustomEvent('app-toast', { detail: { text: 'Gespeichert ✓', action: '↶ Rückgängig', onAction: () => store.replace(snap) } }));
+      else toast(autoRef.current ? 'Ausgefüllt – bitte noch ergänzen, was fehlt' : 'Ausgefüllt – kurz prüfen');
     } catch (e) { toast(e.message === 'KEIN_SCHLUESSEL' ? 'Dafür braucht es den KI-Schlüssel (Einstellungen)' : e.message); }
     setBusy(false);
   };

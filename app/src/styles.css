@@ -797,8 +797,8 @@ select.input.rhythm-sel { height: auto; padding: 2px 8px; }
 
 /* v1.35: einheitliche Suchkarte */
 .search-row1 { display: flex; gap: 8px; align-items: center; }
-.search-acts { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; }
-.search-acts:not(:has(.info-wrap, .info-btn)) { grid-template-columns: 1fr 1fr; }
+.search-acts { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.search-acts:not(:has(.info-wrap, .info-btn)) { grid-template-columns: 1fr; }
 .gs-row { width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 .search-acts .btn { min-height: 42px; white-space: nowrap; padding-left: 8px; padding-right: 8px; }
 .search-cost { font-weight: 500; opacity: .75; font-size: 12px; margin-left: 5px; }

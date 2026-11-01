@@ -53,7 +53,7 @@ export function ItemSheet({ s, book, cats, item, onClose, onSaved, city = null }
     <Sheet open title={isNew ? 'Neuer Ort' : f.name || 'Ort'} onClose={onClose}>
       {isNew && <AiFill key={loaded} title={`Ort im Verzeichnis (${cat?.label || 'Geschäft/Praxis'})`} values={{ name: f.name, area: f.area, address: f.address, phone: f.phone, url: f.url, note: f.note }} onResult={(r) => setF((x) => ({ ...x, ...r }))}
         fields={{ name: 'Name', area: 'Viertel', address: 'Adresse', phone: 'Telefon', url: 'Link', note: 'Notiz', status: { d: 'war = war schon, will = will hin', enum: ['war', 'will'] } }}
-        placeholder="z.B. „Zahnarzt Dr. García in Palermo, war schon, sehr gut“" />}
+        placeholder="z.B. „Zahnarzt Dr. García in Palermo, war schon, sehr gut“" autoSave={() => !!f.name.trim() && (save(), true)} />}
       <Field label="Name"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="z.B. Coto, Dr. García" /></Field>
       <Field label="Wo ungefähr?"><input className="input" value={f.area} onChange={(e) => setF({ ...f, area: e.target.value })} placeholder="Viertel oder Straße, z.B. Palermo" /></Field>
       <div className="chips" style={{ marginTop: -4 }}>
