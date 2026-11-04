@@ -239,11 +239,11 @@ export function deleteRadarItem(id) {
 // Events
 export const STAGES = ['entdeckt', 'interessiert', 'zugesagt', 'besucht'];
 export const STAGE_LABEL = { entdeckt: 'Entdeckt', interessiert: 'Interessiert', zugesagt: 'Zugesagt', besucht: 'Besucht' };
-export function addEvent({ name, date = '', place = '', address = '', travel = false, stage = 'entdeckt', url = '', time = '', price = '', note = '', city = '' }) {
+export function addEvent({ name, date = '', place = '', address = '', travel = false, stage = 'entdeckt', url = '', time = '', price = '', note = '', city = '', todos = [], remind = '' }) {
   if (!name.trim()) return;
   const id = uid();
   store.update((s) => {
-    s.events.push({ id, name: name.trim(), date, place: (place || '').trim(), ...(address ? { address } : {}), travel, stage, url, time, price, note, ...(city ? { city } : {}), createdAt: now() });
+    s.events.push({ id, name: name.trim(), date, place: (place || '').trim(), ...(address ? { address } : {}), travel, stage, url, time, price, note, ...(city ? { city } : {}), ...(todos?.length ? { todos } : {}), ...(remind !== '' && remind != null ? { remind: Number(remind) } : {}), createdAt: now() });
   });
   return id;
 }

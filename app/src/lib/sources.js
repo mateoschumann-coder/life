@@ -94,6 +94,25 @@ export const SOURCE_AREAS = {
       { id: 'guiaoleo', name: 'Guía Óleo', domain: 'guiaoleo.com.ar', city: 'Buenos Aires', lang: 'es' },
     ],
   },
+  // v1.57 (Mateo): Unterhaltung – Sport im TV, Kino, Serien. Ort nur bei Kinos wichtig (noCity = Stadt nicht anhängen)
+  unterhaltung: {
+    title: 'Meine Unterhaltungs-Seiten',
+    placeholder: 'z.B. Wann fährt die Formel 1? Welche Filme laufen im Kino?',
+    perCity: true,
+    defaults: [
+      { id: 'google', name: 'Google', lang: 'Landessprache', noCity: true, build: (c) => `https://www.google.com/search?q=${enc(c.q)}` },
+      { id: 'dondever', name: 'Wo läuft es? (TV/Stream)', lang: 'es', noCity: true, build: (c) => `https://www.google.com/search?q=${enc(`${c.q} dónde ver en vivo`)}` },
+      { id: 'cartelera', name: 'Kino-Programm (Google)', lang: 'es', build: (c) => `https://www.google.com/search?q=${enc(/cine|cartelera|kino|película/i.test(c.q) ? c.q : `cartelera cine ${c.q}`)}` },
+      { id: 'justwatch', name: 'JustWatch', lang: 'es', noCity: true, build: (c) => `https://www.justwatch.com/ar/buscar?q=${enc(c.q)}` },
+      { id: 'f1', name: 'Formel 1 Kalender', lang: 'en', noCity: true, build: () => `https://www.formula1.com/en/racing/${new Date().getFullYear()}` },
+      { id: 'promiedos', name: 'Promiedos (Fußball)', lang: 'es', noCity: true, build: () => 'https://www.promiedos.com.ar/' },
+      { id: 'espn', name: 'ESPN Spielplan', domain: 'espn.com.ar', lang: 'es', noCity: true },
+      { id: 'imdb', name: 'IMDb', lang: 'en', noCity: true, build: (c) => `https://www.imdb.com/find/?q=${enc(c.q)}` },
+      { id: 'cinemark', name: 'Cinemark Hoyts', domain: 'cinemarkhoyts.com.ar', city: 'Buenos Aires', lang: 'es' },
+      { id: 'showcase', name: 'Showcase', domain: 'todoshowcase.com', city: 'Buenos Aires', lang: 'es' },
+      { id: 'cinepolis', name: 'Cinépolis', domain: 'cinepolis.com.ar', city: 'Buenos Aires', lang: 'es' },
+    ],
+  },
   rennen: {
     title: 'Meine Renn-Seiten',
     placeholder: 'z.B. Halbmarathon im Frühling in meiner Nähe',
@@ -150,12 +169,12 @@ export function sourceUrl(src, q, city = '', t = null, siteQ = null) {
   if (src.tpl && src.tpl.includes('{q}')) return src.tpl.replace('{q}', enc(String(t?.terms?.[src.id] || (siteQ ?? q) || '').trim()));
   const raw = String(q || '').trim();
   const anyTerm = t ? Object.values(t.terms || {})[0] : '';
-  const term = (t?.terms?.[src.id] || '').trim() || (anyTerm ? (anyTerm.toLowerCase().includes(String(city).toLowerCase()) ? anyTerm : `${anyTerm} ${city}`.trim()) : [raw, city].filter(Boolean).join(' '));
+  const term = (t?.terms?.[src.id] || '').trim() || (src.noCity ? (anyTerm || raw) : anyTerm ? (anyTerm.toLowerCase().includes(String(city).toLowerCase()) ? anyTerm : `${anyTerm} ${city}`.trim()) : [raw, city].filter(Boolean).join(' '));
   if (src.tpl && !src.tpl.includes('{q}')) return src.tpl;
-  if (!raw && !t) return src.home || (src.domain ? `https://${src.domain}` : src.build({ q: city, city }));
+  if (!raw && !t) return src.home || (src.domain ? `https://${src.domain}` : src.build({ q: src.noCity ? '' : city, city }));
   // Ort immer sicherstellen (v0.67): fehlt die Stadt im Begriff, hängt die App sie an – außer bei Seiten, die den Ort über die Adresse bekommen
   const cityKey = String(city || '').toLowerCase().split(/[ ,]/)[0];
-  const withCity = cityKey && !['eventbrite', 'meetup'].includes(src.id) && !term.toLowerCase().includes(cityKey) ? `${term} ${city}` : term;
+  const withCity = cityKey && !src.noCity && !['eventbrite', 'meetup'].includes(src.id) && !term.toLowerCase().includes(cityKey) ? `${term} ${city}` : term;
   const hashtag = t?.hashtag && cityKey && !t.hashtag.includes(tag(cityKey)) ? t.hashtag + tag(city) : t?.hashtag;
   if (src.tpl) return src.tpl.replace('{q}', enc(term));
   if (src.build) return src.build({ q: withCity, city, from: t?.from, to: t?.to, eb: t?.eb, cc: t?.cc, hashtag });
@@ -187,7 +206,7 @@ export async function tailorQueries(s, area, q, city, list) {
   if (cache.has(key)) return cache.get(key);
   const prefs = area === 'events' ? (s.profile?.eventPrefs || []).join(', ') : '';
   const sys = `Du baust Suchbegriffe für Webseiten. Heute ist ${fmtLong(today())} (${today()}). Ort: ${city || 'nicht wichtig'}.${prefs ? ` Mateos Vorlieben: ${prefs}.` : ''}
-Mateo schreibt frei, z.B. „Was kann ich dieses Wochenende machen?“. Mach daraus für JEDE Seite einen kurzen, wirksamen Suchbegriff (2–6 Wörter) in der Sprache der Seite – so, wie man ihn dort ins Suchfeld tippen würde. Füllwörter weglassen, Absicht erkennen (z.B. „Wochenende“ → passende Event-Arten + Datum), Den Ort (Stadt, ggf. Viertel) in JEDEN Begriff einbauen – außer bei Eventbrite und Meetup, die den Ort schon über die Adresse bekommen. Der Instagram-Hashtag muss den Ort enthalten. Zeitangaben in von/bis als Datum umrechnen.${['einrichtung', 'kleidung'].includes(area) ? ' Hier geht es um Produkte in Online-Shops (Argentinien): KEINEN Ort einbauen, sondern das Produkt so benennen, wie es im Shop heißt – bei spanischen Seiten auf argentinischem Spanisch (z.B. „Stehlampe fürs Lesen“ → „lámpara de pie lectura“, „Laufjacke für Regen“ → „campera running impermeable“), kurz (1–4 Wörter), ohne Füllwörter.' : ''} Antworte mit "suchen_zuschneiden".`;
+Mateo schreibt frei, z.B. „Was kann ich dieses Wochenende machen?“. Mach daraus für JEDE Seite einen kurzen, wirksamen Suchbegriff (2–6 Wörter) in der Sprache der Seite – so, wie man ihn dort ins Suchfeld tippen würde. Füllwörter weglassen, Absicht erkennen (z.B. „Wochenende“ → passende Event-Arten + Datum), Den Ort (Stadt, ggf. Viertel) in JEDEN Begriff einbauen – außer bei Eventbrite und Meetup, die den Ort schon über die Adresse bekommen. Der Instagram-Hashtag muss den Ort enthalten. Zeitangaben in von/bis als Datum umrechnen.${['einrichtung', 'kleidung'].includes(area) ? ' Hier geht es um Produkte in Online-Shops (Argentinien): KEINEN Ort einbauen, sondern das Produkt so benennen, wie es im Shop heißt – bei spanischen Seiten auf argentinischem Spanisch (z.B. „Stehlampe fürs Lesen“ → „lámpara de pie lectura“, „Laufjacke für Regen“ → „campera running impermeable“), kurz (1–4 Wörter), ohne Füllwörter.' : ''} ${area === 'unterhaltung' ? ' Hier geht es um Unterhaltung (Sport im Fernsehen, Formel 1, Fußballspiele, Kinofilme, Serien): den Ort NUR bei Kino-Seiten einbauen, sonst nicht. Begriffe so, wie Fans sie suchen (z.B. „Formel 1 nächstes Rennen“ → „Fórmula 1 próxima carrera horario“, „Boca Spiel“ → „Boca Juniors próximo partido“).' : ''} Antworte mit "suchen_zuschneiden".`;
   const user = JSON.stringify({ text: q, bereich: area, seiten: list.map((x) => ({ id: x.id, name: x.name, sprache: x.lang || 'passend', eigene_suche: !!(x.build || x.tpl) })) });
   const r = await searchWithTool({ system: sys, user, tool: TAILOR_TOOL, maxUses: 0, maxTokens: 800, label: 'Links zuschneiden' });
   const ok = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '');

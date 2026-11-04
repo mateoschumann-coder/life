@@ -6,7 +6,7 @@ const hasKey = () => !!getAi().apiKey;
 import { store, useStore } from '../lib/store';
 import { diffDays, fmtShort, today } from '../lib/dates';
 import {
-  addGathering, addGuest, addWaGroup, removeWaGroup, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, occasionOf, templatesOf, saveTemplate, removeTemplate, resetTemplates, tplForKind, editTemplateAI, stdTpl, setStdTpl, PHASES, todoCats, SHOP_CATS, updateGathering, updateItem, VENUE_STATUS,
+  addGathering, addGuest, addWaGroup, removeWaGroup, addItem, applyGatherProposal, gatherAssist, GUEST_STATUS, KINDS, KIND_EMOJI, removeGathering, removeGuest, removeItem, setGuest, setKind, inviteText, inviteDetails, setOccasion, occasionsFor, occasionOf, templatesOf, saveTemplate, removeTemplate, resetTemplates, tplForKind, editTemplateAI, stdTpl, setStdTpl, PHASES, todoCats, SHOP_CATS, updateGathering, updateItem, VENUE_STATUS,
 } from '../lib/gather';
 import { go } from '../lib/router';
 import SimpleList from '../components/SimpleList';
@@ -17,6 +17,8 @@ import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Inf
 import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } from '../lib/invites';
 import { Missing } from './Saeule';
 import { RemovedButton } from '../components/RemovedList';
+import RemindPicker from '../components/RemindPicker';
+import TodoMini from '../components/TodoMini';
 import AiFill from '../components/AiFill';
 import { parseGatheringText, fillGathering, rewriteInvite, mapsLink, meetPlacesOf, saveMeetPlace, removeMeetPlace } from '../lib/gather';
 import { addressHere, cityOf, placeCity } from '../lib/outings';
@@ -28,19 +30,20 @@ const COLOR = '#E8775A';
 const NEXT = { offen: 'eingeladen', eingeladen: 'zugesagt', zugesagt: 'abgesagt', abgesagt: 'offen' };
 const STATUS_COLOR = { offen: 'var(--muted)', eingeladen: 'var(--accent)', zugesagt: '#2FA36B', abgesagt: 'var(--danger)' };
 const VENUE_NEXT = { idee: 'angefragt', angefragt: 'reserviert', reserviert: 'abgelehnt', abgelehnt: 'idee' };
-const EMPTY = { name: '', date: '', time: '', place: '', kind: 'zuhause', expected: '', type: '', guests: '', address: '', motto: '', diet: '', budget: '' };
+const EMPTY = { name: '', date: '', to: '', remind: '', time: '', place: '', kind: 'zuhause', expected: '', type: '', guests: '', address: '', motto: '', diet: '', budget: '' };
 
 // ---------- Events von anderen (v0.42): Einladungen eintragen ----------
-const INV_EMPTY = { name: '', host: '', date: '', time: '', place: '', bring: '', guests: '', note: '', status: 'eingeladen', url: '' };
+const INV_EMPTY = { name: '', host: '', date: '', time: '', place: '', bring: '', guests: '', note: '', status: 'eingeladen', url: '', todos: [], remind: '' };
 const INV_NEXT = { eingeladen: 'zugesagt', zugesagt: 'vielleicht', vielleicht: 'abgesagt', abgesagt: 'eingeladen' };
 function InviteSheet({ open, invite, onClose }) {
+  const s = useStore();
   const [f, setF] = useState(INV_EMPTY);
   const [key, setKey] = useState(null);
   const k = open ? (invite?.id || 'neu') : null;
   if (k !== key) { setKey(k); if (open) setF(invite ? { ...INV_EMPTY, ...invite } : INV_EMPTY); }
   const set = (patch) => setF((x) => ({ ...x, ...patch }));
   const save = () => {
-    if (invite) updateInvite(invite.id, { ...f, name: f.name.trim() || invite.name });
+    if (invite) updateInvite(invite.id, { ...f, name: f.name.trim() || invite.name, remind: f.remind === '' ? undefined : f.remind });
     else addInvite(f);
     toast(invite ? 'Gespeichert' : 'Einladung eingetragen');
     onClose();
@@ -61,6 +64,9 @@ function InviteSheet({ open, invite, onClose }) {
         <span>Status</span>
         <div className="chips">{Object.entries(INVITE_STATUS).map(([s, l]) => <button key={s} type="button" className={f.status === s ? 'chip on' : 'chip soft'} onClick={() => set({ status: s })}>{l}</button>)}</div>
       </div>
+      {f.date && <RemindPicker s={s} value={f.remind ?? ''} onChange={(v) => set({ remind: v })} />}
+      {/* v1.57: To-dos direkt in der Einladung (bei bestehenden sofort gespeichert) */}
+      <TodoMini items={f.todos || []} onChange={(todos) => { set({ todos }); if (invite) updateInvite(invite.id, { todos }); }} />
       <Field label="Wer ist noch dabei?"><input className="input" value={f.guests || ''} onChange={(e) => set({ guests: e.target.value })} placeholder="z.B. Juan, Sofi, Pedro" /></Field>
       <Field label="Ich bringe mit"><input className="input" value={f.bring} onChange={(e) => set({ bring: e.target.value })} placeholder="z.B. Geschenk, Wein, Salat" /></Field>
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} placeholder="z.B. Dresscode, Geschenk-Idee, wer noch kommt" /></Field>
@@ -82,7 +88,7 @@ function Invites({ s, sheet, setSheet }) {
       <Check on={!!x.done} color={COLOR} onClick={() => updateInvite(x.id, { done: !x.done })} label={`${x.name} ${x.done ? 'wieder öffnen' : 'abhaken'}`} />
       <button type="button" className="row-main" style={{ border: 0, background: 'none', textAlign: 'left', padding: 0 }} onClick={() => setSheet(x)}>
         <span className={x.done ? 'row-title strong done' : 'row-title strong'}>{x.name}</span>
-        <span className="row-meta">{[x.host && `von ${x.host}`, x.date ? `${fmtShort(x.date)}${x.time ? `, ${x.time}` : ''}` : 'Datum offen', x.date && x.date >= t && `in ${diffDays(t, x.date)} Tagen`, x.place, x.bring && `🎁 ${x.bring}`, x.guests && `👥 ${x.guests}`].filter(Boolean).join(' · ')}</span>
+        <span className="row-meta">{[x.host && `von ${x.host}`, x.date ? `${fmtShort(x.date)}${x.time ? `, ${x.time}` : ''}` : 'Datum offen', x.date && x.date >= t && `in ${diffDays(t, x.date)} Tagen`, x.place, x.bring && `🎁 ${x.bring}`, x.guests && `👥 ${x.guests}`, (x.todos || []).some((y) => !y.done) && `✅ ${(x.todos || []).filter((y) => !y.done).length} To-dos`].filter(Boolean).join(' · ')}</span>
       </button>
       {!x.done && x.place && <a className="pill" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(x.place)}`} target="_blank" rel="noreferrer" aria-label={`Weg zu ${x.name}`}>Route</a>}
       {!x.done && <button type="button" className="pill" style={{ color: INVITE_COLOR[x.status], whiteSpace: 'nowrap' }} onClick={() => updateInvite(x.id, { status: INV_NEXT[x.status] || 'eingeladen' })} aria-label={`Status ${INVITE_STATUS[x.status]}, antippen zum Ändern`}>{INVITE_STATUS[x.status]}</button>}
@@ -328,24 +334,32 @@ export function EventsList({ s }) {
           if (!r?.name) throw new Error('Nichts erkannt – erzähl etwas mehr');
           const names = (Array.isArray(r.gaeste_namen) ? r.gaeste_namen : []).filter(Boolean);
           const C = (t) => (t ? t.charAt(0).toLocaleUpperCase('de-DE') + t.slice(1) : t);
-          setF((x) => ({ ...x, name: C(r.name) || x.name, date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : x.date, time: /^\d{1,2}:\d{2}$/.test(r.uhrzeit || '') ? r.uhrzeit.padStart(5, '0') : x.time, kind: r.art || x.kind, type: r.vorlage || x.type, expected: String(r.gaeste || '').replace(/[^\d–-]/g, '') || (names.length ? String(names.length) : '') || x.expected, place: C(r.ort) || x.place, address: r.adresse || x.address, guests: [x.guests, ...names.map(C)].filter(Boolean).join(', '), motto: C(r.motto) || x.motto, diet: C(r.einschraenkungen) || x.diet, budget: r.budget || x.budget }));
+          setF((x) => ({ ...x, name: C(r.name) || x.name, date: /^\d{4}-\d{2}-\d{2}$/.test(r.datum || '') ? r.datum : x.date, time: /^\d{1,2}:\d{2}$/.test(r.uhrzeit || '') ? r.uhrzeit.padStart(5, '0') : x.time, kind: r.art || x.kind, type: r.art === 'besuch' ? stdTpl('besuch', s) : r.vorlage || x.type, to: /^\d{4}-\d{2}-\d{2}$/.test(r.bis_datum || '') ? r.bis_datum : x.to, expected: String(r.gaeste || '').replace(/[^\d–-]/g, '') || (names.length ? String(names.length) : '') || x.expected, place: C(r.ort) || x.place, address: r.adresse || x.address, guests: [x.guests, ...names.map(C)].filter(Boolean).join(', '), motto: C(r.motto) || x.motto, diet: C(r.einschraenkungen) || x.diet, budget: r.budget || x.budget }));
         }} />
         <div className="seg-mini">
-          {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => f.kind !== k && setF({ ...f, kind: k, type: tplForKind(f.type || 'leer', k, f.tplByKind || {}), tplByKind: { ...(f.tplByKind || {}), [f.kind]: f.type || 'leer' } })}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
+          {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={f.kind === k ? 'chip on' : 'chip soft'} onClick={() => f.kind !== k && setF({ ...f, kind: k, type: tplForKind(f.type || 'leer', k, f.tplByKind || {}), tplByKind: { ...(f.tplByKind || {}), [f.kind]: f.type || 'leer' } })}>{KIND_EMOJI[k]} {l}</button>)}
         </div>
-        <div className="field">
+        {f.kind !== 'besuch' && <div className="field">
           <span>Vorlage – bringt passende To-dos{f.kind === 'zuhause' ? ' und Einkauf' : ''} mit</span>
           <TemplateButton s={s} kind={f.kind} value={f.type || 'leer'} onPick={(k, o) => setF({ ...f, type: k, name: f.name || (k !== 'leer' && !k.startsWith('allgemein') ? o.label.split(' /')[0] : '') })} />
-        </div>
-        <span className="tiny">{f.kind === 'zuhause' ? 'Bei dir: Menü, Getränke, Einkauf, Mitbringen, Vorbereitung.' : 'Woanders: Ort finden, reservieren, Gästen Adresse schicken.'}</span>
-        <Field label="Was? (darf noch offen sein)"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={f.kind === 'zuhause' ? 'z.B. Asado bei mir' : 'z.B. Geburtstagsessen'} /></Field>
-        <div style={{ display: 'flex', gap: 10 }}>
+        </div>}
+        <span className="tiny">{f.kind === 'besuch' ? 'Besuch: jemand kommt zu dir (z.B. deine Eltern) – mit Zeitraum, To-dos (Gästebett, Abholung …) und Erinnerung vorher.' : f.kind === 'zuhause' ? 'Bei dir: Menü, Getränke, Einkauf, Mitbringen, Vorbereitung.' : 'Woanders: Ort finden, reservieren, Gästen Adresse schicken.'}</span>
+        <Field label={f.kind === 'besuch' ? 'Wer kommt? / Was?' : 'Was? (darf noch offen sein)'}><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={f.kind === 'besuch' ? 'z.B. Eltern zu Besuch' : f.kind === 'zuhause' ? 'z.B. Asado bei mir' : 'z.B. Geburtstagsessen'} /></Field>
+        {f.kind === 'besuch'
+          ? <div style={{ display: 'flex', gap: 10 }}>
+            <Field label="Von – bis"><DateRangeField from={f.date} to={f.to} onChange={(v) => setF({ ...f, date: v.from, to: v.to })} placeholder="Zeitraum" title="Besuch" /></Field>
+            <Field label="Ankunft"><input className="input" type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field>
+          </div>
+          : <div style={{ display: 'flex', gap: 10 }}>
           <Field label="Datum"><DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from })} placeholder="Offen" title="Datum" /></Field>
           <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field>
-        </div>
+        </div>}
+        {f.date && <RemindPicker s={s} value={f.remind} onChange={(v) => setF({ ...f, remind: v })} />}
+        {f.kind !== 'besuch' && <>
         <Field label="Ungefähr wie viele Gäste?"><input className="input" inputMode="numeric" value={f.expected} onChange={(e) => setF({ ...f, expected: e.target.value.replace(/[^\d–-]/g, '') })} placeholder="z.B. 8 – darf auch leer bleiben" /></Field>
         <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => setF({ ...f, place: e.target.value })} placeholder={f.kind === 'zuhause' ? 'z.B. bei mir' : 'z.B. Don Julio'} /></Field>
-        <Field label="Wer kommt? (Namen mit Komma, optional)"><input className="input" value={f.guests} onChange={(e) => setF({ ...f, guests: e.target.value })} placeholder="z.B. Juan, Pedro, Lucía" /></Field>
+        </>}
+        <Field label={f.kind === 'besuch' ? 'Namen (mit Komma, optional)' : 'Wer kommt? (Namen mit Komma, optional)'}><input className="input" value={f.guests} onChange={(e) => setF({ ...f, guests: e.target.value })} placeholder="z.B. Juan, Pedro, Lucía" /></Field>
         {(f.address || f.motto || f.diet || f.budget) && <>
           {f.address && <Field label="Adresse"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>}
           {f.motto && <Field label="Motto"><input className="input" value={f.motto} onChange={(e) => setF({ ...f, motto: e.target.value })} /></Field>}
@@ -353,7 +367,7 @@ export function EventsList({ s }) {
           {f.budget && <Field label="Budget"><input className="input" value={f.budget} onChange={(e) => setF({ ...f, budget: e.target.value })} /></Field>}
         </>}
         <button type="button" className="btn" onClick={save}>Anlegen</button>
-        <Info>Danach hilft dir die KI: Ideen, Motto, Menü, Getränke{f.kind === 'auswaerts' ? ', passende Orte' : ''} und Einladung.</Info>
+        {f.kind !== 'besuch' && <Info>Danach hilft dir die KI: Ideen, Motto, Menü, Getränke{f.kind === 'auswaerts' ? ', passende Orte' : ''} und Einladung.</Info>}
       </Sheet>
       <TabBar active="bereiche" />
     </>
@@ -613,7 +627,9 @@ function PlacePick({ s, g, open, onClose }) {
 }
 
 function Detail({ s, g }) {
-  const home = g.kind !== 'auswaerts';
+  // v1.57 (Mateo): Besuch = jemand kommt zu mir (kein Event zum Organisieren) → nur Überblick, To-dos, Wer kommt
+  const besuch = g.kind === 'besuch';
+  const home = g.kind === 'zuhause';
   const [tab, setTab] = useState('ueberblick');
   const [guest, setGuestText] = useState('');
   const [pickGuests, setPickGuests] = useState(false);
@@ -631,7 +647,9 @@ function Detail({ s, g }) {
     }
   };
   const openTodos = g.todos.filter((x) => !x.done).length + (home ? g.shopping.filter((x) => !x.done).length : 0);
-  const tabs = [['ueberblick', 'Überblick', 0], ['todos', home ? 'To-dos & Einkauf' : 'To-dos', openTodos], ['gaeste', 'Gäste', g.guests.length], !home && ['orte', 'Ort', g.venues.length], ['mitbringen', 'Mitbringen', g.bring.length], ['einladung', 'Einladung', 0]].filter(Boolean);
+  const tabs = besuch
+    ? [['ueberblick', 'Überblick', 0], ['todos', 'To-dos', openTodos], ['gaeste', 'Wer kommt', g.guests.length]]
+    : [['ueberblick', 'Überblick', 0], ['todos', home ? 'To-dos & Einkauf' : 'To-dos', openTodos], ['gaeste', 'Gäste', g.guests.length], !home && ['orte', 'Ort', g.venues.length], ['mitbringen', 'Mitbringen', g.bring.length], ['einladung', 'Einladung', 0]].filter(Boolean);
   const go2 = (k, sub) => { setTab(k); if (sub) { try { sessionStorage.setItem(`life-ev-sub-${g.id}`, sub); } catch {} } setTimeout(() => document.querySelector('.main-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); };
   const shopTab = home ? [{ key: '🛒 Einkauf', label: '🛒 Einkauf', open: g.shopping.filter((x) => !x.done).length, total: g.shopping.length, render: () => <EventShop g={g} />, after: 'Planen' }] : [];
   const cur = tabs.some(([k]) => k === tab) ? tab : 'ueberblick';
@@ -643,12 +661,12 @@ function Detail({ s, g }) {
           <Back href="#/saeule/sozial" label="Sozial" />
           <input className="input title-input" defaultValue={g.name} key={g.id + 'n'} onBlur={(e) => e.target.value.trim() && e.target.value !== g.name && updateGathering(g.id, { name: e.target.value.trim() })} aria-label="Name" />
           <div className="seg-mini">
-            {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={g.kind === k ? 'chip on' : 'chip soft'} onClick={() => setKind(g.id, k)}>{k === 'zuhause' ? '🏠 ' : '📍 '}{l}</button>)}
+            {Object.entries(KINDS).map(([k, l]) => <button key={k} type="button" className={g.kind === k ? 'chip on' : 'chip soft'} onClick={() => setKind(g.id, k)}>{KIND_EMOJI[k]} {l}</button>)}
           </div>
           {g.idea
             ? <div className="take-box" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ flex: 1, fontSize: 14 }}>💡 Das ist noch eine Idee</span><button type="button" className="pill on" onClick={() => { updateGathering(g.id, { idea: false }); toast('Wird stattfinden – steht jetzt unter „Geplant“'); }}>Wird stattfinden →</button></div>
             : null}
-          <TemplateButton s={s} kind={g.kind} value={g.type || 'leer'} onPick={(k, o) => { setOccasion(g.id, k); toast(o.empty ? 'Leer: Vorlage entfernt – selbst füllen oder KI fragen' : `${o.label}: Vorlage ergänzt`); }} />
+          {!besuch && <TemplateButton s={s} kind={g.kind} value={g.type || 'leer'} onPick={(k, o) => { setOccasion(g.id, k); toast(o.empty ? 'Leer: Vorlage entfernt – selbst füllen oder KI fragen' : `${o.label}: Vorlage ergänzt`); }} />}
         </div>
 
 
@@ -656,7 +674,20 @@ function Detail({ s, g }) {
           {tabs.map(([k, l, n]) => <button key={k} type="button" className={cur === k ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}{n ? ` ${n}` : ''}</button>)}
         </div>
 
-        {cur === 'ueberblick' && <section className="card" style={{ gap: 8 }}>
+        {cur === 'ueberblick' && besuch && <section className="card" style={{ gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}><DateRangeField from={g.date} to={g.to || ''} onChange={(v) => updateGathering(g.id, { date: v.from, to: v.to && v.to > v.from ? v.to : '' })} placeholder="Zeitraum offen" title="Besuch" /></div>
+            <input className="input" type="time" value={g.time || ''} onChange={(e) => updateGathering(g.id, { time: e.target.value })} aria-label="Ankunft" style={{ maxWidth: 120 }} />
+          </div>
+          {g.date && <RemindPicker s={s} value={g.remind ?? ''} onChange={(v) => updateGathering(g.id, { remind: v === '' ? undefined : v })} />}
+          <textarea className="input" rows={2} defaultValue={g.desc || ''} key={g.id + 'desc' + (g.desc || '')} placeholder="Notiz (z.B. Flug AR1234, Abholung Ezeiza)" aria-label="Notiz" onBlur={(e) => e.target.value !== (g.desc || '') && updateGathering(g.id, { desc: e.target.value })} />
+          {g.date && g.date > today() && <span className="tiny">in {diffDays(today(), g.date)} Tagen{g.to ? ` · ${diffDays(g.date, g.to) + 1} Tage` : ''}</span>}
+          <div className="ev-stand">
+            <button type="button" onClick={() => go2('todos', todoCats(g)[0])}><span>To-dos</span><b>{g.todos.filter((x) => x.done).length}/{g.todos.length}</b></button>
+            <button type="button" onClick={() => go2('gaeste')}><span>Wer kommt</span><b>{g.guests.length || '–'}</b></button>
+          </div>
+        </section>}
+        {cur === 'ueberblick' && !besuch && <section className="card" style={{ gap: 8 }}>
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}><DateRangeField single from={g.date} to="" onChange={(v) => updateGathering(g.id, { date: v.from })} placeholder="Datum offen" title="Datum" /></div>
             <input className="input" type="time" value={g.time || ''} onChange={(e) => updateGathering(g.id, { time: e.target.value })} aria-label="Uhrzeit" style={{ maxWidth: 120 }} />
@@ -674,6 +705,7 @@ function Detail({ s, g }) {
           {occasionOf(g.type)?.mottos?.length > 0 && <div className="chips">{occasionOf(g.type).mottos.map((m) => <button key={m} type="button" className={g.motto === m ? 'chip on small-chip' : 'chip soft small-chip'} onClick={() => updateGathering(g.id, { motto: g.motto === m ? '' : m })}>{m}</button>)}</div>}
           {field('diet', 'Einschränkungen: vegetarisch, Allergien …')}
           {field('budget', 'Budget, z.B. 50.000 ARS')}
+          {g.date && <RemindPicker s={s} value={g.remind ?? ''} onChange={(v) => updateGathering(g.id, { remind: v === '' ? undefined : v })} />}
           {g.date && g.date >= today() && <span className="tiny">in {diffDays(today(), g.date)} Tagen</span>}
           <div className="ev-stand">
             <button type="button" onClick={() => go2('todos', todoCats(g)[0])}><span>To-dos</span><b>{g.todos.filter((x) => x.done).length}/{g.todos.length}</b></button>
@@ -739,12 +771,12 @@ function Detail({ s, g }) {
           title="KI-Planer"
           compact
           placeholder="Was brauchst du?"
-          intro={home ? 'Ideen, Menü, Getränke, Einladung – ich trage es direkt ein.' : 'Ort finden, reservieren, Einladung – ich trage es direkt ein.'}
+          intro={besuch ? 'Programm, Ausflüge, Restaurants für den Besuch – ich trage es direkt als To-dos ein.' : home ? 'Ideen, Menü, Getränke, Einladung – ich trage es direkt ein.' : 'Ort finden, reservieren, Einladung – ich trage es direkt ein.'}
           history={g.chat}
           prefKey="event"
           onSave={(chat) => updateGathering(g.id, { chat })}
           onAsk={async (hist, o) => { const r = await gatherAssist(s, g, hist, o); if (r?.ueberblick && !Array.isArray(r.ueberblick)) r.ueberblick = Object.values(r.ueberblick).some(Boolean) ? [r.ueberblick] : []; return r; }}
-          webChips={home ? [] : ['Passenden Ort finden']}
+          webChips={home || besuch ? [] : ['Passenden Ort finden']}
           groups={PLAN_GROUPS}
           onApply={(sel) => applyGatherProposal(g.id, sel)}
           chips={home ? ['Was kochen?', 'Getränke & Mengen', 'Was mitbringen?'] : ['Passenden Ort finden', 'Wie reservieren?']}

@@ -14,6 +14,7 @@ import { getAi, MODELS, monthUsage, saveAi, testKey } from '../lib/ai';
 
 export { shareFile } from '../lib/share';
 import { shareFile } from '../lib/share';
+import { REMIND_OPTIONS, remindDefault } from '../lib/logic';
 
 const BUILD_ID = document.querySelector('script[src*="main.js"]')?.getAttribute('src')?.match(/v=([^&]+)/)?.[1] || 'dev';
 async function forceUpdate() {
@@ -85,9 +86,18 @@ export default function Einstellungen() {
         {/* v1.47 (Mateo): Wichtiges oben, Rest einklappbar */}
         <section className="card" style={{ gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="row-main"><span style={{ fontWeight: 700 }}>Life · Version 1.56</span><span className="tiny">Stand {BUILD_ID}</span></span>
+            <span className="row-main"><span style={{ fontWeight: 700 }}>Life · Version 1.57</span><span className="tiny">Stand {BUILD_ID}</span></span>
             <button type="button" className="btn tint small" onClick={forceUpdate}>Neueste Version laden</button>
           </div>
+        </section>
+
+        {/* v1.57 (Mateo): Termine, Besuche, Events schon vorher auf Heute zeigen */}
+        <section className="card" style={{ gap: 8 }}>
+          <span style={{ fontWeight: 700 }}>🔔 Vorab erinnern</span>
+          <span className="tiny">Treffen, Besuche, Einladungen, Events, Arzttermine und Unterhaltung erscheinen so viele Tage vorher auf Heute. Pro Eintrag änderbar.</span>
+          <select className="input" value={String(remindDefault(s))} onChange={(e) => store.update((d) => { d.profile = { ...d.profile, remindDefault: Number(e.target.value) }; })} aria-label="Standard-Erinnerung">
+            {REMIND_OPTIONS.map(([v, l]) => <option key={v} value={String(v)}>{l}</option>)}
+          </select>
         </section>
 
         <Group id="ki" title="KI-Assistent" sub={ai.apiKey ? `Schlüssel …${ai.apiKey.slice(-4)} · ${MODELS.find((m) => m.id === ai.model)?.label || ''}` : 'Noch kein Schlüssel'} defaultOpen>

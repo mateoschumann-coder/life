@@ -143,7 +143,7 @@ export function describe(s, raw) {
     case 'treffen_anlegen': {
       const ex = findGathering(s, a.name);
       const n = (a.gaeste || []).length;
-      return { ok: !!a.name, label: join(`${ex ? 'Event ergänzen' : 'Eigenes Event'}: ${ex?.name || a.name}`, isDate(a.datum) && date(a.datum), a.uhrzeit, a.ort, n && `Gäste: ${a.gaeste.join(', ')}`, !n && a.ungefaehre_gaeste && `ca. ${a.ungefaehre_gaeste} Gäste`, (a.artikel || []).length && `Einkauf: ${a.artikel.join(', ')}`, (a.aufgaben || []).length && `To-dos: ${a.aufgaben.join(', ')}`) };
+      return { ok: !!a.name, label: join(`${ex ? 'Event ergänzen' : a.event_art === 'besuch' ? 'Besuch' : 'Eigenes Event'}: ${ex?.name || a.name}`, isDate(a.datum) && date(a.datum), isDate(a.bis_datum) && `bis ${date(a.bis_datum)}`, a.uhrzeit, a.ort, n && `Gäste: ${a.gaeste.join(', ')}`, !n && a.ungefaehre_gaeste && `ca. ${a.ungefaehre_gaeste} Gäste`, (a.artikel || []).length && `Einkauf: ${a.artikel.join(', ')}`, (a.aufgaben || []).length && `To-dos: ${a.aufgaben.join(', ')}`) };
     }
     case 'material_anlegen':
       if (a.titel && (s.library || []).some((m) => norm(m.title) === norm(a.titel))) return { ok: false, reason: 'schon in der Bibliothek', label: `Bibliothek: ${a.titel}` };
@@ -284,7 +284,7 @@ export function applyAction(s, raw) {
       return addInvite({ guests, name: a.name, host: a.gastgeber || '', date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', note: a.notiz || '', bring: a.mitbringen || '', status: a.einladung_status || 'eingeladen', url: a.url || '' });
     }
     case 'treffen_anlegen':
-      return upsertGathering(s, { name: a.name, date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', desc: a.notiz || '', kind: a.event_art, anlass: a.anlass, expected: a.ungefaehre_gaeste || '', guests: a.gaeste, shopping: a.artikel, todos: a.aufgaben, bring: a.mitbringen, motto: a.motto, diet: a.einschraenkungen, budget: a.budget });
+      return upsertGathering(s, { name: a.name, date: d(a.datum) || '', time: /^\d{1,2}:\d{2}$/.test(a.uhrzeit || '') ? a.uhrzeit.padStart(5, '0') : '', place: a.ort || '', desc: a.notiz || '', kind: a.event_art, to: d(a.bis_datum) || '', anlass: a.anlass, expected: a.ungefaehre_gaeste || '', guests: a.gaeste, shopping: a.artikel, todos: a.aufgaben, bring: a.mitbringen, motto: a.motto, diet: a.einschraenkungen, budget: a.budget });
     case 'material_anlegen':
       return addMaterial({ title: a.titel, kind: a.material_art || 'buch', subId: ensureTopic(a.thema || 'Allgemein'), author: a.autor || '', url: a.url || '', note: a.notiz || '' });
     case 'rezept_anlegen':

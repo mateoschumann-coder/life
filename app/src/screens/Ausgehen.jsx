@@ -18,6 +18,9 @@ import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info, TopActions } 
 import RemovedList, { RemovedButton } from '../components/RemovedList';
 import AiFill from '../components/AiFill';
 import { fromHeute } from '../lib/router';
+import Unterhaltung from './Unterhaltung';
+import RemindPicker from '../components/RemindPicker';
+import TodoMini from '../components/TodoMini';
 
 const wd = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
 const mon = new Intl.DateTimeFormat('de-DE', { month: 'short' });
@@ -184,9 +187,10 @@ function Prefs({ s }) {
 
 // v1.11: Event selbst eintragen bzw. aus Link/Text übernehmen (Formular zum Prüfen)
 const shortNote = (n) => { const t = String(n || '').trim().split('\n')[0]; return t && t.length <= 28 && t.split(/\s+/).length <= 3 ? t : ''; };
-const editInit = (e) => ({ id: e.id, name: e.name || '', date: e.date || '', time: e.time || '', place: e.place || '', price: e.price || '', url: e.url || '', note: e.note || '', stage: e.stage === 'entdeckt' ? 'interessiert' : e.stage || 'interessiert' });
-const EV_EMPTY = { name: '', date: '', time: '', place: '', price: '', url: '', note: '', stage: 'interessiert' };
+const editInit = (e) => ({ id: e.id, name: e.name || '', date: e.date || '', time: e.time || '', place: e.place || '', price: e.price || '', url: e.url || '', note: e.note || '', stage: e.stage === 'entdeckt' ? 'interessiert' : e.stage || 'interessiert', todos: e.todos || [], remind: e.remind ?? '' });
+const EV_EMPTY = { name: '', date: '', time: '', place: '', price: '', url: '', note: '', stage: 'interessiert', todos: [], remind: '' };
 function EventSheet({ init, city, onClose }) {
+  const s = useStore();
   const [f, setF] = useState(EV_EMPTY);
   const [key, setKey] = useState(null);
   const [n, setN] = useState(0);
@@ -196,7 +200,7 @@ function EventSheet({ init, city, onClose }) {
   const editId = init?.id;
   const save = (next) => {
     if (editId) {
-      updateEvent(editId, { name: f.name, date: f.date, time: f.time, place: f.place, price: f.price, url: f.url, note: f.note, stage: f.stage });
+      updateEvent(editId, { name: f.name, date: f.date, time: f.time, place: f.place, price: f.price, url: f.url, note: f.note, stage: f.stage, todos: f.todos, remind: f.remind === '' ? undefined : f.remind });
       toast('Gespeichert');
       onClose(true);
       return;
@@ -218,6 +222,8 @@ function EventSheet({ init, city, onClose }) {
       </div>
       <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => set({ place: e.target.value })} placeholder="Ort / Adresse" /></Field>
       {f.place.trim() && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} href={routeUrl(f.place, city)} target="_blank" rel="noreferrer">Route (Google Maps) ↗</a>}
+      {f.date && <RemindPicker s={s} value={f.remind} onChange={(v) => set({ remind: v })} />}
+      <TodoMini items={f.todos || []} onChange={(todos) => { set({ todos }); if (editId) updateEvent(editId, { todos }); }} placeholder="z.B. Tickets kaufen, Leute fragen" />
       <Field label="Preis"><input className="input" value={f.price} onChange={(e) => set({ price: e.target.value })} placeholder="z.B. 15.000 ARS" /></Field>
       <Field label="Link"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Tickets / Instagram …" /></Field>
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} /></Field>
@@ -425,7 +431,7 @@ function Events({ s, city, view = 'find' }) {
                   <button type="button" className="row-main" style={{ gap: 2, border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0 }} onClick={() => setEvForm(editInit(e))} aria-label={`${e.name} bearbeiten`}>
                     <span className="row-title plain">{e.name}</span>
                     {/* v1.48 (Mateo): nur Uhrzeit · Ort und höchstens ein paar Stichworte (z.B. „Kostümparty“) */}
-                    <span className="row-meta">{[e.time && `${e.time} Uhr`, e.place, shortNote(e.note)].filter(Boolean).join(' · ') || (e.date ? '' : 'Ohne Datum')}</span>
+                    <span className="row-meta">{[e.time && `${e.time} Uhr`, e.place, shortNote(e.note), (e.todos || []).some((y) => !y.done) && `✅ ${(e.todos || []).filter((y) => !y.done).length} To-dos`].filter(Boolean).join(' · ') || (e.date ? '' : 'Ohne Datum')}</span>
                   </button>
                   <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
                 </div>
@@ -892,6 +898,10 @@ export default function Ausgehen() {
   const setEview = (v) => { setEviewState(v); try { localStorage.setItem('life-app-events-view', v); } catch {} };
   const evN = s.events.filter((e) => e.stage !== 'besucht' && !e.travel && eventCity(e) === cityOf(s)).length;
   const plN = s.places.filter((p) => placeCity(p) === cityOf(s)).length;
+  // v1.57 (Mateo): dritter Reiter „Unterhaltung“ (TV, Kino, Sport-Übertragungen)
+  const [tview, setTviewState] = useState(() => { try { return localStorage.getItem('life-app-tv-view') || 'mine'; } catch { return 'mine'; } });
+  const setTview = (v) => { setTviewState(v); try { localStorage.setItem('life-app-tv-view', v); } catch {} };
+  const tvN = (s.shows || []).filter((x) => !x.done && (!x.date || x.date >= today())).length;
   const [tab, setTab] = useState(() => {
     try {
       return localStorage.getItem(TAB_KEY) || 'events';
@@ -913,17 +923,19 @@ export default function Ausgehen() {
           {fromHeute() && <Back href="#/heute" label="Heute" actions={false} />}
           <div className="top one" style={{ padding: 0 }}><h1 className="h1">Ausgehen</h1><TopActions /></div>
         </div>
-        <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }]} value={tab} onChange={choose} label="Ansicht" />
+        <Segmented full options={[{ id: 'events', label: 'Events' }, { id: 'orte', label: 'Orte' }, { id: 'tv', label: 'Unterhaltung' }]} value={tab} onChange={choose} label="Ansicht" />
         {/* v0.96 (Mateo): Umschalter und Stadt in EINER Zeile */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div className="sub-switch" style={{ flex: '1 1 auto', minWidth: 0 }}>
-            {tab === 'events'
+            {tab === 'tv'
+              ? [['mine', `⭐ Meine${tvN ? ` · ${tvN}` : ''}`], ['find', '🔍 Finden']].map(([k, l]) => <button key={k} type="button" className={tview === k ? 'on' : ''} onClick={() => setTview(k)}>{l}</button>)
+              : tab === 'events'
               ? [['mine', `⭐ Meine${evN ? ` · ${evN}` : ''}`], ['find', '🔍 Finden']].map(([k, l]) => <button key={k} type="button" className={eview === k ? 'on' : ''} onClick={() => setEview(k)}>{l}</button>)
               : [['mine', `📌 Meine${plN ? ` · ${plN}` : ''}`], ['find', '🔍 Neu']].map(([k, l]) => <button key={k} type="button" className={pview === k ? 'on' : ''} onClick={() => setPview(k)}>{l}</button>)}
           </div>
           <div style={{ flex: '0 1 42%', minWidth: 0, display: 'flex' }}><CityChips s={s} compact /></div>
         </div>
-        {tab === 'events' ? <Events s={s} city={cityOf(s)} view={eview} /> : <Orte s={s} city={cityOf(s)} view={pview} />}
+        {tab === 'tv' ? <Unterhaltung s={s} city={cityOf(s)} view={tview} /> : tab === 'events' ? <Events s={s} city={cityOf(s)} view={eview} /> : <Orte s={s} city={cityOf(s)} view={pview} />}
       </main>
       <TabBar active="ausgehen" />
     </>

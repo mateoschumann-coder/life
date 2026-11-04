@@ -1,4 +1,5 @@
 import { askDel } from '../lib/undo';
+import { toggleShow, archiveShow } from '../lib/shows';
 import { takeFlag } from '../lib/flags';
 import { go, markFromHeute } from '../lib/router';
 import Swipe from '../components/Swipe';
@@ -7,8 +8,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { addDays, diffDays, dueText, fmtLong, fmtShort, parseKey, relDays, startOfWeek, targetText, today } from '../lib/dates';
 import {
-  allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink,
-} from '../lib/logic';
+  allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink, upcomingReminders, inDaysText } from '../lib/logic';
 import { addTask, logContact, toggleCheckin, toggleTask, deleteTask, archiveTask, restoreTask, archiveReminder, archiveHealth, todayBin, restoreFromToday, archiveEvent, archiveGathering, archiveInvite } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
 import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast, TopActions } from '../components/ui';
@@ -185,14 +185,17 @@ export default function Heute() {
       .filter((r) => r.next === key)
       .forEach((r) => list.push({ key: 'r' + r.id, done: false, onCheck: () => doneReminder(r.id), onDelete: del(r.title, () => archiveReminder(r.id)), open: jump('#/zuhause/erinnerungen'), title: r.title, meta: `Erinnerung · ${EVERY[r.every]}`, color: '#2FA36B' }));
     (s.gatherings || [])
-      .filter((g) => g.date === key && !g.idea)
-      .forEach((g) => list.push({ key: 'g' + g.id, event: true, onDelete: del(g.name, () => archiveGathering(g.id, { fromToday: true })), open: jump(`#/treffen/${g.id}`), title: g.name, time: g.time, meta: `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen`, color: '#E8775A' }));
+      .filter((g) => !g.idea && (g.date === key || (g.to && g.date && g.date < key && key <= g.to)))
+      .forEach((g) => { const open = g.todos.filter((x) => !x.done).length; const span = g.to && g.date ? ` · Tag ${diffDays(g.date, key) + 1} von ${diffDays(g.date, g.to) + 1}` : ''; list.push({ key: 'g' + g.id, event: true, onDelete: del(g.name, () => archiveGathering(g.id, { fromToday: true })), open: jump(`#/treffen/${g.id}`), title: g.name, time: g.date === key ? g.time : null, meta: g.kind === 'besuch' ? `Besuch${span}${open ? ` · ${open} To-dos offen` : ''}` : `Dein Treffen · ${g.guests.filter((x) => x.status === 'zugesagt').length} Zusagen${open ? ` · ${open} To-dos offen` : ''}`, color: '#E8775A' }); });
     (s.invites || [])
       .filter((x) => x.date === key && x.status !== 'abgesagt')
       .forEach((x) => list.push({ key: 'i' + x.id, event: true, onDelete: del(x.name, () => archiveInvite(x.id, { fromToday: true })), open: jump('#/saeule/sozial', () => setLS('life-app-sozial-tab', 'andere')), title: x.name, time: x.time, meta: [x.host && `bei ${x.host}`, x.place, x.status === 'zugesagt' ? 'zugesagt' : 'noch zusagen?'].filter(Boolean).join(' · '), color: '#E8775A' }));
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date === key)
       .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => archiveHealth(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
+    (s.shows || [])
+      .filter((x) => x.date === key && (!x.done || key !== t || x.doneAt === t))
+      .forEach((x) => list.push({ key: 'u' + x.id, done: !!x.done, onCheck: () => toggleShow(x.id), onDelete: del(x.name, () => archiveShow(x.id)), open: jump('#/ausgehen', () => { setLS('life-app-ausgehen-tab', 'tv'); setLS('life-app-tv-view', 'mine'); }), title: x.name, time: x.time || null, url: x.url, meta: ['Unterhaltung', x.cat, x.where].filter(Boolean).join(' · '), color: '#7B6CD9' }));
     s.people
       .filter((p) => p.birthday && p.birthday.slice(5) === key.slice(5))
       .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), open: jump(`#/person/${p.id}`), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
@@ -214,6 +217,19 @@ export default function Heute() {
     (s.healthItems || [])
       .filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt' && h.date && h.date < t)
       .forEach((h) => extra.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => archiveHealth(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, color: '#2FA36B', meta: `Vorsorge · überfällig seit ${fmtShortDays(h.date, t)}`, overdue: true }));
+    // v1.57 (Mateo): Vorab-Erinnerung – was bald ansteht (Standard 1 Tag vorher, pro Eintrag einstellbar)
+    upcomingReminders(s, t).forEach(({ kind, item: x, date, days }) => {
+      const when = `${inDaysText(days)}${x.time ? `, ${x.time} Uhr` : ''}`;
+      const todosOpen = (x.todos || []).filter((y) => !y.done).length;
+      const tail = todosOpen ? ` · ${todosOpen} To-dos offen` : '';
+      const base = { key: 'pre-' + kind + x.id, event: true, color: '#E8775A', soon: true };
+      if (kind === 'gathering') extra.push({ ...base, title: x.name, open: jump(`#/treffen/${x.id}`), meta: `${x.kind === 'besuch' ? 'Besuch' : 'Dein Treffen'} · ${when}${tail}` });
+      else if (kind === 'invite') extra.push({ ...base, title: x.name, open: jump('#/saeule/sozial', () => setLS('life-app-sozial-tab', 'andere')), meta: `Einladung · ${when}${x.status !== 'zugesagt' ? ' · noch zusagen?' : ''}${tail}` });
+      else if (kind === 'event') extra.push({ ...base, title: x.name, open: toEvents, meta: `Event · ${when}${x.place ? ` · ${x.place}` : ''}${tail}` });
+      else if (kind === 'health') extra.push({ ...base, color: '#2FA36B', title: x.title, open: jump('#/vorsorge', () => setSS('life-vorsorge-view', x.type === 'routine' ? 'routine' : 'termine')), meta: `Vorsorge · ${when}` });
+      else if (kind === 'sport') extra.push({ ...base, color: '#2FA36B', title: x.name, open: jump('#/sport', () => setLS('life-app-sport-tab', 'meine')), meta: `Sport-Event · ${when}` });
+      else if (kind === 'show') extra.push({ ...base, color: '#7B6CD9', title: x.name, open: jump('#/ausgehen', () => { setLS('life-app-ausgehen-tab', 'tv'); setLS('life-app-tv-view', 'mine'); }), meta: `Unterhaltung · ${when}${x.where ? ` · ${x.where}` : ''}` });
+    });
     s.habits
       .filter((h) => h.count > 0)
       .forEach((h) => {
@@ -250,7 +266,7 @@ export default function Heute() {
       {i.onCheck ? <Check on={i.done} color={i.color} onClick={i.onCheck} label={(i.done ? 'Offen: ' : 'Erledigt: ') + i.title} /> : <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center' }}><Icon name="today" size={18} color={i.color} /></span>}
       <div className="row-main" onClick={i.open || undefined} role={i.open ? 'link' : undefined} style={i.open ? { cursor: 'pointer' } : undefined} aria-label={i.open ? `${i.title} öffnen` : undefined}>
         <span className={i.done ? 'row-title done' : 'row-title'}>{i.title}</span>
-        <span className="row-meta" style={{ color: i.overdue ? 'var(--danger)' : undefined }}><Dot small color={i.color} />{i.meta}{i.open && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>›</span>}</span>
+        <span className="row-meta" style={{ color: i.overdue ? 'var(--danger)' : i.soon ? 'var(--accent)' : undefined }}><Dot small color={i.color} />{i.meta}{i.open && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>›</span>}</span>
       </div>
       {i.wa && !i.done && <a className="pill" href={i.wa} target="_blank" rel="noreferrer">WhatsApp</a>}
       {i.url && !i.done && <a className="pill" href={i.url} target="_blank" rel="noreferrer" aria-label={`Link zu ${i.title} öffnen`}><Icon name="link" size={14} /></a>}

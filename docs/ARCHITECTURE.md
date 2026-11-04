@@ -65,6 +65,11 @@ iPhone (Home-Bildschirm)
 
 Grundsätze: Haiku ohne Internet als Standard (Bruchteile eines Cents); Websuche nur auf ausdrücklichen Knopfdruck; kostenlose Links (`lib/sources.js`) wo möglich. Kosten pro Funktion stehen in den Einstellungen.
 
+## Erinnerungen und Unterhaltung (v1.57)
+
+- `upcomingReminders(s, t)` in `lib/logic.js` sammelt alles, was innerhalb der Vorlaufzeit liegt (`remind` am Eintrag, sonst `s.profile.remindDefault`, Standard 1 Tag); `screens/Heute.jsx` zeigt es unter den heutigen Einträgen.
+- Unterhaltung: Daten `s.shows`, Logik und KI-Suche in `lib/shows.js`, Bildschirm `screens/Unterhaltung.jsx` (Reiter in Ausgehen), Links in `SOURCE_AREAS.unterhaltung` (`noCity` = Stadt nicht anhängen).
+
 ## Tests
 
 `cd app && npm test` bündelt jede `test/*.test.js` mit esbuild und startet `node --test`. Ein nachgebauter Browser-Speicher (`test/helpers.js`, `FakeStorage`) erlaubt Szenarien wie „Daten beschädigt“ oder „Speicher voll“. Jede Store-Situation steht in einer eigenen Datei, weil der Speicher beim Import einmal lädt. Auf GitHub laufen die Tests automatisch bei jedem Push (`.github/workflows/check.yml`).

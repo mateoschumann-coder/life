@@ -7,7 +7,9 @@ import { normalizeGathering } from './normalize';
 const norm = (x) => String(x || '').trim().toLowerCase();
 const okUrl = (u) => (/^https?:\/\//.test(u || '') ? u : '');
 
-export const KINDS = { zuhause: 'Zu Hause', auswaerts: 'Woanders' };
+// v1.57 (Mateo): „Besuch“ – jemand kommt (z.B. Eltern), mit Zeitraum und To-dos, aber ohne Einladung/Mitbringen
+export const KINDS = { zuhause: 'Zu Hause', auswaerts: 'Woanders', besuch: 'Besuch' };
+export const KIND_EMOJI = { zuhause: '🏠', auswaerts: '📍', besuch: '👋' };
 // v0.91 (Mateo): Reihenfolge Planen → (Einkauf) → Vorbereiten → Sonstiges; nur kurze To-dos, die zum Teil passen
 export const PHASES = ['Planen', 'Vorbereiten', 'Sonstiges'];
 // v1.03 (Mateo): Vorlagen sind vollständige Listen (To-dos je Phase + Einkauf) und bearbeitbar; Standard = „Leer“
@@ -15,12 +17,14 @@ const Z = (planen, vorbereiten, sonst) => ({ Planen: planen, Vorbereiten: vorber
 export const TODO_TEMPLATES = {
   zuhause: Z(['Termin festlegen', 'Leute einladen', 'Essen überlegen'], ['Aufräumen', 'Essen vorbereiten', 'Getränke kalt stellen'], ['Nachher aufräumen']),
   auswaerts: Z(['Termin festlegen', 'Leute einladen', 'Ort aussuchen', 'Reservieren'], ['Adresse schicken', 'Reservierung bestätigen'], ['Rechnung teilen']),
+  besuch: Z(['Ankunft klären', 'Abholung planen', 'Programm überlegen'], ['Gästebett vorbereiten', 'Lebensmittel besorgen', 'Aufräumen'], ['Fotos teilen']),
 };
 const withBase = (kind, extra) => Object.fromEntries(PHASES.map((p) => [p, [...new Set([...(TODO_TEMPLATES[kind][p] || []), ...(extra[p] || [])])]]));
 export const OCCASIONS = {
   leer: { label: 'Leer – selbst füllen', emoji: '✏️', kind: null, empty: true, todos: {}, shop: {} },
   allgemein: { label: 'Allgemein', emoji: '📋', kind: 'zuhause', todos: withBase('zuhause', {}), shop: {} },
   allgemein_aus: { label: 'Allgemein', emoji: '📋', kind: 'auswaerts', todos: withBase('auswaerts', {}), shop: {} },
+  besuch: { label: 'Besuch', emoji: '👋', kind: 'besuch', todos: withBase('besuch', {}), shop: {} },
   asado: { label: 'Asado / Grillen', emoji: '🔥', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Fleisch bestellen', 'Grill checken'], Vorbereiten: ['Feuer anmachen', 'Chimichurri machen'] }), shop: { Essen: ['Vacío', 'Chorizo', 'Morcilla', 'Provoleta', 'Brot', 'Salat', 'Chimichurri'], Getränke: ['Bier', 'Wein', 'Fernet', 'Cola', 'Wasser', 'Eis'], Sonstiges: ['Kohle', 'Grillanzünder', 'Servietten'] } },
   geburtstag: { label: 'Geburtstag', emoji: '🎂', kind: 'zuhause', todos: withBase('zuhause', { Planen: ['Torte bestellen'], Vorbereiten: ['Dekorieren'] }), shop: { Essen: ['Torte', 'Snacks', 'Chips', 'Fingerfood'], Getränke: ['Sekt', 'Bier', 'Softdrinks', 'Wasser', 'Eis'], Sonstiges: ['Kerzen', 'Deko', 'Servietten', 'Pappbecher'] } },
   abendessen: { label: 'Abendessen', emoji: '🍝', kind: 'zuhause', mottos: ['Italienisch', 'Mexikanisch', 'Fondue', 'Raclette', 'Asiatisch', 'Tapas'], todos: withBase('zuhause', { Planen: ['Allergien abfragen'], Vorbereiten: ['Tisch decken'] }), shop: { Essen: ['Vorspeise', 'Hauptgericht', 'Dessert', 'Brot'], Getränke: ['Wein', 'Wasser'], Sonstiges: ['Servietten', 'Kerzen'] } },
@@ -47,7 +51,7 @@ export function templatesOf(s) {
   return out;
 }
 // v1.05: Standard-Vorlage je Art (⭐ im Auswahl-Fenster änderbar)
-export const DEFAULT_STD = { zuhause: 'allgemein', auswaerts: 'allgemein_aus' };
+export const DEFAULT_STD = { zuhause: 'allgemein', auswaerts: 'allgemein_aus', besuch: 'besuch' };
 export function stdTpl(kind, s = store.get()) {
   const k = s?.profile?.evTplStd?.[kind];
   const all = templatesOf(s);
@@ -104,12 +108,12 @@ const shopItems = (type) => Object.entries(occOf(type)?.shop || {}).flatMap(([ca
 export const todoCats = (g) => [...new Set([...PHASES, ...g.todos.map((x) => x.cat).filter(Boolean)])];
 
 
-export function addGathering({ name, date = '', time = '', place = '', desc = '', kind = 'zuhause', expected = '', type = '', idea = false }) {
+export function addGathering({ name, date = '', to = '', time = '', place = '', desc = '', kind = 'zuhause', expected = '', type = '', idea = false, remind = undefined }) {
   const t = String(name || '').trim() || 'Neues Event';
   const id = uid();
   const k = occOf(type)?.kind || kind;
   store.update((s) => {
-    s.gatherings.push(normalizeGathering({ id, name: t, date, time, place, desc, kind: k, type: type || '', expected, todos: todos(k, type), shopping: k === 'zuhause' ? shopItems(type) : [], bring: bringItems(type), createdAt: today(), ...(idea ? { idea: true } : {}) }));
+    s.gatherings.push(normalizeGathering({ id, name: t, date, ...(to && to > date ? { to } : {}), ...(remind !== undefined && remind !== '' ? { remind: Number(remind) } : {}), time, place, desc, kind: k, type: type || '', expected, todos: todos(k, type), shopping: k === 'zuhause' ? shopItems(type) : [], bring: bringItems(type), createdAt: today(), ...(idea ? { idea: true } : {}) }));
   });
   return id;
 }
@@ -144,12 +148,13 @@ export function upsertGathering(s, a) {
   const type = findOccasion(a.anlass) || findOccasion(a.name) || '';
   let id = findGathering(s, a.name)?.id;
   const isNew = !id;
-  if (!id) id = addGathering({ name: a.name, date: a.date || '', time: a.time || '', place: a.place || '', desc: a.desc || '', kind: a.kind === 'auswaerts' ? 'auswaerts' : 'zuhause', expected: a.expected ? String(a.expected) : '', type });
+  const kind = ['auswaerts', 'besuch'].includes(a.kind) ? a.kind : 'zuhause';
+  if (!id) id = addGathering({ name: a.name, date: a.date || '', to: a.to || '', time: a.time || '', place: a.place || '', desc: a.desc || '', kind, expected: a.expected ? String(a.expected) : '', type: kind === 'besuch' ? 'besuch' : type });
   store.update((st) => {
     const g = st.gatherings.find((x) => x.id === id);
     if (!g) return;
     if (!isNew) {
-      for (const [k, v] of [['date', a.date], ['time', a.time], ['place', a.place], ['expected', a.expected && String(a.expected)]]) if (v) g[k] = v;
+      for (const [k, v] of [['date', a.date], ['to', a.to], ['time', a.time], ['place', a.place], ['expected', a.expected && String(a.expected)]]) if (v) g[k] = v;
       if (a.desc && !g.desc) g.desc = a.desc;
     }
     if (a.motto) g.motto = a.motto;
@@ -388,7 +393,8 @@ const GATHER_FILL = {
       name: { type: 'string', description: 'Kurzer Name, z.B. „Asado bei mir“' },
       datum: { type: 'string', description: 'JJJJ-MM-TT, leer wenn offen' },
       uhrzeit: { type: 'string', description: 'HH:MM, leer wenn offen' },
-      art: { type: 'string', enum: ['zuhause', 'auswaerts'] },
+      art: { type: 'string', enum: ['zuhause', 'auswaerts', 'besuch'], description: 'besuch = jemand kommt zu Mateo zu Besuch (z.B. Eltern), oft über mehrere Tage' },
+      bis_datum: { type: 'string', description: 'Bei Besuch/mehreren Tagen: letzter Tag JJJJ-MM-TT' },
       vorlage: { type: 'string', description: 'Schlüssel der passendsten Vorlage aus der Liste, sonst leer' },
       gaeste: { type: 'string', description: 'Ungefähre Gästezahl als Zahl, leer wenn unbekannt' },
       ort: { type: 'string', description: 'Ort/Location, z.B. „bei mir“, „Don Julio“' },
@@ -404,7 +410,7 @@ const GATHER_FILL = {
 export async function parseGatheringText(s, text) {
   const tpls = Object.entries(templatesOf(s)).map(([k, o]) => `${k} (${o.kind || 'zuhause'}: ${o.label})`).join(', ');
   const r = await searchWithTool({
-    system: `Mateo organisiert selbst eine Veranstaltung und beschreibt sie kurz. Übernimm ALLES, was er erzählt: Name, Datum, Uhrzeit, Art (zu Hause bei ihm oder woanders), Gästezahl („drei Personen“ = 3; nennt er Namen, zählt die Zahl die Namen plus Mateo nur, wenn er es so sagt), Namen der Gäste einzeln, Ort, Adresse, Motto, Einschränkungen und Budget und wähle die passendste Vorlage. Vorlagen: ${tpls}. Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()} (${fmtLong(today())}). Antworte mit "veranstaltung_lesen".`,
+    system: `Mateo organisiert selbst eine Veranstaltung oder trägt einen Besuch ein (jemand kommt zu ihm, z.B. seine Eltern – dann art=besuch, bis_datum = letzter Tag, falls genannt) und beschreibt das kurz. Übernimm ALLES, was er erzählt: Name, Datum, Uhrzeit, Art (zu Hause bei ihm oder woanders), Gästezahl („drei Personen“ = 3; nennt er Namen, zählt die Zahl die Namen plus Mateo nur, wenn er es so sagt), Namen der Gäste einzeln, Ort, Adresse, Motto, Einschränkungen und Budget und wähle die passendste Vorlage. Vorlagen: ${tpls}. Nichts erfinden, Unbekanntes leer lassen. Heute ist ${today()} (${fmtLong(today())}). Antworte mit "veranstaltung_lesen".`,
     user: text, tool: GATHER_FILL, maxUses: 0, maxTokens: 800, label: 'Treffen ausfüllen',
   });
   const all = templatesOf(s);

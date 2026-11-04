@@ -646,11 +646,11 @@ Antworte immer mit "vorsorge_antwort". Deutsch, kein Markdown.`;
 }
 
 // type: termin (einmalig mit Datum) · routine (alle X Monate) · verletzung (mit Status)
-export function addHealthItem({ title, type = 'termin', date = null, everyMonths = null, everyWeeks = null, time = '', address = '', notes = '', placeId = '' }) {
+export function addHealthItem({ title, type = 'termin', date = null, everyMonths = null, everyWeeks = null, time = '', address = '', notes = '', placeId = '', remind }) {
   if (!String(title || '').trim()) return null;
   const id = uid();
   store.update((s) => {
-    s.healthItems.push({ id, title: title.trim(), type, date, everyMonths: everyMonths ? Number(everyMonths) : null, everyWeeks: everyWeeks ? Number(everyWeeks) : null, time: time || '', address: address || '', notes, placeId, status: type === 'verletzung' ? 'aktiv' : 'offen', log: [], createdAt: now() });
+    s.healthItems.push({ id, title: title.trim(), type, date, everyMonths: everyMonths ? Number(everyMonths) : null, everyWeeks: everyWeeks ? Number(everyWeeks) : null, time: time || '', address: address || '', notes, placeId, ...(remind != null && remind !== '' ? { remind: Number(remind) } : {}), status: type === 'verletzung' ? 'aktiv' : 'offen', log: [], createdAt: now() });
   });
   return id;
 }

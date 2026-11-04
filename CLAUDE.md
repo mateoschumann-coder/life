@@ -54,10 +54,10 @@ Persönliche App, um Privates, Soziales und Professionelles zu organisieren, eff
 
 ## Grundordnung (aktueller Stand)
 - **Persönlich:** Gesundheit (Sport-Events + Zeitrechner, Küche mit Rezepten/Einkauf/Orten, Vorsorge-Termine) · Lernen & Wissen (Bibliothek nach Art) · Zuhause (Allgemein: To-dos/Erinnern · Einrichtung · Kleidung) · Finanzen (Märkte, Wechselkurse, Alltags- und Rentenrechner) · Hobbys · Reisen (Reisen + Ideen in Gruppen)
-- **Sozial:** Treffen (eigene: Geplant/Ideen · Von anderen = Einladungen) · Ausgehen (Events + Orte, pro Stadt) · Personen (Liste, Im Kontakt bleiben). Die alten Bereiche Familie/Freunde/Neue Kontakte sind nur noch Personen-Kategorien.
+- **Sozial:** Treffen (eigene: Geplant/Ideen, Arten Zu Hause/Woanders/Besuch · Von anderen = Einladungen) · Ausgehen (Events + Orte pro Stadt · Unterhaltung = TV/Kino/Sport-Übertragungen) · Personen (Liste, Im Kontakt bleiben). Die alten Bereiche Familie/Freunde/Neue Kontakte sind nur noch Personen-Kategorien.
 - **Professionell:** Karriere (Jobsuche mit Trichter, Eigene Projekte) · Weiterentwicklung (Skills mit To-dos und Material) · Informiert bleiben (Zeitungen nach Land/Rubrik, weitere Quellen)
 - Unten: Tab-Leiste Heute · Bereiche · ⚡ (Was möchtest du tun?, halten = sprechen) · Ausgehen · Personen. Oben auf jeder Seite: ＋ Aufgabe, 🔍 Suche, ⚙︎ Einstellungen.
-- Wording (Mateo): **Event** = extern, meist mit Ticket → Ausgehen; **Einladung** = Bekannte laden privat ein; **Treffen** = Mateo organisiert selbst.
+- Wording (Mateo): **Event** = extern, meist mit Ticket → Ausgehen; **Einladung** = Bekannte laden privat ein; **Treffen** = Mateo organisiert selbst. **Besuch** = jemand kommt zu Mateo (Art eines Treffens, mit Zeitraum). **Unterhaltung** = zum Anschauen (TV, Stream, Kino).
 
 ## Entscheidungen
 - Start als Web-App (Option C), später evtl. native iOS-App (Option B) für Apple Health/Garmin, Siri, Widgets.
@@ -71,6 +71,10 @@ Persönliche App, um Privates, Soziales und Professionelles zu organisieren, eff
 - Umschalter mit 2–3 Möglichkeiten: oben `Segmented full` (`.seg.full`), Unterteilung darunter `.sub-switch` (gleicher Stil, kleiner, volle Breite). Viele/zum Wischen (Kategorien, Reiter mit Zahlen): Chips.
 - Kräftig blau gefüllt nur die eine Hauptaktion eines Bildschirms/Fensters und das Gewählte; Knöpfe, die sich in jeder Listenzeile wiederholen (Route, Merken, Anmelden …), sind hellblau (`pill` ohne `on`, `btn tint`).
 - Zusatztexte mind. 13 px (`.tiny`), Grau `--muted`. Nur Web-App-taugliches übernehmen (kein Liquid Glass, keine Vibration).
+
+## Erinnerungen (seit v1.57)
+- Alles mit Datum, das nicht abgehakt wird (Treffen, Besuche, Einladungen, Events, Arzttermine, Sport-Events, Unterhaltung), erscheint **vorab auf Heute** (Standard 1 Tag, `remind` pro Eintrag, `upcomingReminders` in `lib/logic.js`). Neue Bereiche mit Datum dort ergänzen und `RemindPicker` ins Formular.
+- Überfälliges (Aufgaben, Erinnerungen, Vorsorge) bleibt auf Heute, bis es abgehakt ist. Echte Push-Mitteilungen erst mit der Cloud.
 
 ## Daten-Sicherheit (seit v1.52, nicht aufweichen)
 - Echte Daten werden **nie** durch Anfangsdaten überschrieben: Lade-/Umstellungsfehler → Rettungsmodus (`lib/store.js`, `components/StorageGuard.jsx`).

@@ -242,3 +242,26 @@ export function personMentions(s, p) {
   const reminders = (s.reminders || []).filter((r) => mentions(s, p, `${r.title} ${r.note || ''}`));
   return { tasks, reminders };
 }
+
+// v1.57 (Mateo): Vorab-Erinnerung – Termine erscheinen schon vorher auf „Heute“ (Standard 1 Tag vorher).
+// Pro Eintrag einstellbar über `remind` (Tage vorher, 0 = nur am Tag); Standard in s.profile.remindDefault.
+export const REMIND_OPTIONS = [[0, 'Am Tag'], [1, '1 Tag vorher'], [2, '2 Tage vorher'], [3, '3 Tage vorher'], [7, '1 Woche vorher']];
+export const remindDefault = (s) => (Number.isFinite(Number(s?.profile?.remindDefault)) && s?.profile?.remindDefault !== '' && s?.profile?.remindDefault != null ? Number(s.profile.remindDefault) : 1);
+export const remindOf = (s, x) => (x && x.remind != null && x.remind !== '' ? Number(x.remind) : remindDefault(s));
+// Liste der Einträge, die heute „vorab“ gezeigt werden sollen: Datum in der Zukunft, aber innerhalb der Vorlaufzeit
+export function upcomingReminders(s, t) {
+  const out = [];
+  const consider = (kind, x, date) => {
+    if (!date || date <= t) return;
+    const d = diffDays(t, date);
+    if (d <= remindOf(s, x)) out.push({ kind, item: x, date, days: d });
+  };
+  (s.gatherings || []).filter((g) => !g.idea && !g.done).forEach((g) => consider('gathering', g, g.date));
+  (s.invites || []).filter((v) => !v.done && v.status !== 'abgesagt').forEach((v) => consider('invite', v, v.date));
+  (s.events || []).filter((e) => e.stage === 'zugesagt' || e.stage === 'interessiert').forEach((e) => consider('event', e, e.date));
+  (s.healthItems || []).filter((h) => h.type !== 'verletzung' && h.status !== 'erledigt').forEach((h) => consider('health', h, h.date));
+  (s.sportEvents || []).filter((e) => e.status === 'angemeldet').forEach((e) => consider('sport', e, e.date));
+  (s.shows || []).filter((x) => !x.done).forEach((x) => consider('show', x, x.date));
+  return out.sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+export const inDaysText = (d) => (d === 1 ? 'morgen' : d === 2 ? 'übermorgen' : `in ${d} Tagen`);

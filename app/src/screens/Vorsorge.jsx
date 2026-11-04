@@ -17,6 +17,7 @@ import { useSearchMode } from '../components/SourceLinks';
 import SearchCard, { QuickChips } from '../components/SearchCard';
 import QuickSheet from '../components/QuickSheet';
 import AiFill from '../components/AiFill';
+import RemindPicker from '../components/RemindPicker';
 
 const TYPES = [
   { id: 'termin', label: 'Termin', hint: 'Einmalig, z.B. Arzttermin am 12. Nov.' },
@@ -103,7 +104,7 @@ function ItemSheet({ s, open, onClose, item }) {
   };
   const save = (next) => {
     const n = Number(f.everyN) || (f.unit === 'w' ? 1 : 6);
-    const data = { title: f.title, type: f.type, date: f.date || null, time: injury ? '' : f.time || '', everyMonths: f.type === 'routine' && f.unit === 'm' ? n : null, everyWeeks: f.type === 'routine' && f.unit === 'w' ? n : null, notes: f.notes, placeId: injury ? '' : f.placeId || '', address: injury || f.placeId ? '' : f.address || '' };
+    const data = { title: f.title, type: f.type, date: f.date || null, time: injury ? '' : f.time || '', everyMonths: f.type === 'routine' && f.unit === 'm' ? n : null, everyWeeks: f.type === 'routine' && f.unit === 'w' ? n : null, notes: f.notes, placeId: injury ? '' : f.placeId || '', address: injury || f.placeId ? '' : f.address || '', remind: injury || f.remind === '' || f.remind == null ? undefined : f.remind };
     if (item?.id) updateHealthItem(item.id, data);
     else addHealthItem(data);
     toast('Gespeichert');
@@ -128,6 +129,7 @@ function ItemSheet({ s, open, onClose, item }) {
         <div className="field" style={{ flex: 1, minWidth: 0 }}><span>{injury ? 'Seit' : f.type === 'routine' ? 'Nächster Termin' : 'Datum'}</span><DateRangeField single from={f.date} to="" onChange={(v) => setF({ ...f, date: v.from || '' })} placeholder="Datum wählen" title="Datum" /></div>
         {!injury && <div className="field" style={{ flex: '0 0 120px', minWidth: 0 }}><span>Uhrzeit</span><input className="input" type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} aria-label="Uhrzeit" /></div>}
       </div>
+      {!injury && f.date && <RemindPicker s={s} value={f.remind ?? ''} onChange={(v) => setF({ ...f, remind: v })} />}
       {f.type === 'routine' && (
         <div className="field">
           <span>Wiederholen</span>
