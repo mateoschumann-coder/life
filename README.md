@@ -3,7 +3,7 @@
 **Eine persönliche App, die den Alltag aktiv mitorganisiert** – Termine, Menschen, Ausgehen, Reisen, Küche, Karriere und Weiterlernen an einem Ort, mit einer KI, die einträgt, sucht und Vorschläge macht.
 
 [![Prüfen](https://github.com/mateoschumann-coder/life/actions/workflows/check.yml/badge.svg)](https://github.com/mateoschumann-coder/life/actions/workflows/check.yml)
-· Version 1.60 · Web-App fürs iPhone · **Live:** https://mateoschumann-coder.github.io/life/
+· Version 1.61 · Web-App fürs iPhone · **Live:** https://mateoschumann-coder.github.io/life/
 
 ---
 

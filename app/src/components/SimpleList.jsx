@@ -1,6 +1,6 @@
 // Einfache Abhak-Liste mit Eingabefeld oben (v0.90) – für Reisen, Treffen …
 import { useState } from 'react';
-import { Check, Icon } from './ui';
+import { Check, Icon, LinkBtn } from './ui';
 
 export default function SimpleList({ items, onAdd, onToggle, onRemove, placeholder, color = '#2FA36B', meta, extraInput }) {
   const [text, setText] = useState('');
@@ -21,7 +21,7 @@ export default function SimpleList({ items, onAdd, onToggle, onRemove, placehold
             <span className={x.done ? 'row-title plain done' : 'row-title plain'}>{x.text}</span>
             {meta && meta(x) && <span className="row-meta">{meta(x)}</span>}
           </span>
-          {x.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+          {x.url && <LinkBtn href={x.url} />}
           <button type="button" className="x-btn" aria-label={`${x.text} löschen`} onClick={() => onRemove(x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
         </div>
       ))}

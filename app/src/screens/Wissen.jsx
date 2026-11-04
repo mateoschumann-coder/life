@@ -11,7 +11,7 @@ import { canDictate, useDictation } from '../lib/dictate';
 import { tidyText } from '../lib/fieldtools';
 import PlanChat from '../components/PlanChat';
 import { Missing } from './Saeule';
-import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
+import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info, LinkBtn } from '../components/ui';
 
 const COLOR = '#2FA36B';
 
@@ -313,7 +313,7 @@ function CategoryPage({ s, cat }) {
                 <span className="row-meta">{[KINDS[m.kind].label, m.author, !topic && topics.find((t) => t.id === m.subId)?.name, m.status === 'fertig' && m.rating ? '★'.repeat(m.rating) : null, m.status === 'fertig' && m.finishedAt && fmtShort(m.finishedAt)].filter(Boolean).join(' · ')}</span>
               </button>
               {!isTip && m.status === 'will' && <button type="button" className="pill" onClick={() => { updateMaterial(m.id, { status: 'aktiv' }); toast('Viel Spaß!'); }}>Starten</button>}
-              {m.url && <a className="x-btn" href={m.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+              {m.url && <LinkBtn href={m.url} />}
             </div>
           ))}
         </div>

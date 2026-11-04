@@ -18,7 +18,7 @@ import QuickSheet from '../components/QuickSheet';
 import AiFill from '../components/AiFill';
 import RemindPicker from '../components/RemindPicker';
 import { RemovedButton } from '../components/RemovedList';
-import { Field, Icon, Info, Segmented, Sheet, toast } from '../components/ui';
+import { Field, Icon, Info, Segmented, Sheet, toast, LinkBtn, RouteBtn, MapBtn } from '../components/ui';
 
 const wd = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
 const mon = new Intl.DateTimeFormat('de-DE', { month: 'short' });
@@ -163,7 +163,7 @@ function WatchSheet({ s, item, city, onClose, onTake }) {
           {mine.map((p) => (
             <div key={p.id} className="row compact">
               <span className="row-main"><span className="row-title plain">{p.name}</span><span className="row-meta">{[p.hood, p.note].filter(Boolean).join(' · ')}</span></span>
-              <a className="pill" href={kino ? `https://www.google.com/search?q=${encodeURIComponent(`${p.name} ${item.name} horarios`)}` : routeUrl(p.address || p.name, city)} target="_blank" rel="noreferrer">{kino ? 'Zeiten ↗' : 'Route'}</a>
+              {kino ? <LinkBtn href={`https://www.google.com/search?q=${encodeURIComponent(`${p.name} ${item.name} horarios`)}`} label="Zeiten" /> : <RouteBtn href={routeUrl(p.address || p.name, city)} />}
               <button type="button" className="pill" onClick={() => pick(p.name)}>✓ Hier</button>
             </div>
           ))}
@@ -171,7 +171,7 @@ function WatchSheet({ s, item, city, onClose, onTake }) {
       )}
       <div className="chips">
         <a className="link-chip" href={`https://www.google.com/search?q=${encodeURIComponent(q)}`} target="_blank" rel="noreferrer">Google ↗</a>
-        <a className="link-chip" href={`https://www.google.com/maps/search/${encodeURIComponent(kino ? `cine ${city}` : `bar para ver fútbol ${city}`)}`} target="_blank" rel="noreferrer">Google Maps ↗</a>
+        <MapBtn href={`https://www.google.com/maps/search/${encodeURIComponent(kino ? `cine ${city}` : `bar para ver fútbol ${city}`)}`} label="In Maps suchen" />
         {kino && <a className="link-chip" href="https://www.cinemarkhoyts.com.ar/" target="_blank" rel="noreferrer">Cinemark ↗</a>}
         {kino && <a className="link-chip" href="https://www.todoshowcase.com/" target="_blank" rel="noreferrer">Showcase ↗</a>}
         {kino && <a className="link-chip" href="https://www.cinepolis.com.ar/" target="_blank" rel="noreferrer">Cinépolis ↗</a>}
@@ -190,8 +190,8 @@ function WatchSheet({ s, item, city, onClose, onTake }) {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <button type="button" className="pill" onClick={() => pick(o.name, o.times)}>✓ Hier schaue ich</button>
                 {!known(o.name) && <button type="button" className="pill" onClick={() => keep(o)}>📌 Merken</button>}
-                <a className="pill" href={routeUrl(o.address || o.name, city)} target="_blank" rel="noreferrer">Route</a>
-                {o.url && <a className="pill" href={o.url} target="_blank" rel="noreferrer" aria-label={`${o.name} öffnen`}><Icon name="link" size={14} /></a>}
+                <RouteBtn href={routeUrl(o.address || o.name, city)} />
+                {o.url && <LinkBtn href={o.url} />}
               </div>
             </div>
           ))}
@@ -262,7 +262,7 @@ export default function Unterhaltung({ s, city }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 56 }}>
         <button type="button" className="pill" onClick={() => { toggleShow(x.id); if (!x.done) toast('Abgehakt'); }}>{x.done ? '↩ Nicht gesehen' : '✓ Gesehen'}</button>
         {!x.done && <button type="button" className="pill" onClick={() => setWatch(x)}>📍 Wo schauen?</button>}
-        {x.url && <a className="pill" href={x.url} target="_blank" rel="noreferrer" aria-label={`Link zu ${x.name}`}><Icon name="link" size={14} /></a>}
+        {x.url && <LinkBtn href={x.url} />}
       </div>
     </div>
   );
@@ -310,7 +310,7 @@ export default function Unterhaltung({ s, city }) {
                 <div className="nudge-actions" style={{ paddingLeft: 56 }}>
                   <button type="button" className="pill" onClick={() => take(r)}>⭐ Interessiert mich</button>
                   <button type="button" className="pill" onClick={() => setWatch({ ...r, type: r.type || type })}>📍 Wo?</button>
-                  {r.url && <a className="pill" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} öffnen`}><Icon name="link" size={14} /></a>}
+                  {r.url && <LinkBtn href={r.url} />}
                 </div>
               </article>
             ))}

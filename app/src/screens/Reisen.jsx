@@ -18,7 +18,7 @@ import NotesArea from '../components/NotesArea';
 import PlanChat, { ChatToggles } from '../components/PlanChat';
 import MapView from '../components/MapView';
 import { DateRangeField, rangeText } from '../components/DateRange';
-import { Back, Chevron, Field, Icon, Sheet, TabBar, toast, Info } from '../components/ui';
+import { Back, Chevron, Field, Icon, Sheet, TabBar, toast, Info, LinkBtn, RouteBtn } from '../components/ui';
 import { Missing } from './Saeule';
 import SourceLinks, { useSearchMode } from '../components/SourceLinks';
 import SearchCard, { QuickChips } from '../components/SearchCard';
@@ -527,7 +527,7 @@ function TransportRow({ tr, x }) {
         <span className="row-title strong" style={{ fontSize: 14.5 }}>{MODE_ICON[x.mode] || '➡️'} {x.from} → {x.to}</span>
         <span className="row-meta">{[MODES[x.mode], x.date && fmtShort(x.date), x.note].filter(Boolean).join(' · ')}</span>
       </span>
-      {x.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+      {x.url && <LinkBtn href={x.url} />}
       <button type="button" className={x.status === 'gebucht' ? 'pill on' : 'pill'} onClick={() => updateEntry(tr.id, 'transport', x.id, { status: x.status === 'gebucht' ? 'option' : 'gebucht' })}>{x.status === 'gebucht' ? '✓ Gebucht' : 'Option'}</button>
       <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeEntry(tr.id, 'transport', x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
     </div>
@@ -655,8 +655,8 @@ function Places({ tr }) {
               <span className="row-title strong">{p.kind === 'unterkunft' ? '🏠 ' : ''}{p.name}</span>
               <span className="row-meta">{[PLACE_KINDS[p.kind], stopName(p.stopId), p.note, p.address].filter(Boolean).join(' · ')}</span>
             </button>
-            {p.url && <a className="x-btn" href={p.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
-            <a className="x-btn" href={route(p)} target="_blank" rel="noreferrer" aria-label="In Google Maps öffnen"><Icon name="pin" size={15} color="var(--accent)" /></a>
+            {p.url && <LinkBtn href={p.url} />}
+            <RouteBtn href={route(p)} />
             <button type="button" className={p.status === 'fest' ? 'pill on' : 'pill'} onClick={() => updateEntry(tr.id, 'places', p.id, { status: p.status === 'fest' ? 'option' : 'fest' })}>{p.status === 'fest' ? '✓' : 'Merken'}</button>
             <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeEntry(tr.id, 'places', p.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
           </div>
@@ -693,7 +693,7 @@ function Docs({ tr }) {
               <span className="row-title strong">{d.title}</span>
               {d.note && <span className="row-meta" style={{ userSelect: 'text' }}>{d.note}</span>}
             </span>
-            {d.url && <a className="x-btn" href={d.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+            {d.url && <LinkBtn href={d.url} />}
             <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeEntry(tr.id, 'docs', d.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
           </div>
         ))}
@@ -1029,7 +1029,7 @@ function StopItem({ e, sec, api, tr, city, links }) {
           <span style={{ fontSize: 14.5, fontWeight: e.picked ? 650 : 500 }}>{e.text}</span>
           {(e.sub || e.price || e.reserve || e.note) && <span className="tiny">{[e.sub, fxText(e.price), e.reserve && '🎟 reservieren', !open && e.note].filter(Boolean).join(' · ')}</span>}
         </button>
-        {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
+        {e.url && <LinkBtn href={e.url} />}
         <button type="button" className={e.picked ? 'pill on' : 'pill'} style={{ fontSize: 12, padding: '4px 9px', flexShrink: 0 }} onClick={() => api.upd(e.id, { picked: !e.picked })}>{e.picked ? sec.pick[1] : sec.pick[0]}</button>
       </div>
       {open && (
@@ -1220,7 +1220,7 @@ function LegItem({ e, api }) {
           <span style={{ fontSize: 14.5, fontWeight: e.picked ? 650 : 500 }}>{MODE_ICON[e.mode] || '➡️'} {e.text}</span>
           {(e.dur || e.price) && <span className="tiny">{[e.dur, fxText(e.price)].filter(Boolean).join(' · ')}</span>}
         </button>
-        {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={14} color="var(--accent)" /></a>}
+        {e.url && <LinkBtn href={e.url} />}
         <button type="button" className={e.picked ? 'pill on' : 'pill'} style={{ fontSize: 12, padding: '4px 9px', flexShrink: 0 }} onClick={() => api.upd(e.id, { picked: !e.picked })}>{e.picked ? '✓ Gebucht' : 'Option'}</button>
       </div>
       {open && (

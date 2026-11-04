@@ -8,7 +8,7 @@ import { addHealthItem, deleteHealthItem, doneHealthItem, everyText, updateHealt
 import { getAi } from '../lib/ai';
 import PlanChat from '../components/PlanChat';
 import { chatOf, saveChatOf } from '../lib/chats';
-import { Back, Field, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Field, Icon, Info, Segmented, Sheet, TabBar, toast, LinkBtn, RouteBtn } from '../components/ui';
 import { DateRangeField } from '../components/DateRange';
 import PlaceBook, { ItemSheet as PlaceSheet } from '../components/PlaceBook';
 import { addBookItem, bookAreas, bookCats, bookMaps, bookOf, doctorLinks, findBookItem, searchDoctors } from '../lib/placebook';
@@ -251,7 +251,7 @@ function DoctorFinder({ s, onTermin }) {
               <span className="chips">
                 {saved[i] ? <span className="tiny" style={{ color: '#2FA36B', fontWeight: 600 }}>✓ bei Meine Praxen gespeichert</span> : <button type="button" className="chip soft small-chip" onClick={() => { save(h, i); toast('Bei Meine Praxen gespeichert'); }}>📌 Speichern</button>}
                 <button type="button" className="chip small-chip" onClick={() => onTermin({ title: `${what.trim() || 'Termin'} – ${h.name}`, type: 'termin', placeId: saved[i] || save(h, i) })}>+ Termin anlegen</button>
-                {h.website && <a className="chip soft small-chip" href={h.website} target="_blank" rel="noreferrer">Website ↗</a>}
+                {h.website && <LinkBtn href={h.website} />}
                 {h.telefon && <a className="chip soft small-chip" href={`tel:${String(h.telefon).replace(/[^\d+]/g, '')}`}>📞</a>}
               </span>
             </div>
@@ -272,8 +272,8 @@ function TermRow({ s, h, t, onOpen }) {
         <span className="row-title plain">{h.title}</span>
         <span className="row-meta" style={{ color: overdue ? 'var(--danger)' : undefined }}>{when(h, t)}{h.time ? ` · ${h.time} Uhr` : ''}{h.type === 'routine' && everyText(h) ? ` · ${everyText(h)}` : ''}{place ? ` · 📍 ${place.name}` : !h.placeId && h.address ? ` · 📍 ${h.address}` : ''}</span>
       </button>
-      {!h.placeId && h.address && <a className="x-btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`} target="_blank" rel="noreferrer" aria-label="Adresse in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
-      {place && <a className="x-btn" href={bookMaps(place)} target="_blank" rel="noreferrer" aria-label="Ort in Google Maps"><Icon name="pin" size={15} color="var(--accent)" /></a>}
+      {!h.placeId && h.address && <RouteBtn href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`} />}
+      {place && <RouteBtn href={bookMaps(place)} />}
       {h.date && <button type="button" className="pill" onClick={() => { doneHealthItem(h.id); toast(h.type === 'routine' ? `Erledigt – rückt ${everyText(h).replace(/^alle/, 'um')} weiter` : 'Erledigt'); }}>Erledigt</button>}
     </div>
   );

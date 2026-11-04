@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { addBookCat, addBookItem, addBookSub, BOOK_STATUS, bookAreas, rememberArea, bookCats, bookMaps, bookOf, findBookPlace, mapsSearch, removeBookCat, removeBookItem, restoreBookCats, telOf, updateBookItem } from '../lib/placebook';
 import { getAi } from '../lib/ai';
 import { hoodHere, HOME_CITY } from '../lib/outings';
-import { Field, Icon, Sheet, toast } from './ui';
+import { Field, Icon, Sheet, toast, RouteBtn, MapBtn } from './ui';
 
 function Stars({ value, onChange }) {
   return (
@@ -62,7 +62,7 @@ export function ItemSheet({ s, book, cats, item, onClose, onSaved, city = null }
       </div>
       {f.name.trim() && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <a className="pill" href={mapsSearch(f.name, f.area, s?.profile?.city)} target="_blank" rel="noreferrer">🔍 In Google Maps suchen ↗</a>
+          <MapBtn href={mapsSearch(f.name, f.area, s?.profile?.city)} label="In Maps suchen" />
           <button type="button" className="pill" disabled={finding || !getAi().apiKey} onClick={findIt}>{finding ? 'Ich suche …' : '✨ KI sucht Adresse & Telefon'}</button>
         </div>
       )}
@@ -118,7 +118,7 @@ export function ItemSheet({ s, book, cats, item, onClose, onSaved, city = null }
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Öffnungszeiten, was gut ist, Preise …" /></Field>
       {!isNew && (
         <div className="chips">
-          <a className="pill" href={bookMaps(f)} target="_blank" rel="noreferrer">📍 Google Maps ↗</a>
+          <RouteBtn href={bookMaps(f)} />
           {f.phone && <a className="pill" href={`tel:${telOf(f.phone)}`}>📞 Anrufen</a>}
           {f.url && <a className="pill" href={f.url} target="_blank" rel="noreferrer">🔗 Link ↗</a>}
         </div>
@@ -200,7 +200,7 @@ export default function PlaceBook({ s, book, hint, city = null }) {
               <span className="row-meta">{[x.rating ? `${'★'.repeat(x.rating)}` : '', x.status === 'will' ? 'Will hin' : '', cat === 'alle' && catOf(x.cat) ? `${catOf(x.cat).emoji} ${catOf(x.cat).label}` : '', x.sub, x.address || x.area].filter(Boolean).join(' · ')}</span>
             </button>
             {x.phone && <a className="x-btn" href={`tel:${telOf(x.phone)}`} aria-label={`${x.name} anrufen`}>📞</a>}
-            <a className="x-btn" href={bookMaps(x)} target="_blank" rel="noreferrer" aria-label={`${x.name} in Google Maps`}><Icon name="pin" size={15} color="var(--accent)" /></a>
+            <RouteBtn href={bookMaps(x)} />
           </div>
         ))}
       </div>

@@ -6,7 +6,7 @@ import { getAi } from '../lib/ai';
 import { addDays, diffDays, fmtShort, relDays, today } from '../lib/dates';
 import { addEvent, addProject, addTask, logActivity } from '../lib/actions';
 import { go } from '../lib/router';
-import { Icon, toast } from './ui';
+import { Icon, toast, LinkBtn } from './ui';
 
 // Gemeinsamer Zustand des Briefings (Heute-Karte und Bereichs-Boxen sehen dasselbe)
 let briefing = lastBriefing();
@@ -100,7 +100,7 @@ function Nudge({ s, x, boxId }) {
         </button>
       </div>
       <div className="nudge-actions">
-        {x.url && <a className="pill" href={x.url} target="_blank" rel="noreferrer">{x.art === 'event' ? 'Ansehen' : 'Öffnen'} <Icon name="link" size={13} /></a>}
+        {x.url && <LinkBtn href={x.url} />}
         {x.art === 'event' && <button type="button" className="pill on" onClick={keepEvent}>Interessiert</button>}
         {x.art === 'projekt' && <button type="button" className="pill on" onClick={startProject}>Projekt starten</button>}
         {(x.art === 'aufgabe' || x.art === 'link') && (

@@ -1,5 +1,5 @@
 // Liste von Such-Links (von der KI vorgeschlagen, ohne Websuche)
-import { Icon } from './ui';
+import { Icon, LinkBtn } from './ui';
 
 export default function LinkList({ links, hint, onKeep, keepLabel = 'Merken' }) {
   if (!links?.length) return hint ? <span className="sub">{hint}</span> : null;
@@ -13,7 +13,7 @@ export default function LinkList({ links, hint, onKeep, keepLabel = 'Merken' }) 
             {l.why && <span className="tiny">{l.why}</span>}
           </a>
           {onKeep && <button type="button" className="pill" onClick={() => onKeep(l)}>{keepLabel}</button>}
-          <a className="x-btn" href={l.url} target="_blank" rel="noreferrer" aria-label={`${l.title} öffnen`}><Icon name="link" size={15} color="var(--accent)" /></a>
+          <LinkBtn href={l.url} />
         </div>
       ))}
     </div>

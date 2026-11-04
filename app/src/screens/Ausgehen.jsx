@@ -14,7 +14,7 @@ import SourceLinks, { useSearchMode } from '../components/SourceLinks';
 import SearchCard from '../components/SearchCard';
 import { getAi } from '../lib/ai';
 import MapView, { CAT_COLOR } from '../components/MapView';
-import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info, TopActions } from '../components/ui';
+import { Back, Field, Icon, Segmented, Sheet, TabBar, toast, Info, TopActions, LinkBtn, RouteBtn, MapBtn } from '../components/ui';
 import RemovedList, { RemovedButton } from '../components/RemovedList';
 import AiFill from '../components/AiFill';
 import { fromHeute } from '../lib/router';
@@ -220,7 +220,7 @@ function EventSheet({ init, city, onClose }) {
         <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} style={{ maxWidth: 140 }} /></Field>
       </div>
       <Field label="Wo?"><input className="input" value={f.place} onChange={(e) => set({ place: e.target.value })} placeholder="Ort / Adresse" /></Field>
-      {f.place.trim() && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 14 }} href={routeUrl(f.place, city)} target="_blank" rel="noreferrer">Route (Google Maps) ↗</a>}
+      {f.place.trim() && <RouteBtn block href={routeUrl(f.place, city)} />}
       {f.date && <RemindPicker s={s} value={f.remind} onChange={(v) => set({ remind: v })} />}
       <TodoMini items={f.todos || []} onChange={(todos) => { set({ todos }); if (editId) updateEvent(editId, { todos }); }} placeholder="z.B. Tickets kaufen, Leute fragen" />
       <Field label="Preis"><input className="input" value={f.price} onChange={(e) => set({ price: e.target.value })} placeholder="z.B. 15.000 ARS" /></Field>
@@ -367,8 +367,8 @@ function Events({ s, city, view = 'find' }) {
               <div className="nudge-actions" style={{ paddingLeft: 56, marginTop: -2 }}>
                 <button type="button" className="pill" onClick={() => take(r, 'interessiert')}>Interessiert</button>
                 <button type="button" className="pill" onClick={() => take(r, 'zugesagt')}>Bin dabei</button>
-                <a className="pill" href={routeUrl(eventDest(r), resCity)} target="_blank" rel="noreferrer" aria-label={`Weg zu ${r.name}`}>Route</a>
-                {r.url && <a className="pill" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} auf ${r.source || 'der Website'} öffnen`}><Icon name="link" size={14} /></a>}
+                <RouteBtn href={routeUrl(eventDest(r), resCity)} />
+                {r.url && <LinkBtn href={r.url} />}
               </div>
             </article>
           ))}
@@ -435,8 +435,8 @@ function Events({ s, city, view = 'find' }) {
                   <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 56 }}>
-                  <a className="pill" href={routeUrl(eventDest(e), eventCity(e))} target="_blank" rel="noreferrer" aria-label={`Weg zu ${e.name}`}>Route</a>
-                  {e.url && <a className="pill" href={e.url} target="_blank" rel="noreferrer">Link ↗</a>}
+                  <RouteBtn href={routeUrl(eventDest(e), eventCity(e))} />
+                  {e.url && <LinkBtn href={e.url} />}
                   <button type="button" className="pill" onClick={() => setEvForm(editInit(e))}>✎ Bearbeiten</button>
                   {e.stage !== 'zugesagt' ? <button type="button" className="pill" onClick={() => { setEventStage(e.id, 'zugesagt'); toast('Zugesagt'); }}>Bin dabei</button>
                     : <button type="button" className="pill" style={{ minWidth: 40 }} onClick={() => { setEventStage(e.id, 'interessiert'); toast('Zurück zu „Interessiert“'); }} aria-label="Doch nur interessiert" title="Doch nur interessiert">↩</button>}
@@ -545,7 +545,7 @@ function PlaceSheet({ open, onClose, place, s, city, defaultCat, defaultStatus, 
         </div>
         {f.lat != null && <span className="tiny" style={{ paddingLeft: 4, color: 'var(--accent)' }}>Auf der Karte gefunden</span>}
         {hits && hits.length === 0 && f.lat == null && (
-          <span className="tiny" style={{ paddingLeft: 4 }}>Nichts gefunden (auch nicht beim zweiten Dienst). Tipp: Straße + Hausnummer ohne Zusätze. <a href={mapsUrl(f.name, f.address, f.city || city || HOME_CITY)} target="_blank" rel="noreferrer">In Google Maps suchen ↗</a></span>
+          <span className="tiny" style={{ paddingLeft: 4 }}>Nichts gefunden (auch nicht beim zweiten Dienst). Tipp: Straße + Hausnummer ohne Zusätze. <MapBtn href={mapsUrl(f.name, f.address, f.city || city || HOME_CITY)} label="In Maps suchen" /></span>
         )}
         {hits && hits.length > 0 && f.lat == null && (
           <div className="list">
@@ -654,7 +654,7 @@ function PlaceImport({ open, city, onClose, defaultStatus }) {
         </>
       ) : (
         <>
-          <span className="sub">{list.length ? `${list.length} ${list.length === 1 ? 'Ort' : 'Orte'} erkannt. Prüf mit „Maps ↗“, ob es der richtige ist, und tipp auf den Status, um ihn zu ändern.` : 'Keine Orte gefunden.'}</span>
+          <span className="sub">{list.length ? `${list.length} ${list.length === 1 ? 'Ort' : 'Orte'} erkannt. Prüf mit „Karte“, ob es der richtige ist, und tipp auf den Status, um ihn zu ändern.` : 'Keine Orte gefunden.'}</span>
           {list.length > 0 && statusSeg}
           {list.map((x) => (
             <div key={x.id} className="option" style={{ alignItems: 'flex-start' }}>
@@ -666,7 +666,7 @@ function PlaceImport({ open, city, onClose, defaultStatus }) {
                 {(x.tags || []).length > 0 && <span className="tiny">🏷 {x.tags.join(', ')}</span>}
                 <span style={{ display: 'flex', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
                   <button type="button" className={(st[x.id] || x.status) === 'war' ? 'chip on' : 'chip soft'} style={{ fontSize: 12.5 }} onClick={() => setSt({ ...st, [x.id]: (st[x.id] || x.status) === 'war' ? 'will' : 'war' })}>{(st[x.id] || x.status) === 'war' ? '✓ War schon' : '☆ Will hin'}</button>
-                  <a className="link-chip" href={mapsUrl(x.name, x.address, city)} target="_blank" rel="noreferrer">Maps ↗</a>
+                  <MapBtn href={mapsUrl(x.name, x.address, city)} />
                 </span>
               </span>
             </div>
@@ -791,8 +791,8 @@ function Orte({ s, city, view = 'mine' }) {
                     {p.note && <span style={{ fontSize: 14.5, lineHeight: 1.4 }}>{p.note}</span>}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button type="button" className={p.fav ? 'pill on' : 'pill'} style={p.fav ? { background: '#E8475A', borderColor: '#E8475A' } : undefined} onClick={() => updatePlace(p.id, { fav: !p.fav })} aria-pressed={!!p.fav}>{p.fav ? '♥ Favorit' : '♡ Favorit'}</button>
-                      <a className="pill" href={routeUrl(p)} target="_blank" rel="noreferrer">Route</a>
-                      {p.url && <a className="pill" href={p.url} target="_blank" rel="noreferrer">Link <Icon name="link" size={13} /></a>}
+                      <RouteBtn href={routeUrl(p)} />
+                      {p.url && <LinkBtn href={p.url} />}
                       {p.status === 'will' && <button type="button" className="pill" onClick={() => { updatePlace(p.id, { status: 'war' }); setSheet(p); }}>War da</button>}
                       <button type="button" className="pill" onClick={() => setSheet(p)}>Bearbeiten</button>
                     </div>
@@ -825,7 +825,7 @@ function Orte({ s, city, view = 'mine' }) {
               {r.why && <span className="tiny" style={{ color: 'var(--text)' }}>{r.why}</span>}
               {r.hours && <span className="tiny">🕒 {r.hours}</span>}
             </span>
-            {r.url && <a className="x-btn" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} öffnen`}><Icon name="link" size={15} color="var(--accent)" /></a>}
+            {r.url && <LinkBtn href={r.url} />}
             <button type="button" className="pill" onClick={() => keep(r)}>Merken</button>
           </div>
         ))}
@@ -955,7 +955,7 @@ function PlaceHours({ s, p }) {
   return (
     <span className="tiny" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
       🕒 {busy ? 'Suche Öffnungszeiten …' : 'Keine Öffnungszeiten gefunden.'}
-      <a className="link-btn" style={{ fontSize: 13 }} href={mapsUrl(p.name, p.address, placeCity(p))} target="_blank" rel="noreferrer">In Google Maps ↗</a>
+      <MapBtn href={mapsUrl(p.name, p.address, placeCity(p))} />
     </span>
   );
 }

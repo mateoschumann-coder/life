@@ -70,6 +70,7 @@ Persönliche App, um Privates, Soziales und Professionelles zu organisieren, eff
 - Jede tippbare Fläche mind. 44 × 44 Punkte (global über `::after` in `styles.css`; neue kleine Knopf-Klassen dort ergänzen).
 - Umschalter mit 2–3 Möglichkeiten: oben `Segmented full` (`.seg.full`), Unterteilung darunter `.sub-switch` (gleicher Stil, kleiner, volle Breite). Viele/zum Wischen (Kategorien, Reiter mit Zahlen): Chips.
 - Kräftig blau gefüllt nur die eine Hauptaktion eines Bildschirms/Fensters und das Gewählte; Knöpfe, die sich in jeder Listenzeile wiederholen (Route, Merken, Anmelden …), sind hellblau (`pill` ohne `on`, `btn tint`).
+- Links nach außen immer mit `LinkBtn` (🔗 Link), Wege mit `RouteBtn` (📍 Route), Karte/Suche in Google Maps mit `MapBtn` (`components/ui.jsx`) – keine eigenen Varianten bauen (seit v1.61).
 - Zusatztexte mind. 13 px (`.tiny`), Grau `--muted`. Nur Web-App-taugliches übernehmen (kein Liquid Glass, keine Vibration).
 
 ## Erinnerungen (seit v1.57)

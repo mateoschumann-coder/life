@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getAi } from '../lib/ai';
 import { takeForward } from '../lib/outings';
 import { useDictation } from '../lib/dictate';
-import { Icon, Info, toast } from './ui';
+import { Icon, Info, toast, LinkBtn } from './ui';
 
 const mid = () => Math.random().toString(36).slice(2, 10);
 const PREF_KEY = 'life-app-chatprefs';
@@ -208,7 +208,7 @@ export default function PlanChat({ title = 'Mit KI planen', intro, history = [],
                             {g.meta && g.meta(x) && <span className="tiny">{g.meta(x)}</span>}
                             {g.links && g.links(x).length > 0 && <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>{g.links(x).map((l) => <a key={l.url} className="pill" style={{ fontSize: 12.5, padding: '3px 9px' }} href={l.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{l.label}</a>)}</span>}
                           </span>
-                          {x?.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen" onClick={(e) => e.stopPropagation()}><Icon name="link" size={15} color="var(--accent)" /></a>}
+                          {x?.url && <LinkBtn href={x.url} onClick={(e) => e.stopPropagation()} />}
                           {!m.applied && (typeof x === 'string' || mainKey(x)) && <button type="button" className="x-btn" aria-label="Vorschlag bearbeiten" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditing({ id: m.id, key: g.key, i, val: typeof x === 'string' ? x : x[mainKey(x)] }); }}><Icon name="edit" size={14} color="var(--muted)" /></button>}
                         </label>
                       )))}

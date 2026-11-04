@@ -11,7 +11,7 @@ import {
   allAreaStatuses, areaOf, byUrgency, followUps, habitProgress, lastContact, peopleOverdue, pillarOf, rhythmStats, upcomingBirthdays, waLink, upcomingReminders, inDaysText } from '../lib/logic';
 import { addTask, logContact, toggleCheckin, toggleTask, deleteTask, archiveTask, restoreTask, archiveReminder, archiveHealth, todayBin, restoreFromToday, archiveEvent, archiveGathering, archiveInvite } from '../lib/actions';
 import { askReview, getAi, lastReview, saveReview } from '../lib/ai';
-import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast, TopActions } from '../components/ui';
+import { AreaIcon, Check, Chevron, Dot, Icon, Segmented, TabBar, toast, TopActions, LinkBtn } from '../components/ui';
 import { Heatmap, heatColor } from '../components/Heatmap';
 import Overview from '../components/Overview';
 import { doneHealthItem, deleteHealthItem } from '../lib/health';
@@ -269,7 +269,7 @@ export default function Heute() {
         <span className="row-meta" style={{ color: i.overdue ? 'var(--danger)' : i.soon ? 'var(--accent)' : undefined }}><Dot small color={i.color} />{i.meta}{i.open && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>›</span>}</span>
       </div>
       {i.wa && !i.done && <a className="pill" href={i.wa} target="_blank" rel="noreferrer">WhatsApp</a>}
-      {i.url && !i.done && <a className="pill" href={i.url} target="_blank" rel="noreferrer" aria-label={`Link zu ${i.title} öffnen`}><Icon name="link" size={14} /></a>}
+      {i.url && !i.done && <LinkBtn href={i.url} />}
       {i.time && <span className="row-side" style={{ fontSize: 14 }}>{i.time}</span>}
       {i.onDelete && <button type="button" className="x-btn" onClick={i.onDelete} aria-label={`${i.title} löschen`}><Icon name="x" size={12} color="var(--chev)" /></button>}
     </div>

@@ -72,6 +72,21 @@ const PATHS = {
   more: <><circle cx="5.5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="18.5" cy="12" r="1.3" /></>,
 };
 
+// v1.61 (Mateo): Link-, Route- und Karten-Knöpfe überall im gleichen Format – hellblaue Pille mit Symbol und Wort
+const extA = { target: '_blank', rel: 'noreferrer' };
+export function LinkBtn({ href, label = 'Link', title, block, onClick }) {
+  if (!href) return null;
+  return <a className="pill act" href={href} {...extA} onClick={onClick} style={block ? { alignSelf: 'flex-start' } : undefined} aria-label={title ? `${title}: ${label} öffnen` : `${label} öffnen`}><Icon name="link" size={14} />{label}</a>;
+}
+export function RouteBtn({ href, title, block, label = 'Route' }) {
+  if (!href) return null;
+  return <a className="pill act" href={href} {...extA} style={block ? { alignSelf: 'flex-start' } : undefined} aria-label={title ? `Route zu ${title}` : label}><Icon name="pin" size={14} />{label}</a>;
+}
+export function MapBtn({ href, title, block, label = 'Karte' }) {
+  if (!href) return null;
+  return <a className="pill act" href={href} {...extA} style={block ? { alignSelf: 'flex-start' } : undefined} aria-label={title ? `${title} in Google Maps` : 'In Google Maps öffnen'}><Icon name="pin" size={14} />{label}</a>;
+}
+
 export function Icon({ name, size = 20, color = 'currentColor', width = 2 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ stroke: color }} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

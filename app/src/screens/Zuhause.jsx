@@ -17,7 +17,7 @@ import SearchCard, { QuickChips } from '../components/SearchCard';
 import { CityChips } from './Ausgehen';
 import { getAi } from '../lib/ai';
 import { go } from '../lib/router';
-import { Back, Check, Field, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Field, Icon, Info, Segmented, Sheet, TabBar, toast, LinkBtn } from '../components/ui';
 
 const COLOR = '#2FA36B';
 // v1.02 (Mateo): drei Bereiche – Allgemein (To-dos | Erinnern), Einrichtung, Kleidung (je Liste | Finden | Orte)
@@ -128,7 +128,7 @@ function CatList({ s, listKey }) {
                   {(x.price || x.note || x.giveTo || x.sale) && <span className="row-meta">{[x.giveTo && `🎁 an ${x.giveTo}`, x.sale && `💰 ${x.sale.preis || 'Anzeige fertig'}`, x.price, x.note].filter(Boolean).join(' · ')}</span>}
                   {x.kind === 'weggeben' && !x.giveTo && !x.sale && <span className="row-meta" style={{ color: 'var(--accent)' }}>Antippen: verkaufen oder verschenken</span>}
                 </button>
-                {x.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+                {x.url && <LinkBtn href={x.url} />}
                 <button type="button" className="x-btn" aria-label={`${x.text} löschen`} onClick={() => removeHomeItem(listKey, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
               </div>
             ))}
@@ -257,7 +257,7 @@ function FindItems({ s, listKey }) {
                 <span className="tiny">{[v.price, v.shop].filter(Boolean).join(' · ')}</span>
                 {v.why && <span className="tiny" style={{ color: 'var(--text)' }}>{v.why}</span>}
               </span>
-              {v.url && <a className="x-btn" href={v.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+              {v.url && <LinkBtn href={v.url} />}
               <button type="button" className="pill" onClick={() => { addHomeItem(listKey, { text: v.text, cat, kind: 'brauche', price: v.price, url: v.url, note: v.shop }); setSugg(sugg.filter((x) => x.id !== v.id)); toast('Auf der Liste'); }}>Merken</button>
             </div>
           ))}

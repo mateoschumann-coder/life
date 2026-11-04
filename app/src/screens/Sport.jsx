@@ -22,7 +22,7 @@ import MiniChart from '../components/MiniChart';
 import PaceCalc from '../components/PaceCalc';
 import { RemovedButton } from '../components/RemovedList';
 import { archiveSportEvent, restoreSportEvent } from '../lib/actions';
-import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
+import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info, LinkBtn } from '../components/ui';
 import { Missing } from './Saeule';
 
 const GREEN = '#2FA36B';
@@ -195,7 +195,7 @@ function SportsPage({ s }) {
         <span className="row-title strong">{e.name}</span>
         <span className="row-meta">{[when(e.date, t), e.place, distOf(e), e.result && `Ergebnis: ${e.result}`].filter(Boolean).join(' · ')}</span>
       </button>
-      {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+      {e.url && <LinkBtn href={e.url} />}
       {children}
       <button type="button" className="x-btn" aria-label={`${e.name} rausnehmen`} onClick={() => { archiveSportEvent(e.id); toast('Rausgenommen – unten zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
     </div>
@@ -275,7 +275,7 @@ function SportsPage({ s }) {
                 <span style={{ fontSize: 15, fontWeight: 600 }}><SportTag s={s} id={e.sportId} />{e.name}</span>
                 <span className="tiny">{[e.date && fmtShort(e.date), e.place, e.dist].filter(Boolean).join(' · ')}</span>
               </span>
-              {e.url && <a className="x-btn" href={e.url} target="_blank" rel="noreferrer" aria-label="Öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+              {e.url && <LinkBtn href={e.url} />}
               {(() => {
                 const saved = (s.sportEvents || []).find((x) => x.sportId === e.sportId && x.name.trim().toLowerCase() === e.name.trim().toLowerCase());
                 return saved

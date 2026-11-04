@@ -136,6 +136,7 @@ a.tag:active { opacity: 0.6; }
 .btn-row { display: flex; gap: 10px; }
 .btn-row > * { flex: 1; }
 .pill { font-size: 14px; font-weight: 600; color: var(--accent); padding: 7px 12px; border-radius: 999px; background: var(--accent-bg); border: 0; flex-shrink: 0; white-space: nowrap; }
+.pill.act { display: inline-flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none; } /* v1.61: Link/Route/Karte überall gleich */
 .icon-btn { width: 40px; height: 40px; border-radius: 20px; border: 0; background: var(--fill); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; color: var(--text); }
 .link-btn { background: none; border: 0; padding: 6px 0; color: var(--accent); font-size: 16px; font-weight: 500; }
 .check { width: 24px; height: 24px; border-radius: 12px; border: 1.6px solid var(--chev); background: transparent; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; transition: background 0.15s, border-color 0.15s; }

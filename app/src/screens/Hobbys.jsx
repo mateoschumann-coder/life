@@ -7,7 +7,7 @@ import { useStore } from '../lib/store';
 import { addHobby, addHobbyItem, HOBBY_KINDS, hobbyChat, searchLink, removeHobby, removeHobbyItem, updateHobby, updateHobbyItem } from '../lib/leisure';
 import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
-import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, LinkBtn } from '../components/ui';
 import { Missing } from './Saeule';
 
 const COLOR = '#2FA36B';
@@ -101,7 +101,7 @@ function HobbyDetail({ s, h }) {
                 <span className="row-title plain">{x.title}</span>
                 <span className="row-meta">{[HOBBY_KINDS[x.kind], x.why].filter(Boolean).join(' · ')}</span>
               </button>
-              {x.url && <a className="x-btn" href={x.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+              {x.url && <LinkBtn href={x.url} />}
               {x.status !== 'geschafft' ? <button type="button" className="pill" aria-label={`${x.title} geschafft`} onClick={() => { updateHobbyItem(h.id, x.id, { status: 'geschafft' }); toast('Stark!'); }}>✓</button> : <button type="button" className="pill" onClick={() => updateHobbyItem(h.id, x.id, { status: 'offen' })}>Zurück</button>}
               <button type="button" className="x-btn" aria-label="Löschen" onClick={() => removeHobbyItem(h.id, x.id)}><Icon name="x" size={12} color="var(--chev)" /></button>
             </div>

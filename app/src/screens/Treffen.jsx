@@ -13,7 +13,7 @@ import SimpleList from '../components/SimpleList';
 import GroupedChecklist from '../components/GroupedChecklist';
 import PlanChat from '../components/PlanChat';
 import { DateRangeField } from '../components/DateRange';
-import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info } from '../components/ui';
+import { Back, Check, Chevron, Field, Icon, Segmented, Sheet, TabBar, toast, Info, LinkBtn, RouteBtn, MapBtn } from '../components/ui';
 import { addInvite, INVITE_COLOR, INVITE_STATUS, removeInvite, updateInvite } from '../lib/invites';
 import { Missing } from './Saeule';
 import { RemovedButton } from '../components/RemovedList';
@@ -90,7 +90,7 @@ function Invites({ s, sheet, setSheet }) {
         <span className={x.done ? 'row-title strong done' : 'row-title strong'}>{x.name}</span>
         <span className="row-meta">{[x.host && `von ${x.host}`, x.date ? `${fmtShort(x.date)}${x.time ? `, ${x.time}` : ''}` : 'Datum offen', x.date && x.date >= t && `in ${diffDays(t, x.date)} Tagen`, x.place, x.bring && `🎁 ${x.bring}`, x.guests && `👥 ${x.guests}`, (x.todos || []).some((y) => !y.done) && `✅ ${(x.todos || []).filter((y) => !y.done).length} To-dos`].filter(Boolean).join(' · ')}</span>
       </button>
-      {!x.done && x.place && <a className="pill" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(x.place)}`} target="_blank" rel="noreferrer" aria-label={`Weg zu ${x.name}`}>Route</a>}
+      {!x.done && x.place && <RouteBtn href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(x.place)}`} title={x.name} />}
       {!x.done && <button type="button" className="pill" style={{ color: INVITE_COLOR[x.status], whiteSpace: 'nowrap' }} onClick={() => updateInvite(x.id, { status: INV_NEXT[x.status] || 'eingeladen' })} aria-label={`Status ${INVITE_STATUS[x.status]}, antippen zum Ändern`}>{INVITE_STATUS[x.status]}</button>}
     </div>
   );
@@ -397,7 +397,7 @@ function Venues({ g }) {
               <span className="row-meta">{[v.address, v.note].filter(Boolean).join(' · ')}</span>
             </span>
             {v.phone && <a className="x-btn" href={`tel:${v.phone.replace(/[^\d+]/g, '')}`} aria-label="Anrufen">📞</a>}
-            {v.url && <a className="x-btn" href={v.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+            {v.url && <LinkBtn href={v.url} />}
             <button type="button" className={v.status === 'reserviert' ? 'pill on' : 'pill'} onClick={() => {
               const next = VENUE_NEXT[v.status];
               updateItem(g.id, 'venues', v.id, { status: next });
@@ -697,7 +697,7 @@ function Detail({ s, g }) {
             <button type="button" className="btn small tint" style={{ whiteSpace: 'nowrap' }} onClick={() => setPickPlace(true)}>📍 Wählen</button>
           </div>
           <textarea className="input" rows={2} style={{ minHeight: 0, resize: 'none', overflowWrap: 'anywhere' }} defaultValue={g.address} key={g.id + 'address' + (g.address || '')} placeholder="Adresse (kommt mit Google-Maps-Link in die Einladung)" aria-label="Adresse" onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ' ').trim(); if (v !== (g.address || '')) updateGathering(g.id, { address: v }); }} />
-          {mapsLink(g) && <a className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} href={mapsLink(g)} target="_blank" rel="noreferrer">🗺 In Google Maps prüfen ↗</a>}
+          {mapsLink(g) && <MapBtn block href={mapsLink(g)} label="Adresse prüfen" />}
           <div style={{ display: 'flex', gap: 8 }}>
             {field('expected', 'Ca. Gäste', { inputMode: 'numeric', style: { maxWidth: 110 } })}
             {field('motto', 'Motto / Art, z.B. Asado')}

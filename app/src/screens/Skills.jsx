@@ -6,7 +6,7 @@ import { addTask } from '../lib/actions';
 import { addSkill, addSkillTodos, ideaChat, removeSkill, removeSkillTodo, SKILL_PRESETS, skillTodoChat, todoStats, toggleSkillTodo, updateSkill, MAT_TYPES, matTypesOf, matTypeInfo, setMatTypes, addCustomType, addMaterialTo, updateMaterialOf, removeMaterialOf, matSearch } from '../lib/skills';
 import { chatOf, saveChatOf } from '../lib/chats';
 import PlanChat from '../components/PlanChat';
-import { Back, Check, Chevron, Icon, Info, Segmented, Sheet, TabBar, toast } from '../components/ui';
+import { Back, Check, Chevron, Icon, Info, Segmented, Sheet, TabBar, toast, LinkBtn } from '../components/ui';
 import { Missing } from './Saeule';
 
 const BLUE = '#3B6FE0';
@@ -160,7 +160,7 @@ function SkillMaterial({ sk }) {
                   {(m.author || m.note) && <span className="row-meta">{[m.author, m.note && m.note.split('\n')[0].slice(0, 60)].filter(Boolean).join(' · ')}</span>}
                 </button>
                 {info.status && <button type="button" className={(m.stage || 0) === 1 ? 'pill on' : 'pill'} style={{ fontSize: 12.5, padding: '4px 9px' }} onClick={() => updateMaterialOf(sk.id, m.id, { stage: ((m.stage || 0) + 1) % info.status.length })}>{info.status[m.stage || 0]}</button>}
-                {m.url && <a className="x-btn" href={m.url} target="_blank" rel="noreferrer" aria-label="Link öffnen"><Icon name="link" size={15} color="var(--accent)" /></a>}
+                {m.url && <LinkBtn href={m.url} />}
               </div>
             ))}
           </div>
