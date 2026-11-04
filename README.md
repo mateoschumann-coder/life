@@ -3,7 +3,7 @@
 **Eine persönliche App, die den Alltag aktiv mitorganisiert** – Termine, Menschen, Ausgehen, Reisen, Küche, Karriere und Weiterlernen an einem Ort, mit einer KI, die einträgt, sucht und Vorschläge macht.
 
 [![Prüfen](https://github.com/mateoschumann-coder/life/actions/workflows/check.yml/badge.svg)](https://github.com/mateoschumann-coder/life/actions/workflows/check.yml)
-· Version 1.59 · Web-App fürs iPhone · **Live:** https://mateoschumann-coder.github.io/life/
+· Version 1.60 · Web-App fürs iPhone · **Live:** https://mateoschumann-coder.github.io/life/
 
 ---
 
@@ -13,7 +13,7 @@ Life ist keine Dokumentations-App, in die man viel einträgt. Die App soll mögl
 
 | Säule | Bereiche |
 |---|---|
-| **Persönlich** | Gesundheit (Sport-Events, Zeitrechner, Küche mit Rezepten und Einkaufslisten, Arzttermine) · Lernen & Wissen · Zuhause · Finanzen · Hobbys (mit Unterhaltung: Filme, Fernsehen, Sport – was kommt und wo man es schaut) · Reisen |
+| **Persönlich** | Gesundheit (Sport-Events, Zeitrechner, Küche mit Rezepten und Einkaufslisten, Arzttermine) · Lernen & Wissen · Zuhause · Finanzen · Freizeit (Hobbys und Unterhaltung: Filme, Fernsehen, Sport – was kommt und wo man es schaut) · Reisen |
 | **Sozial** | Treffen organisieren (Gäste, Einkauf, Einladung per WhatsApp) und Besuche · Einladungen von anderen · Ausgehen (Events, Lieblingsorte pro Stadt, auch Sportbars und Kinos) · Personen (Kontakt-Rhythmen, Geburtstage) |
 | **Professionell** | Jobsuche mit Bewerbungs-Trichter · Eigene Projekte · Weiterentwicklung (Skills) · Informiert bleiben |
 

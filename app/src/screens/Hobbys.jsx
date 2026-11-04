@@ -27,7 +27,7 @@ function HobbyList({ s }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
-            <h1 className="h1">Hobbys</h1>
+            <h1 className="h1">Freizeit</h1>
             {tab === 'hobbys' && s.hobbies.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
           </div>
         </div>
@@ -75,7 +75,7 @@ function HobbyDetail({ s, h }) {
     <>
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Back href="#/hobbys" label="Hobbys" />
+          <Back href="#/hobbys" label="Freizeit" />
           <input className="input title-input" defaultValue={h.name} key={h.id + 'n'} onBlur={(e) => e.target.value.trim() && e.target.value !== h.name && updateHobby(h.id, { name: e.target.value.trim() })} aria-label="Name des Hobbys" />
           <div style={{ display: 'flex', gap: 8 }}>
             <input className="input goal-input" defaultValue={h.level} key={h.id + 'l'} placeholder="Niveau, z.B. Anfänger" onBlur={(e) => e.target.value !== h.level && updateHobby(h.id, { level: e.target.value })} aria-label="Niveau" />
@@ -158,5 +158,5 @@ export default function Hobbys({ id }) {
   const s = useStore();
   if (!id) return <HobbyList s={s} />;
   const h = s.hobbies.find((x) => x.id === id);
-  return h ? <SkillPage s={s} sk={h} back={{ href: '#/hobbys', label: 'Hobbys' }} /> : <Missing />;
+  return h ? <SkillPage s={s} sk={h} back={{ href: '#/hobbys', label: 'Freizeit' }} /> : <Missing />;
 }

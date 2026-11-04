@@ -34,7 +34,7 @@ export const SECTIONS = [
   { key: 'wissen', name: 'Lernen & Wissen', link: '#/wissen', icon: 'bulb', areaId: 'mental' },
   { key: 'zuhause', name: 'Zuhause', link: '#/zuhause/allgemein', icon: 'home', areaId: 'zuhause' },
   { key: 'reisen', name: 'Reisen', link: '#/reisen', icon: 'plane', areaId: 'freizeit' },
-  { key: 'hobbys', name: 'Hobbys', link: '#/hobbys', icon: 'star', areaId: 'freizeit' },
+  { key: 'hobbys', name: 'Freizeit', link: '#/hobbys', icon: 'star', areaId: 'freizeit' },
   { key: 'finanzen', name: 'Finanzen', link: '#/finanzen', icon: 'wallet', areaId: 'finanzen' },
   { key: 'menschen', name: 'Personen', link: '#/menschen', icon: 'users', areaId: 'freunde' },
   { key: 'events', name: 'Events & Ausgehen', link: '#/ausgehen', icon: 'calendar', areaId: 'erlebnisse' },

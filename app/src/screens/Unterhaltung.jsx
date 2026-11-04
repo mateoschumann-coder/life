@@ -1,6 +1,6 @@
 // Hobbys → Unterhaltung (v1.57 Ausgehen, v1.58 Informiert bleiben, seit v1.59 bei Hobbys; Mateo)
 //   oben: 🎬 Filme · 📺 Fernsehen · ⚽ Sport
-//   darunter: ⭐ Will ich sehen (links) | 🔍 Finden (rechts)
+//   darunter: ⭐ Merkliste (links) | 🔍 Finden (rechts)
 //   Finden: Suchfeld mit ⚡ Schnellzugriff (Kategorien der Art, bearbeitbar), Links passend zur Art (sofort, gratis), „✨ Mit KI suchen“
 //   📍 Wo schauen?: Sender/Stream, eigene Orte „Zum Schauen“ (Sportbar, Kino) und KI-Suche nach Bars bzw. Kinozeiten
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import { addShow, archiveShow, catEmoji, catName, findWatchPlaces, lastShowSearc
 import { addPlace } from '../lib/actions';
 import { placeCity, routeUrl } from '../lib/outings';
 import { SOURCE_AREAS } from '../lib/sources';
+import { CityChips } from './Ausgehen';
 import { getAi } from '../lib/ai';
 import { takeFlag } from '../lib/flags';
 import SearchCard from '../components/SearchCard';
@@ -230,7 +231,7 @@ export default function Unterhaltung({ s, city }) {
   const take = (r) => {
     const id = addShow({ name: r.name, type: r.type || type, cat: r.cat, date: r.date, time: r.time, where: r.where, url: r.url, note: [KIND_LABEL[r.kind], r.info].filter(Boolean).join(' · '), shows: r.shows });
     mark(r.id, 'gemerkt');
-    toast(r.date ? 'Unter „Will ich sehen“ – steht am Tag (und vorher) auf Heute' : 'Unter „Will ich sehen“ gemerkt');
+    toast(r.date ? 'Auf der Merkliste – steht am Tag (und vorher) auf Heute' : 'Auf der Merkliste');
     return id;
   };
   // „Wo schauen?“ → Ort übernehmen: gemerkter Eintrag bekommt den Ort; ein Suchergebnis wird dabei gleich gemerkt
@@ -271,8 +272,12 @@ export default function Unterhaltung({ s, city }) {
       <ShowSheet s={s} init={form} onClose={() => setForm(null)} />
       <WatchSheet s={s} item={watch} city={city} onClose={() => setWatch(null)} onTake={(name, times) => takeWatch(watch, name, times)} />
       <Segmented full options={SHOW_TYPES} value={type} onChange={chooseType} label="Art" />
-      <div className="sub-switch">
-        {[['mine', `⭐ Will ich sehen${upcoming.length ? ` · ${upcoming.length}` : ''}`], ['find', '🔍 Finden']].map(([k, l]) => <button key={k} type="button" className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
+      {/* v1.60 (Mateo): Stadt wählbar (für Kinos, Sportbars, Ortszeit) – gleiche Stadt wie in Ausgehen */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div className="sub-switch" style={{ flex: '1 1 auto', minWidth: 0 }}>
+        {[['mine', `⭐ Merkliste${upcoming.length ? ` ${upcoming.length}` : ''}`], ['find', '🔍 Finden']].map(([k, l]) => <button key={k} type="button" className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
+      </div>
+      <div style={{ flex: '0 1 38%', minWidth: 0, display: 'flex' }}><CityChips s={s} compact /></div>
       </div>
       {view === 'find' && <>
         <SearchCard q={q} setQ={setQ} placeholder={SOURCE_AREAS[area].placeholder} mode="ki" busy={busy}
@@ -309,7 +314,7 @@ export default function Unterhaltung({ s, city }) {
                 </div>
               </article>
             ))}
-            {search.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alles durchgesehen – Gemerktes steht unter „Will ich sehen“.</span>}
+            {search.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alles durchgesehen – Gemerktes steht auf der Merkliste.</span>}
           </section>
         )}
       </>}

@@ -15,7 +15,7 @@ export const AREA_TOOLS = {
     { sub: 'Kleidung', href: '#/zuhause/kleidung', icon: 'shirt', title: 'Kleidung', text: 'Was du brauchst und was weg kann – mit KI-Ideen' },
   ],
   freizeit: [
-    { sub: 'Hobbys', href: '#/hobbys', icon: 'sparkle', title: 'Hobbys', text: 'Pro Hobby eine Liste: noch offen und geschafft (z.B. Songs), plus Ideen-Chat' },
+    { sub: 'Freizeit', href: '#/hobbys', icon: 'sparkle', title: 'Freizeit', text: 'Hobbys (pro Hobby eine Liste: noch offen und geschafft, plus Ideen-Chat) und Unterhaltung (Filme, Fernsehen, Sport)' },
     { sub: 'Reisen', href: '#/reisen', icon: 'plane', title: 'Reisen', text: 'Jede Reise mit eigenem Dashboard: To-dos, Packliste, Ideen, Budget' },
   ],
   erlebnisse: [

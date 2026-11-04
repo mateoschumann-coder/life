@@ -12,7 +12,7 @@ const SOZIAL = [
 ];
 // v1.13 (Mateo): Hobbys und Reisen als eigene Kacheln statt „Freizeit und Erlebnisse“, nach Finanzen
 const FREIZEIT = [
-  { id: 'hobbys', name: 'Hobbys', icon: 'play', href: '#/hobbys' },
+  { id: 'hobbys', name: 'Freizeit', icon: 'play', href: '#/hobbys' },
   { id: 'reisen', name: 'Reisen', icon: 'plane', href: '#/reisen' },
 ];
 const SHORT = { koerper: 'Gesundheit', freizeit: 'Freizeit', karriere: 'Karriere', informiert: 'Informiert bleiben' };
@@ -20,7 +20,7 @@ const SUB = {
   koerper: 'Sport · Küche · Vorsorge',
   mental: 'Bücher · Podcasts',
   zuhause: 'Haushalt · Kleidung',
-  hobbys: 'To-dos · Material',
+  hobbys: 'Hobbys · Filme · Sport',
   reisen: 'Reisen · Ideen',
   finanzen: 'Märkte · Rechner',
   events: 'Eigene & Einladungen',
