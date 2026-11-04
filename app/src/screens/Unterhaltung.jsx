@@ -1,9 +1,12 @@
-// v1.57 (Mateo): Ausgehen → Unterhaltung. Was läuft im Fernsehen/Stream und im Kino?
-//   ⭐ Meine: was ich schauen will (Formel-1-Rennen, Fußballspiel, Kinofilm …) – erscheint am Tag (und vorher) auf Heute
-//   🔍 Finden: Kategorien antippen → Links sofort (gratis) + „Mit KI suchen“ (konkrete Termine, Kinozeiten, ca. 4 ct)
+// v1.57/1.58 (Mateo): Informiert bleiben → 🎬 Unterhaltung. Was läuft im Fernsehen/Stream und im Kino?
+//   🔍 Was kommt: Kategorien antippen → Links sofort (gratis) + „Mit KI suchen“ → „Interessiert mich“
+//   ⭐ Will ich sehen: gemerkte Rennen/Spiele/Filme – erscheinen am Tag (und vorher) auf Heute
+//   📍 Wo schauen?: Sender/Stream, eigene Orte „Zum Schauen“ (Sportbar, Kino) und KI-Suche nach Bars bzw. Kinozeiten
 import { useEffect, useState } from 'react';
 import { fmtShort, parseKey, today } from '../lib/dates';
-import { addShow, archiveShow, catEmoji, catName, isCinema, lastShowSearch, restoreShow, saveShowCats, saveShowSearch, searchShows, showCatsOf, toggleShow, updateShow } from '../lib/shows';
+import { addShow, archiveShow, catEmoji, catName, findWatchPlaces, isCinema, lastShowSearch, restoreShow, saveShowCats, saveShowSearch, searchShows, showCatsOf, toggleShow, updateShow, watchSub } from '../lib/shows';
+import { addPlace } from '../lib/actions';
+import { placeCity, routeUrl } from '../lib/outings';
 import { getAi } from '../lib/ai';
 import { takeFlag } from '../lib/flags';
 import SearchCard from '../components/SearchCard';
@@ -93,17 +96,90 @@ export function ShowSheet({ s, init, onClose }) {
   );
 }
 
-function Showtimes({ list }) {
+function Showtimes({ list, flat }) {
   if (!list?.length) return null;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingLeft: 56 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingLeft: flat ? 0 : 56 }}>
       {list.map((v, i) => <span key={i} className="tiny">🎟 <b style={{ fontWeight: 600 }}>{v.kino}</b>{v.zeiten ? ` · ${v.zeiten}` : ''}</span>)}
     </div>
   );
 }
 
-export default function Unterhaltung({ s, city, view = 'mine' }) {
+// „Wo schauen?“ – für Sport: Sender + Sportbars; für Filme: Kinos mit Uhrzeiten
+function WatchSheet({ s, item, city, onClose, onTake }) {
+  const [res, setRes] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [key, setKey] = useState(null);
+  if ((item?.id || null) !== key) { setKey(item?.id || null); setRes(null); setErr(null); }
+  if (!item) return <Sheet open={false} title="" onClose={onClose} />;
+  const sub = watchSub(item);
+  const kino = sub === 'Kino';
+  const mine = (s.places || []).filter((p) => placeCity(p) === city && ((p.category === 'Zum Schauen' && (!p.subcat || p.subcat === sub || (!kino && p.subcat === 'Public Viewing'))) || (p.subcat || '').toLowerCase() === sub.toLowerCase()));
+  const q = kino ? `${item.name} cartelera ${city}` : `bares para ver ${item.name} ${city}`;
+  const run = async () => {
+    setBusy(true); setErr(null);
+    try { setRes(await findWatchPlaces(s, item, city)); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
+  };
+  const pick = (name, times) => { onTake(name, times); toast(`Eingetragen: ${name}`); onClose(); };
+  const keep = (o) => { addPlace({ name: o.name, category: 'Zum Schauen', subcat: sub, address: o.address, hood: o.hood, note: o.info, url: o.url, city }); toast(`${o.name} unter Orte → Zum Schauen gemerkt`); };
+  const known = (name) => (s.places || []).some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+  return (
+    <Sheet open title="📍 Wo schauen?" onClose={onClose}>
+      <span style={{ fontWeight: 650 }}>{item.name}</span>
+      <span className="tiny">{[item.date && fmtShort(item.date), item.time && `${item.time} Uhr`, city].filter(Boolean).join(' · ')}</span>
+      {!kino && item.where && <div className="take-box" style={{ fontSize: 15 }}>📺 Im TV/Stream: <b>{item.where}</b></div>}
+      <Showtimes list={item.shows} flat />
+      <span className="label" style={{ padding: 0 }}>{kino ? '🎟 Deine Kinos' : '🍺 Deine Sportbars'}</span>
+      {mine.length === 0 && <span className="tiny">Noch keine gespeichert – unten suchen und „📌 Merken“ tippen (landen in Ausgehen → Orte → Zum Schauen).</span>}
+      {mine.length > 0 && (
+        <div className="list">
+          {mine.map((p) => (
+            <div key={p.id} className="row compact">
+              <span className="row-main"><span className="row-title plain">{p.name}</span><span className="row-meta">{[p.hood, p.note].filter(Boolean).join(' · ')}</span></span>
+              <a className="pill" href={kino ? `https://www.google.com/search?q=${encodeURIComponent(`${p.name} ${item.name} horarios`)}` : routeUrl(p.address || p.name, city)} target="_blank" rel="noreferrer">{kino ? 'Zeiten ↗' : 'Route'}</a>
+              <button type="button" className="pill" onClick={() => pick(p.name)}>✓ Hier</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="chips">
+        <a className="link-chip" href={`https://www.google.com/search?q=${encodeURIComponent(q)}`} target="_blank" rel="noreferrer">Google ↗</a>
+        <a className="link-chip" href={`https://www.google.com/maps/search/${encodeURIComponent(kino ? `cine ${city}` : `bar para ver fútbol ${city}`)}`} target="_blank" rel="noreferrer">Google Maps ↗</a>
+        {kino && <a className="link-chip" href="https://www.cinemarkhoyts.com.ar/" target="_blank" rel="noreferrer">Cinemark ↗</a>}
+        {kino && <a className="link-chip" href="https://www.todoshowcase.com/" target="_blank" rel="noreferrer">Showcase ↗</a>}
+        {kino && <a className="link-chip" href="https://www.cinepolis.com.ar/" target="_blank" rel="noreferrer">Cinépolis ↗</a>}
+      </div>
+      <button type="button" className="btn" disabled={busy || !getAi().apiKey} onClick={run}>{busy ? 'Suche …' : kino ? '✨ Kinos und Uhrzeiten suchen' : '✨ Bars suchen, die das zeigen'}</button>
+      {!getAi().apiKey && <a href="#/einstellungen" className="link-btn" style={{ fontSize: 13 }}>Für die KI: Schlüssel hinterlegen</a>}
+      {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{kino ? 'Ich suche Kinoprogramme …' : 'Ich suche Bars mit Leinwand …'} (ca. 20 Sek.)</span></div>}
+      {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
+      {res && !busy && (
+        <div className="list">
+          {res.note && <span className="tiny" style={{ padding: '6px 12px' }}>{res.note}</span>}
+          {res.list.length === 0 && <div className="empty">Nichts gefunden – probier die Links oben.</div>}
+          {res.list.map((o) => (
+            <div key={o.id} className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+              <span className="row-main"><span className="row-title plain">{o.name}</span><span className="row-meta">{[o.hood, o.info].filter(Boolean).join(' · ')}</span>{o.times && <span className="tiny">🕒 {o.times}</span>}</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button type="button" className="pill" onClick={() => pick(o.name, o.times)}>✓ Hier schaue ich</button>
+                {!known(o.name) && <button type="button" className="pill" onClick={() => keep(o)}>📌 Merken</button>}
+                <a className="pill" href={routeUrl(o.address || o.name, city)} target="_blank" rel="noreferrer">Route</a>
+                {o.url && <a className="pill" href={o.url} target="_blank" rel="noreferrer" aria-label={`${o.name} öffnen`}><Icon name="link" size={14} /></a>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+export default function Unterhaltung({ s, city }) {
   const t = today();
+  const [view, setViewS] = useState(() => { try { return localStorage.getItem('life-app-tv-view') || 'find'; } catch { return 'find'; } });
+  const setView = (v) => { setViewS(v); try { localStorage.setItem('life-app-tv-view', v); } catch {} };
+  const [watch, setWatch] = useState(null);
   const [form, setForm] = useState(null);
   const [cats, setCats] = useState(() => { try { return JSON.parse(localStorage.getItem('life-app-tv-cats') || '[]'); } catch { return []; } });
   const pickCats = (v) => { setCats(v); try { localStorage.setItem('life-app-tv-cats', JSON.stringify(v)); } catch {} };
@@ -129,9 +205,16 @@ export default function Unterhaltung({ s, city, view = 'mine' }) {
     saveShowSearch(next); setSearch(next);
   };
   const take = (r) => {
-    addShow({ name: r.name, cat: r.cat, date: r.date, time: r.time, where: r.where, url: r.url, note: [KIND_LABEL[r.kind], r.info].filter(Boolean).join(' · '), shows: r.shows });
+    const id = addShow({ name: r.name, cat: r.cat, date: r.date, time: r.time, where: r.where, url: r.url, note: [KIND_LABEL[r.kind], r.info].filter(Boolean).join(' · '), shows: r.shows });
     mark(r.id, 'gemerkt');
-    toast(r.date ? 'Gemerkt – steht am Tag (und vorher) auf Heute' : 'Gemerkt');
+    toast(r.date ? 'Unter „Will ich sehen“ – steht am Tag (und vorher) auf Heute' : 'Unter „Will ich sehen“ gemerkt');
+    return id;
+  };
+  // „Wo schauen?“ → Ort übernehmen: gemerkter Eintrag bekommt den Ort; ein Suchergebnis wird dabei gleich gemerkt
+  const takeWatch = (item, name, times) => {
+    const note = times ? `${name}: ${times}` : '';
+    if (item.status) { const id = take(item); if (id) updateShow(id, { where: name, note: [KIND_LABEL[item.kind], item.info, note].filter(Boolean).join(' · ') }); return; }
+    updateShow(item.id, { where: name, ...(note ? { note: [item.note, note].filter(Boolean).join('\n') } : {}) });
   };
 
   const mine = (s.shows || []).filter((x) => !activeCats.length || activeCats.includes(x.cat));
@@ -146,14 +229,16 @@ export default function Unterhaltung({ s, city, view = 'mine' }) {
         <button type="button" className="row-main" style={{ gap: 2, border: 0, background: 'none', textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0 }} onClick={() => setForm(x)} aria-label={`${x.name} bearbeiten`}>
           <span className={x.done ? 'row-title plain done' : 'row-title plain'}>{x.name}</span>
           <span className="row-meta">{[x.time && `${x.time} Uhr`, x.where, catName(x.cat)].filter(Boolean).join(' · ') || (x.date ? '' : 'Ohne Datum')}</span>
+          {x.note && <span className="tiny" style={{ whiteSpace: 'pre-wrap' }}>{x.note}</span>}
         </button>
         <button type="button" className="x-btn" aria-label={`${x.name} rausnehmen`} onClick={() => { archiveShow(x.id); toast('Rausgenommen – in der Kiste zurückholbar'); }}><Icon name="x" size={12} color="var(--chev)" /></button>
       </div>
       <Showtimes list={x.shows} />
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 56 }}>
-        <button type="button" className="pill" onClick={() => { toggleShow(x.id); if (!x.done) toast('Abgehakt'); }}>{x.done ? '↩ Doch nicht gesehen' : '✓ Gesehen'}</button>
+        <button type="button" className="pill" onClick={() => { toggleShow(x.id); if (!x.done) toast('Abgehakt'); }}>{x.done ? '↩ Nicht gesehen' : '✓ Gesehen'}</button>
         {x.url && <a className="pill" href={x.url} target="_blank" rel="noreferrer">Link ↗</a>}
-        <button type="button" className="pill" onClick={() => setForm(x)}>✎ Bearbeiten</button>
+        {!x.done && <button type="button" className="pill" onClick={() => setWatch(x)}>📍 Wo schauen?</button>}
+        <button type="button" className="pill" onClick={() => setForm(x)}>✎</button>
       </div>
     </div>
   );
@@ -161,6 +246,10 @@ export default function Unterhaltung({ s, city, view = 'mine' }) {
   return (
     <>
       <ShowSheet s={s} init={form} onClose={() => setForm(null)} />
+      <WatchSheet s={s} item={watch} city={city} onClose={() => setWatch(null)} onTake={(name, times) => takeWatch(watch, name, times)} />
+      <div className="sub-switch">
+        {[['find', '🔍 Was kommt'], ['mine', `⭐ Will ich sehen${(s.shows || []).filter((x) => !x.done && (!x.date || x.date >= t)).length ? ` · ${(s.shows || []).filter((x) => !x.done && (!x.date || x.date >= t)).length}` : ''}`]].map(([k, l]) => <button key={k} type="button" className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
+      </div>
       <CatChips s={s} value={activeCats} onChange={pickCats} />
       {view === 'find' && <>
         <SearchCard q={q} setQ={setQ} placeholder="z.B. Wann fährt die Formel 1? Was läuft im Kino?" mode="ki" busy={busy}
@@ -190,12 +279,13 @@ export default function Unterhaltung({ s, city, view = 'mine' }) {
                 </div>
                 <Showtimes list={r.shows} />
                 <div className="nudge-actions" style={{ paddingLeft: 56 }}>
-                  <button type="button" className="pill" onClick={() => take(r)}>⭐ Merken</button>
+                  <button type="button" className="pill" onClick={() => take(r)}>⭐ Interessiert mich</button>
+                  <button type="button" className="pill" onClick={() => setWatch(r)}>📍 Wo?</button>
                   {r.url && <a className="pill" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} öffnen`}><Icon name="link" size={14} /></a>}
                 </div>
               </article>
             ))}
-            {search.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alles durchgesehen – Gemerktes steht unter „Meine“.</span>}
+            {search.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alles durchgesehen – Gemerktes steht unter „Will ich sehen“.</span>}
           </section>
         )}
         {!getAi().apiKey && <Info>Ohne KI-Schlüssel funktionieren die Links trotzdem.</Info>}
@@ -206,7 +296,7 @@ export default function Unterhaltung({ s, city, view = 'mine' }) {
           <RemovedButton items={s.removedShows || []} storeKey="removedShows" onRestore={restoreShow} meta={(x) => [x.date && fmtShort(x.date), x.where].filter(Boolean).join(' · ')} />
         </div>
         {upcoming.length === 0 && activeCats.length > 0 && (s.shows || []).some((x) => !x.done && (!x.date || x.date >= t)) && <div className="empty">Nichts in {activeCats.map(catName).join(', ')}. <button type="button" className="link-btn" onClick={() => pickCats([])}>Alle zeigen</button></div>}
-        {upcoming.length === 0 && !(activeCats.length > 0 && (s.shows || []).some((x) => !x.done && (!x.date || x.date >= t))) && <div className="empty">Noch nichts geplant. Unter „Finden“ nach Formel 1, Fußball oder Kino suchen und „Merken“ tippen – oder selbst eintragen.</div>}
+        {upcoming.length === 0 && !(activeCats.length > 0 && (s.shows || []).some((x) => !x.done && (!x.date || x.date >= t))) && <div className="empty">Noch nichts gemerkt. Unter „Was kommt“ nach Formel 1, Fußball oder Kino suchen und „Interessiert mich“ tippen – oder selbst eintragen.</div>}
         {upcoming.length > 0 && <div className="list">{upcoming.map(Row)}</div>}
         {past.length > 0 && (
           <>

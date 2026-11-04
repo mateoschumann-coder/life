@@ -30,7 +30,7 @@ export function searchIndex(s, { all = false } = {}) {
     ...(all ? (s.removedEvents || []).map((e) => ({ title: e.name, extra: [e.place, e.note], sub: meta('rausgenommen', short(e.date)), old: true, to: { route: '/ausgehen', ls: { 'life-app-ausgehen-tab': 'events', 'life-app-events-view': 'mine' } } })) : []),
   ]);
 
-  const tvTo = (x) => ({ route: '/ausgehen', ls: { 'life-app-ausgehen-tab': 'tv', 'life-app-tv-view': 'mine', 'life-app-tv-cats': '[]' }, ...(x ? { ss: { 'life-open-show': x.id } } : {}) });
+  const tvTo = (x) => ({ route: '/news', ls: { 'life-app-news-type': 'unterhaltung', 'life-app-tv-view': 'mine', 'life-app-tv-cats': '[]' }, ...(x ? { ss: { 'life-open-show': x.id } } : {}) });
   add('shows', '📺 Unterhaltung', [
     ...(s.shows || []).filter((x) => keep(x, (y) => y.done)).map((x) => ({ title: x.name, extra: [x.where, x.cat, x.note], sub: meta(x.done && 'gesehen', short(x.date), x.time, x.where), old: !!x.done, to: tvTo(x) })),
     ...(all ? (s.removedShows || []).map((x) => ({ title: x.name, extra: [x.where], sub: meta('rausgenommen', short(x.date)), old: true, to: tvTo(null) })) : []),

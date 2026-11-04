@@ -129,7 +129,7 @@ export const TOOL = {
             thema: { type: 'string' },
             adresse: { type: 'string', description: 'Für ort_anlegen: Adresse' },
             viertel: { type: 'string', description: 'Für ort_anlegen: Stadtviertel, z.B. Palermo' },
-            ort_art: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges'], description: 'Für ort_anlegen' },
+            ort_art: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Zum Schauen', 'Sonstiges'], description: 'Für ort_anlegen' },
             ort_unterart: { type: 'string', description: 'Für ort_anlegen: genauer, z.B. Rooftop / Sky Bar, Pub, Cocktailbar, Parrilla, Specialty Coffee' },
             stadt: { type: 'string', description: 'Für ort_anlegen und event_anlegen: Stadt (Standard Buenos Aires), z.B. Frankfurt' },
             preis: { type: 'string', description: 'Für event_anlegen: Eintritt/Ticketpreis, z.B. 15.000 ARS' },

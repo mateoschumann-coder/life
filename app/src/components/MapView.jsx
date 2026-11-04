@@ -12,7 +12,7 @@ const world = (lat, lon, z) => {
 };
 export const CAT_COLOR = {
   Café: '#B7791F', Bar: '#C2410C', Restaurant: '#E8775A', Club: '#7C3AED', Kultur: '#3B6FE0',
-  Natur: '#2FA36B', Sport: '#0E9F9A', Laden: '#DB2777', Sonstiges: '#6B7280', Unterkunft: '#1E3A8A', Station: '#111827',
+  Natur: '#2FA36B', Sport: '#0E9F9A', Laden: '#DB2777', 'Zum Schauen': '#7B6CD9', Sonstiges: '#6B7280', Unterkunft: '#1E3A8A', Station: '#111827',
 };
 
 function fit(points, w, h, center, zoom) {

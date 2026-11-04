@@ -272,7 +272,7 @@ export function setEventStage(id, stage) {
 }
 
 // Orte (Bars, Cafés, Restaurants …) mit Karte
-export const PLACE_CATS = ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges', 'Noch unklar'];
+export const PLACE_CATS = ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Zum Schauen', 'Sonstiges', 'Noch unklar'];
 // Unterarten pro Art (Vorschläge; eigene sind jederzeit möglich)
 // v0.86: eigene Arten (z.B. „Rooftop“, „Coworking“) – Standard-Arten + eigene, „Sonstiges“ immer zuletzt
 export const placeCatsOf = (s) => [...new Set([...PLACE_CATS.filter((c) => c !== 'Sonstiges' && c !== 'Noch unklar'), ...(s?.profile?.placeCats || []), 'Sonstiges', 'Noch unklar'])]; // v0.95: „Noch unklar“, wenn die Art nicht klar ist
@@ -292,6 +292,7 @@ export const PLACE_SUBCATS = {
   Natur: ['Park', 'Laufstrecke', 'Aussicht', 'Am Wasser'],
   Sport: ['Gym', 'Lauftreff', 'Kletterhalle', 'Padel / Tennis'],
   Laden: ['Kleidung', 'Buchladen', 'Markt', 'Feinkost'],
+  'Zum Schauen': ['Sportbar', 'Kino', 'Public Viewing'], // v1.58 (Mateo): wo man Spiele/Filme schaut
   Sonstiges: [],
 };
 export function addPlace({ name, category = 'Sonstiges', subcat = '', note = '', rating = 0, status = 'will', lat = null, lon = null, address = '', url = '', city = '', hood = '', tags = [], price = 0, fav = false, hours = '' }) {

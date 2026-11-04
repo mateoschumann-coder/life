@@ -274,7 +274,7 @@ const PLACE_TOOL = {
           type: 'object',
           properties: {
             name: { type: 'string' },
-            kategorie: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Sonstiges', 'Noch unklar'], description: '„Noch unklar“, wenn aus dem Text nicht klar ist, was für ein Ort es ist' },
+            kategorie: { type: 'string', enum: ['Café', 'Bar', 'Restaurant', 'Club', 'Kultur', 'Natur', 'Sport', 'Laden', 'Zum Schauen', 'Sonstiges', 'Noch unklar'], description: '„Zum Schauen“ = Sportbar, Kino, Public Viewing; „Noch unklar“, wenn aus dem Text nicht klar ist, was für ein Ort es ist' },
             unterart: { type: 'string', description: 'Genauer, z.B. „Rooftop / Sky Bar“, „Pub“, „Cocktailbar“, „Parrilla“, „Specialty Coffee“' },
             adresse: { type: 'string', description: 'Straße und Hausnummer, Viertel' },
             viertel: { type: 'string', description: 'Stadtviertel, z.B. „Palermo“, „San Telmo“' },

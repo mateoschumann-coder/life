@@ -122,3 +122,41 @@ Dann rufe "unterhaltung_zeigen" auf: 5 bis 12 Einträge, sortiert nach Datum. Nu
   saveShowSearch(v);
   return v;
 }
+
+// v1.58 (Mateo): „Wo schauen?“ – Sportbars, die das Spiel zeigen, bzw. Kinos mit Uhrzeiten für einen Film (Websuche)
+export const watchSub = (x) => (isCinema(x?.cat) || /kino/i.test(x?.where || '') ? 'Kino' : 'Sportbar');
+const WATCH_TOOL = {
+  name: 'orte_zum_schauen',
+  description: 'Orte, an denen Mateo das Spiel/den Film schauen kann.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      hinweis: { type: 'string', description: 'Optional 1 Satz (z.B. „Zeiten ab Donnerstag online“)' },
+      orte: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Name des Kinos/der Bar, z.B. „Cinemark Palermo“' },
+            viertel: { type: 'string' },
+            adresse: { type: 'string', description: 'Straße + Nummer, falls bekannt' },
+            zeiten: { type: 'string', description: 'Bei Kinos: Vorstellungen, z.B. „Do 17:30, 20:15 · Sa 22:00“ (Sprache/Format: OV/Synchro, 3D, falls bekannt)' },
+            info: { type: 'string', description: 'max. 8 Wörter, z.B. „große Leinwände, River-Fans“, „IMAX“' },
+            url: { type: 'string', description: 'Link aus den Suchergebnissen, nie erfinden' },
+          },
+          required: ['name'],
+        },
+      },
+    },
+    required: ['orte'],
+  },
+};
+export async function findWatchPlaces(s, x, city) {
+  const kino = watchSub(x) === 'Kino';
+  const mine = (s.places || []).filter((p) => p.category === 'Zum Schauen' || /kino|sportbar/i.test(p.subcat || '')).map((p) => p.name);
+  const system = kino
+    ? `Mateo will den Film „${x.name}“ im Kino in ${city} sehen${x.date ? ` (ab/um ${x.date})` : ''}. Heute ist ${fmtLong(today())} (${today()}). Suche (höchstens 3 Suchen, auf Spanisch, z.B. „${x.name} cartelera ${city}“, Seiten von Cinemark Hoyts, Showcase, Cinépolis, Atlas, Multiplex, Gaumont) Kinos, die ihn zeigen, mit konkreten Uhrzeiten für die nächsten Tage. Seine Lieblingskinos zuerst, falls sie ihn zeigen: ${JSON.stringify(mine)}. 3–6 Kinos. Nur echte Angaben, keine erfundenen Zeiten. Antworte mit "orte_zum_schauen".`
+    : `Mateo will „${x.name}“${x.date ? ` am ${x.date}${x.time ? ` um ${x.time}` : ''}` : ''} in ${city} in einer Bar oder bei einem Public Viewing schauen. Heute ist ${fmtLong(today())} (${today()}). Suche (höchstens 3 Suchen, auf Spanisch, z.B. „bares para ver ${x.name} ${city}“, „dónde ver fútbol bar ${city}“) Sportbars/Pubs, die so etwas zeigen (große Leinwände, Ton an), oder Public Viewings. Seine Lieblingsorte: ${JSON.stringify(mine)}. 3–6 Orte mit Viertel. Nur echte Orte. Antworte mit "orte_zum_schauen".`;
+  const input = await searchWithTool({ system, user: `${x.name} · ${city}`, tool: WATCH_TOOL, maxUses: 3, label: kino ? 'Kinozeiten suchen' : 'Sportbars suchen', city });
+  return { kino, note: input.hinweis || '', list: (input.orte || []).filter((o) => o && o.name).map((o, i) => ({ id: 'w' + i, name: String(o.name), hood: o.viertel || '', address: o.adresse || '', times: o.zeiten || '', info: o.info || '', url: okUrl(o.url) })) };
+}

@@ -195,7 +195,7 @@ export default function Heute() {
       .forEach((h) => list.push({ key: 'v' + h.id, done: false, onCheck: () => doneHealthItem(h.id), onDelete: del(h.title, () => archiveHealth(h.id)), open: jump('#/vorsorge', () => setSS('life-vorsorge-view', h.type === 'routine' ? 'routine' : 'termine')), title: h.title, time: h.time || null, meta: h.type === 'routine' ? 'Vorsorge · regelmäßig' : 'Vorsorge', color: '#2FA36B' }));
     (s.shows || [])
       .filter((x) => x.date === key && (!x.done || key !== t || x.doneAt === t))
-      .forEach((x) => list.push({ key: 'u' + x.id, done: !!x.done, onCheck: () => toggleShow(x.id), onDelete: del(x.name, () => archiveShow(x.id)), open: jump('#/ausgehen', () => { setLS('life-app-ausgehen-tab', 'tv'); setLS('life-app-tv-view', 'mine'); }), title: x.name, time: x.time || null, url: x.url, meta: ['Unterhaltung', x.cat, x.where].filter(Boolean).join(' · '), color: '#7B6CD9' }));
+      .forEach((x) => list.push({ key: 'u' + x.id, done: !!x.done, onCheck: () => toggleShow(x.id), onDelete: del(x.name, () => archiveShow(x.id)), open: jump('#/news', () => { setLS('life-app-news-type', 'unterhaltung'); setLS('life-app-tv-view', 'mine'); setLS('life-app-tv-cats', '[]'); }), title: x.name, time: x.time || null, url: x.url, meta: ['Unterhaltung', x.cat, x.where].filter(Boolean).join(' · '), color: '#7B6CD9' }));
     s.people
       .filter((p) => p.birthday && p.birthday.slice(5) === key.slice(5))
       .forEach((p) => list.push({ key: 'b' + p.id, done: (p.contacts || []).includes(key), onCheck: () => logContact(p.id, key), open: jump(`#/person/${p.id}`), title: `Geburtstag: ${p.name}`, meta: 'Gratulieren', color: '#E8775A', wa: waLink(p) }));
@@ -228,7 +228,7 @@ export default function Heute() {
       else if (kind === 'event') extra.push({ ...base, title: x.name, open: toEvents, meta: `Event · ${when}${x.place ? ` · ${x.place}` : ''}${tail}` });
       else if (kind === 'health') extra.push({ ...base, color: '#2FA36B', title: x.title, open: jump('#/vorsorge', () => setSS('life-vorsorge-view', x.type === 'routine' ? 'routine' : 'termine')), meta: `Vorsorge · ${when}` });
       else if (kind === 'sport') extra.push({ ...base, color: '#2FA36B', title: x.name, open: jump('#/sport', () => setLS('life-app-sport-tab', 'meine')), meta: `Sport-Event · ${when}` });
-      else if (kind === 'show') extra.push({ ...base, color: '#7B6CD9', title: x.name, open: jump('#/ausgehen', () => { setLS('life-app-ausgehen-tab', 'tv'); setLS('life-app-tv-view', 'mine'); }), meta: `Unterhaltung · ${when}${x.where ? ` · ${x.where}` : ''}` });
+      else if (kind === 'show') extra.push({ ...base, color: '#7B6CD9', title: x.name, open: jump('#/news', () => { setLS('life-app-news-type', 'unterhaltung'); setLS('life-app-tv-view', 'mine'); setLS('life-app-tv-cats', '[]'); }), meta: `Unterhaltung · ${when}${x.where ? ` · ${x.where}` : ''}` });
     });
     s.habits
       .filter((h) => h.count > 0)
