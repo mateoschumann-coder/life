@@ -2,6 +2,7 @@
 // Jeder Treffer beschreibt sein Ziel als Daten (`to`): Route + Merk-Schlüssel, die vor dem Sprung gesetzt werden.
 //   to = { route, ls: {key: value} (localStorage), ss: {…} (sessionStorage), city }
 // Mit `all: true` werden auch Erledigtes, Archiviertes und Rausgenommenes durchsucht (Kennzeichen `old`).
+import { showType } from './showtype';
 
 const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const short = (d) => (d && /^\d{4}-\d{2}-\d{2}/.test(d) ? `${Number(d.slice(8, 10))}.${Number(d.slice(5, 7))}.` : '');
@@ -30,7 +31,7 @@ export function searchIndex(s, { all = false } = {}) {
     ...(all ? (s.removedEvents || []).map((e) => ({ title: e.name, extra: [e.place, e.note], sub: meta('rausgenommen', short(e.date)), old: true, to: { route: '/ausgehen', ls: { 'life-app-ausgehen-tab': 'events', 'life-app-events-view': 'mine' } } })) : []),
   ]);
 
-  const tvTo = (x) => ({ route: '/news', ls: { 'life-app-news-type': 'unterhaltung', 'life-app-tv-view': 'mine', 'life-app-tv-cats': '[]' }, ...(x ? { ss: { 'life-open-show': x.id } } : {}) });
+  const tvTo = (x) => ({ route: '/hobbys', ls: { 'life-app-hobbys-tab': 'tv', 'life-app-tv-view': 'mine', ...(x ? { 'life-app-tv-type': showType(x) } : {}) }, ...(x ? { ss: { 'life-open-show': x.id } } : {}) });
   add('shows', '📺 Unterhaltung', [
     ...(s.shows || []).filter((x) => keep(x, (y) => y.done)).map((x) => ({ title: x.name, extra: [x.where, x.cat, x.note], sub: meta(x.done && 'gesehen', short(x.date), x.time, x.where), old: !!x.done, to: tvTo(x) })),
     ...(all ? (s.removedShows || []).map((x) => ({ title: x.name, extra: [x.where], sub: meta('rausgenommen', short(x.date)), old: true, to: tvTo(null) })) : []),

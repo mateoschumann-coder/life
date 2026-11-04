@@ -4,9 +4,20 @@ import { store, uid } from './store';
 import { addDays, fmtLong, today } from './dates';
 import { searchWithTool } from './outings';
 
-export const DEFAULT_SHOW_CATS = ['⚽ Fußball', '🏎 Formel 1', '🎾 Tennis', '🎬 Kino', '📺 Serien', '🎥 Doku'];
-export const showCatsOf = (s) => (Array.isArray(s.profile?.showCats) ? s.profile.showCats : DEFAULT_SHOW_CATS);
-export const saveShowCats = (list) => store.update((d) => { d.profile = { ...d.profile, showCats: list }; });
+// v1.59 (Mateo): drei Arten – Filme · Fernsehen · Sport; jede mit eigenen Kategorien (⚡ Schnellzugriff, bearbeitbar) und eigenen Links
+export const SHOW_TYPES = [{ id: 'film', label: '🎬 Filme' }, { id: 'tv', label: '📺 Fernsehen' }, { id: 'sport', label: '⚽ Sport' }];
+export const DEFAULT_TYPE_CATS = {
+  film: ['🍿 Läuft im Kino', '🔜 Bald im Kino', '🏠 Neu im Streaming', '🏆 Oscar-Kandidaten'],
+  tv: ['📺 Neue Serien', '🔁 Neue Staffeln', '🎥 Dokus', '🎤 Shows'],
+  sport: ['⚽ Fußball', '🏎 Formel 1', '🎾 Tennis', '🏀 Basketball', '🏉 Rugby'],
+};
+export const typeCatsOf = (s, type) => (Array.isArray(s.profile?.showTypeCats?.[type]) ? s.profile.showTypeCats[type] : DEFAULT_TYPE_CATS[type] || []);
+export const saveTypeCats = (type, list) => store.update((d) => { d.profile = { ...d.profile, showTypeCats: { ...(d.profile?.showTypeCats || {}), [type]: list } }; });
+// Art eines Eintrags (ältere Einträge ohne type: aus der Kategorie ableiten)
+export { showType } from './showtype';
+import { showType } from './showtype';
+// alt (v1.57/1.58), nur noch für Kategorien ohne Art
+export const showCatsOf = (s) => [...new Set(SHOW_TYPES.flatMap((ty) => typeCatsOf(s, ty.id)))];
 // Kategorie ohne Emoji, z.B. „⚽ Fußball“ → „Fußball“
 export const catName = (c) => String(c || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
 export const catEmoji = (c) => (String(c || '').match(/^[^\p{L}\p{N}\s]+/u) || [''])[0];
@@ -18,6 +29,7 @@ const clean = (x) => ({
   time: /^\d{1,2}:\d{2}$/.test(x.time || '') ? x.time.padStart(5, '0') : '',
   where: String(x.where || '').trim(),
   cat: String(x.cat || '').trim(),
+  ...(['film', 'tv', 'sport'].includes(x.type) ? { type: x.type } : {}),
   url: /^https?:\/\//.test(x.url || '') ? x.url : '',
   note: String(x.note || '').trim(),
   ...(x.remind !== undefined && x.remind !== '' && x.remind != null ? { remind: Number(x.remind) } : {}),
@@ -54,8 +66,8 @@ export const restoreShow = (id) => move('removedShows', 'shows', id, { removedAt
 
 // Letzte KI-Suche merken (wie bei Events), damit sie beim Zurückkommen noch da ist
 const KEY = 'life-app-showsearch';
-export const lastShowSearch = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { return null; } };
-export const saveShowSearch = (v) => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} };
+export const lastShowSearch = (type) => { try { const v = JSON.parse(localStorage.getItem(`${KEY}-${type}`) || 'null'); return v; } catch { return null; } };
+export const saveShowSearch = (v) => { try { localStorage.setItem(`${KEY}-${v.type || 'sport'}`, JSON.stringify(v)); } catch {} };
 
 const SHOW_TOOL = {
   name: 'unterhaltung_zeigen',
@@ -90,22 +102,27 @@ const SHOW_TOOL = {
 const okDate = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '');
 const okUrl = (u) => (/^https?:\/\//.test(u || '') ? u : '');
 
-export async function searchShows(s, query, city, cats = []) {
+const TYPE_TEXT = (city) => ({
+  film: `Es geht um FILME: was gerade im Kino in ${city} läuft (status im_kino), was bald ins Kino kommt (status demnaechst, Kinostart als datum) und neue Filme bei Streaming-Diensten in Argentinien (Netflix, Disney+, Max, Prime Video; wo = Dienst). Bei Kinofilmen, wenn gefunden, 2–4 Kinos mit Zeiten. Suche z.B. „cartelera cine ${city}“, „estrenos cine Argentina“, Cinemark Hoyts, Showcase, Cinépolis.`,
+  tv: `Es geht um FERNSEHEN/STREAMING: neue Serien, neue Staffeln, Dokus und Shows, die in den nächsten Wochen starten oder gerade neu sind (datum = Starttermin, wo = Dienst/Sender in Argentinien). Suche z.B. „estrenos series noviembre Netflix Argentina“, JustWatch, Fachseiten.`,
+  sport: `Es geht um SPORT-ÜBERTRAGUNGEN im TV/Stream: Spiele, Rennen, Turniere (datum, uhrzeit in Ortszeit von ${city}, wo = Sender/Stream in Argentinien). Suche offizielle Kalender/Spielpläne (formula1.com, Liga-Fixture, Promiedos, ESPN, ATP) und „dónde ver“/TV-Programm. Bei Formel 1: Rennen (und wenn gefragt Qualifying) als eigene Einträge.`,
+});
+export async function searchShows(s, query, city, type = 'sport') {
   const t = today();
-  const all = showCatsOf(s);
+  const all = typeCatsOf(s, type);
   const system = `Du bist Mateos Unterhaltungs-Scout. Er wohnt in ${city}. Heute ist ${fmtLong(t)} (${t}). Zeitraum: die nächsten 14 Tage (bis ${addDays(t, 14)}), außer die Anfrage sagt etwas anderes.
-Es geht um Dinge zum Anschauen: Sport-Übertragungen im TV/Stream (Fußball, Formel 1, Tennis …), Kinofilme (was läuft, was kommt, Vorstellungen in Kinos in ${city}), Serien/Dokus (neue Staffeln, Starttermine).
-Seine Kategorien: ${all.map(catName).join(', ')}.${cats.length ? ` Diesmal nur: ${cats.map(catName).join(', ')}.` : ''}
+${TYPE_TEXT(city)[type] || TYPE_TEXT(city).sport}
+Seine Kategorien hier: ${all.map(catName).join(', ')}.
 Was er schon auf der Liste hat (nicht wiederholen): ${JSON.stringify((s.shows || []).map((x) => x.name))}
 Was du über ihn weißt: ${JSON.stringify((s.memory || []).map((m) => m.text))}
-So suchst du (höchstens 3 Suchen, gezielt): offizielle Kalender/Spielpläne (z.B. formula1.com, Liga-Fixture, Promiedos, ESPN), „dónde ver“/TV-Programm für Sender in Argentinien, Kino-Programm (cartelera) der großen Kinos in ${city} mit Uhrzeiten.
-Uhrzeiten IMMER in die Ortszeit von ${city} umrechnen. Bei Formel 1: Rennen (und wenn gefragt Qualifying) als eigene Einträge. Bei Kinofilmen: status im_kino oder demnaechst, Kinostart als datum, bei Vorstellungen 2–4 Kinos mit Zeiten.
+Höchstens 3 Suchen, gezielt. Uhrzeiten IMMER in die Ortszeit von ${city} umrechnen.
 Dann rufe "unterhaltung_zeigen" auf: 5 bis 12 Einträge, sortiert nach Datum. Nur echte Angaben aus den Suchergebnissen, keine erfundenen Zeiten oder Links. Texte auf Deutsch, kurz.`;
   const input = await searchWithTool({ system, user: `Anfrage: ${query}`, tool: SHOW_TOOL, maxUses: 3, label: 'Unterhaltung suchen', city });
   const results = (input.eintraege || []).filter((e) => e && e.name).map((e, i) => {
     const cat = all.find((c) => catName(c).toLowerCase() === String(e.kategorie || '').toLowerCase()) || (e.kategorie ? String(e.kategorie) : '');
     return {
       id: 'u' + i + Date.now().toString(36),
+      type,
       name: String(e.name),
       cat,
       date: okDate(e.datum),
@@ -118,13 +135,13 @@ Dann rufe "unterhaltung_zeigen" auf: 5 bis 12 Einträge, sortiert nach Datum. Nu
       status: 'neu',
     };
   }).sort((a, b) => (a.date || '0') < (b.date || '0') ? -1 : 1);
-  const v = { query, city, at: new Date().toISOString(), note: input.hinweis || '', results };
+  const v = { query, city, type, at: new Date().toISOString(), note: input.hinweis || '', results };
   saveShowSearch(v);
   return v;
 }
 
 // v1.58 (Mateo): „Wo schauen?“ – Sportbars, die das Spiel zeigen, bzw. Kinos mit Uhrzeiten für einen Film (Websuche)
-export const watchSub = (x) => (isCinema(x?.cat) || /kino/i.test(x?.where || '') ? 'Kino' : 'Sportbar');
+export const watchSub = (x) => (showType(x) === 'film' || isCinema(x?.cat) || /kino/i.test(x?.where || '') ? 'Kino' : 'Sportbar');
 const WATCH_TOOL = {
   name: 'orte_zum_schauen',
   description: 'Orte, an denen Mateo das Spiel/den Film schauen kann.',

@@ -1,5 +1,7 @@
 import { askDel } from '../lib/undo';
 import { useState } from 'react';
+import Unterhaltung from './Unterhaltung';
+import { cityOf } from '../lib/outings';
 import { SkillPage } from './Skills';
 import { useStore } from '../lib/store';
 import { addHobby, addHobbyItem, HOBBY_KINDS, hobbyChat, searchLink, removeHobby, removeHobbyItem, updateHobby, updateHobbyItem } from '../lib/leisure';
@@ -16,6 +18,9 @@ function HobbyList({ s }) {
   const [text, setText] = useState('');
   const [edit, setEdit] = useState(false);
   const missing = PRESETS.filter((p) => !s.hobbies.some((h) => h.name === p));
+  // v1.59 (Mateo): Unterhaltung (Filme, Fernsehen, Sport) als zweiter Reiter bei Hobbys
+  const [tab, setTabS] = useState(() => { try { return localStorage.getItem('life-app-hobbys-tab') === 'tv' ? 'tv' : 'hobbys'; } catch { return 'hobbys'; } });
+  const setTab = (v) => { setTabS(v); try { localStorage.setItem('life-app-hobbys-tab', v); } catch {} };
   return (
     <>
       <main className="screen">
@@ -23,9 +28,11 @@ function HobbyList({ s }) {
           <Back href="#/bereiche" label="Bereiche" />
           <div className="sec-h" style={{ padding: 0 }}>
             <h1 className="h1">Hobbys</h1>
-            {s.hobbies.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
+            {tab === 'hobbys' && s.hobbies.length > 0 && <button type="button" className={edit ? 'pill on' : 'link-btn'} onClick={() => setEdit(!edit)}>{edit ? 'Fertig' : 'Bearbeiten'}</button>}
           </div>
         </div>
+        <Segmented full options={[{ id: 'hobbys', label: 'Hobbys' }, { id: 'tv', label: 'Unterhaltung' }]} value={tab} onChange={setTab} label="Ansicht" />
+        {tab === 'tv' ? <Unterhaltung s={s} city={cityOf(s)} /> : <>
         {s.hobbies.length === 0 && <div className="notice">Füg deine Hobbys hinzu. Zu jedem gibt es To-dos und Material (z.B. bei Gitarre: Songs, Videos, Übungen) – wie bei der Weiterentwicklung.</div>}
         <div className="list">
           {s.hobbies.map((h) => {
@@ -51,6 +58,7 @@ function HobbyList({ s }) {
             <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
           </form>
         </section>
+        </>}
       </main>
       <TabBar active="bereiche" />
     </>

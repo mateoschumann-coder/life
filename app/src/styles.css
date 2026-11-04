@@ -344,7 +344,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.4; }
 .chip.editing { display: inline-flex; align-items: center; gap: 6px; box-shadow: inset 0 0 0 1px var(--line); }
 
 /* Coach-Boxen */
-.box-tabs { display: flex; gap: 6px; overflow-x: auto; margin: 0 -4px; padding: 2px 4px 4px; scrollbar-width: none; }
+.box-tabs { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; margin: 0 -4px; padding: 2px 4px 4px; scrollbar-width: none; }
 .box-tabs::-webkit-scrollbar { display: none; }
 .box-tab { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; min-height: 34px; padding: 0 12px; background: var(--fill); color: var(--text); font-size: 14px; font-weight: 600; }
 .box-tab.on { background: var(--primary); color: var(--on-primary); }
@@ -725,7 +725,7 @@ button.ov-mini { border: 0; font-family: inherit; cursor: pointer; }
 .act-tile:active { transform: scale(0.97); }
 .act-tile > span:last-child { min-width: 0; max-width: 100%; overflow-wrap: anywhere; hyphens: manual; }
 /* v1.20 */
-.chips.chips-scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px; -webkit-overflow-scrolling: touch; }
+.chips.chips-scroll { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 -12px; padding: 0 12px; -webkit-overflow-scrolling: touch; }
 .chips.chips-scroll::-webkit-scrollbar { display: none; }
 .chips.chips-scroll > * { flex-shrink: 0; }
 .date-badge .db-mon { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }

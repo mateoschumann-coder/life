@@ -37,7 +37,7 @@ test('Eigene Vorlaufzeit pro Eintrag und globaler Standard', () => {
 });
 
 test('Unterhaltungs-Links hängen die Stadt nur bei Kinos an', () => {
-  const src = Object.fromEntries(SOURCE_AREAS.unterhaltung.defaults.map((x) => [x.id, x]));
+  const src = Object.fromEntries(SOURCE_AREAS.tv_film.defaults.map((x) => [x.id, x]));
   assert.ok(!decodeURIComponent(sourceUrl(src.justwatch, 'Dune', 'Buenos Aires')).includes('Buenos'));
   assert.ok(decodeURIComponent(sourceUrl(src.cartelera, 'Dune', 'Buenos Aires')).includes('Buenos Aires'));
 });

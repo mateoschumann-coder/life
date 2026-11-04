@@ -68,7 +68,7 @@ Grundsätze: Haiku ohne Internet als Standard (Bruchteile eines Cents); Websuche
 ## Erinnerungen und Unterhaltung (v1.57)
 
 - `upcomingReminders(s, t)` in `lib/logic.js` sammelt alles, was innerhalb der Vorlaufzeit liegt (`remind` am Eintrag, sonst `s.profile.remindDefault`, Standard 1 Tag); `screens/Heute.jsx` zeigt es unter den heutigen Einträgen.
-- Unterhaltung: Daten `s.shows`, Logik und KI-Suche in `lib/shows.js`, Bildschirm `screens/Unterhaltung.jsx` (Reiter in Informiert bleiben, „Wo schauen?“ nutzt Orte der Art „Zum Schauen“), Links in `SOURCE_AREAS.unterhaltung` (`noCity` = Stadt nicht anhängen).
+- Unterhaltung: Daten `s.shows`, Logik und KI-Suche in `lib/shows.js`, Bildschirm `screens/Unterhaltung.jsx` (Reiter bei Hobbys; Arten Filme/Fernsehen/Sport, „Wo schauen?“ nutzt Orte der Art „Zum Schauen“), Links in `SOURCE_AREAS.tv_film`/`tv_tv`/`tv_sport` (`noCity` = Stadt nicht anhängen).
 
 ## Tests
 

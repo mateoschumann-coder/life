@@ -1,7 +1,5 @@
 // Informiert bleiben (v0.31, v0.90): Zeitungen nach Region mit Rubriken (Politik, Wirtschaft, Tech & KI …)
 // + Quellen nach Art (Newsletter, Blog, Podcast …) und Thema (Wirtschaft, Geopolitik, KI, Startups) – Auswahl + eigene
-import Unterhaltung from './Unterhaltung';
-import { cityOf } from '../lib/outings';
 import { askDel } from '../lib/undo';
 import { useState } from 'react';
 import { useStore } from '../lib/store';
@@ -240,7 +238,7 @@ export default function News() {
           {types.map((t) => <button key={t.id} type="button" className={cur === t.id ? 'chip on' : 'chip soft'} style={{ whiteSpace: 'nowrap' }} onClick={() => setType(t.id)}>{t.emoji} {t.label}</button>)}
           <button type="button" className="chip soft" onClick={() => setEditTypes(true)} aria-label="Arten bearbeiten">✎</button>
         </div>
-        {cur === 'zeitungen' ? <Outlets s={s} /> : cur === 'unterhaltung' ? <Unterhaltung s={s} city={cityOf(s)} /> : cur ? <Sources key={cur} s={s} type={cur} /> : <div className="notice">Keine Arten – oben ✎.</div>}
+        {cur === 'zeitungen' ? <Outlets s={s} /> : cur ? <Sources key={cur} s={s} type={cur} /> : <div className="notice">Keine Arten – oben ✎.</div>}
       </main>
       <EditList open={editTypes} title="Was willst du sehen?" items={types.map((t) => ({ id: t.id, label: `${t.emoji} ${t.label}` }))} onRemove={removeNewsType} onAdd={addNewsType} addPh="Eigene Art, z.B. Reports, Konferenzen" onReset={resetNewsTypes} onClose={() => setEditTypes(false)} />
       <TabBar active="bereiche" />

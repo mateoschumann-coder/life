@@ -53,9 +53,9 @@ Kern: **ein Coach/Koordinator**, der aktiv auf Mateo zukommt („Da kannst du vo
 Persönliche App, um Privates, Soziales und Professionelles zu organisieren, effizienter zu sein und nichts Wichtiges zu vernachlässigen (Geburtstage, Kontakte, Lernen, Chancensuche). Läuft unabhängig von Claude als Web-App (PWA) auf dem iPhone. Stil: ruhig, minimalistisch, an iOS angelehnt; hell/dunkel umschaltbar.
 
 ## Grundordnung (aktueller Stand)
-- **Persönlich:** Gesundheit (Sport-Events + Zeitrechner, Küche mit Rezepten/Einkauf/Orten, Vorsorge-Termine) · Lernen & Wissen (Bibliothek nach Art) · Zuhause (Allgemein: To-dos/Erinnern · Einrichtung · Kleidung) · Finanzen (Märkte, Wechselkurse, Alltags- und Rentenrechner) · Hobbys · Reisen (Reisen + Ideen in Gruppen)
+- **Persönlich:** Gesundheit (Sport-Events + Zeitrechner, Küche mit Rezepten/Einkauf/Orten, Vorsorge-Termine) · Lernen & Wissen (Bibliothek nach Art) · Zuhause (Allgemein: To-dos/Erinnern · Einrichtung · Kleidung) · Finanzen (Märkte, Wechselkurse, Alltags- und Rentenrechner) · Hobbys (Hobbys | Unterhaltung: Filme/Fernsehen/Sport · Will ich sehen | Finden · Wo schauen?) · Reisen (Reisen + Ideen in Gruppen)
 - **Sozial:** Treffen (eigene: Geplant/Ideen, Arten Zu Hause/Woanders/Besuch · Von anderen = Einladungen) · Ausgehen (Events + Orte pro Stadt, Orte-Art „Zum Schauen“ = Sportbar/Kino) · Personen (Liste, Im Kontakt bleiben). Die alten Bereiche Familie/Freunde/Neue Kontakte sind nur noch Personen-Kategorien.
-- **Professionell:** Karriere (Jobsuche mit Trichter, Eigene Projekte) · Weiterentwicklung (Skills mit To-dos und Material) · Informiert bleiben (Zeitungen nach Land/Rubrik · Unterhaltung: Was kommt / Will ich sehen / Wo schauen? · weitere Quellen)
+- **Professionell:** Karriere (Jobsuche mit Trichter, Eigene Projekte) · Weiterentwicklung (Skills mit To-dos und Material) · Informiert bleiben (Zeitungen nach Land/Rubrik, weitere Quellen)
 - Unten: Tab-Leiste Heute · Bereiche · ⚡ (Was möchtest du tun?, halten = sprechen) · Ausgehen · Personen. Oben auf jeder Seite: ＋ Aufgabe, 🔍 Suche, ⚙︎ Einstellungen.
 - Wording (Mateo): **Event** = extern, meist mit Ticket → Ausgehen; **Einladung** = Bekannte laden privat ein; **Treffen** = Mateo organisiert selbst. **Besuch** = jemand kommt zu Mateo (Art eines Treffens, mit Zeitraum). **Unterhaltung** = zum Anschauen (TV, Stream, Kino).
 

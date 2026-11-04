@@ -208,7 +208,7 @@ export const removeSource = (id) => store.update((s) => { s.newsSources = (s.new
 // ---------- v1.03 (Mateo): alles bearbeitbar – Arten (Zeitungen ist eine davon), Rubriken, Länder, Themen ----------
 const prof = (fn) => store.update((s) => { s.profile = { ...(s.profile || {}) }; fn(s.profile); });
 // Arten
-export const NEWS_TYPES = [{ id: 'zeitungen', label: 'Zeitungen', emoji: '🗞' }, { id: 'unterhaltung', label: 'Unterhaltung', emoji: '🎬' }, ...SOURCE_TYPES]; // v1.58 (Mateo): Unterhaltung nach den Zeitungen
+export const NEWS_TYPES = [{ id: 'zeitungen', label: 'Zeitungen', emoji: '🗞' }, ...SOURCE_TYPES]; // (v1.58 kurz mit Unterhaltung, seit v1.59 unter Hobbys)
 export function newsTypesOf(s) {
   const c = s.profile?.newsTypes || {};
   return [...NEWS_TYPES.filter((t) => !(c.hidden || []).includes(t.id)), ...(c.added || [])];

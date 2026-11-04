@@ -1,20 +1,23 @@
-// v1.57/1.58 (Mateo): Informiert bleiben → 🎬 Unterhaltung. Was läuft im Fernsehen/Stream und im Kino?
-//   🔍 Was kommt: Kategorien antippen → Links sofort (gratis) + „Mit KI suchen“ → „Interessiert mich“
-//   ⭐ Will ich sehen: gemerkte Rennen/Spiele/Filme – erscheinen am Tag (und vorher) auf Heute
+// Hobbys → Unterhaltung (v1.57 Ausgehen, v1.58 Informiert bleiben, seit v1.59 bei Hobbys; Mateo)
+//   oben: 🎬 Filme · 📺 Fernsehen · ⚽ Sport
+//   darunter: ⭐ Will ich sehen (links) | 🔍 Finden (rechts)
+//   Finden: Suchfeld mit ⚡ Schnellzugriff (Kategorien der Art, bearbeitbar), Links passend zur Art (sofort, gratis), „✨ Mit KI suchen“
 //   📍 Wo schauen?: Sender/Stream, eigene Orte „Zum Schauen“ (Sportbar, Kino) und KI-Suche nach Bars bzw. Kinozeiten
 import { useEffect, useState } from 'react';
 import { fmtShort, parseKey, today } from '../lib/dates';
-import { addShow, archiveShow, catEmoji, catName, findWatchPlaces, isCinema, lastShowSearch, restoreShow, saveShowCats, saveShowSearch, searchShows, showCatsOf, toggleShow, updateShow, watchSub } from '../lib/shows';
+import { addShow, archiveShow, catEmoji, catName, findWatchPlaces, lastShowSearch, restoreShow, saveShowSearch, saveTypeCats, searchShows, SHOW_TYPES, showType, toggleShow, typeCatsOf, updateShow, watchSub } from '../lib/shows';
 import { addPlace } from '../lib/actions';
 import { placeCity, routeUrl } from '../lib/outings';
+import { SOURCE_AREAS } from '../lib/sources';
 import { getAi } from '../lib/ai';
 import { takeFlag } from '../lib/flags';
 import SearchCard from '../components/SearchCard';
 import SourceLinks from '../components/SourceLinks';
+import QuickSheet from '../components/QuickSheet';
 import AiFill from '../components/AiFill';
 import RemindPicker from '../components/RemindPicker';
 import { RemovedButton } from '../components/RemovedList';
-import { Field, Icon, Info, Sheet, toast } from '../components/ui';
+import { Field, Icon, Info, Segmented, Sheet, toast } from '../components/ui';
 
 const wd = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
 const mon = new Intl.DateTimeFormat('de-DE', { month: 'short' });
@@ -31,37 +34,43 @@ function DateBadge({ date, label }) {
 }
 const errText = (e) => (e.message === 'KEIN_SCHLUESSEL' ? 'Für die Suche braucht es einen API-Schlüssel (Einstellungen).' : e.message);
 const KIND_LABEL = { im_kino: 'Läuft im Kino', demnaechst: 'Bald im Kino' };
+const TYPE_NAME = { film: 'Filme', tv: 'Fernsehen', sport: 'Sport' };
 
-// Kategorien: antippen = filtern; ✎ = hinzufügen/entfernen (gespeichert in s.profile.showCats)
-function CatChips({ s, value, onChange }) {
+// ⚡ Schnellzugriff: Kategorien der Art antippen = in die Suche übernehmen; ✎ = hinzufügen/entfernen (s.profile.showTypeCats)
+function QuickCats({ s, type, onPick }) {
+  return (
+    <QuickSheet label="⚡" title={`Schnell suchen: ${TYPE_NAME[type]}`}>
+      {(close) => <QuickCatsBody s={s} type={type} onPick={(c) => { close(); onPick(c); }} />}
+    </QuickSheet>
+  );
+}
+function QuickCatsBody({ s, type, onPick }) {
   const [edit, setEdit] = useState(false);
   const [text, setText] = useState('');
-  const cats = showCatsOf(s);
-  const toggle = (c) => onChange(value.includes(c) ? value.filter((x) => x !== c) : [...value, c]);
+  const cats = typeCatsOf(s, type);
   return (
     <>
-      <div className={edit ? 'chips' : 'chips chips-scroll'}>
-        {!edit && <button type="button" className={value.length ? 'chip soft' : 'chip on'} onClick={() => onChange([])}>Alle</button>}
+      <div className="chips">
         {cats.map((c) => (
-          <button key={c} type="button" className={edit ? 'chip soft editing' : value.includes(c) ? 'chip on' : 'chip soft'} onClick={() => (edit ? (saveShowCats(cats.filter((x) => x !== c)), onChange(value.filter((x) => x !== c))) : toggle(c))} aria-label={edit ? `${c} entfernen` : c}>
+          <button key={c} type="button" className={edit ? 'chip soft editing' : 'chip soft'} onClick={() => (edit ? saveTypeCats(type, cats.filter((x) => x !== c)) : onPick(c))} aria-label={edit ? `${c} entfernen` : c}>
             {c}{edit && <Icon name="x" size={11} />}
           </button>
         ))}
         <button type="button" className={edit ? 'chip on' : 'chip soft'} onClick={() => setEdit(!edit)} aria-label={edit ? 'Fertig' : 'Kategorien bearbeiten'}>{edit ? 'Fertig' : <Icon name="edit" size={14} />}</button>
       </div>
       {edit && (
-        <form className="block-add" onSubmit={(e) => { e.preventDefault(); const t = text.trim(); if (t && !cats.includes(t)) saveShowCats([...cats, t]); setText(''); }}>
-          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="z.B. 🏀 NBA, 🥊 Boxen, 🎭 Theater-Stream" aria-label="Neue Kategorie" />
+        <form className="block-add" onSubmit={(e) => { e.preventDefault(); const t = text.trim(); if (t && !cats.includes(t)) saveTypeCats(type, [...cats, t]); setText(''); }}>
+          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={type === 'sport' ? 'z.B. 🥊 Boxen, 🏐 Volleyball, Boca Juniors' : type === 'film' ? 'z.B. 👻 Horror, Animation' : 'z.B. 🍳 Kochshows, True Crime'} aria-label="Neue Kategorie" />
           <button type="submit" className="btn small" disabled={!text.trim()}>+</button>
         </form>
       )}
-      {edit && <Info>Antippen entfernt eine Kategorie. Ein Emoji am Anfang wird zum Symbol.</Info>}
+      {edit ? <Info>Antippen entfernt eine Kategorie. Ein Emoji am Anfang wird zum Symbol.</Info> : <Info>Antippen übernimmt die Kategorie ins Suchfeld – die Links passen sich an.</Info>}
     </>
   );
 }
 
-const EMPTY = { name: '', cat: '', date: '', time: '', where: '', url: '', note: '', remind: '' };
-const initOf = (x) => ({ ...EMPTY, ...x, remind: x.remind ?? '' });
+const EMPTY = { name: '', type: 'sport', cat: '', date: '', time: '', where: '', url: '', note: '', remind: '' };
+const initOf = (x) => ({ ...EMPTY, ...x, type: showType(x.name ? x : { type: x.type }), remind: x.remind ?? '' });
 export function ShowSheet({ s, init, onClose }) {
   const [f, setF] = useState(EMPTY);
   const [key, setKey] = useState(null);
@@ -69,7 +78,8 @@ export function ShowSheet({ s, init, onClose }) {
   if (k !== key) { setKey(k); if (init) setF(initOf(init)); }
   const set = (p) => setF((x) => ({ ...x, ...p }));
   const editId = init?.id;
-  const cats = showCatsOf(s);
+  const cats = typeCatsOf(s, f.type);
+  const film = f.type === 'film';
   const save = () => {
     if (editId) updateShow(editId, f); else addShow(f);
     toast(editId ? 'Gespeichert' : f.date ? 'Eingetragen – steht am Tag (und vorher) auf Heute' : 'Eingetragen');
@@ -77,16 +87,17 @@ export function ShowSheet({ s, init, onClose }) {
   };
   return (
     <Sheet open={!!init} title={editId ? 'Bearbeiten' : 'Unterhaltung eintragen'} onClose={() => onClose(false)}>
-      <AiFill key={key} title="Etwas zum Anschauen (Fußballspiel, Formel-1-Rennen, Kinofilm, Serie)" values={{ name: f.name, cat: f.cat, date: f.date, time: f.time, where: f.where, url: f.url, note: f.note }} onResult={(r) => set(r)}
-        fields={{ name: 'Was (z.B. „River – Boca“, „GP Brasilien“, „Dune 3“)', cat: { d: 'Kategorie', enum: cats }, date: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM', where: 'Sender/Stream/Kino', url: 'Link', note: 'Kurze Notiz' }}
+      <AiFill key={key} title="Etwas zum Anschauen (Fußballspiel, Formel-1-Rennen, Kinofilm, Serie)" values={{ name: f.name, type: f.type, cat: f.cat, date: f.date, time: f.time, where: f.where, url: f.url, note: f.note }} onResult={(r) => set(r)}
+        fields={{ name: 'Was (z.B. „River – Boca“, „GP Brasilien“, „Dune 3“)', type: { d: 'film = Kino/Film, tv = Serie/Doku/Show, sport = Sport-Übertragung', enum: ['film', 'tv', 'sport'] }, cat: 'Kategorie, z.B. Fußball, Formel 1, Läuft im Kino, Neue Serien', date: 'Datum YYYY-MM-DD', time: 'Uhrzeit HH:MM', where: 'Sender/Stream/Kino', url: 'Link', note: 'Kurze Notiz' }}
         placeholder="z.B. „Sonntag 14 Uhr Formel 1 Brasilien auf Fox“" autoSave={editId ? null : () => !!(f.name.trim() && f.date) && (save(), true)} />
-      <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="z.B. Boca – River" /></Field>
+      <Segmented full options={SHOW_TYPES} value={f.type} onChange={(v) => set({ type: v, cat: '' })} label="Art" />
+      <Field label="Was?"><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={film ? 'z.B. Dune: Teil Drei' : f.type === 'tv' ? 'z.B. The Bear, Staffel 5' : 'z.B. Boca – River'} /></Field>
       <div className="chips">{cats.map((c) => <button key={c} type="button" className={f.cat === c ? 'chip on' : 'chip soft'} onClick={() => set({ cat: f.cat === c ? '' : c })}>{c}</button>)}</div>
       <div style={{ display: 'flex', gap: 10 }}>
-        <Field label={isCinema(f.cat) ? 'Datum (Kinobesuch/-start)' : 'Datum'}><input className="input" type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
+        <Field label={film ? 'Datum (Kinobesuch/-start)' : f.type === 'tv' ? 'Start' : 'Datum'}><input className="input" type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
         <Field label="Uhrzeit"><input className="input" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} style={{ maxWidth: 140 }} /></Field>
       </div>
-      <Field label={isCinema(f.cat) ? 'Kino' : 'Wo läuft es?'}><input className="input" value={f.where} onChange={(e) => set({ where: e.target.value })} placeholder={isCinema(f.cat) ? 'z.B. Cinemark Palermo' : 'z.B. ESPN, Disney+, F1 TV'} /></Field>
+      <Field label={film ? 'Kino / Dienst' : 'Wo läuft es?'}><input className="input" value={f.where} onChange={(e) => set({ where: e.target.value })} placeholder={film ? 'z.B. Cinemark Palermo oder Netflix' : f.type === 'tv' ? 'z.B. Netflix, Max, Disney+' : 'z.B. ESPN, Disney+, F1 TV'} /></Field>
       {f.date && <RemindPicker s={s} value={f.remind} onChange={(v) => set({ remind: v })} />}
       <Field label="Link"><input className="input" value={f.url} onChange={(e) => set({ url: e.target.value })} placeholder="Tickets / Stream / Infos" /></Field>
       <Field label="Notiz"><textarea className="input" value={f.note} onChange={(e) => set({ note: e.target.value })} /></Field>
@@ -122,6 +133,20 @@ function WatchSheet({ s, item, city, onClose, onTake }) {
     try { setRes(await findWatchPlaces(s, item, city)); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
   const pick = (name, times) => { onTake(name, times); toast(`Eingetragen: ${name}`); onClose(); };
+  // Serien/Shows: nur Sender/Stream – keine Orte
+  if (showType(item) === 'tv') {
+    return (
+      <Sheet open title="📍 Wo schauen?" onClose={onClose}>
+        <span style={{ fontWeight: 650 }}>{item.name}</span>
+        {item.where ? <div className="take-box" style={{ fontSize: 15 }}>📺 Läuft auf: <b>{item.where}</b></div> : <span className="tiny">Noch kein Dienst eingetragen.</span>}
+        <div className="chips">
+          <a className="link-chip" href={`https://www.justwatch.com/ar/buscar?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noreferrer">JustWatch ↗</a>
+          <a className="link-chip" href={`https://www.google.com/search?q=${encodeURIComponent(`${item.name} dónde ver`)}`} target="_blank" rel="noreferrer">Google „dónde ver“ ↗</a>
+        </div>
+        <Info>JustWatch zeigt, bei welchem Dienst in Argentinien es läuft. Den Dienst trägst du über ✎ beim Eintrag ein.</Info>
+      </Sheet>
+    );
+  }
   const keep = (o) => { addPlace({ name: o.name, category: 'Zum Schauen', subcat: sub, address: o.address, hood: o.hood, note: o.info, url: o.url, city }); toast(`${o.name} unter Orte → Zum Schauen gemerkt`); };
   const known = (name) => (s.places || []).some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
   return (
@@ -177,35 +202,33 @@ function WatchSheet({ s, item, city, onClose, onTake }) {
 
 export default function Unterhaltung({ s, city }) {
   const t = today();
-  const [view, setViewS] = useState(() => { try { return localStorage.getItem('life-app-tv-view') || 'find'; } catch { return 'find'; } });
-  const setView = (v) => { setViewS(v); try { localStorage.setItem('life-app-tv-view', v); } catch {} };
+  const ls = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+  const put = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+  const [type, setTypeS] = useState(() => { const v = ls('life-app-tv-type', 'sport'); return ['film', 'tv', 'sport'].includes(v) ? v : 'sport'; });
+  const [view, setViewS] = useState(() => (ls('life-app-tv-view', 'mine') === 'find' ? 'find' : 'mine'));
+  const setView = (v) => { setViewS(v); put('life-app-tv-view', v); };
   const [watch, setWatch] = useState(null);
   const [form, setForm] = useState(null);
-  const [cats, setCats] = useState(() => { try { return JSON.parse(localStorage.getItem('life-app-tv-cats') || '[]'); } catch { return []; } });
-  const pickCats = (v) => { setCats(v); try { localStorage.setItem('life-app-tv-cats', JSON.stringify(v)); } catch {} };
   const [q, setQ] = useState(() => takeFlag('life-search-q') || '');
-  const [search, setSearch] = useState(lastShowSearch);
+  const [search, setSearch] = useState(() => lastShowSearch(type));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [pastOpen, setPastOpen] = useState(false);
+  const chooseType = (v) => { setTypeS(v); put('life-app-tv-type', v); setSearch(lastShowSearch(v)); setQ(''); setErr(null); };
   useEffect(() => { const id = takeFlag('life-open-show'); const x = id && (s.shows || []).find((y) => y.id === id); if (x) setForm(x); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const known = showCatsOf(s);
-  const activeCats = cats.filter((c) => known.includes(c));
-  // Suchbegriff für die Links: eigener Text, sonst die gewählten Kategorien
-  const linkQ = q.trim() || activeCats.map(catName).join(' ');
 
   const run = async (text) => {
     if (busy) return;
-    const query = text.trim() || (activeCats.length ? `Was läuft in den nächsten 2 Wochen: ${activeCats.map(catName).join(', ')}` : 'Was läuft in den nächsten 2 Wochen in meinen Kategorien (Sport im TV, Kino, Serien)?');
+    const query = text.trim() || `Was kommt in den nächsten 2 Wochen? (${typeCatsOf(s, type).map(catName).join(', ')})`;
     setBusy(true); setErr(null);
-    try { setSearch(await searchShows(s, query, city, activeCats)); setQ(''); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
+    try { const res = await searchShows(s, query, city, type); const v = { ...res, query: text.trim() || `Was kommt: ${TYPE_NAME[type]}` }; saveShowSearch(v); setSearch(v); setQ(''); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
   const mark = (id, status) => {
     const next = { ...search, results: search.results.map((r) => (r.id === id ? { ...r, status } : r)) };
     saveShowSearch(next); setSearch(next);
   };
   const take = (r) => {
-    const id = addShow({ name: r.name, cat: r.cat, date: r.date, time: r.time, where: r.where, url: r.url, note: [KIND_LABEL[r.kind], r.info].filter(Boolean).join(' · '), shows: r.shows });
+    const id = addShow({ name: r.name, type: r.type || type, cat: r.cat, date: r.date, time: r.time, where: r.where, url: r.url, note: [KIND_LABEL[r.kind], r.info].filter(Boolean).join(' · '), shows: r.shows });
     mark(r.id, 'gemerkt');
     toast(r.date ? 'Unter „Will ich sehen“ – steht am Tag (und vorher) auf Heute' : 'Unter „Will ich sehen“ gemerkt');
     return id;
@@ -217,10 +240,11 @@ export default function Unterhaltung({ s, city }) {
     updateShow(item.id, { where: name, ...(note ? { note: [item.note, note].filter(Boolean).join('\n') } : {}) });
   };
 
-  const mine = (s.shows || []).filter((x) => !activeCats.length || activeCats.includes(x.cat));
-  const upcoming = mine.filter((x) => !x.done && (!x.date || x.date >= t)).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : a.date === b.date && (a.time || '99') < (b.time || '99') ? -1 : 1);
-  const past = mine.filter((x) => x.done || (x.date && x.date < t)).sort((a, b) => ((a.date || '') < (b.date || '') ? 1 : -1));
+  const ofType = (s.shows || []).filter((x) => showType(x) === type);
+  const upcoming = ofType.filter((x) => !x.done && (!x.date || x.date >= t)).sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : a.date === b.date && (a.time || '99') < (b.time || '99') ? -1 : 1);
+  const past = ofType.filter((x) => x.done || (x.date && x.date < t)).sort((a, b) => ((a.date || '') < (b.date || '') ? 1 : -1));
   const fresh = (search?.results || []).filter((r) => r.status === 'neu');
+  const area = `tv_${type}`;
 
   const Row = (x) => (
     <div key={x.id} className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6, padding: '10px 12px 10px 16px' }}>
@@ -236,9 +260,8 @@ export default function Unterhaltung({ s, city }) {
       <Showtimes list={x.shows} />
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 56 }}>
         <button type="button" className="pill" onClick={() => { toggleShow(x.id); if (!x.done) toast('Abgehakt'); }}>{x.done ? '↩ Nicht gesehen' : '✓ Gesehen'}</button>
-        {x.url && <a className="pill" href={x.url} target="_blank" rel="noreferrer">Link ↗</a>}
         {!x.done && <button type="button" className="pill" onClick={() => setWatch(x)}>📍 Wo schauen?</button>}
-        <button type="button" className="pill" onClick={() => setForm(x)}>✎</button>
+        {x.url && <a className="pill" href={x.url} target="_blank" rel="noreferrer" aria-label={`Link zu ${x.name}`}><Icon name="link" size={14} /></a>}
       </div>
     </div>
   );
@@ -247,16 +270,17 @@ export default function Unterhaltung({ s, city }) {
     <>
       <ShowSheet s={s} init={form} onClose={() => setForm(null)} />
       <WatchSheet s={s} item={watch} city={city} onClose={() => setWatch(null)} onTake={(name, times) => takeWatch(watch, name, times)} />
+      <Segmented full options={SHOW_TYPES} value={type} onChange={chooseType} label="Art" />
       <div className="sub-switch">
-        {[['find', '🔍 Was kommt'], ['mine', `⭐ Will ich sehen${(s.shows || []).filter((x) => !x.done && (!x.date || x.date >= t)).length ? ` · ${(s.shows || []).filter((x) => !x.done && (!x.date || x.date >= t)).length}` : ''}`]].map(([k, l]) => <button key={k} type="button" className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
+        {[['mine', `⭐ Will ich sehen${upcoming.length ? ` · ${upcoming.length}` : ''}`], ['find', '🔍 Finden']].map(([k, l]) => <button key={k} type="button" className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
       </div>
-      <CatChips s={s} value={activeCats} onChange={pickCats} />
       {view === 'find' && <>
-        <SearchCard q={q} setQ={setQ} placeholder="z.B. Wann fährt die Formel 1? Was läuft im Kino?" mode="ki" busy={busy}
+        <SearchCard q={q} setQ={setQ} placeholder={SOURCE_AREAS[area].placeholder} mode="ki" busy={busy}
+          quick={<QuickCats s={s} type={type} onPick={(c) => setQ(catName(c))} />}
           onAi={run} aiCost="~4 ct"
-          hint="🔗 Die Seiten darunter öffnen sich sofort mit deinem Suchbegriff bzw. den gewählten Kategorien – kostenlos. ✨ KI: sucht selbst im Internet und zeigt konkrete Termine (Uhrzeit in deiner Ortszeit, Sender) und Kinozeiten (ca. 3–5 Cent).">
-          <SourceLinks embedded s={s} area="unterhaltung" city={city} query={linkQ} />
-          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">Ich suche Spielpläne, TV-Programm und Kinozeiten … (ca. 20–30 Sek.)</span></div>}
+          hint={`⚡ = deine ${TYPE_NAME[type]}-Kategorien (bearbeitbar). 🔗 Die Seiten darunter öffnen sich sofort mit deinem Suchbegriff – kostenlos. ✨ KI: sucht selbst im Internet und zeigt konkrete ${type === 'sport' ? 'Termine mit Uhrzeit (deine Ortszeit) und Sender' : type === 'film' ? 'Filme (im Kino, bald im Kino, neu im Streaming)' : 'neue Serien, Staffeln und Dokus mit Starttermin und Dienst'} (ca. 3–5 Cent).`}>
+          <SourceLinks key={area} embedded s={s} area={area} city={city} query={q} autoTailor />
+          {busy && <div className="coach-busy"><span className="dots" aria-hidden="true"><i /><i /><i /></span><span className="sub">{type === 'sport' ? 'Ich suche Spielpläne und TV-Programm …' : type === 'film' ? 'Ich suche Kinoprogramm und Filmstarts …' : 'Ich suche neue Serien und Staffeln …'} (ca. 20–30 Sek.)</span></div>}
           {err && <span className="sub" style={{ color: 'var(--danger)' }}>{err}</span>}
         </SearchCard>
         {!busy && search && (
@@ -280,7 +304,7 @@ export default function Unterhaltung({ s, city }) {
                 <Showtimes list={r.shows} />
                 <div className="nudge-actions" style={{ paddingLeft: 56 }}>
                   <button type="button" className="pill" onClick={() => take(r)}>⭐ Interessiert mich</button>
-                  <button type="button" className="pill" onClick={() => setWatch(r)}>📍 Wo?</button>
+                  <button type="button" className="pill" onClick={() => setWatch({ ...r, type: r.type || type })}>📍 Wo?</button>
                   {r.url && <a className="pill" href={r.url} target="_blank" rel="noreferrer" aria-label={`${r.name} öffnen`}><Icon name="link" size={14} /></a>}
                 </div>
               </article>
@@ -288,15 +312,13 @@ export default function Unterhaltung({ s, city }) {
             {search.results.length > 0 && fresh.length === 0 && <span className="sub" style={{ padding: '0 4px' }}>Alles durchgesehen – Gemerktes steht unter „Will ich sehen“.</span>}
           </section>
         )}
-        {!getAi().apiKey && <Info>Ohne KI-Schlüssel funktionieren die Links trotzdem.</Info>}
       </>}
       {view === 'mine' && <>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button type="button" className="btn tint small" style={{ flex: 1 }} onClick={() => setForm({ ...EMPTY, cat: activeCats.length === 1 ? activeCats[0] : '' })}>+ Eintragen</button>
-          <RemovedButton items={s.removedShows || []} storeKey="removedShows" onRestore={restoreShow} meta={(x) => [x.date && fmtShort(x.date), x.where].filter(Boolean).join(' · ')} />
+          <button type="button" className="btn tint small" style={{ flex: 1 }} onClick={() => setForm({ ...EMPTY, type })}>+ Eintragen</button>
+          <RemovedButton items={(s.removedShows || []).filter((x) => showType(x) === type)} storeKey="removedShows" onRestore={restoreShow} meta={(x) => [x.date && fmtShort(x.date), x.where].filter(Boolean).join(' · ')} />
         </div>
-        {upcoming.length === 0 && activeCats.length > 0 && (s.shows || []).some((x) => !x.done && (!x.date || x.date >= t)) && <div className="empty">Nichts in {activeCats.map(catName).join(', ')}. <button type="button" className="link-btn" onClick={() => pickCats([])}>Alle zeigen</button></div>}
-        {upcoming.length === 0 && !(activeCats.length > 0 && (s.shows || []).some((x) => !x.done && (!x.date || x.date >= t))) && <div className="empty">Noch nichts gemerkt. Unter „Was kommt“ nach Formel 1, Fußball oder Kino suchen und „Interessiert mich“ tippen – oder selbst eintragen.</div>}
+        {upcoming.length === 0 && <div className="empty">Noch nichts gemerkt. Rechts unter „🔍 Finden“ suchen und „Interessiert mich“ tippen – oder selbst eintragen.</div>}
         {upcoming.length > 0 && <div className="list">{upcoming.map(Row)}</div>}
         {past.length > 0 && (
           <>
